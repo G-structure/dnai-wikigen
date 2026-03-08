@@ -1,0 +1,4 @@
+# Secrets
+.env
+# Private Markdown Files
+*.private.md

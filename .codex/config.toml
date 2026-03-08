@@ -1,0 +1,68 @@
+# Codex CLI project-level configuration
+# Power user config — all bells and whistles enabled
+
+# model = "o3"
+approval_policy = "on-failure"
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "high"
+model_reasoning_summary = "detailed"
+model_verbosity = "high"
+web_search = "live"
+personality = "pragmatic"
+suppress_unstable_features_warning = true
+check_for_update_on_startup = true
+
+[sandbox_workspace_write]
+network_access = true
+
+[history]
+persistence = "save-all"
+
+[memories]
+use_memories = true
+generate_memories = true
+
+[agents]
+max_threads = 8
+max_depth = 5
+
+[tui]
+animations = true
+show_tooltips = true
+notifications = true
+
+[ghost_snapshot]
+disable_warnings = true
+
+[tools]
+view_image = true
+
+[tools.web_search]
+context_size = "high"
+
+[shell_environment_policy]
+inherit = "all"
+experimental_use_profile = true
+
+[features]
+fast_mode = true
+memories = true
+multi_agent = true
+plugins = true
+undo = true
+web_search = true
+js_repl = true
+shell_tool = true
+search_tool = true
+apps = true
+image_generation = true
+realtime_conversation = true
+voice_transcription = true
+unified_exec = true
+prevent_idle_sleep = true
+artifact = true
+steer = true
+collab = true
+skill_mcp_dependency_install = true
+remote_models = true
+include_apply_patch_tool = true

@@ -1,0 +1,326 @@
+# 🔬 Specimens Under Glass
+
+> Reference repositories dissected for patterns, architecture, and reusable primitives.
+> Everything here is a git submodule — read-only inspiration for the wikigen build.
+
+---
+
+## Quick-Look Directory
+
+| # | Specimen | What You're Looking At | Relevance |
+|---|----------|----------------------|-----------|
+| 1 | [dstack](#dstack) | Core TEE framework — attestation, KMS, gateway | 🔴 Critical |
+| 2 | [dstack-examples](#dstack-examples-official) | Deploy patterns — attestation oracles, TLS binding, on-chain governance | 🔴 Critical |
+| 3 | [dstack-tutorial](#dstack-tutorial) | DevProof philosophy — 8 chapters on building unruggable apps | 🔴 Critical |
+| 4 | [dstack-openclaw](#dstack-openclaw) | Self-attesting AI agent with genesis transparency | 🟡 High |
+| 5 | [devproof-audits-guide](#devproof-audits-guide) | Stage 1 verification checklist — what "trustworthy" means | 🔴 Critical |
+| 6 | [devproof-apps-guide](#devproof-apps-guide) | Starter kits for Stage 1-compliant TEE microservices | 🔴 Critical |
+| 7 | [skill-verifier](#skill-verifier) | Inspection certificates + escrow agent — ephemeral proof-of-execution | 🔴 Critical |
+| 8 | [github-zktls-1](#github-zktls-1) | GitHub Actions as TEE — ZK proofs of credentials on-chain | 🟡 High |
+| 9 | [oauth3-openclaw](#oauth3-openclaw) | Sandboxed agent execution with LLM-mediated approval | 🟡 High |
+| 10 | [teleport-gramine-rs](#teleport-gramine-rs) | One-time-use credential delegation via SGX NFTs | 🟢 Reference |
+| 11 | [oauth3-skill](#oauth3-skill) | Agent SDK for TEE-backed code execution with human approval | 🟢 Reference |
+| 12 | [hermes](#hermes) | MCP server in Phala TDX — staged publishing + pseudonymous identity | 🟢 Reference |
+
+---
+
+## Core Infrastructure
+
+### dstack
+`🔬/dstack`
+
+The engine room. Open-source framework for deploying containerized apps into Intel TDX with hardware-rooted attestation.
+
+**Slides under the lens:**
+- `sdk/` — Python, TypeScript, Rust, Go SDKs for the TEE guest agent
+- `kms/` — Per-app deterministic key derivation bound to attestation identity
+- `gateway/` — Zero-trust reverse proxy with RA-TLS and automatic cert provisioning
+- `guest-agent/` — Runtime inside CVMs exposing `.info()`, `.getQuote()`, `.getKey()`
+- `docs/security/security-model.md` — Complete trust model and verification checklist
+
+**Takeaway:** This is the runtime. Everything else builds on top of it. Audited by zkSecurity, powers OpenRouter and NEAR AI in production.
+
+---
+
+### dstack-examples (Official)
+`🔬/dstack-examples`
+
+Ready-to-deploy patterns from the dstack team.
+
+**Slides under the lens:**
+- `tutorial/01-attestation` — Request and verify TDX quotes
+- `tutorial/02-persistence-and-kms` — Deterministic key derivation with `getKey()`
+- `tutorial/03-gateway-and-ingress` — Custom domains + SSL with attestation-bound certs
+- `tutorial/04-upgrades` — On-chain governance via smart contracts
+- `lightclient/` — Ethereum light client running inside TEE
+- `custom-domain/dstack-ingress` — Full ingress with Let's Encrypt
+
+**Takeaway:** Copy-paste starting points. The tutorial sequence is the fastest path from zero to deployed TEE app.
+
+---
+
+## Andrew Miller's Lab
+
+### dstack-tutorial
+`🔬/amiller/dstack-tutorial`
+
+Eight-chapter deep dive on building "DevProof" apps — software where even the developer can't cheat users.
+
+**Slides under the lens:**
+- `01-attestation-and-reference-values/` — Verification from the auditor's perspective
+- `02-bitrot-and-reproducibility/` — Reproducible builds so hash = meaning
+- `03-keys-and-replication/` — KMS trust model: who controls root keys?
+- `05-onchain-authorization/` — Upgrade transparency via smart contracts
+- `06-encryption-freshness/` — Rollback protection against replay
+- `07-lightclient/` — Don't trust external blockchain state — verify inside TEE
+- `08-extending-appauth/` — Exit mechanisms and timelocks
+
+**Takeaway:** The philosophy manual. "Code is Law" + "Assume Breach" — the exact mindset for an attested diligence room. Chapter 05 (on-chain authorization) and 08 (exit guarantees) map directly to deal room governance.
+
+---
+
+### dstack-examples (amiller)
+`🔬/amiller/dstack-examples`
+
+Andrew's fork with extended tutorials and application patterns.
+
+#### Branch: `oracle-demo`
+`🔬/amiller/dstack-examples--oracle-demo`
+
+Expands to 9 tutorial chapters. Adds `TeeOracle.sol` for on-chain signature chain validation. Emphasizes AppAuth contracts for controlled multi-node deployment with NFT-gating and DAO governance.
+
+#### Branch: `minecraft-demo`
+`🔬/amiller/dstack-examples--minecraft-demo`
+
+Runs an unmodified Minecraft server inside a TEE. Demonstrates pluggable networking (ngrok, stunnel, direct socket) and attestation-bound certificate pinning. Proves existing Docker Compose files work out-of-the-box in dstack.
+
+---
+
+### devproof-audits-guide
+`🔬/amiller/devproof-audits-guide`
+
+The verification framework. Defines what "trustworthy" means for TEE apps via ERC-733 stages.
+
+**Slides under the lens:**
+- `framework/STAGE-1-CHECKLIST.md` — 7 concrete requirements (on-chain attestation, auditable code, reproducible builds, no secret access, upgrade notices, no centralized deps, no backdoors)
+- `LEARNINGS.md` — Real-world audit patterns from 8 case studies
+- `case-studies/` — Detailed audits showing what fails Stage 1 (configurable URLs, mutable tags, Pha KMS)
+- `tools/verify-compose-hash.py` — Script to verify Docker compose hash from running apps
+
+**Takeaway:** The checklist that judges will implicitly be scoring against. If our diligence room passes Stage 1, the demo is airtight.
+
+---
+
+### devproof-apps-guide
+`🔬/amiller/devproof-apps-guide`
+
+Two starter kits that pass the audits-guide checklist.
+
+**Slides under the lens:**
+- `starter-kit-minimal/` — ~85 lines: KMS key derivation, attestation quotes, signed reports
+- `starter-kit-fullstack/` — Vercel frontend + Postgres + TEE backend with AES-256-GCM encryption
+- `PITFALLS.md` — 8 debugging patterns (KMS selection, image tags, gateway URLs, compose hash)
+- Both kits include `docker-compose.staging.yaml` + `docker-compose.prod.yaml` with reproducible builds
+
+**Takeaway:** The implementation template. Fork `starter-kit-fullstack`, wire in our deal room logic, and we inherit Stage 1 compliance out of the box.
+
+---
+
+### dstack-openclaw
+`🔬/amiller/dstack-openclaw`
+
+Self-attesting AI agent running in Intel TDX with genesis transparency enforcement.
+
+**Slides under the lens:**
+- `PROXY-ARCHITECTURE.md` — Domain separation: agent can't forge genesis attestations
+- `VERIFICATION-GUIDE.md` — How to audit genesis transparency
+- `PHALA-DEPLOYMENT.md` — Production deployment to Phala Cloud TDX
+- `dstack-proxy/` — Mediating proxy enforcing genesis immutability at protocol level
+
+**Takeaway:** The domain separation pattern (proxy prevents agent from forging its own attestation) is directly applicable to our evaluator agent. The genesis transparency model proves what inputs the agent started with.
+
+---
+
+### skill-verifier
+`🔬/amiller/skill-verifier`
+
+Cryptographic proof of ephemeral computation. Load data → run inspection → delete data → keep certificate.
+
+**Slides under the lens:**
+- `INSPECTION-CERTIFICATES.md` — Core concept: permanent proof, ephemeral data
+- `ESCROW-AGENT.md` — Buyer locks USDC → TEE verifies work → KMS releases payment
+- `server.js` + `verifier.js` — Express server with `/verify` endpoint and Docker isolation
+- `phala-contract/` — Smart contract for on-chain escrow
+- `.github-data-inspection/workflows/` — GitHub Actions template for private dataset inspection
+
+**Takeaway:** This IS the diligence room pattern. Ephemeral execution (artifact never stored) + inspection certificate (proof the evaluation happened) + automated escrow (payment releases when tests pass). Closest existing implementation to what we're building.
+
+---
+
+## Identity & Credentials
+
+### github-zktls-1
+`🔬/amiller/github-zktls-1`
+
+GitHub Actions as a TEE. Turns GitHub accounts, emails, and browser sessions into verifiable on-chain claims via Sigstore attestations compressed to ZK proofs.
+
+**Slides under the lens:**
+- `zk-proof/` — Noir circuits for P-256/P-384 ECDSA verification
+- `browser-container/` — Headless Chromium capturing authenticated session data
+- `contracts/` — On-chain verifiers + `SelfJudgingEscrow.sol`, `GitHubFaucet.sol`
+- `examples/self-judging-bounty/` — Claude evaluates work inside GitHub Actions, can't fake the result
+- `workflow-templates/` — Ready-to-fork workflows (github-identity, email-challenge, tweet-capture)
+
+#### Branch: `sealed-box`
+`🔬/amiller/github-zktls-1--sealed-box`
+
+Multi-attestation pattern. Runner generates RSA keypair, attests the public key, accepts encrypted submissions, decrypts and attests results. Both attestations share the same `run_id` proving atomic lifecycle.
+
+#### Branch: `env-confinement`
+`🔬/amiller/github-zktls-1--env-confinement`
+
+Controls which environment variables workflows can access. Adds `allowed-env` list and guard checks. Includes persistent dstack TEE agent that watches blockchain events and distributes secrets.
+
+#### Branch: `groupauth`
+`🔬/amiller/github-zktls-1--groupauth`
+
+**High priority.** Cross-attestation group membership. Different TEE systems (Sigstore from GitHub, KMS from dstack) register on the same on-chain contract as equal peers. Live demo running on Phala Cloud.
+
+#### Branch: `packed-inputs`
+`🔬/amiller/github-zktls-1--packed-inputs`
+
+Gas optimization. Packs 84-byte fields into 5 packed Fields, saving ~103K gas (~3.8%). Skip unless gas-sensitive.
+
+#### Branch: `email-login`
+`🔬/amiller/github-zktls-1--email-login`
+
+Email identity NFT without GitHub requirement. Two-phase email challenge → ZK proof → ERC-721 mint with on-chain SVG. Useful for onboarding users without crypto wallets.
+
+#### Branch: `prediction-market-oracle`
+`🔬/amiller/github-zktls-1--prediction-market-oracle`
+
+Oracle for prediction markets. Fetches from Discourse API inside GitHub Actions, proves result via Sigstore, settles bets on-chain. Generalizable to any external API attestation.
+
+---
+
+### oauth3-openclaw
+`🔬/amiller/oauth3-openclaw`
+
+TEE-based API key custody for AI agents. Agents submit TypeScript → LLM reviews against constraints → human approves → code runs in Deno sandbox with secrets injected.
+
+**Slides under the lens:**
+- `proxy/src/server.ts` — Core API (`/execute`, `/scope`)
+- `proxy/src/analyzer.ts` — Three-layer Haiku code review
+- `proxy/src/executor.ts` — Deno sandbox execution
+
+#### Branch: `conseca-policy-engine`
+`🔬/amiller/oauth3-openclaw--conseca-policy-engine`
+
+**High priority.** Implements Conseca architecture (Google HotOS 2025). Separates policy drafting from enforcement. Agents propose an intent (not code); LLM drafts a scoped-fetch policy; humans approve the goal; enforcement is deterministic with no LLM in the loop.
+
+#### Branch: `phala-deploy-gate`
+`🔬/amiller/oauth3-openclaw--phala-deploy-gate`
+
+Phala CVM integration layer. Adds attestation verification and deployment docs for Confidential VMs.
+
+#### Branch: `ses-compartment`
+`🔬/amiller/oauth3-openclaw--ses-compartment`
+
+**High priority.** Replaces Docker/Deno with SES Compartments (Secure EcmaScript, from Agoric). In-process object-capability isolation. Each "diligence action" becomes a hardened capability plugin with its own validation and endowment factory.
+
+**Slides under the lens:**
+- `proxy/src/ses-init.ts` — SES lockdown + Compartment setup
+- `proxy/src/plugins/` — Six capability plugins (api-gateway, cookie-session, scoped-fetch)
+- `proxy/src/executor.ts` — Tiny (130 lines) — just evaluates in SES Compartment
+
+#### Branch: `tiktok-plugin`
+`🔬/amiller/oauth3-openclaw--tiktok-plugin`
+
+Template for wrapping complex multi-step API interactions (auth + signing + pagination) as a single hardened capability plugin. Pattern applies to any external service integration.
+
+---
+
+## Deployment References
+
+### teleport-gramine-rs
+`🔬/account-link/teleport-gramine-rs`
+
+One-time-use Twitter posting links enforced by Intel SGX. Each link is an NFT; an LLM safeguard policy prevents abuse before posting.
+
+**Slides under the lens:**
+- `AUDITING.md` — Security model and enclave measurement verification
+- `src/endpoints.rs` — Token creation, redemption, and posting
+- Reproducible Gramine-SGX build with publicly verifiable MRENCLAVE
+
+**Takeaway:** Design pattern for "one action = one token" with unskippable content filtering. The auditability chain (attestation + CT logs + Base blockchain) is a clean reference.
+
+---
+
+### oauth3-skill
+`🔬/account-link/oauth3-skill`
+
+TypeScript SDK for agents to submit code for TEE execution with human-in-the-loop approval.
+
+**Slides under the lens:**
+- `index.ts` — `execute()`, `executeAndWait()`, `scope()`, `poll()` methods
+- `cli.ts` — CLI for scope-and-execute workflows
+- `ROADMAP.md` — v0.2 plans: client-side attestation verification + secret encryption
+
+**Takeaway:** The agent-facing SDK pattern. Agent writes code → human approves via link → auto-executes in TEE → agent gets result. Secrets never leave the enclave.
+
+---
+
+### hermes
+`🔬/jameslbarnes/hermes`
+
+MCP server running in Phala Cloud TDX. Shared pseudonymous notebook for Claude instances with staged publishing and sensitivity checks.
+
+**Slides under the lens:**
+- `VERIFICATION-REPORT.md` — Full chain-of-trust (git SHA → docker digest → compose hash → TDX quote)
+- `server/src/storage.ts` — Memory-only pending entries, Firestore for published (1-hour staging window)
+- `server/src/identity.ts` — Pseudonym generation from secret keys inside TEE
+- `IDENTITY_MODEL.md` — Twitter-like handles, profiles, following
+
+**Takeaway:** Most complete verification chain example. The staged publishing model (memory-only → disk after delay) maps to our "disclosure only happens under deal rules" requirement.
+
+---
+
+## Architecture Cheat Sheet
+
+```
+WHAT WE'RE BUILDING          WHERE THE PATTERNS LIVE
+─────────────────────         ──────────────────────────────────
+
+TEE Runtime                 → dstack
+Deploy & Verify             → devproof-apps-guide starter kits
+Audit Checklist             → devproof-audits-guide Stage 1
+Governance & Upgrades       → dstack-tutorial ch.05 + ch.08
+Evaluator Agent Isolation   → dstack-openclaw (domain separation)
+Ephemeral Inspection        → skill-verifier (inspection certificates)
+Escrow & Payment            → skill-verifier (ESCROW-AGENT.md)
+Identity Proofs             → github-zktls-1 (Sigstore + ZK)
+Multi-TEE Federation        → github-zktls-1 --groupauth
+Policy Engine               → oauth3-openclaw --conseca-policy-engine
+Capability Sandboxing       → oauth3-openclaw --ses-compartment
+Verification Chain          → hermes (VERIFICATION-REPORT.md)
+```
+
+---
+
+## Reading Order
+
+**Before writing code:**
+1. `skill-verifier/INSPECTION-CERTIFICATES.md` — this is what we're building
+2. `skill-verifier/ESCROW-AGENT.md` — this is how payment works
+3. `devproof-audits-guide/framework/STAGE-1-CHECKLIST.md` — this is what judges check
+4. `devproof-apps-guide/starter-kit-fullstack/` — this is our starting template
+
+**Before deploying:**
+5. `dstack-tutorial/05-onchain-authorization/` — governance contracts
+6. `dstack-openclaw/PROXY-ARCHITECTURE.md` — domain separation for the evaluator
+7. `hermes/VERIFICATION-REPORT.md` — how to document the full trust chain
+
+**For stretch features:**
+8. `github-zktls-1` (groupauth branch) — multi-TEE trust federation
+9. `oauth3-openclaw` (conseca branch) — intent-based policy engine
+10. `oauth3-openclaw` (ses-compartment branch) — capability sandboxing

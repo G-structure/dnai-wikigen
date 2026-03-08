@@ -1,0 +1,87 @@
+[submodule "🔬/dstack"]
+	path = 🔬/dstack
+	url = https://github.com/Dstack-TEE/dstack.git
+[submodule "🔬/dstack-examples"]
+	path = 🔬/dstack-examples
+	url = https://github.com/Dstack-TEE/dstack-examples.git
+[submodule "🔬/amiller/dstack-tutorial"]
+	path = 🔬/amiller/dstack-tutorial
+	url = https://github.com/amiller/dstack-tutorial.git
+[submodule "🔬/amiller/devproof-audits-guide"]
+	path = 🔬/amiller/devproof-audits-guide
+	url = https://github.com/amiller/devproof-audits-guide.git
+[submodule "🔬/amiller/devproof-apps-guide"]
+	path = 🔬/amiller/devproof-apps-guide
+	url = https://github.com/amiller/devproof-apps-guide.git
+[submodule "🔬/amiller/skill-verifier"]
+	path = 🔬/amiller/skill-verifier
+	url = https://github.com/amiller/skill-verifier.git
+[submodule "🔬/amiller/dstack-openclaw"]
+	path = 🔬/amiller/dstack-openclaw
+	url = https://github.com/amiller/dstack-openclaw.git
+[submodule "🔬/account-link/teleport-gramine-rs"]
+	path = 🔬/account-link/teleport-gramine-rs
+	url = https://github.com/Account-Link/teleport-gramine-rs.git
+[submodule "🔬/account-link/oauth3-skill"]
+	path = 🔬/account-link/oauth3-skill
+	url = https://github.com/Account-Link/oauth3-skill.git
+[submodule "🔬/jameslbarnes/hermes"]
+	path = 🔬/jameslbarnes/hermes
+	url = https://github.com/jameslbarnes/hermes.git
+[submodule "🔬/amiller/dstack-examples"]
+	path = 🔬/amiller/dstack-examples
+	url = https://github.com/amiller/dstack-examples.git
+[submodule "🔬/amiller/github-zktls-1"]
+	path = 🔬/amiller/github-zktls-1
+	url = https://github.com/amiller/github-zktls-1.git
+[submodule "🔬/amiller/oauth3-openclaw"]
+	path = 🔬/amiller/oauth3-openclaw
+	url = https://github.com/amiller/oauth3-openclaw.git
+[submodule "🔬/amiller/dstack-examples--oracle-demo"]
+	path = 🔬/amiller/dstack-examples--oracle-demo
+	url = https://github.com/amiller/dstack-examples.git
+	branch = oracle-demo
+[submodule "🔬/amiller/dstack-examples--minecraft-demo"]
+	path = 🔬/amiller/dstack-examples--minecraft-demo
+	url = https://github.com/amiller/dstack-examples.git
+	branch = minecraft-demo
+[submodule "🔬/amiller/github-zktls-1--sealed-box"]
+	path = 🔬/amiller/github-zktls-1--sealed-box
+	url = https://github.com/amiller/github-zktls-1.git
+	branch = sealed-box
+[submodule "🔬/amiller/github-zktls-1--env-confinement"]
+	path = 🔬/amiller/github-zktls-1--env-confinement
+	url = https://github.com/amiller/github-zktls-1.git
+	branch = env-confinement
+[submodule "🔬/amiller/github-zktls-1--groupauth"]
+	path = 🔬/amiller/github-zktls-1--groupauth
+	url = https://github.com/amiller/github-zktls-1.git
+	branch = groupauth
+[submodule "🔬/amiller/github-zktls-1--packed-inputs"]
+	path = 🔬/amiller/github-zktls-1--packed-inputs
+	url = https://github.com/amiller/github-zktls-1.git
+	branch = packed-inputs
+[submodule "🔬/amiller/github-zktls-1--email-login"]
+	path = 🔬/amiller/github-zktls-1--email-login
+	url = https://github.com/amiller/github-zktls-1.git
+	branch = email-login
+[submodule "🔬/amiller/github-zktls-1--prediction-market-oracle"]
+	path = 🔬/amiller/github-zktls-1--prediction-market-oracle
+	url = https://github.com/amiller/github-zktls-1.git
+	branch = feature/prediction-market-oracle
+[submodule "🔬/amiller/oauth3-openclaw--conseca-policy-engine"]
+	path = 🔬/amiller/oauth3-openclaw--conseca-policy-engine
+	url = https://github.com/amiller/oauth3-openclaw.git
+	branch = feat/conseca-policy-engine
+[submodule "🔬/amiller/oauth3-openclaw--phala-deploy-gate"]
+	path = 🔬/amiller/oauth3-openclaw--phala-deploy-gate
+	url = https://github.com/amiller/oauth3-openclaw.git
+	branch = feat/phala-deploy-gate
+[submodule "🔬/amiller/oauth3-openclaw--ses-compartment"]
+	path = 🔬/amiller/oauth3-openclaw--ses-compartment
+	url = https://github.com/amiller/oauth3-openclaw.git
+	branch = feat/ses-compartment
+[submodule "🔬/amiller/oauth3-openclaw--tiktok-plugin"]
+	path = 🔬/amiller/oauth3-openclaw--tiktok-plugin
+	url = https://github.com/amiller/oauth3-openclaw.git
+	branch = feat/tiktok-plugin
