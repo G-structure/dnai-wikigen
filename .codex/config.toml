@@ -2,7 +2,7 @@
 # Power user config — all bells and whistles enabled
 
 # model = "o3"
-approval_policy = "on-failure"
+approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 model_reasoning_effort = "high"
 model_reasoning_summary = "detailed"

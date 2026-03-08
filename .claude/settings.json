@@ -95,7 +95,10 @@
     "defaultMode": "bypassPermissions"
   },
   "enableAllProjectMcpServers": true,
-  "includeCoAuthoredBy": false,
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "alwaysThinkingEnabled": true,
   "showTurnDuration": true,
   "terminalProgressBarEnabled": true,
