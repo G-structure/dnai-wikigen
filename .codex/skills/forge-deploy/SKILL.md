@@ -13,7 +13,18 @@ description: Deploy Solidity smart contracts to Base Sepolia testnet or Base mai
 ## Prerequisites
 - Funded wallet (Base Sepolia ETH from a faucet)
 - Keystore account set up (see `cast-wallet` skill)
-- RPC URL configured
+- `.env` file configured (see `example.env`)
+
+## Environment setup
+Foundry automatically reads `.env` in the project root. Required variables:
+```bash
+ETHERSCAN_API_KEY=your_etherscan_v2_key   # for --verify flag
+PRIVATE_KEY=0x...                          # dev only — prefer keystore
+BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+BASE_MAINNET_RPC_URL=https://mainnet.base.org
+FOUNDRY_KEYSTORE_ACCOUNT=dev              # your keystore account name
+```
+Use `$BASE_SEPOLIA_RPC_URL` in commands instead of hardcoded URLs when deploying from `.env`.
 
 ## Deployment script structure
 

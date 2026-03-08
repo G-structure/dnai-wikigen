@@ -13,7 +13,13 @@ description: Verify deployed smart contracts on BaseScan (Base block explorer) s
 ## Prerequisites
 - Etherscan API key (V2 keys work for all Etherscan-family explorers including BaseScan)
 - Get one at https://etherscan.io/myapikey
-- Set as env var: `export ETHERSCAN_API_KEY=your_key`
+
+## Environment setup
+Foundry automatically reads `.env` in the project root:
+```bash
+ETHERSCAN_API_KEY=your_etherscan_v2_key
+```
+This is used by `$ETHERSCAN_API_KEY` in commands and `${ETHERSCAN_API_KEY}` in `foundry.toml`.
 
 ## Commands
 

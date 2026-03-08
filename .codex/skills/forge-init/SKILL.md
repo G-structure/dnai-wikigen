@@ -13,6 +13,13 @@ description: Initialize a new Foundry project or scaffold Solidity contracts for
 ## Prerequisites
 - Foundry installed (`forge --version` to check)
 - PATH must include `$HOME/.foundry/bin`
+- `.env` file with `ETHERSCAN_API_KEY` (see `example.env`)
+
+## Environment setup
+Foundry automatically reads `.env` in the project root. Ensure your `.env` contains:
+```bash
+ETHERSCAN_API_KEY=your_etherscan_v2_key
+```
 
 ## Steps
 

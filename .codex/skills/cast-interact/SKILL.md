@@ -11,6 +11,16 @@ description: Interact with deployed smart contracts on Base or Base Sepolia usin
 - User wants to send ETH or tokens
 - User needs to decode transaction data or events
 
+## Environment setup
+Foundry automatically reads `.env` in the project root. Key variables:
+```bash
+BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+BASE_MAINNET_RPC_URL=https://mainnet.base.org
+ESCROW_ADDRESS=0x...      # deployed contract address
+FOUNDRY_KEYSTORE_ACCOUNT=dev
+```
+Use `$BASE_SEPOLIA_RPC_URL` instead of hardcoded URLs in commands.
+
 ## Read operations (no gas, no signing)
 
 ### Check ETH balance

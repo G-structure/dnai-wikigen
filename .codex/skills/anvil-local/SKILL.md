@@ -11,6 +11,13 @@ description: Run a local Ethereum dev chain using Foundry Anvil for testing smar
 - User wants to test contracts without spending real testnet ETH
 - User needs a local RPC endpoint for frontend development
 
+## Environment setup
+When forking, use RPC URLs from `.env` instead of hardcoding:
+```bash
+source .env
+anvil --fork-url $BASE_SEPOLIA_RPC_URL
+```
+
 ## Commands
 
 ### Start a basic local chain
