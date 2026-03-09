@@ -97,3 +97,12 @@
 [submodule "🔬/m1k1o/neko"]
 	path = 🔬/m1k1o/neko
 	url = https://github.com/m1k1o/neko.git
+[submodule "🔬/thinking-machines/tinker-cookbook"]
+	path = 🔬/thinking-machines/tinker-cookbook
+	url = https://github.com/thinking-machines-lab/tinker-cookbook.git
+[submodule "🔬/thinking-machines/tinker"]
+	path = 🔬/thinking-machines/tinker
+	url = https://github.com/thinking-machines-lab/tinker.git
+[submodule "🔬/thinking-machines/tinker-project-ideas"]
+	path = 🔬/thinking-machines/tinker-project-ideas
+	url = https://github.com/thinking-machines-lab/tinker-project-ideas.git

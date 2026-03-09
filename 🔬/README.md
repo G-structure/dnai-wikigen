@@ -25,6 +25,9 @@
 | 14 | [neko (G-structure fork)](#neko-g-structure-fork) | Fork with Nix packaging + GHCR CI — anti-bot-resistant virtual browser | 🟡 High |
 | 15 | [neko_agent](#neko_agent) | AI vision agent that drives neko for automated browser tasks in TEE | 🟡 High |
 | 16 | [neko-with-playwright](#neko-with-playwright) | CDP playground — Neko + Playwright for programmatic browser control | 🟡 High |
+| 17 | [tinker-cookbook](#tinker-cookbook) | Post-training recipes — SFT, RL, RLHF, tool use, multi-agent | 🟢 Reference |
+| 18 | [tinker](#tinker-sdk) | Training API + CLI for distributed LLM fine-tuning via LoRA | 🟢 Reference |
+| 19 | [tinker-project-ideas](#tinker-project-ideas) | Community project ideas for Tinker fine-tuning | 🟢 Reference |
 
 ---
 
@@ -341,6 +344,52 @@ Andrew Miller's CDP playground — minimal setup proving Chrome DevTools Protoco
 
 ---
 
+## Thinking Machines Lab
+
+[Thinking Machines](https://thinkingmachines.ai/) is an AI lab founded by Mira Murati (former OpenAI CTO). Their first product is **Tinker** — a managed API for distributed LLM fine-tuning. Tinker abstracts away cluster management, GPU scheduling, and failure recovery while giving researchers full control over algorithms and data. It uses LoRA to share compute across training runs and supports models from small to trillion-parameter MoE architectures (Qwen, Kimi K2 Thinking). GA since December 2025. Early adopters include groups at Princeton, Stanford, Berkeley, and Redwood Research.
+
+### tinker-cookbook
+`🔬/thinking-machines/tinker-cookbook`
+
+Realistic post-training examples and reusable abstractions built on the Tinker API. 2.9k stars.
+
+**Slides under the lens:**
+- `tinker_cookbook/recipes/chat_sl/` — Supervised fine-tuning on conversational datasets
+- `tinker_cookbook/recipes/math_reasoning/` — Reward-based RL for mathematical problem-solving
+- `tinker_cookbook/recipes/preference_learning/` — Three-stage RLHF pipeline (SFT → reward model → RL)
+- `tinker_cookbook/recipes/tool_use/` — Training models to use retrieval tools
+- `tinker_cookbook/recipes/prompt_distillation/` — Internalizing complex system prompts into model weights
+- `tinker_cookbook/recipes/multi_agent/` — Self-play and competitive multi-agent optimization
+- `sl_basic.py`, `rl_basic.py` — Minimal working examples
+- `tinker_cookbook/evaluation/` — Model evaluation + InspectAI benchmark integration
+
+**Takeaway:** The reference for how to fine-tune open-weight models via API. The multi-agent and tool-use recipes are directly relevant if the evaluator agent inside the diligence room needs task-specific tuning. The RL recipes show how to train models with custom reward signals — applicable to training an agent that respects disclosure constraints.
+
+---
+
+### tinker (SDK)
+`🔬/thinking-machines/tinker`
+
+The Python SDK and CLI for the Tinker training API. 348 stars.
+
+**Slides under the lens:**
+- Low-level primitives: `forward_backward` and `sample` for implementing custom post-training methods
+- Managed scheduling, GPU allocation, and checkpoint handling
+- Switch between model sizes by changing a single string
+
+**Takeaway:** The SDK that powers the cookbook. Reference for building against a managed training API.
+
+---
+
+### tinker-project-ideas
+`🔬/thinking-machines/tinker-project-ideas`
+
+Community-sourced project ideas for Tinker fine-tuning experiments. 172 stars.
+
+**Takeaway:** Inspiration for what to fine-tune and why. Useful for scoping evaluator agent training if we go beyond prompting.
+
+---
+
 ## Architecture Cheat Sheet
 
 ```
@@ -362,6 +411,7 @@ Browser Automation in TEE   → github-zktls-1 --sealed-box (browser-container/)
 CDP over Neko               → neko-with-playwright (amiller)
 Browser Agent + Anti-Bot    → neko_agent + neko fork (G-structure)
 Verification Chain          → hermes (VERIFICATION-REPORT.md)
+Agent Fine-Tuning           → tinker-cookbook (RL, tool use, multi-agent recipes)
 ```
 
 ---
