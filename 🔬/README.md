@@ -13,21 +13,25 @@
 | 2 | [dstack-examples](#dstack-examples-official) | Deploy patterns — attestation oracles, TLS binding, on-chain governance | 🔴 Critical |
 | 3 | [dstack-tutorial](#dstack-tutorial) | DevProof philosophy — 8 chapters on building unruggable apps | 🔴 Critical |
 | 4 | [dstack-openclaw](#dstack-openclaw) | Self-attesting AI agent with genesis transparency | 🟡 High |
-| 5 | [devproof-audits-guide](#devproof-audits-guide) | Stage 1 verification checklist — what "trustworthy" means | 🔴 Critical |
-| 6 | [devproof-apps-guide](#devproof-apps-guide) | Starter kits for Stage 1-compliant TEE microservices | 🔴 Critical |
+| 5 | [devproof-audits-guide](#devproof-audits-guide) | ⭐ Stage 1 verification checklist — what "trustworthy" means | 🔴 Critical |
+| 6 | [devproof-apps-guide](#devproof-apps-guide) | ⭐ Starter kits for Stage 1-compliant TEE microservices | 🔴 Critical |
 | 7 | [skill-verifier](#skill-verifier) | Inspection certificates + escrow agent — ephemeral proof-of-execution | 🔴 Critical |
 | 8 | [github-zktls-1](#github-zktls-1) | GitHub Actions as TEE — ZK proofs of credentials on-chain | 🟡 High |
 | 9 | [oauth3-openclaw](#oauth3-openclaw) | Sandboxed agent execution with LLM-mediated approval | 🟡 High |
-| 10 | [teleport-gramine-rs](#teleport-gramine-rs) | One-time-use credential delegation via SGX NFTs | 🟢 Reference |
-| 11 | [oauth3-skill](#oauth3-skill) | Agent SDK for TEE-backed code execution with human approval | 🟢 Reference |
-| 12 | [hermes](#hermes) | MCP server in Phala TDX — staged publishing + pseudonymous identity | 🟢 Reference |
-| 13 | [neko (upstream)](#neko-upstream) | m1k1o/neko — self-hosted virtual browser via Docker + WebRTC | 🟢 Reference |
-| 14 | [neko (G-structure fork)](#neko-g-structure-fork) | Fork with Nix packaging + GHCR CI — anti-bot-resistant virtual browser | 🟡 High |
-| 15 | [neko_agent](#neko_agent) | AI vision agent that drives neko for automated browser tasks in TEE | 🟡 High |
-| 16 | [neko-with-playwright](#neko-with-playwright) | CDP playground — Neko + Playwright for programmatic browser control | 🟡 High |
-| 17 | [tinker-cookbook](#tinker-cookbook) | Post-training recipes — SFT, RL, RLHF, tool use, multi-agent | 🟢 Reference |
-| 18 | [tinker](#tinker-sdk) | Training API + CLI for distributed LLM fine-tuning via LoRA | 🟢 Reference |
-| 19 | [tinker-project-ideas](#tinker-project-ideas) | Community project ideas for Tinker fine-tuning | 🟢 Reference |
+| 10 | [awesome-ndai](#awesome-ndai) | ⭐ Curated resource list for NDAI + TEE-based systems (Andrew's hackathon picks) | 🔴 Critical |
+| 11 | [mcp-multiplayer](#mcp-multiplayer) | ⭐ Common knowledge & credible commitments for agents via MCP channels | 🟡 High |
+| 12 | [dstack-semiproprietary-modules](#dstack-semiproprietary-modules) | ⭐ Sandbox + program analysis on proprietary code in TEE | 🟡 High |
+| 13 | [dshield](#dshield) | ⭐ Verifiable egress — cryptographic proof of where agent data goes | 🟡 High |
+| 14 | [teleport-gramine-rs](#teleport-gramine-rs) | One-time-use credential delegation via SGX NFTs | 🟢 Reference |
+| 15 | [oauth3-skill](#oauth3-skill) | ⭐ Agent SDK for TEE-backed code execution with human approval | 🟢 Reference |
+| 16 | [hermes](#hermes) | ⭐ MCP server in Phala TDX — staged publishing + pseudonymous identity | 🟢 Reference |
+| 17 | [neko (upstream)](#neko-upstream) | m1k1o/neko — self-hosted virtual browser via Docker + WebRTC | 🟢 Reference |
+| 18 | [neko (G-structure fork)](#neko-g-structure-fork) | Fork with Nix packaging + GHCR CI — anti-bot-resistant virtual browser | 🟡 High |
+| 19 | [neko_agent](#neko_agent) | AI vision agent that drives neko for automated browser tasks in TEE | 🟡 High |
+| 20 | [neko-with-playwright](#neko-with-playwright) | CDP playground — Neko + Playwright for programmatic browser control | 🟡 High |
+| 21 | [tinker-cookbook](#tinker-cookbook) | Post-training recipes — SFT, RL, RLHF, tool use, multi-agent | 🟢 Reference |
+| 22 | [tinker](#tinker-sdk) | Training API + CLI for distributed LLM fine-tuning via LoRA | 🟢 Reference |
+| 23 | [tinker-project-ideas](#tinker-project-ideas) | Community project ideas for Tinker fine-tuning | 🟢 Reference |
 
 ---
 
@@ -344,6 +348,75 @@ Andrew Miller's CDP playground — minimal setup proving Chrome DevTools Protoco
 
 ---
 
+## NDAI Ecosystem ⭐
+
+> These repos were highlighted by Andrew Miller in the first Shape Rotator hackathon session as key starting points.
+
+### awesome-ndai
+`🔬/account-link/awesome-ndai`
+
+⭐ The curated reading list for NDAI and TEE-based systems. Start here for an organized overview of tutorials, applications, sandboxes, and related papers.
+
+**Slides under the lens:**
+- TEE & Dstack Tutorials — links to devproof guides, dstack tutorial, Phala docs
+- TEE Applications — Hermes, Teleport-Tokscope, Phala Cloud templates
+- Dstack Sandboxes — Dshield, Multiplayer MCP, OAuth3 Enclave, Semi-Proprietary Modules
+- Related Papers — DelegaTEE (credible forgetting), Information Bazaar, Liquefaction
+
+**Takeaway:** The index. If you're unsure where to start, this is the map Andrew curated for hackathon teams.
+
+---
+
+### mcp-multiplayer
+`🔬/account-link/mcp-multiplayer`
+
+⭐ Multi-agent MCP channels with transparent bots, cryptographic commitments, and verifiable execution. Creates "portals" between Claude/ChatGPT sessions where agents interact through shared channels with SHA-256 hashed bot code.
+
+**Slides under the lens:**
+- `multiplayer_server.py` — FastMCP server with OAuth 2.1 + channel operations
+- `bot_manager.py` — Bot attachment, RestrictedPython sandbox (5s timeout, non-root, allowlisted imports)
+- `channel_manager.py` — Channel creation, invite codes, rejoin tokens for session continuity
+- `bots/guess_bot.py` — Commitment-reveal pattern (bot commits to secret, proves it after guess)
+- `docker-compose.yml` — OAuth proxy (:8100) + MCP server (:8201)
+- `note-dstack.md` — Notes on dstack TEE deployment
+
+**Takeaway:** The credible commitment primitive for agent-to-agent negotiation. Two AI agents can play games, make bets, or mediate disputes with verifiable rules. The bot-code-as-contract pattern maps to deal room arbitration.
+
+---
+
+### dstack-semiproprietary-modules
+`🔬/account-link/dstack-semiproprietary-modules`
+
+⭐ Encrypted module distribution with self-containment verification. Authors encrypt proprietary code, publish to a bulletin board, and TEE enclaves decrypt according to on-chain policy — no author needed at runtime.
+
+**Slides under the lens:**
+- `enclave/` — TEE code: verifier + service + encryption with TEE-derived keys
+- `private_module/` — Example: self-contained sudoku solver (no external hints allowed)
+- `scripts/` — Module publishing to local bulletin board or GitHub Gists
+- `docker-compose.yml` + `docker-compose-dstack.yml` — Local and TEE deployment
+- `DSTACK-DEPLOYMENT.md` — Phala Cloud deployment guide
+- `timing-sidechannel/` — Timing side-channel analysis
+
+**Takeaway:** The pattern for running proprietary code in a TEE with public interface contracts. Seller uploads encrypted module → TEE decrypts and runs it → buyer gets results without seeing source.
+
+---
+
+### dshield
+`🔬/jameslbarnes/dshield`
+
+⭐ Verifiable egress logging for AI agents. Answers: "where does this agent send my data?" TEE-attested functions log every outbound HTTP request with cryptographic signatures, without requiring open-source code.
+
+**Slides under the lens:**
+- `src/` — TypeScript serverless runtime on Phala Cloud (TDX TEE)
+- `functions/` — Deployable functions (Python/Node.js) with egress logging
+- `docs/` — Architecture and deployment documentation
+- `examples/` — ETHEREA creative AI tool showing the report card pattern
+- `docker-compose.yml` — Phala Cloud deployment
+
+**Takeaway:** The transparency layer. Proves what external services an agent contacts at runtime. For the diligence room, this proves the evaluator agent only contacts approved LLM endpoints and doesn't exfiltrate the artifact.
+
+---
+
 ## Thinking Machines Lab
 
 [Thinking Machines](https://thinkingmachines.ai/) is an AI lab founded by Mira Murati (former OpenAI CTO). Their first product is **Tinker** — a managed API for distributed LLM fine-tuning. Tinker abstracts away cluster management, GPU scheduling, and failure recovery while giving researchers full control over algorithms and data. It uses LoRA to share compute across training runs and supports models from small to trillion-parameter MoE architectures (Qwen, Kimi K2 Thinking). GA since December 2025. Early adopters include groups at Princeton, Stanford, Berkeley, and Redwood Research.
@@ -396,6 +469,7 @@ Community-sourced project ideas for Tinker fine-tuning experiments. 172 stars.
 WHAT WE'RE BUILDING          WHERE THE PATTERNS LIVE
 ─────────────────────         ──────────────────────────────────
 
+⭐ Start Here                → awesome-ndai (curated index)
 TEE Runtime                 → dstack
 Deploy & Verify             → devproof-apps-guide starter kits
 Audit Checklist             → devproof-audits-guide Stage 1
@@ -407,6 +481,9 @@ Identity Proofs             → github-zktls-1 (Sigstore + ZK)
 Multi-TEE Federation        → github-zktls-1 --groupauth
 Policy Engine               → oauth3-openclaw --conseca-policy-engine
 Capability Sandboxing       → oauth3-openclaw --ses-compartment
+Agent Commitments           → mcp-multiplayer (credible commitments)
+Proprietary Code in TEE     → dstack-semiproprietary-modules (encrypted modules)
+Verifiable Egress           → dshield (egress attestation)
 Browser Automation in TEE   → github-zktls-1 --sealed-box (browser-container/)
 CDP over Neko               → neko-with-playwright (amiller)
 Browser Agent + Anti-Bot    → neko_agent + neko fork (G-structure)
