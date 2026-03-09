@@ -1,0 +1,20 @@
+###############################################################################
+# CDP Playground — dstack / Phala Cloud overlay
+#
+# Deploy to Phala:
+#   docker compose -f docker-compose.yaml -f docker-compose.dstack.yaml up
+#
+# This overlay:
+#   - Mounts /var/run/dstack.sock for TDX attestation + KMS
+#   - Enables dstack mode for sealed storage and attestation quotes
+#   - Removes dev volume mount (app code baked into image)
+###############################################################################
+
+services:
+  app:
+    volumes:
+      - app-data:/data
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    environment:
+      DSTACK_ENABLED: "true"
+      CDP_URL: http://172.31.0.3:9222
