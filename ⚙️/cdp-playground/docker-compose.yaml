@@ -1,0 +1,81 @@
+###############################################################################
+# CDP Playground — Neko Chrome + Python automation starter
+#
+# Quick start:
+#   docker compose up -d
+#   open http://localhost:52100   # watch Chrome live (password: admin)
+#
+# Connect to Chrome from host:
+#   curl http://localhost:9322/json/version
+#
+# Run the example automation:
+#   docker compose exec app python -m app.main screenshot https://example.com
+#   docker compose exec app python -m app.main scrape https://news.ycombinator.com
+#   docker compose exec app python -m app.main interact https://example.com
+#
+# For Phala Cloud TEE deployment:
+#   docker compose -f docker-compose.yaml -f docker-compose.dstack.yaml up
+###############################################################################
+
+services:
+  # ─── Neko Chrome + CDP ─────────────────────────────────────────────────
+  # Self-contained neko-chrome build (copied from tee-email-oracle)
+  # Provides: browser GUI on 8080, CDP on 9222
+  neko:
+    build:
+      context: ./neko-chrome
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    restart: unless-stopped
+    shm_size: 2gb
+    cap_add:
+      - SYS_ADMIN
+    networks:
+      playground-net:
+        ipv4_address: 172.31.0.3
+    ports:
+      - "52100:8080"    # Neko web UI (view browser live)
+      - "9322:9222"     # CDP proxy (connect from host)
+    environment:
+      NEKO_SCREEN: 1920x1080@30
+      NEKO_PASSWORD: neko
+      NEKO_PASSWORD_ADMIN: admin
+      NEKO_ICELITE: 0
+      NEKO_NAT1TO1: 172.31.0.3
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+
+  # ─── Your automation app ───────────────────────────────────────────────
+  # Python + Playwright, connects to neko Chrome via CDP
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    restart: unless-stopped
+    depends_on:
+      neko:
+        condition: service_healthy
+    networks:
+      - playground-net
+    ports:
+      - "${APP_PORT:-8100}:8000"
+    environment:
+      CDP_URL: http://172.31.0.3:9222
+      APP_HOST: 0.0.0.0
+      APP_PORT: "8000"
+    volumes:
+      - app-data:/data
+      - ./app:/app/app:ro    # Live-reload app code in dev
+
+volumes:
+  app-data:
+
+networks:
+  playground-net:
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24
