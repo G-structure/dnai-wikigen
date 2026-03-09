@@ -38,6 +38,44 @@ TEE layer: use Phala Cloud's managed dstack path. dstack is built around confide
 Verification layer: make verification user-visible. Phala documents a 'verify your application' flow centered on quote verification, reportData, compose-hash, and genuine Intel TDX hardware, plus separate platform / KMS verification. For judges, a clean verification page or verification button is part of the product, not back-office plumbing. [9][10]
 Contract layer: if you want your own escrow contract, use Base Sepolia and keep the state machine minimal. Phala's Onchain KMS supports Ethereum or Base, and Andrew's repos already use forge / cast patterns that make Foundry a natural fit. For a hackathon, you do not need a fancy settlement system; you need a contract with obvious states such as Created, Evaluated, Accepted, Rejected, and Expired. [8][16][17]
 Model layer: the simplest trust model is calling OpenAI or Anthropic from inside the TEE and being explicit about that boundary. The strongest showpiece version is using a TEE-protected gateway such as RedPill, which documents full-gateway TEE protection and per-request attestation. That is optional, not required. [26][27]
+### Getting Base Sepolia ETH
+
+**Option A: Andrew Miller's GitHub Faucet (zkTLS-verified, gasless)**
+
+Contract: [`0x72cd70d28284dD215257f73e1C5aD8e28847215B`](https://sepolia.basescan.org/address/0x72cd70d28284dD215257f73e1C5aD8e28847215B) on Base Sepolia. Claims 0.001 ETH per GitHub user per 24 hours. No gas needed — you can claim via a GitHub Issue.
+
+```bash
+# 1. Fork the repo
+gh repo fork amiller/github-zktls
+
+# 2. Run the identity workflow (MUST use v1.0.3 tag or you get WrongCommit revert)
+gh workflow run github-identity.yml --ref v1.0.3 \
+  -f recipient_address=0xYOUR_ETH_ADDRESS \
+  -f faucet_address=0x72cd70d28284dD215257f73e1C5aD8e28847215B
+
+# 3. Download attestation bundle
+gh run list --workflow=github-identity.yml
+gh run download RUN_ID -n identity-proof
+
+# 4. Generate ZK proof
+docker run --rm -v $(pwd):/work zkproof generate /work/bundle.json /work/proof
+```
+
+Then either submit directly with `cast send` or use the **gasless path**: open an issue on `amiller/github-zktls` with title `[CLAIM]` and paste `proof/claim.json` in a ```json code block. A relayer submits the tx for you.
+
+See full details: `🔬/amiller/github-zktls-1/docs/faucet.md`
+
+**Option B: Standard faucets**
+- Alchemy Base Sepolia faucet (requires free account)
+- Coinbase Developer Platform faucet
+- QuickNode Base Sepolia faucet
+
+**Option C: Direct with `/cast-wallet`**
+```bash
+# Generate a wallet and import to Foundry keystore
+# Then fund it from any faucet above
+```
+
 Stretch layer: GitHub-zkTLS, Teleport / oauth3, and OpenClaw-style patterns are optional spice. They are not the MVP. Use them only after the core NDAI mechanism works end to end. [17][18][19][21][22][23]
 
 ## What to read first
