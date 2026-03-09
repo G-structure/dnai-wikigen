@@ -97,3 +97,15 @@
 [submodule "🔬/m1k1o/neko"]
 	path = 🔬/m1k1o/neko
 	url = https://github.com/m1k1o/neko.git
+[submodule "🔬/account-link/mcp-multiplayer"]
+	path = 🔬/account-link/mcp-multiplayer
+	url = https://github.com/Account-Link/mcp-multiplayer.git
+[submodule "🔬/account-link/dstack-semiproprietary-modules"]
+	path = 🔬/account-link/dstack-semiproprietary-modules
+	url = https://github.com/Account-Link/dstack-semiproprietary-modules.git
+[submodule "🔬/account-link/awesome-ndai"]
+	path = 🔬/account-link/awesome-ndai
+	url = https://github.com/Account-Link/awesome-ndai.git
+[submodule "🔬/jameslbarnes/dshield"]
+	path = 🔬/jameslbarnes/dshield
+	url = https://github.com/jameslbarnes/dshield.git
