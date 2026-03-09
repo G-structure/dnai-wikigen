@@ -169,4 +169,4 @@ All stored in `📄/` with PDF originals and markdown conversions:
 
 ## License
 
-TBD
+AGPLv3
