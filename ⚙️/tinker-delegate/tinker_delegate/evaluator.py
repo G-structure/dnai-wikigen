@@ -1,24 +1,29 @@
-"""Evaluator agent stub — exercises the IsolatedTinkerSession for testing.
+"""Evaluator agents — stub for testing + real SFT evaluator using Tinker SDK.
 
-In production, this is replaced with a real evaluation function that:
-1. Parses the seller's artifact (dataset, training recipe, etc.)
-2. Fine-tunes a model using the IsolatedTinkerSession
+The evaluator is the buyer's agent (A_B from the NDAI paper). It receives
+the seller's artifact and an IsolatedTinkerSession, then:
+1. Parses the artifact (dataset, training recipe, etc.)
+2. Fine-tunes a model using the session
 3. Benchmarks the fine-tuned model against the base model
 4. Returns raw metrics (the control plane bounds the output)
 
-The stub simulates this by returning synthetic metrics without
-actually calling the Tinker API — useful for testing the full
-deal lifecycle without consuming API credits.
+The control plane calls bound_output() on the raw metrics before they
+leave the TEE — the evaluator never decides what leaves the boundary.
 """
 from __future__ import annotations
 
 import hashlib
+import json
 import random
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from tinker_delegate.session import IsolatedTinkerSession
 
+
+# ---------------------------------------------------------------------------
+# Stub evaluator — deterministic, no real API calls
+# ---------------------------------------------------------------------------
 
 async def stub_evaluate(
     artifact: bytes,
@@ -30,22 +35,16 @@ async def stub_evaluate(
     """Stub evaluator — returns synthetic metrics based on artifact hash.
 
     Deterministic: same artifact always produces the same score.
-    This lets us test the full pipeline without real Tinker API calls.
+    Useful for testing the full pipeline without consuming API credits.
     """
-    # Derive a deterministic "quality" from the artifact content
     h = hashlib.sha256(artifact).hexdigest()
-    # Use first 8 hex chars as a seed for reproducibility
     seed = int(h[:8], 16)
     rng = random.Random(seed)
 
-    # Simulate quality delta (0.0 to 0.30)
     quality_delta = rng.uniform(0.0, 0.30)
-
-    # Simulate compute cost (small fraction of budget)
     compute_fraction = rng.uniform(0.01, 0.10)
     simulated_compute = int(budget_cap * compute_fraction)
 
-    # Simulate confidence based on artifact size
     if len(artifact) > 10000:
         confidence = "high"
     elif len(artifact) > 1000:
@@ -59,11 +58,74 @@ async def stub_evaluate(
         "confidence": confidence,
         "methodology": (
             f"Stub evaluation on {len(artifact)} byte artifact. "
-            f"Simulated {artifact_type} assessment with deterministic seed {h[:8]}. "
-            f"No actual Tinker API calls made."
+            f"Simulated {artifact_type} assessment with seed {h[:8]}. "
+            f"No Tinker API calls made."
         ),
-        "compute_cost_override": simulated_compute,
     }
+
+
+# ---------------------------------------------------------------------------
+# SFT evaluator — real LoRA fine-tuning via Tinker SDK
+# ---------------------------------------------------------------------------
+
+def _parse_sft_dataset(artifact: bytes) -> list[dict]:
+    """Parse JSONL artifact into instruction/response pairs."""
+    text = artifact.decode("utf-8", errors="replace")
+    records = []
+    for line in text.strip().split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+            # Support common SFT formats
+            if "instruction" in record or "input" in record or "prompt" in record:
+                records.append(record)
+            elif "messages" in record:
+                # ChatML format: extract last assistant message as response
+                msgs = record["messages"]
+                prompt_parts = []
+                response = ""
+                for msg in msgs:
+                    if msg.get("role") == "assistant":
+                        response = msg.get("content", "")
+                    else:
+                        prompt_parts.append(msg.get("content", ""))
+                records.append({
+                    "instruction": "\n".join(prompt_parts),
+                    "response": response,
+                })
+        except json.JSONDecodeError:
+            continue
+    return records
+
+
+def _tokenize_sft_example(tokenizer, record: dict) -> tuple[list[int], list[float]]:
+    """Tokenize an SFT example into input tokens + loss weights.
+
+    Returns (tokens, weights) where weights=0 for prompt, weights=1 for completion.
+    This follows the standard SFT pattern: train on completions only.
+    """
+    instruction = record.get("instruction", record.get("input", record.get("prompt", "")))
+    response = record.get("response", record.get("output", record.get("completion", "")))
+
+    prompt_text = f"### Instruction:\n{instruction}\n\n### Response:\n"
+    completion_text = f"{response}\n\n"
+
+    prompt_tokens = tokenizer.encode(prompt_text, add_special_tokens=True)
+    completion_tokens = tokenizer.encode(completion_text, add_special_tokens=False)
+
+    # Combine and create weights (0 for prompt, 1 for completion)
+    all_tokens = prompt_tokens + completion_tokens
+    weights = [0.0] * len(prompt_tokens) + [1.0] * len(completion_tokens)
+
+    # Truncate to model context length
+    max_len = 2048
+    if len(all_tokens) > max_len:
+        all_tokens = all_tokens[:max_len]
+        weights = weights[:max_len]
+
+    return all_tokens, weights
 
 
 async def sft_evaluate(
@@ -73,102 +135,184 @@ async def sft_evaluate(
     budget_cap: int,
     reserve_price: int,
 ) -> dict:
-    """Real SFT evaluation — trains on artifact, benchmarks result.
-
-    This is the production evaluator for supervised fine-tuning datasets.
-    Requires a real Tinker API key and the tinker SDK installed.
+    """Real SFT evaluation — LoRA fine-tune on artifact, benchmark against base.
 
     Protocol:
-    1. Parse artifact as JSONL dataset (instruction/response pairs)
-    2. Tokenize with base model's tokenizer
-    3. Create LoRA training run (rank=32, 8B model)
-    4. Train for N steps (cross_entropy loss)
-    5. Save checkpoint for sampling
+    1. Parse JSONL dataset from artifact
+    2. Tokenize examples with prompt/completion weighting
+    3. Create LoRA training run on Llama-3.1-8B-Instruct
+    4. Train for up to 200 steps (cross_entropy, completion-only loss)
+    5. Save checkpoint, create sampling client
     6. Benchmark: compute perplexity on held-out eval set
     7. Compare against base model perplexity
-    8. Return quality delta = (base_ppl - tuned_ppl) / base_ppl
+    8. Return quality_delta = (base_ppl - tuned_ppl) / base_ppl
     """
-    import json
-
+    import numpy as np
     import tinker
 
     # 1. Parse dataset
-    lines = artifact.decode("utf-8", errors="replace").strip().split("\n")
-    records = []
-    for line in lines:
-        try:
-            records.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-
+    records = _parse_sft_dataset(artifact)
     if not records:
         return {
             "quality_delta": 0.0,
             "benchmark": "sft-perplexity",
             "confidence": "low",
-            "methodology": "Empty or unparseable dataset — no training performed.",
+            "methodology": "Empty or unparseable dataset.",
         }
 
-    # 2. Split into train/eval (90/10)
-    split = max(1, len(records) * 9 // 10)
-    train_data = records[:split]
-    eval_data = records[split:] or records[:1]
+    # 2. Split train/eval (90/10)
+    split_idx = max(1, len(records) * 9 // 10)
+    train_records = records[:split_idx]
+    eval_records = records[split_idx:] or records[:1]
 
     # 3. Create training run
     base_model = "meta-llama/Llama-3.1-8B-Instruct"
     tc = session.create_training(base_model=base_model, rank=32)
     tokenizer = session.get_tokenizer()
 
-    # 4. Tokenize and train
-    for step, record in enumerate(train_data[:200]):  # cap at 200 steps
-        text = record.get("instruction", "") + "\n" + record.get("response", "")
-        tokens = tokenizer.encode(text, max_length=2048, truncation=True)
-        data = [{"input_ids": tokens}]
+    # 4. Tokenize training data into Datum objects
+    train_data = []
+    for record in train_records:
+        tokens, weights = _tokenize_sft_example(tokenizer, record)
+        if len(tokens) < 4:
+            continue
 
-        session.forward_backward(data, loss_fn="cross_entropy")
-        session.optim_step(tinker.OptimStepRequest(
-            adam_params=tinker.AdamParams(lr=1e-4, beta1=0.9, beta2=0.999),
-        ))
+        # Shift for next-token prediction
+        input_tokens = tokens[:-1]
+        target_tokens = tokens[1:]
+        loss_weights = weights[1:]  # align weights with targets
 
-    # 5. Save for sampling
-    checkpoint_path = session.save_for_sampling("eval-checkpoint", ttl_seconds=3600)
-    sampler = session.create_sampler(checkpoint_path)
+        datum = tinker.Datum(
+            model_input=tinker.ModelInput.from_ints(input_tokens),
+            loss_fn_inputs={
+                "weights": tinker.TensorData(
+                    data=loss_weights,
+                    dtype="float32",
+                    shape=[len(loss_weights)],
+                ),
+                "target_tokens": tinker.TensorData(
+                    data=target_tokens,
+                    dtype="int64",
+                    shape=[len(target_tokens)],
+                ),
+            },
+        )
+        train_data.append(datum)
 
-    # 6. Benchmark: perplexity on eval set
-    eval_losses = []
-    for record in eval_data[:20]:
-        text = record.get("instruction", "") + "\n" + record.get("response", "")
-        logprobs = sampler.compute_logprobs(text).result()
-        avg_loss = -sum(lp for lp in logprobs if lp is not None) / max(len(logprobs), 1)
-        eval_losses.append(avg_loss)
+    if not train_data:
+        return {
+            "quality_delta": 0.0,
+            "benchmark": "sft-perplexity",
+            "confidence": "low",
+            "methodology": "No valid training examples after tokenization.",
+        }
 
-    tuned_ppl = sum(eval_losses) / max(len(eval_losses), 1)
+    # 5. Training loop — batch size 4, up to 200 steps
+    max_steps = min(200, len(train_data))
+    batch_size = 4
+    losses = []
 
-    # 7. Base model comparison
+    adam_params = tinker.AdamParams(learning_rate=1e-4)
+
+    for step in range(0, max_steps, batch_size):
+        batch = train_data[step:step + batch_size]
+        if not batch:
+            break
+
+        # Pipeline: submit fwd/bwd and optim step before waiting
+        fwdbwd_future = session.forward_backward(batch, loss_fn="cross_entropy")
+        optim_future = session.optim_step(adam_params)
+
+        # Wait for results
+        fwdbwd_result = fwdbwd_future.result()
+        optim_future.result()
+
+        # Compute batch loss from logprobs
+        batch_logprobs = []
+        batch_weights = []
+        for i, output_dict in enumerate(fwdbwd_result.loss_fn_outputs):
+            logprobs = output_dict["logprobs"].to_numpy()
+            w = batch[i].loss_fn_inputs["weights"].to_numpy()
+            batch_logprobs.append(logprobs)
+            batch_weights.append(w)
+
+        all_logprobs = np.concatenate(batch_logprobs)
+        all_weights = np.concatenate(batch_weights)
+        if all_weights.sum() > 0:
+            loss = -np.dot(all_logprobs, all_weights) / all_weights.sum()
+            losses.append(float(loss))
+
+    # 6. Save checkpoint and create sampling client
+    sampler = session.save_and_get_sampler(name="eval-checkpoint")
+
+    # 7. Benchmark: perplexity on eval set
+    eval_losses_tuned = []
+    eval_losses_base = []
+
+    # Also create a base model sampler for comparison
     base_sampler = session._sc.create_sampling_client(base_model=base_model)
-    base_losses = []
-    for record in eval_data[:20]:
-        text = record.get("instruction", "") + "\n" + record.get("response", "")
-        logprobs = base_sampler.compute_logprobs(text).result()
-        avg_loss = -sum(lp for lp in logprobs if lp is not None) / max(len(logprobs), 1)
-        base_losses.append(avg_loss)
 
-    base_ppl = sum(base_losses) / max(len(base_losses), 1)
+    for record in eval_records[:20]:  # cap eval at 20 examples
+        tokens, weights = _tokenize_sft_example(tokenizer, record)
+        if len(tokens) < 4:
+            continue
 
-    # 8. Quality delta
-    if base_ppl > 0:
-        quality_delta = (base_ppl - tuned_ppl) / base_ppl
+        prompt = tinker.ModelInput.from_ints(tokens)
+
+        # Tuned model logprobs
+        tuned_lp = session.compute_logprobs(sampler, prompt).result()
+        completion_lps = [
+            lp for lp, w in zip(tuned_lp, weights)
+            if w > 0 and lp is not None
+        ]
+        if completion_lps:
+            eval_losses_tuned.append(-sum(completion_lps) / len(completion_lps))
+
+        # Base model logprobs
+        base_lp = base_sampler.compute_logprobs(prompt).result()
+        base_completion_lps = [
+            lp for lp, w in zip(base_lp, weights)
+            if w > 0 and lp is not None
+        ]
+        if base_completion_lps:
+            eval_losses_base.append(-sum(base_completion_lps) / len(base_completion_lps))
+
+    # 8. Compute quality delta
+    if eval_losses_tuned and eval_losses_base:
+        tuned_ppl = sum(eval_losses_tuned) / len(eval_losses_tuned)
+        base_ppl = sum(eval_losses_base) / len(eval_losses_base)
+        if base_ppl > 0:
+            quality_delta = (base_ppl - tuned_ppl) / base_ppl
+        else:
+            quality_delta = 0.0
     else:
+        tuned_ppl = 0.0
+        base_ppl = 0.0
         quality_delta = 0.0
+
+    # Determine confidence
+    if len(train_data) >= 100 and len(eval_losses_tuned) >= 10:
+        confidence = "high"
+    elif len(train_data) >= 20:
+        confidence = "medium"
+    else:
+        confidence = "low"
+
+    actual_steps = max_steps // batch_size
 
     return {
         "quality_delta": max(0.0, quality_delta),
         "benchmark": "sft-perplexity",
-        "confidence": "high" if len(train_data) >= 100 else "medium",
+        "confidence": confidence,
         "methodology": (
-            f"LoRA fine-tune on {base_model} (rank=32, {min(len(train_data), 200)} steps). "
-            f"Eval: perplexity on {len(eval_data[:20])} held-out samples. "
-            f"Base PPL: {base_ppl:.2f}, Tuned PPL: {tuned_ppl:.2f}, "
-            f"Delta: {quality_delta:.1%}."
+            f"LoRA fine-tune on {base_model} (rank=32, {actual_steps} steps, "
+            f"batch_size={batch_size}, lr=1e-4, cross_entropy completion-only). "
+            f"Dataset: {len(records)} examples ({len(train_data)} after tokenization). "
+            f"Eval: perplexity on {len(eval_losses_tuned)} held-out samples. "
+            f"Base avg NLL: {base_ppl:.3f}, Tuned avg NLL: {tuned_ppl:.3f}, "
+            f"Delta: {max(0, quality_delta):.1%}. "
+            f"Training loss trend: {losses[0]:.3f} → {losses[-1]:.3f}."
+            if losses else
+            f"LoRA fine-tune on {base_model}. No training loss recorded."
         ),
     }

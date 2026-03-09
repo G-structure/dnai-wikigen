@@ -167,13 +167,21 @@ class IsolatedTinkerSession:
 
     # --- Metered training operations ---
 
-    def forward_backward(self, data, loss_fn: str, loss_fn_config=None):
-        """Forward + backward pass with cost metering."""
+    def forward_backward(self, data: list, loss_fn: str = "cross_entropy", loss_fn_config=None):
+        """Forward + backward pass with cost metering.
+
+        Args:
+            data: list of tinker.Datum objects. Each has:
+                  - model_input: tinker.ModelInput.from_ints(token_ids)
+                  - loss_fn_inputs: {"weights": TensorData, "target_tokens": TensorData}
+            loss_fn: "cross_entropy", "importance_sampling", "ppo", "cispo", "dro"
+            loss_fn_config: optional dict of loss-specific config
+        """
         assert not self._closed, "Session closed"
         assert self._training_client is not None, "No training run"
 
         # Count tokens in the data batch
-        tokens = self._count_tokens(data)
+        tokens = self._count_tokens_from_data(data)
         self._meter.record_train(tokens)
 
         return self._training_client.forward_backward(
@@ -181,7 +189,11 @@ class IsolatedTinkerSession:
         )
 
     def optim_step(self, adam_params):
-        """Optimizer step (no token cost — already counted in forward_backward)."""
+        """Optimizer step.
+
+        Args:
+            adam_params: tinker.AdamParams(learning_rate=1e-4, beta1=0.9, beta2=0.95, ...)
+        """
         assert not self._closed, "Session closed"
         assert self._training_client is not None, "No training run"
         return self._training_client.optim_step(adam_params)
@@ -224,6 +236,16 @@ class IsolatedTinkerSession:
 
     # --- Sampling (path-checked) ---
 
+    def save_and_get_sampler(self, name: str = "eval") -> tinker.SamplingClient:
+        """Save current weights and immediately get a sampling client.
+
+        Convenience method combining save_for_sampling + create_sampler.
+        """
+        assert not self._closed, "Session closed"
+        assert self._training_client is not None, "No training run"
+        sampler = self._training_client.save_weights_and_get_sampling_client(name=name)
+        return sampler
+
     def create_sampler(self, model_path: str) -> tinker.SamplingClient:
         """Create a sampling client. Path MUST be from this session."""
         assert not self._closed, "Session closed"
@@ -234,16 +256,47 @@ class IsolatedTinkerSession:
             )
         return self._sc.create_sampling_client(model_path=model_path)
 
-    def sample(self, sampler: tinker.SamplingClient, prompt: str, num_samples: int = 1, **kwargs):
-        """Metered sampling."""
-        assert not self._closed, "Session closed"
-        result = sampler.sample(prompt=prompt, num_samples=num_samples, **kwargs)
+    def sample(self, sampler: tinker.SamplingClient, prompt, sampling_params, num_samples: int = 1):
+        """Metered sampling.
 
-        # Estimate tokens (prompt + generated)
-        prompt_tokens = len(prompt.split()) * 2  # rough estimate
-        self._meter.record_prefill(prompt_tokens)
-        # Sample tokens counted when result arrives
+        Args:
+            sampler: SamplingClient from create_sampler() or save_and_get_sampler()
+            prompt: tinker.ModelInput (use ModelInput.from_ints(tokens))
+            sampling_params: tinker.SamplingParams(max_tokens=..., temperature=..., ...)
+            num_samples: number of completions to generate
+        """
+        assert not self._closed, "Session closed"
+
+        # Count prompt tokens for metering
+        if hasattr(prompt, 'length'):
+            self._meter.record_prefill(prompt.length)
+        elif hasattr(prompt, 'to_ints'):
+            self._meter.record_prefill(len(prompt.to_ints()))
+
+        result = sampler.sample(
+            prompt=prompt,
+            sampling_params=sampling_params,
+            num_samples=num_samples,
+        )
         return result
+
+    def compute_logprobs(self, sampler: tinker.SamplingClient, prompt) -> list:
+        """Compute log probabilities for a prompt. Metered.
+
+        Args:
+            sampler: SamplingClient
+            prompt: tinker.ModelInput
+        Returns:
+            list of floats (logprob per token position, first is None)
+        """
+        assert not self._closed, "Session closed"
+
+        if hasattr(prompt, 'length'):
+            self._meter.record_prefill(prompt.length)
+        elif hasattr(prompt, 'to_ints'):
+            self._meter.record_prefill(len(prompt.to_ints()))
+
+        return sampler.compute_logprobs(prompt)
 
     # --- Cleanup ---
 
@@ -287,21 +340,23 @@ class IsolatedTinkerSession:
     # --- Internal helpers ---
 
     @staticmethod
-    def _count_tokens(data) -> int:
-        """Estimate token count from training data batch."""
-        if isinstance(data, list):
-            total = 0
-            for item in data:
-                if isinstance(item, dict):
-                    for v in item.values():
-                        if isinstance(v, (list, tuple)):
-                            total += len(v)
-                        elif isinstance(v, str):
-                            total += len(v.split()) * 2  # rough
-                elif isinstance(item, (list, tuple)):
-                    total += len(item)
-            return total
-        return 0
+    def _count_tokens_from_data(data: list) -> int:
+        """Count tokens from a list of tinker.Datum objects."""
+        total = 0
+        for datum in data:
+            # tinker.Datum has model_input with a .length property
+            if hasattr(datum, 'model_input'):
+                mi = datum.model_input
+                if hasattr(mi, 'length'):
+                    total += mi.length
+                elif hasattr(mi, 'to_ints'):
+                    total += len(mi.to_ints())
+            elif isinstance(datum, dict):
+                # Fallback for dict-based data
+                for v in datum.values():
+                    if isinstance(v, (list, tuple)):
+                        total += len(v)
+        return total
 
     # --- Explicitly NOT exposed ---
     #
