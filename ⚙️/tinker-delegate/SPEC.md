@@ -792,12 +792,12 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [ ] Unit tests: mandatory cleanup (all checkpoints deleted)
 - [ ] Integration test: create training run → train → sample → cleanup → verify deletion
 
-### Phase 3: Evaluator Agent (Stub)
+### Phase 3: Evaluator Agent ✅ IMPLEMENTED (stub + SFT)
 
-- [ ] Implement stub agent that trains for N steps on a dummy dataset
+- [x] Stub evaluator: deterministic synthetic metrics from artifact hash — `tinker_delegate/evaluator.py`
+- [x] SFT evaluator: real LoRA fine-tune + perplexity benchmark — `tinker_delegate/evaluator.py`
 - [x] Output bounding: raw metrics → score bands — `tinker_delegate/control_plane.py`
-- [ ] Test with a real Tinker API key locally (before TEE deployment)
-- [ ] Evaluation protocol for SFT datasets (the most common artifact type)
+- [ ] Test SFT evaluator with a real Tinker API key locally
 
 ### Phase 4: Control Plane ✅ IMPLEMENTED (watcher pending)
 
@@ -807,14 +807,16 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] Output bounding (raw delta → score band → offer price)
 - [x] Cleanup enforcement on deal resolution
 - [x] Orphan cleanup on boot (scans training runs with deal_id metadata)
-- [ ] On-chain event watcher (ethers.js or web3.py listening to DiligenceRoom events)
-- [ ] Result endpoint (bounded output + TDX quote)
-- [ ] Control plane API endpoints in FastAPI
+- [x] Control plane API endpoints in FastAPI — `tinker_delegate/api.py`
+  - POST /deal/notify-funded, POST /deal/{id}/artifact, POST /deal/{id}/evaluate
+  - GET /deal/{id}/result, POST /deal/{id}/resolve, GET /deals
+- [ ] On-chain event watcher (web3.py listening to DiligenceRoom events)
 
-### Phase 5: Smart Contract
+### Phase 5: Smart Contract ✅ IMPLEMENTED (deployment pending)
 
-- [ ] DiligenceRoom.sol — minimal escrow state machine
-- [ ] Tests via `/forge-test`
+- [x] DiligenceRoom.sol — escrow state machine with three-way settlement — `contracts/src/DiligenceRoom.sol`
+- [x] 22 tests (unit + fuzz) all passing — `contracts/test/DiligenceRoom.t.sol`
+- [x] Deployment script — `contracts/script/DiligenceRoom.s.sol`
 - [ ] Deploy to Base Sepolia via `/forge-deploy`
 - [ ] Verify on BaseScan via `/forge-verify`
 

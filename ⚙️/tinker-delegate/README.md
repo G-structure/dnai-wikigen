@@ -177,8 +177,15 @@ tinker_delegate/
 ├── crypto.py          # X25519 + AES-256-GCM encryption for card channel
 ├── session.py         # IsolatedTinkerSession: sandboxed SDK wrapper + cost meter
 ├── control_plane.py   # Deal lifecycle orchestration + output bounding
-├── api.py             # FastAPI server: /health, /attestation, /billing/*
+├── evaluator.py       # Stub + SFT evaluator agents
+├── api.py             # FastAPI server: billing, attestation, deal lifecycle
 └── main.py            # CLI: check, signup, signin, balance, add-card, add-balance, serve
+
+contracts/
+├── src/DiligenceRoom.sol       # Escrow state machine (Base Sepolia)
+├── test/DiligenceRoom.t.sol    # 22 tests (unit + fuzz)
+├── script/DiligenceRoom.s.sol  # Deployment script
+└── foundry.toml                # Foundry config for Base networks
 ```
 
 ### signup.py — Key Functions
@@ -263,10 +270,10 @@ The API key is sealed via dstack-KMS after creation — only the same enclave ca
 
 ## What's Next
 
-Phases 1 (account provisioning) and billing are complete. IsolatedTinkerSession and control plane are implemented. Remaining:
+All core components are implemented. Remaining integration work:
 
-- **Evaluator agent** — plug a real evaluation function into `control_plane.evaluate()`
-- **On-chain watcher** — listen for DiligenceRoom events, call control plane methods
-- **DiligenceRoom contract** — escrow state machine on Base Sepolia (Solidity)
+- **Deploy DiligenceRoom.sol** to Base Sepolia via `/forge-deploy`
+- **On-chain watcher** — listen for DiligenceRoom events, call control plane API
+- **Test SFT evaluator** end-to-end with real Tinker API key
 - **TEE deployment** — merge docker-compose with email oracle, deploy to Phala Cloud
 - **API key sealing** — use `dstack_sdk.TappdClient.derive_key("tinker/api_key")` in production

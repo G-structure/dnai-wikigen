@@ -7,8 +7,17 @@ Endpoints:
   POST /billing/card              — add payment method (plaintext — local dev only)
   POST /billing/card/encrypted    — add payment method (encrypted to TEE — production)
   POST /billing/add-balance       — add credit balance
+  POST /deal/{deal_id}/artifact   — upload seller's encrypted artifact
+  GET  /deal/{deal_id}/result     — get bounded evaluation result
+  GET  /deals                     — list active deals
+  POST /deal/{deal_id}/evaluate   — trigger evaluation (internal)
+  POST /deal/{deal_id}/resolve    — notify deal resolution (internal)
 """
-from fastapi import FastAPI
+import os
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 from tinker_delegate.config import Settings
 from tinker_delegate.oracle_client import OracleClient
@@ -26,10 +35,56 @@ from tinker_delegate.card_channel import (
 
 app = FastAPI(
     title="Tinker Delegate",
-    description="TEE-hosted Tinker account management. Card details are ephemeral.",
+    description="TEE-hosted Tinker account management and NDAI deal orchestration.",
 )
 
 settings = Settings()
+
+# ---------------------------------------------------------------------------
+# Control plane (lazy init — only when Tinker API key is available)
+# ---------------------------------------------------------------------------
+_control_plane = None
+
+
+def _get_control_plane():
+    global _control_plane
+    if _control_plane is None:
+        api_key = os.environ.get("TINKER_API_KEY", "")
+        if not api_key:
+            raise HTTPException(503, "TINKER_API_KEY not configured — control plane unavailable")
+        from tinker_delegate.control_plane import ControlPlane
+        _control_plane = ControlPlane(api_key)
+    return _control_plane
+
+
+# ---------------------------------------------------------------------------
+# Deal API models
+# ---------------------------------------------------------------------------
+
+class ArtifactUpload(BaseModel):
+    artifact_hex: str        # hex-encoded encrypted artifact
+    artifact_hash: str       # keccak256 of the artifact
+
+class DealFundedNotification(BaseModel):
+    deal_id: str
+    buyer: str
+    seller: str
+    budget_cap: int          # wei
+    reserve_price: int       # wei
+
+class DealResolvedNotification(BaseModel):
+    deal_id: str
+
+class EvaluationResultResponse(BaseModel):
+    deal_id: str
+    score_band: str
+    quality_delta: str
+    offer_price: int
+    recommendation: str
+    confidence: str
+    methodology_summary: str
+    compute_cost_wei: int
+    fee_wei: int
 
 
 @app.get("/health")
@@ -105,3 +160,104 @@ async def billing_add_balance(payload: BalancePayload):
     """
     result = await handle_add_balance(payload, settings)
     return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Deal lifecycle endpoints
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.post("/deal/notify-funded")
+async def deal_notify_funded(notification: DealFundedNotification):
+    """Called by the on-chain watcher when a deal is funded.
+
+    Creates an IsolatedTinkerSession for this deal.
+    """
+    cp = _get_control_plane()
+    ctx = cp.on_deal_funded(
+        deal_id=notification.deal_id,
+        buyer=notification.buyer,
+        seller=notification.seller,
+        budget_cap=notification.budget_cap,
+        reserve_price=notification.reserve_price,
+    )
+    return {"deal_id": ctx.deal_id, "state": ctx.state.value}
+
+
+@app.post("/deal/{deal_id}/artifact")
+async def deal_upload_artifact(deal_id: str, upload: ArtifactUpload):
+    """Seller uploads encrypted artifact. Held in memory only."""
+    cp = _get_control_plane()
+    try:
+        artifact_bytes = bytes.fromhex(upload.artifact_hex)
+        cp.receive_artifact(deal_id, artifact_bytes, upload.artifact_hash)
+        return {"deal_id": deal_id, "received": True, "size": len(artifact_bytes)}
+    except KeyError:
+        raise HTTPException(404, f"Deal {deal_id} not found")
+    except AssertionError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/deal/{deal_id}/evaluate")
+async def deal_evaluate(deal_id: str):
+    """Trigger evaluation for a deal that has received its artifact.
+
+    Uses the stub evaluator. In production, the evaluator is pluggable.
+    """
+    cp = _get_control_plane()
+
+    try:
+        from tinker_delegate.evaluator import stub_evaluate
+        result = await cp.evaluate(deal_id, stub_evaluate)
+        return EvaluationResultResponse(
+            deal_id=result.deal_id,
+            score_band=result.score_band.value,
+            quality_delta=result.quality_delta,
+            offer_price=result.offer_price,
+            recommendation=result.recommendation,
+            confidence=result.confidence,
+            methodology_summary=result.methodology_summary,
+            compute_cost_wei=result.compute_cost_wei,
+            fee_wei=result.fee_wei,
+        )
+    except KeyError:
+        raise HTTPException(404, f"Deal {deal_id} not found")
+    except AssertionError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/deal/{deal_id}/result", response_model=EvaluationResultResponse)
+async def deal_get_result(deal_id: str):
+    """Get bounded evaluation result for a completed deal."""
+    cp = _get_control_plane()
+    result = cp.get_result(deal_id)
+    if result is None:
+        raise HTTPException(404, f"No result for deal {deal_id}")
+    return EvaluationResultResponse(
+        deal_id=result.deal_id,
+        score_band=result.score_band.value,
+        quality_delta=result.quality_delta,
+        offer_price=result.offer_price,
+        recommendation=result.recommendation,
+        confidence=result.confidence,
+        methodology_summary=result.methodology_summary,
+        compute_cost_wei=result.compute_cost_wei,
+        fee_wei=result.fee_wei,
+    )
+
+
+@app.post("/deal/{deal_id}/resolve")
+async def deal_resolve(deal_id: str):
+    """Notify that a deal has been resolved on-chain.
+
+    Triggers cleanup: session destroyed, artifact zeroed.
+    """
+    cp = _get_control_plane()
+    cp.on_deal_resolved(deal_id)
+    return {"deal_id": deal_id, "resolved": True}
+
+
+@app.get("/deals")
+async def list_deals():
+    """List active deals."""
+    cp = _get_control_plane()
+    return {"active_deals": cp.active_deals}
