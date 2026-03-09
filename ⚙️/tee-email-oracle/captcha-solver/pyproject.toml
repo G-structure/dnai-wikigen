@@ -12,3 +12,10 @@ dependencies = [
 
 [project.scripts]
 solve-captcha = "captcha_solver.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["captcha_solver"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

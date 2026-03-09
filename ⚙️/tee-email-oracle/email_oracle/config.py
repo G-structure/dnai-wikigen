@@ -1,0 +1,35 @@
+"""Configuration from environment variables."""
+
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    # --- Credential store ---
+    # Local PoC: AES key from env. In dstack: replaced by derive_key().
+    cred_store_path: str = "/data/credentials.enc"
+    cred_store_key: str = ""  # 32-byte hex key; auto-generated if empty
+
+    # --- cock.li registration ---
+    cockli_register_url: str = "https://cock.li/register.php"
+    cockli_domain: str = "firemail.cc"
+    cockli_imap_host: str = "mail.cock.li"
+    cockli_imap_port: int = 993
+
+    # --- Neko / CDP browser fallback ---
+    cdp_url: str = "http://neko:9222"
+    use_browser_fallback: bool = False
+
+    # --- API ---
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+
+    # --- dstack (no-op locally, used in TEE) ---
+    dstack_socket: str = "/var/run/dstack.sock"
+    dstack_enabled: bool = False
+    dstack_key_path: str = "email/creds"
+
+    # --- IMAP polling ---
+    imap_poll_interval: int = 5  # seconds
+    imap_idle_timeout: int = 300  # seconds
+
+    model_config = {"env_prefix": "ORACLE_"}
