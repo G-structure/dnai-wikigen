@@ -1,0 +1,20 @@
+[project]
+name = "tinker-delegate"
+version = "0.1.0"
+description = "Automate Thinking Machines Tinker account signup and delegation inside TEE"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.49",
+    "httpx>=0.27",
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+]
+
+[project.scripts]
+tinker-delegate = "tinker_delegate.main:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -4,3 +4,6 @@
 *.private.md
 # Captcha solver samples
 ⚙️/tee-email-oracle/captcha-solver/samples/
+⚙️/tee-email-oracle/data
+⚙️/tee-email-oracle/.venv
+⚙️/tinker-delegate/.venv
