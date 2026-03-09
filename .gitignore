@@ -2,3 +2,5 @@
 .env
 # Private Markdown Files
 *.private.md
+# Captcha solver samples
+⚙️/tee-email-oracle/captcha-solver/samples/
