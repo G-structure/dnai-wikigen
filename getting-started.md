@@ -127,6 +127,147 @@ The highest-leverage posture is simple: show a running thing, ask one concrete t
 | Buyer error | Budget cap | Prevents runaway overpayment in bad model states. |
 | Seller protection | Acceptance threshold | Stops lowball acceptance from bad agent outputs. |
 
+## Browser automation with Chrome CDP in TEE containers
+
+A key capability for the diligence room is automating web interactions inside the TEE boundary — scraping authenticated pages, filling forms, capturing screenshots — without exposing credentials or session data outside the enclave. The CDP playground (`⚙️/cdp-playground/`) provides a ready-made setup for this using [m1k1o/neko](https://github.com/m1k1o/neko) + Chrome + Playwright, packaged as a dstack-ready docker-compose app.
+
+Several of Andrew Miller's submodules use this same pattern: `neko-with-playwright` for anti-bot-resistant browser automation, `neko_agent` for AI vision-driven browsing, and the zkTLS workflows that capture authenticated web content inside attested environments.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  docker compose                                             │
+│                                                             │
+│  ┌──────────────────────┐     ┌──────────────────────────┐  │
+│  │  neko-chrome          │     │  app                    │  │
+│  │                       │     │                         │  │
+│  │  Chrome (:9223)       │◄────│  Playwright             │  │
+│  │    ↕ nginx proxy      │ CDP │  connect_over_cdp()     │  │
+│  │  CDP endpoint (:9222) │     │                         │  │
+│  │                       │     │  FastAPI (:8000)        │  │
+│  │  Neko WebRTC (:8080)  │     │                         │  │
+│  └──────────┬────────────┘     └──────────┬──────────────┘  │
+│             │                             │                 │
+└─────────────┼─────────────────────────────┼─────────────────┘
+              │                             │
+         localhost:52100              localhost:8100
+         (watch browser)              (API)
+```
+
+**neko-chrome** = neko base + Google Chrome + nginx CDP proxy. You see the browser live at `:52100`, and the app drives it over CDP at `:9222`.
+
+### Quick start
+
+```bash
+cd "⚙️/cdp-playground"
+docker compose up -d
+```
+
+First build takes a few minutes (Chrome, Python deps). Then:
+
+| What | URL |
+|------|-----|
+| Watch Chrome live | http://localhost:52100 (password: `admin`) |
+| CDP version check | `curl http://localhost:9322/json/version` |
+| App health | `curl http://localhost:8100/health` |
+
+### Example commands
+
+```bash
+# Screenshot (returns PNG)
+curl -X POST http://localhost:8100/screenshot \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://example.com"}' -o screenshot.png
+
+# Scrape page metadata as JSON
+curl -X POST http://localhost:8100/scrape \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://example.com"}'
+
+# Execute JavaScript on a page
+curl -X POST http://localhost:8100/js \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://example.com", "script": "document.title"}'
+
+# Crawl multiple URLs
+curl -X POST http://localhost:8100/crawl \
+  -H 'Content-Type: application/json' \
+  -d '{"urls": ["https://example.com", "https://httpbin.org"]}'
+
+# Fill and submit a form
+curl -X POST http://localhost:8100/form \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://example.com", "fields": {"#input": "value"}, "submit_selector": "button"}'
+```
+
+Or use the CLI inside the container:
+```bash
+docker compose exec app python -m app.main screenshot https://example.com
+docker compose exec app python -m app.main scrape https://news.ycombinator.com
+docker compose exec app python -m app.main crawl https://example.com https://httpbin.org
+docker compose exec app python -m app.main js https://example.com "document.title"
+```
+
+### How CDP connection works
+
+The core pattern is Playwright's `connect_over_cdp()`:
+
+```python
+from playwright.async_api import async_playwright
+
+async with async_playwright() as p:
+    browser = await p.chromium.connect_over_cdp("http://172.31.0.3:9222")
+    page = await browser.contexts[0].new_page()
+    await page.goto("https://example.com")
+    title = await page.title()
+    await page.screenshot(path="/data/screenshot.png")
+    await page.close()  # close pages, never close browser (shared CDP session)
+```
+
+From inside Docker: `http://172.31.0.3:9222`. From the host: `http://localhost:9322`.
+
+### Developing your app
+
+The `docker-compose.yaml` mounts `./app` as a read-only volume, so edits are reflected immediately:
+
+```bash
+docker compose restart app   # pick up code changes
+```
+
+Add new automations in `app/automation.py`, new endpoints in `app/main.py`. Add Python deps to `pyproject.toml` and rebuild with `docker compose build app`.
+
+### Deploying to Phala Cloud TEE
+
+When ready for a Confidential VM:
+
+```bash
+# Build and push
+docker compose build
+docker tag cdp-playground-app:latest your-registry/cdp-playground:latest
+docker push your-registry/cdp-playground:latest
+
+# Deploy with dstack overlay
+docker compose -f docker-compose.yaml -f docker-compose.dstack.yaml up
+```
+
+The dstack overlay (`docker-compose.dstack.yaml`) mounts `/var/run/dstack.sock` for TDX attestation and KMS access, sets `DSTACK_ENABLED=true`, and removes the dev volume mount so app code is baked into the image. For reproducible builds, pin base images by digest (not tag) to ensure the docker image hash feeds cleanly into the attestation chain: `git SHA → docker digest → compose hash → TDX quote`.
+
+### Key gotcha: user-data-dir
+
+Chrome silently refuses to enable remote debugging if `--user-data-dir` points to the default `~/.config/google-chrome`. The neko-chrome image uses `--user-data-dir=/home/neko/.config/chrome-cdp` to work around this. No error is logged — CDP just doesn't start. This was the hardest thing to debug.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| CDP connection refused | `docker compose ps` to check neko is healthy, `curl http://localhost:9322/json/version` |
+| Chrome won't start (ARM Mac) | Ensure `platform: linux/amd64` in docker-compose.yaml. OrbStack handles Rosetta automatically. |
+| Neko viewer black screen | Wait 10-15s after first start. Chrome is slow under emulation. Try `docker compose restart neko`. |
+| "Target closed" errors | Don't call `browser.close()` — it kills the shared CDP session. Only close individual pages. |
+
+Source: `⚙️/cdp-playground/` — see `neko-chrome/README.md` for full neko-chrome build details.
+
 ## Source map
 - [1] Encode Club - Shape Rotator Virtual Hackathon: https://www.encodeclub.com/programmes/shape-rotator-virtual-hackathon
 - [2] Encode Club LinkedIn announcement (dates, partners, accelerator details): https://www.linkedin.com/posts/encode-club_announcing-shape-rotator-virtual-hackathon-activity-7427757784684879873-yeKP
