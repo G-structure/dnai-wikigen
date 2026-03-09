@@ -477,7 +477,24 @@ Developer                           TEE Boundary
 - The developer cannot use this channel to extract any secrets from the TEE
 - The TEE attests that the billing update code is the only code that handles card details
 
-**Implementation**: Depends on Tinker console recon. If Tinker has a billing API, a simple HTTPS call suffices. If billing is console-only, neko browser automation updates the payment method page.
+**Implementation**: Tinker billing is console-only (no billing API). Browser automation via Playwright fills the Stripe Elements iframe (PCI-compliant cross-origin iframe for card number/exp/CVC) and parent page fields (cardholder name, address). See `tinker_delegate/billing.py` for the implementation and `tinker_delegate/card_channel.py` for the secure channel wrapper.
+
+### 5.5 Tinker Pricing (as of 2026-03-08)
+
+Tinker uses a **prepaid balance** model with Stripe for payment processing.
+
+| Model | Prefill ($/M tok) | Sample ($/M tok) | Train ($/M tok) |
+|-------|-------------------|-------------------|-------------------|
+| Llama-3.2-1B | $0.03 | $0.09 | $0.09 |
+| Llama-3.1-8B | $0.13 | $0.40 | $0.40 |
+| Llama-3.3-70B | $0.40 | $0.90 | $1.10 |
+| Qwen3-235B | $0.68 | $1.70 | $2.04 |
+| **Storage** | $0.10/GB/month | | |
+
+Features:
+- **Auto-reload**: Configurable threshold + amount (e.g., "reload $50 when balance drops below $10")
+- **Credit grants**: Eligible accounts may receive promotional credits
+- **hCaptcha**: Invisible captcha on Stripe form (no manual solve required in neko)
 
 ### 5.3 Buyer Pays for Compute
 
@@ -764,29 +781,35 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] Discover: `cock.li`/`firemail.cc` domains blocked, `cock.email` passes
 - [x] Implement: full automation in `tinker_delegate/signup.py`
 
-### Phase 2: Core SDK Wrapper
+### Phase 2: Core SDK Wrapper ✅ IMPLEMENTED
 
-- [ ] Implement `IsolatedTinkerSession` (Python, uv + pyproject.toml)
+- [x] Implement `IsolatedTinkerSession` — `tinker_delegate/session.py`
+- [x] Path-checked sampling (only models from this session's training run)
+- [x] Mandatory TTL on all checkpoint saves (MIN_TTL=1h, MAX_TTL=24h)
+- [x] Cost metering: per-token tracking with model-specific pricing
+- [x] Cleanup: deletes all checkpoints from this deal's training run
 - [ ] Unit tests: session isolation (cannot access other paths)
 - [ ] Unit tests: mandatory cleanup (all checkpoints deleted)
-- [ ] Unit tests: TTL enforcement (ttl_seconds always set)
 - [ ] Integration test: create training run → train → sample → cleanup → verify deletion
 
 ### Phase 3: Evaluator Agent (Stub)
 
 - [ ] Implement stub agent that trains for N steps on a dummy dataset
-- [ ] Output bounding: raw metrics → score bands
+- [x] Output bounding: raw metrics → score bands — `tinker_delegate/control_plane.py`
 - [ ] Test with a real Tinker API key locally (before TEE deployment)
 - [ ] Evaluation protocol for SFT datasets (the most common artifact type)
 
-### Phase 4: Control Plane
+### Phase 4: Control Plane ✅ IMPLEMENTED (watcher pending)
 
+- [x] Deal lifecycle state machine — `tinker_delegate/control_plane.py`
+- [x] Session factory (creates IsolatedTinkerSession per deal)
+- [x] Artifact ingress (encrypted, memory-only, zeroed on resolution)
+- [x] Output bounding (raw delta → score band → offer price)
+- [x] Cleanup enforcement on deal resolution
+- [x] Orphan cleanup on boot (scans training runs with deal_id metadata)
 - [ ] On-chain event watcher (ethers.js or web3.py listening to DiligenceRoom events)
-- [ ] Deal lifecycle state machine
-- [ ] Artifact upload endpoint (encrypted, memory-only)
 - [ ] Result endpoint (bounded output + TDX quote)
-- [ ] Cleanup enforcement on deal resolution
-- [ ] Orphan cleanup on boot
+- [ ] Control plane API endpoints in FastAPI
 
 ### Phase 5: Smart Contract
 
@@ -795,11 +818,13 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [ ] Deploy to Base Sepolia via `/forge-deploy`
 - [ ] Verify on BaseScan via `/forge-verify`
 
-### Phase 6: TEE Integration
+### Phase 6: TEE Integration (partial)
 
-- [ ] `docker-compose.yaml` — email oracle + control plane + agent
+- [x] `docker-compose.yaml` — delegate service with Dockerfile
+- [x] `docker-compose.dstack.yaml` — dstack overlay (neko + oracle network, TDX sock)
+- [x] Encryption channel: X25519 + AES-256-GCM for card delivery — `tinker_delegate/crypto.py`
+- [x] TDX quote stubs (local) / real generation (dstack) in attestation endpoints
 - [ ] Replace file-based key store with `dstack_sdk.TappdClient.derive_key()`
-- [ ] Add TDX quote generation on evaluation results
 - [ ] Local testing with `/phala-simulator`
 - [ ] Deploy to Phala Cloud via `/phala-deploy`
 
@@ -825,11 +850,11 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 
 1. ~~**Tinker console signup flow**~~ — **RESOLVED**. Chrome CDP via neko + Playwright. Next.js SPA, passwordless magic-code auth (6-digit OTP), no captcha, no phone verification. `cock.email` domain passes blocklist. Full automation implemented in `tinker_delegate/signup.py`. See `README.md` for detailed recon findings.
 
-2. **Tinker billing settings page** — Can credit card details be updated via API, or does it require browser automation? What does the billing page look like? This determines the implementation of the encrypted card update channel (Section 5.2).
+2. ~~**Tinker billing settings page**~~ — **RESOLVED**. No billing API — console-only. Stripe Elements iframe for card input (PCI-compliant cross-origin iframe). Parent page has cardholder name + billing address fields. hCaptcha invisible on form. Auto-reload configurable. Prepaid balance model. Implementation: `tinker_delegate/billing.py` (browser automation) + `tinker_delegate/card_channel.py` (secure encrypted channel) + `tinker_delegate/api.py` (FastAPI endpoints).
 
 3. **TTL reliability** — Does Tinker actually purge expired checkpoints and make them inaccessible after `ttl_seconds`? Or are they just marked expired but still fetchable? Needs empirical testing.
 
-4. **Cost metering precision** — Tinker's pricing model (per-token, per-step, per-model) needs to be documented precisely so we can compute costs from our metered data. The Tinker homepage "displays available models and pricing information" (from GA blog post) — need to scrape this.
+4. ~~**Cost metering precision**~~ — **RESOLVED**. Pricing is per-million-tokens, split into prefill/sample/train rates per model. See Section 5.5 for the full pricing table. Cost metering in `IsolatedTinkerSession` tracks tokens processed per API call and multiplies by the model-specific rate.
 
 5. **Tinker trust gap** — Training data is sent to Tinker's servers in plaintext. For the hackathon, we accept and document this. Long-term, need encrypted compute or self-hosted training inside a GPU-TEE.
 

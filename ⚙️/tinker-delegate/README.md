@@ -97,6 +97,35 @@ uv venv && uv pip install playwright httpx pydantic pydantic-settings
 
 # Sign in: re-authenticates existing account via OTP
 .venv/bin/python -m tinker_delegate.main signin
+
+# Check balance
+.venv/bin/python -m tinker_delegate.main balance
+
+# Add payment method (card details — use encrypted channel in production)
+.venv/bin/python -m tinker_delegate.main add-card \
+  --number 4242424242424242 \
+  --exp-month 12 --exp-year 2028 \
+  --cvc 123 --name "Dev Team" \
+  --address-line1 "123 Main St" --address-city "SF" \
+  --address-state "CA" --address-postal "94105"
+
+# Add balance (requires card on file)
+.venv/bin/python -m tinker_delegate.main add-balance 50.00
+
+# Start API server (for TEE deployment)
+.venv/bin/python -m tinker_delegate.main serve --port 8080
+```
+
+### API Server
+
+The `serve` command starts a FastAPI server for programmatic access:
+
+```
+GET  /health              — service health + oracle email
+GET  /attestation         — TDX attestation quote (verify before sending card)
+GET  /billing/balance     — current Tinker balance
+POST /billing/card        — add payment method (card encrypted to TEE)
+POST /billing/add-balance — add credit balance
 ```
 
 ### Signup Output
@@ -143,7 +172,13 @@ tinker_delegate/
 ├── config.py          # Pydantic Settings with TINKER_ prefix
 ├── oracle_client.py   # HTTP client for email oracle /pin /health /inbox
 ├── signup.py          # Browser automation: auth, onboarding, API key creation
-└── main.py            # CLI: check, signup, signin
+├── billing.py         # Browser automation: Stripe card form, balance, auto-reload
+├── card_channel.py    # Secure card delivery channel (encrypted in production)
+├── crypto.py          # X25519 + AES-256-GCM encryption for card channel
+├── session.py         # IsolatedTinkerSession: sandboxed SDK wrapper + cost meter
+├── control_plane.py   # Deal lifecycle orchestration + output bounding
+├── api.py             # FastAPI server: /health, /attestation, /billing/*
+└── main.py            # CLI: check, signup, signin, balance, add-card, add-balance, serve
 ```
 
 ### signup.py — Key Functions
@@ -189,6 +224,17 @@ tinker_delegate/
 - **Key modal**: "This key will ONLY appear once" warning, Copy button, Close button
 - **Initial load bug**: Keys page shows "Loading..." on first visit, requires `page.reload()` to render properly
 
+### Billing (tinker-console.thinkingmachines.ai/billing)
+
+- **Payment**: Stripe Elements (cross-origin iframe for PCI compliance)
+- **Card iframe**: `input[name="cardnumber"]`, `input[name="exp-date"]`, `input[name="cvc"]`
+- **Parent fields**: `#cardholder-name`, `#service-line1`, `#service-city`, `#service-state`, `#service-postal-code`, `#service-country`
+- **hCaptcha**: Invisible on form (no manual solve needed in neko)
+- **Model**: Prepaid balance (add credit, spend on API usage)
+- **Auto-reload**: Configurable threshold + amount
+- **Pricing** (USD/million tokens): Llama-3.2-1B $0.03-$0.09, Llama-3.1-8B $0.13-$0.40, Qwen3-235B $0.68-$2.04
+- **Trust model**: Developer encrypts card to TEE's TDX key → TEE fills Stripe form → zeroes memory → card never persisted
+
 ### Browser Automation Notes
 
 - **CDP connection**: `playwright.chromium.connect_over_cdp("http://localhost:9222")`
@@ -217,9 +263,10 @@ The API key is sealed via dstack-KMS after creation — only the same enclave ca
 
 ## What's Next
 
-This module handles Phase 1 (account provisioning). The remaining phases from SPEC.md:
+Phases 1 (account provisioning) and billing are complete. IsolatedTinkerSession and control plane are implemented. Remaining:
 
-- **IsolatedTinkerSession** — Python SDK wrapper enforcing session isolation + TTL cleanup
-- **Evaluator agent** — trains on seller's artifact, benchmarks, emits bounded scores
-- **Control plane API** — TEE-hosted service mediating escrow contract ↔ agent
-- **DiligenceRoom contract** — escrow state machine on Base Sepolia
+- **Evaluator agent** — plug a real evaluation function into `control_plane.evaluate()`
+- **On-chain watcher** — listen for DiligenceRoom events, call control plane methods
+- **DiligenceRoom contract** — escrow state machine on Base Sepolia (Solidity)
+- **TEE deployment** — merge docker-compose with email oracle, deploy to Phala Cloud
+- **API key sealing** — use `dstack_sdk.TappdClient.derive_key("tinker/api_key")` in production

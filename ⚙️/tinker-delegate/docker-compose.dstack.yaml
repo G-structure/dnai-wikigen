@@ -1,0 +1,27 @@
+###############################################################################
+# Tinker Delegate — dstack / Phala Cloud overlay
+#
+# Deploy alongside tee-email-oracle in the same CVM:
+#   Merge both compose files for the CVM deployment.
+#
+# This overlay:
+#   - Connects to neko Chrome + email oracle on the CVM internal network
+#   - Mounts dstack.sock for TDX attestation + KMS key derivation
+#   - Enables dstack mode for real attestation quotes
+###############################################################################
+
+services:
+  delegate:
+    environment:
+      TINKER_CDP_URL: http://172.30.0.3:9222
+      TINKER_ORACLE_URL: http://oracle:8000
+      DSTACK_ENABLED: "true"
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    networks:
+      - oracle-net
+
+networks:
+  oracle-net:
+    external: true
+    name: tee-email-oracle_oracle-net

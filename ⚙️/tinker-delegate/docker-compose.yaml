@@ -1,0 +1,28 @@
+###############################################################################
+# Tinker Delegate — Local dev compose
+#
+# Requires tee-email-oracle services running (neko + oracle):
+#   cd ⚙️/tee-email-oracle && docker compose --profile browser up -d
+#
+# Then:
+#   docker compose up -d
+#
+# API:
+#   curl http://localhost:8080/health
+#   curl http://localhost:8080/billing/balance
+###############################################################################
+
+services:
+  delegate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      TINKER_CDP_URL: ${TINKER_CDP_URL:-http://host.docker.internal:9222}
+      TINKER_ORACLE_URL: ${TINKER_ORACLE_URL:-http://host.docker.internal:8000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

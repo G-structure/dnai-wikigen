@@ -10,6 +10,12 @@ dependencies = [
     "uvicorn>=0.34",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
+    "cryptography>=44.0",
+]
+
+[project.optional-dependencies]
+agent = [
+    "tinker",    # Thinking Machines SDK (for IsolatedTinkerSession + evaluator)
 ]
 
 [project.scripts]
