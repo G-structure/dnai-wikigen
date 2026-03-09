@@ -85,3 +85,15 @@
 	path = 🔬/amiller/oauth3-openclaw--tiktok-plugin
 	url = https://github.com/amiller/oauth3-openclaw.git
 	branch = feat/tiktok-plugin
+[submodule "🔬/G-structure/neko_agent"]
+	path = 🔬/G-structure/neko_agent
+	url = https://github.com/G-structure/neko_agent.git
+[submodule "🔬/G-structure/neko"]
+	path = 🔬/G-structure/neko
+	url = https://github.com/G-structure/neko.git
+[submodule "🔬/amiller/neko-with-playwright"]
+	path = 🔬/amiller/neko-with-playwright
+	url = https://github.com/amiller/neko-with-playwright.git
+[submodule "🔬/m1k1o/neko"]
+	path = 🔬/m1k1o/neko
+	url = https://github.com/m1k1o/neko.git

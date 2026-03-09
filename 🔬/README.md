@@ -21,6 +21,10 @@
 | 10 | [teleport-gramine-rs](#teleport-gramine-rs) | One-time-use credential delegation via SGX NFTs | 🟢 Reference |
 | 11 | [oauth3-skill](#oauth3-skill) | Agent SDK for TEE-backed code execution with human approval | 🟢 Reference |
 | 12 | [hermes](#hermes) | MCP server in Phala TDX — staged publishing + pseudonymous identity | 🟢 Reference |
+| 13 | [neko (upstream)](#neko-upstream) | m1k1o/neko — self-hosted virtual browser via Docker + WebRTC | 🟢 Reference |
+| 14 | [neko (G-structure fork)](#neko-g-structure-fork) | Fork with Nix packaging + GHCR CI — anti-bot-resistant virtual browser | 🟡 High |
+| 15 | [neko_agent](#neko_agent) | AI vision agent that drives neko for automated browser tasks in TEE | 🟡 High |
+| 16 | [neko-with-playwright](#neko-with-playwright) | CDP playground — Neko + Playwright for programmatic browser control | 🟡 High |
 
 ---
 
@@ -285,6 +289,58 @@ MCP server running in Phala Cloud TDX. Shared pseudonymous notebook for Claude i
 
 ---
 
+## Browser Automation
+
+### neko (upstream)
+`🔬/m1k1o/neko`
+
+The original [m1k1o/neko](https://github.com/m1k1o/neko) — a self-hosted virtual browser that runs in Docker and streams via WebRTC. Runs a full Chromium instance behind a real display server so anti-bot countermeasures (fingerprinting, headless detection, CAPTCHAs) see a normal desktop browser, not a headless automation tool.
+
+**Takeaway:** The upstream reference. Actively maintained (latest commit 2026-03-08). Use this to stay current with Neko features and security patches.
+
+---
+
+### neko (G-structure fork)
+`🔬/G-structure/neko`
+
+G-structure's fork of m1k1o/neko with custom additions by Luc Chartier (2025-12-03): Nix packaging (`flake.nix`, `nix/`, `overlays/`), GHCR container registry CI, font fixes, dbus support, and Python2 compatibility. ~3 months behind upstream.
+
+**Takeaway:** The Nix-packaged version for reproducible builds and TEE deployment. Pairs with `neko_agent` for the full automation stack.
+
+---
+
+### neko_agent
+`🔬/G-structure/neko_agent`
+
+AI-powered browser automation agent that connects to Neko servers via WebRTC. Uses vision models (ShowUI-2B/Qwen2VL) for visual reasoning and executes GUI actions (click, type, scroll, navigate) in a real desktop browser session.
+
+**Slides under the lens:**
+- `src/agent.py` — Core automation agent with WebRTC integration and AI vision loop
+- `src/capture.py` — Training data capture in MosaicML Streaming format
+- `src/yap.py` — Text-to-speech via F5-TTS over WebRTC audio
+- `src/train.py` — Fine-tune on captured interaction data
+- `docker-compose/` — Neko server configurations
+- `nix/` — Reproducible builds with TEE attestation metadata
+- `flake.nix` — Dev shells for CPU, GPU, docs, neko services, and TEE deployment
+
+**Takeaway:** Neko provides the anti-bot-resistant browser playground; neko_agent drives it with AI vision. Together they give you programmatic browser automation that looks like a real user to every detection layer. Deploys to TEE with reproducible Nix builds and TDX attestation. The training data pipeline means the agent gets better at navigating sites over time.
+
+---
+
+### neko-with-playwright
+`🔬/amiller/neko-with-playwright`
+
+Andrew Miller's CDP playground — minimal setup proving Chrome DevTools Protocol works through Neko's nginx proxy.
+
+**Slides under the lens:**
+- `docker-compose.yml` — Neko Chromium with CDP on port 9222 via nginx reverse proxy, custom supervisord config with `--remote-debugging-port`, `--remote-allow-origins="*"`, `--force-devtools-available`
+- `test.js` — Full CDP handshake debugger: connects to `localhost:9222`, discovers targets, creates browser sessions, runs `Runtime.evaluate`
+- `test4.js` — Session attachment test: target discovery, `attachToTarget` with `flatten: true`, `Runtime.enable`
+
+**Takeaway:** The reference proof-of-concept for CDP-over-Neko. Shows exactly how to proxy CDP WebSocket connections through nginx so Playwright/Puppeteer can control a Neko browser programmatically. Starting point for wiring neko_agent's vision loop to CDP commands.
+
+---
+
 ## Architecture Cheat Sheet
 
 ```
@@ -302,6 +358,9 @@ Identity Proofs             → github-zktls-1 (Sigstore + ZK)
 Multi-TEE Federation        → github-zktls-1 --groupauth
 Policy Engine               → oauth3-openclaw --conseca-policy-engine
 Capability Sandboxing       → oauth3-openclaw --ses-compartment
+Browser Automation in TEE   → github-zktls-1 --sealed-box (browser-container/)
+CDP over Neko               → neko-with-playwright (amiller)
+Browser Agent + Anti-Bot    → neko_agent + neko fork (G-structure)
 Verification Chain          → hermes (VERIFICATION-REPORT.md)
 ```
 
