@@ -369,9 +369,10 @@ Build the core without TEE to validate the email automation flow:
 
 1. ~~**Provider selection**~~: **Decided: cock.li.** See PROVIDER-COMPARISON.md.
 
-2. **Same-compose vs cross-compose**: Should the email oracle and its
-   consumers live in the same docker-compose (shared `app_id`, simpler
-   key sharing) or separate CVMs (stronger isolation, harder key sharing)?
+2. ~~**Same-compose vs cross-compose**~~: **Decided: cross-compose.**
+   Oracle and consumers run in separate CVMs with separate `app_id`s.
+   Stronger isolation, consumer auth via mutual TDX attestation +
+   on-chain allowlist. See `CONTRACT-SPEC.md` for consumer auth design.
 
 3. **Email retention**: Should the oracle delete emails after extracting
    pins? Reduces exposure window but loses audit trail.
@@ -386,9 +387,11 @@ Build the core without TEE to validate the email automation flow:
    when the consumer requests it? IMAP IDLE for push notification, or
    polling with exponential backoff and timeout?
 
-7. **Deliverability**: Will target services accept verification emails
-   sent to `@firemail.cc` / `@airmail.cc` addresses? Need to test with
-   common services (Google, GitHub, Discord, etc.).
+7. ~~**Deliverability**~~: **Resolved for our use case.** The only target
+   service is Thinking Machines Tinker. Recon confirmed `cock.email`
+   domain passes their blocklist (`cock.li` and `firemail.cc` are blocked).
+   Default domain config should be `cock.email` for Tinker deployments.
+   General deliverability to other services is out of scope.
 
 ## 8. References
 

@@ -1,0 +1,45 @@
+###############################################################################
+# Unified Cross-Compose — dstack / Phala Cloud overlay
+#
+# Deploy all services as a single CVM on Phala Cloud:
+#   docker compose -f docker-compose.all.yaml -f docker-compose.all.dstack.yaml up
+#
+# This overlay:
+#   - Activates neko (always on in prod — no profile restriction)
+#   - Mounts dstack.sock on oracle + delegate for TDX attestation + KMS
+#   - Enables dstack mode on both services
+#   - Oracle waits for neko health before starting
+#   - Delegate waits for oracle health before starting
+#   - Service-to-service auth via dstack derive_key (see docs/ORACLE-AUTH-SCOPE.md)
+#
+# Trust boundary:
+#   All three containers share a CVM. The compose hash in the TDX quote
+#   covers all services — attestation proves the exact set of containers.
+#   dstack.sock is only mounted on oracle + delegate (not neko).
+###############################################################################
+
+services:
+  # Activate neko in prod (remove profile restriction)
+  neko:
+    profiles: !reset []
+
+  oracle:
+    depends_on:
+      neko:
+        condition: service_healthy
+    volumes:
+      - oracle-data:/data
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    environment:
+      ORACLE_DSTACK_ENABLED: "true"
+      ORACLE_CRED_STORE_KEY: ""
+      ORACLE_USE_BROWSER_FALLBACK: "true"
+      ORACLE_CDP_URL: http://172.20.0.3:9222
+
+  delegate:
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    environment:
+      DSTACK_ENABLED: "true"
+      TINKER_CDP_URL: http://172.20.0.3:9222
+      TINKER_ORACLE_URL: http://172.20.0.4:8000
