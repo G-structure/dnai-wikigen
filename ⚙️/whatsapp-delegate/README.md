@@ -43,17 +43,26 @@ docker compose up -d
 # Watch the browser live:
 open http://localhost:52200   # password: admin
 
-# Login flow:
+# Step 1: Start login — returns a linking code
 curl -X POST http://localhost:8200/login \
   -H 'Content-Type: application/json' \
-  -d '{"phone_number": "+1234567890"}'
+  -d '{"phone_number": "+12025551234"}'
+# → {"status": "awaiting_link", "linking_code": "6NAC-Y7RA"}
 
-# Enter SMS code:
-curl -X POST http://localhost:8200/verify \
+# Step 2: User enters the code on their phone:
+#   WhatsApp → Settings → Linked Devices → Link device
+#   → "Link with phone number instead" → type the code
+
+# Step 2a: Poll until linked (non-blocking):
+curl http://localhost:8200/login/status
+# → {"status": "waiting"} or {"status": "logged_in"}
+
+# Step 2b: Or block until linked (up to 120s):
+curl -X POST http://localhost:8200/login/wait \
   -H 'Content-Type: application/json' \
-  -d '{"code": "123456"}'
+  -d '{"timeout_seconds": 120}'
 
-# Export and seal messages:
+# Step 3: Export and seal messages:
 curl -X POST http://localhost:8200/export \
   -H 'Content-Type: application/json' \
   -d '{"max_chats": 50}'

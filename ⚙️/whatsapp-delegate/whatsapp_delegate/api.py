@@ -1,31 +1,35 @@
 """WhatsApp Delegate — FastAPI endpoints.
 
 Flow:
-  1. POST /login             — enter phone number, get linking code
-  2. GET  /login/status      — poll: has the phone linked yet?
-  3. POST /login/wait        — blocking: wait up to N seconds for link
-  4. POST /export            — scrape chats and seal them encrypted at rest
-  5. GET  /status            — check whether sealed data exists
-  6. POST /pipeline/approve  — owner approves a pipeline digest
-  7. POST /pipeline/revoke   — owner revokes a pipeline
-  8. GET  /pipeline/list     — list approved pipelines
-  9. POST /pipeline/query    — approved pipeline queries bounded data
-  10. DELETE /data           — owner destroys sealed data
-  11. GET  /attestation      — TDX attestation quote (TEE only)
-  12. GET  /health           — liveness
-  13. GET  /screenshot       — debug screenshot of the browser
+  1. POST /login/qr          — navigate to WhatsApp Web, get QR code for scanning
+  2. GET  /login/qr          — get fresh QR code PNG (rotates every ~20s)
+  3. POST /login             — fallback: enter phone number, get linking code
+  4. GET  /login/status      — poll: has the phone linked yet?
+  5. POST /login/wait        — blocking: wait up to N seconds for link
+  6. POST /export            — scrape chats and seal them encrypted at rest
+  7. GET  /status            — check whether sealed data exists
+  8. POST /pipeline/approve  — owner approves a pipeline digest
+  9. POST /pipeline/revoke   — owner revokes a pipeline
+  10. GET  /pipeline/list    — list approved pipelines
+  11. POST /pipeline/query   — approved pipeline queries bounded data
+  12. DELETE /data           — owner destroys sealed data
+  13. GET  /attestation      — TDX attestation quote (TEE only)
+  14. GET  /health           — liveness
+  15. GET  /screenshot       — debug screenshot of the browser
 """
 
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 from .automation import (
     check_login_status,
     export_chats,
-    login_whatsapp,
+    get_qr_code,
+    login_phone,
+    login_qr,
     take_screenshot,
     wait_for_login,
 )
@@ -105,13 +109,34 @@ async def status():
 # ─── WhatsApp login flow ───────────────────────────────────────────────
 
 
+@app.post("/login/qr")
+async def api_login_qr():
+    """Primary: Navigate to WhatsApp Web and get QR code for scanning.
+
+    User scans QR with phone: WhatsApp → Linked Devices → Link device → camera.
+    """
+    result = await login_qr()
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["detail"])
+    return result
+
+
+@app.get("/login/qr")
+async def api_get_qr():
+    """Get fresh QR code as PNG image (WhatsApp rotates every ~20s)."""
+    png = await get_qr_code()
+    if png is None:
+        raise HTTPException(status_code=404, detail="No QR code available — call POST /login/qr first")
+    return Response(content=png, media_type="image/png")
+
+
 @app.post("/login")
 async def api_login(req: LoginRequest):
-    """Step 1: Navigate to WhatsApp Web, enter phone number, get linking code.
+    """Fallback: Enter phone number, get 8-char linking code.
 
-    Returns the 8-char code the user must enter on their phone.
+    Use POST /login/qr instead for the primary QR scan method.
     """
-    result = await login_whatsapp(req.phone_number)
+    result = await login_phone(req.phone_number)
     if result["status"] == "error":
         raise HTTPException(status_code=400, detail=result["detail"])
     return result
@@ -119,14 +144,14 @@ async def api_login(req: LoginRequest):
 
 @app.get("/login/status")
 async def api_login_status():
-    """Step 2a: Check if the phone has linked (non-blocking poll)."""
+    """Check if the phone has linked (non-blocking poll)."""
     result = await check_login_status()
     return result
 
 
 @app.post("/login/wait")
 async def api_login_wait(req: WaitRequest):
-    """Step 2b: Block until the phone links or timeout (default 120s)."""
+    """Block until the phone links or timeout (default 120s)."""
     result = await wait_for_login(timeout_seconds=req.timeout_seconds)
     if result["status"] == "error":
         raise HTTPException(status_code=400, detail=result["detail"])

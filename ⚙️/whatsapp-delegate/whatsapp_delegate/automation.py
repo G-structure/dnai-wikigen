@@ -1,21 +1,22 @@
 """WhatsApp Web automation via Playwright + CDP.
 
 Connects to the neko Chrome instance over CDP, logs into WhatsApp Web
-using the linked-device phone-number flow, then extracts chat history.
+via QR code scanning, then extracts chat history from the DOM.
 
-WhatsApp Web linked-device flow:
+WhatsApp Web QR login flow:
   1. Navigate to web.whatsapp.com
-  2. Click "Log in with phone number"
-  3. Enter phone number → click Next
-  4. WhatsApp displays an 8-char linking code (e.g. "2AJP-FPD1")
-  5. User enters that code on their phone (WhatsApp → Linked Devices → Link)
-  6. Browser session activates, chats load
-  7. Scrape chat list and messages
+  2. WhatsApp displays a QR code
+  3. User scans QR with phone camera (WhatsApp → Linked Devices → Link device)
+  4. Browser becomes a linked device, chats sync
+  5. Scrape chat list and messages
+
+Also supports phone-number linking code as a fallback.
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,6 +32,9 @@ WHATSAPP_URL = "https://web.whatsapp.com"
 MAX_CHATS = 100
 MAX_MESSAGES_PER_CHAT = 500
 PAGE_TIMEOUT = 60_000
+
+# Path for QR code image
+QR_CODE_PATH = "/data/qr_code.png"
 
 
 async def _connect_browser():
@@ -48,12 +52,104 @@ async def _find_whatsapp_page(browser):
     return None
 
 
-async def login_whatsapp(phone_number: str) -> dict:
+# ---------------------------------------------------------------------------
+# QR code login (primary method)
+# ---------------------------------------------------------------------------
+
+
+async def login_qr() -> dict:
+    """Navigate to WhatsApp Web and return the QR code for scanning.
+
+    The user scans the QR with their phone:
+      WhatsApp → Settings → Linked Devices → Link device → point camera
+
+    Returns:
+        {"status": "awaiting_scan", "qr_image_path": "/data/qr_code.png"}
+        or {"status": "error", "detail": "..."}
+    """
+    p, browser = await _connect_browser()
+    try:
+        # Close any stale WhatsApp pages
+        for pg in browser.contexts[0].pages:
+            if "web.whatsapp.com" in pg.url:
+                await pg.close()
+
+        page = await browser.contexts[0].new_page()
+        await page.goto(WHATSAPP_URL, wait_until="domcontentloaded", timeout=PAGE_TIMEOUT)
+
+        # Wait for QR code to render (canvas element inside the QR container)
+        try:
+            await page.wait_for_selector("canvas", timeout=30_000)
+        except Exception:
+            return {"status": "error", "detail": "WhatsApp Web did not show QR code in time"}
+
+        # Extra wait for the QR to be fully painted
+        await page.wait_for_timeout(2000)
+
+        # Extract QR code from canvas as PNG
+        qr_b64 = await page.evaluate("""() => {
+            const canvas = document.querySelector('canvas');
+            if (!canvas) return null;
+            return canvas.toDataURL('image/png');
+        }""")
+
+        if not qr_b64:
+            return {"status": "error", "detail": "Could not extract QR code from canvas"}
+
+        # Save QR image
+        data = qr_b64.split(",")[1]
+        raw = base64.b64decode(data)
+        Path(QR_CODE_PATH).parent.mkdir(parents=True, exist_ok=True)
+        Path(QR_CODE_PATH).write_bytes(raw)
+
+        return {
+            "status": "awaiting_scan",
+            "detail": (
+                "Scan this QR code with your phone: "
+                "WhatsApp → Settings → Linked Devices → Link device → point camera at QR"
+            ),
+        }
+
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
+async def get_qr_code() -> bytes | None:
+    """Get a fresh QR code image (PNG bytes).
+
+    WhatsApp rotates the QR code every ~20 seconds. This extracts
+    the current one from the canvas.
+
+    Returns:
+        PNG bytes or None if no QR is available.
+    """
+    p, browser = await _connect_browser()
+    page = await _find_whatsapp_page(browser)
+    if page is None:
+        return None
+
+    qr_b64 = await page.evaluate("""() => {
+        const canvas = document.querySelector('canvas');
+        if (!canvas) return null;
+        return canvas.toDataURL('image/png');
+    }""")
+
+    if not qr_b64:
+        return None
+
+    data = qr_b64.split(",")[1]
+    return base64.b64decode(data)
+
+
+# ---------------------------------------------------------------------------
+# Phone-number linking code login (fallback)
+# ---------------------------------------------------------------------------
+
+
+async def login_phone(phone_number: str) -> dict:
     """Navigate to WhatsApp Web, enter phone number, return the linking code.
 
-    The user must enter the returned code on their phone:
-      WhatsApp → Settings → Linked Devices → Link device
-      → "Link with phone number instead" → type the code
+    Fallback method if QR scanning isn't convenient.
 
     Args:
         phone_number: Full international number, e.g. "+15551234567"
@@ -64,10 +160,15 @@ async def login_whatsapp(phone_number: str) -> dict:
     """
     p, browser = await _connect_browser()
     try:
+        # Close any stale WhatsApp pages
+        for pg in browser.contexts[0].pages:
+            if "web.whatsapp.com" in pg.url:
+                await pg.close()
+
         page = await browser.contexts[0].new_page()
         await page.goto(WHATSAPP_URL, wait_until="domcontentloaded", timeout=PAGE_TIMEOUT)
 
-        # Wait for the QR code page to fully render
+        # Wait for QR page to render
         try:
             await page.wait_for_selector(
                 'text="Log in with phone number"',
@@ -76,9 +177,10 @@ async def login_whatsapp(phone_number: str) -> dict:
         except Exception:
             return {"status": "error", "detail": "WhatsApp Web did not load in time"}
 
-        # Click "Log in with phone number" button. There are two similar
-        # elements: a hidden "Link with phone number instead." (x=-999) and
-        # the visible "Log in with phone number" button. Use last match.
+        # Extra wait for React hydration
+        await page.wait_for_timeout(3000)
+
+        # Click "Log in with phone number"
         btn = page.locator('div[role=button]:has-text("Log in with phone number")')
         await btn.last.click(timeout=5000)
         await page.wait_for_timeout(3000)
@@ -90,33 +192,27 @@ async def login_whatsapp(phone_number: str) -> dict:
         try:
             await phone_input.wait_for(timeout=10_000)
         except Exception:
-            # Fallback: any text input
             phone_input = page.locator("input[type='text']").first
             try:
                 await phone_input.wait_for(timeout=5_000)
             except Exception:
                 return {"status": "error", "detail": "Could not find phone input field"}
 
-        # The input field already has the country code (e.g. "+1 ") from the
-        # country selector. We must fill ONLY the local number after the prefix.
-        # If user gives "+15551234567", strip the "+1" to get "5551234567".
+        # Strip country code — the field already has the prefix from the selector
+        import re
+
         current_value = await phone_input.input_value()
-        prefix = current_value.strip()  # e.g. "+1"
+        prefix = current_value.strip()
 
         local_number = phone_number.strip()
-        # Strip matching country code prefix
         if prefix and local_number.startswith(prefix):
             local_number = local_number[len(prefix):]
         elif local_number.startswith("+"):
-            # Strip +<digits> country code (1-3 digits)
-            import re
             m = re.match(r"^\+(\d{1,3})", local_number)
             if m:
                 local_number = local_number[len(m.group(0)):]
         local_number = local_number.strip()
 
-        # Use fill() which replaces the field content.
-        # The country selector prefix (+1) is maintained separately by WhatsApp.
         await phone_input.fill(local_number)
         await page.wait_for_timeout(500)
 
@@ -127,10 +223,9 @@ async def login_whatsapp(phone_number: str) -> dict:
         except Exception:
             await page.keyboard.press("Enter")
 
-        # Wait for the linking code to appear
         await page.wait_for_timeout(5000)
 
-        # Extract the 8-character linking code from the page
+        # Extract the linking code
         linking_code = await _extract_linking_code(page)
         if not linking_code:
             return {"status": "error", "detail": "Could not extract linking code from page"}
@@ -150,25 +245,16 @@ async def login_whatsapp(phone_number: str) -> dict:
 
 
 async def _extract_linking_code(page: Page) -> str | None:
-    """Extract the 8-char linking code (e.g. '2AJP-FPD1') from the code display.
-
-    WhatsApp renders individual characters in separate elements.
-    We look for the "Enter code on phone" heading, then grab the code chars.
-    """
+    """Extract the linking code from the code display page."""
     try:
-        # Check we're on the code page
         heading = page.get_by_text("Enter code on phone")
         await heading.wait_for(timeout=5000)
     except Exception:
         return None
 
-    # The code characters are rendered as individual spans/divs in a container.
-    # Extract all single-character text from the code area.
-    # The page body text shows them as individual lines: "2\nA\nJ\nP\n-\nF\nP\nD\n1"
     text = await page.inner_text("body")
     lines = text.split("\n")
 
-    # Find the "Enter code on phone" line and extract code chars after it
     code_chars = []
     capturing = False
     for line in lines:
@@ -180,28 +266,26 @@ async def _extract_linking_code(page: Page) -> str | None:
             if len(line) == 1 and (line.isalnum() or line == "-"):
                 code_chars.append(line)
             elif line.startswith("Open WhatsApp") or line.startswith("1"):
-                # Hit the instructions section — stop
                 break
-            # Skip the "Linking WhatsApp account..." line
             if len(line) > 3:
                 continue
 
     if len(code_chars) >= 8:
-        # Format: XXXX-XXXX (chars include the dash)
         raw = "".join(code_chars)
-        # If dash is already included, return as-is
         if "-" in raw:
             return raw
-        # Otherwise insert dash at position 4
         return f"{raw[:4]}-{raw[4:]}"
 
     return None
 
 
-async def check_login_status() -> dict:
-    """Check if the WhatsApp Web session is linked and chats are loaded.
+# ---------------------------------------------------------------------------
+# Login status / waiting
+# ---------------------------------------------------------------------------
 
-    Call this after the user enters the linking code on their phone.
+
+async def check_login_status() -> dict:
+    """Check if WhatsApp Web session is linked and chats are loaded.
 
     Returns:
         {"status": "logged_in"} or {"status": "waiting"} or {"status": "error", ...}
@@ -220,11 +304,19 @@ async def check_login_status() -> dict:
         except Exception:
             pass
 
-        # Still on the code page?
+        # Still on QR page?
+        canvas = page.locator("canvas")
+        try:
+            await canvas.wait_for(timeout=2_000)
+            return {"status": "waiting", "detail": "QR code displayed — scan it with your phone"}
+        except Exception:
+            pass
+
+        # Still on code page?
         code_heading = page.get_by_text("Enter code on phone")
         try:
             await code_heading.wait_for(timeout=2_000)
-            return {"status": "waiting", "detail": "Still waiting for phone to link"}
+            return {"status": "waiting", "detail": "Linking code displayed — enter it on your phone"}
         except Exception:
             pass
 
@@ -235,14 +327,7 @@ async def check_login_status() -> dict:
 
 
 async def wait_for_login(timeout_seconds: int = 120) -> dict:
-    """Poll until WhatsApp Web session is linked or timeout.
-
-    Args:
-        timeout_seconds: Max time to wait (default 120s)
-
-    Returns:
-        {"status": "logged_in"} or {"status": "timeout"}
-    """
+    """Poll until WhatsApp Web session is linked or timeout."""
     deadline = asyncio.get_event_loop().time() + timeout_seconds
     while asyncio.get_event_loop().time() < deadline:
         result = await check_login_status()
@@ -254,19 +339,19 @@ async def wait_for_login(timeout_seconds: int = 120) -> dict:
     return {"status": "timeout", "detail": f"Login not completed within {timeout_seconds}s"}
 
 
-async def export_chats(max_chats: int = MAX_CHATS) -> WhatsAppExport:
-    """Extract chat list and messages from a logged-in WhatsApp Web session.
+# ---------------------------------------------------------------------------
+# Chat export
+# ---------------------------------------------------------------------------
 
-    Must be called after successful login. Walks the chat list sidebar,
-    opens each chat, and scrapes visible messages.
-    """
+
+async def export_chats(max_chats: int = MAX_CHATS) -> WhatsAppExport:
+    """Extract chat list and messages from a logged-in WhatsApp Web session."""
     p, browser = await _connect_browser()
     page = await _find_whatsapp_page(browser)
 
     if page is None:
         raise RuntimeError("No logged-in WhatsApp Web page found")
 
-    # Verify we're actually logged in
     try:
         await page.wait_for_selector('[aria-label="Chat list"]', timeout=10_000)
     except Exception:
@@ -274,7 +359,6 @@ async def export_chats(max_chats: int = MAX_CHATS) -> WhatsAppExport:
 
     chats: list[dict] = []
 
-    # Get chat list entries — try multiple selector strategies
     chat_items = page.locator(
         '[aria-label="Chat list"] [role="listitem"],'
         '[aria-label="Chat list"] [role="row"],'
@@ -308,7 +392,6 @@ async def export_chats(max_chats: int = MAX_CHATS) -> WhatsAppExport:
 async def _extract_current_chat(page: Page) -> dict | None:
     """Extract messages from the currently open chat."""
     try:
-        # Get chat name from header
         header = page.locator(
             '[data-testid="conversation-header"] span[title],'
             '[data-testid="conversation-info-header"] span[title],'
@@ -323,7 +406,6 @@ async def _extract_current_chat(page: Page) -> dict | None:
             except Exception:
                 pass
 
-        # Scroll up to load more messages (limited)
         msg_container = page.locator(
             '[data-testid="conversation-panel-messages"],'
             '[role="application"]'
@@ -335,7 +417,6 @@ async def _extract_current_chat(page: Page) -> dict | None:
             except Exception:
                 break
 
-        # Extract messages
         messages: list[dict] = []
         msg_rows = page.locator(
             '[data-testid="msg-container"],'
@@ -354,15 +435,13 @@ async def _extract_current_chat(page: Page) -> dict | None:
                 try:
                     text = await text_el.first.inner_text(timeout=1000)
                 except Exception:
-                    continue  # Skip non-text messages
+                    continue
 
-                # Determine sender
                 classes = await row.evaluate("el => el.className") or ""
                 outer = await row.evaluate("el => el.getAttribute('data-testid') || ''")
                 is_outgoing = "message-out" in classes or "msg-self" in outer
                 sender = "me" if is_outgoing else name
 
-                # Timestamp
                 ts_el = row.locator('[data-testid="msg-meta"] span')
                 timestamp = ""
                 try:
@@ -397,15 +476,19 @@ async def _get_logged_in_phone(page: Page) -> str:
         phone_el = page.locator('[data-testid="profile-phone"], [data-testid="about-phone"]')
         phone = await phone_el.inner_text(timeout=2000)
 
-        # Close profile panel
         await page.keyboard.press("Escape")
         return phone.strip()
     except Exception:
         return "unknown"
 
 
+# ---------------------------------------------------------------------------
+# Debug
+# ---------------------------------------------------------------------------
+
+
 async def take_screenshot() -> str:
-    """Screenshot the current WhatsApp Web state (for debugging)."""
+    """Screenshot the current WhatsApp Web state."""
     p, browser = await _connect_browser()
     pages = browser.contexts[0].pages
     page = pages[-1] if pages else await browser.contexts[0].new_page()
