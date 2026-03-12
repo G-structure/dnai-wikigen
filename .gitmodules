@@ -106,3 +106,6 @@
 [submodule "🔬/thinking-machines/tinker-project-ideas"]
 	path = 🔬/thinking-machines/tinker-project-ideas
 	url = https://github.com/thinking-machines-lab/tinker-project-ideas.git
+[submodule "🔬/tv"]
+	path = 🔬/tv
+	url = https://github.com/G-structure/tv
