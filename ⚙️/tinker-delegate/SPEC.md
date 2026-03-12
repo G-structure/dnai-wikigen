@@ -27,6 +27,8 @@ We need:
 | **Evaluation protocol** | Up to the agent and its owner (the buyer). The agent decides base model, steps, benchmarks autonomously. |
 | **`ttl_seconds` on checkpoints** | Mandatory on every save. Dead man's switch — Tinker auto-deletes even if our cleanup never runs. |
 | **Tinker console automation** | **RESOLVED**: Chrome CDP via neko + Playwright. Passwordless magic-code auth (6-digit OTP via email). No captcha, no phone verification. `cock.email` domain passes blocklist. See `README.md` for full recon findings. |
+| **Oracle boot authorization** | Governed on-chain by oracle compose hash policy. The oracle's own code authorization is frozen permanently after production sign-off; fresh TDX quotes continue to verify against that frozen policy. |
+| **OTP consumer authorization** | Managed separately from oracle code authorization. The deployer may update approved consumer app IDs / compose hashes directly or delegate that power to an approved operator during development. |
 
 ## 3. Architecture Overview
 
@@ -107,6 +109,11 @@ PHASE 1: TINKER SIGNUP  ✅ IMPLEMENTED — see tinker_delegate/signup.py
 PHASE 2: READY
   Control plane starts listening for on-chain deal events
   Email oracle stays running (handles future OTPs if Tinker re-challenges)
+  Production mode adds on-chain oracle auth:
+  → oracle compose hash registered before deployment
+  → approved consumer app ID + compose hash registered for OTP access
+  → oracle code authorization frozen after final audited deploy
+  → consumer registry may remain mutable during development, then freeze separately
 ```
 
 **RESOLVED**: Recon complete. See `README.md` for full findings. Summary:
@@ -646,7 +653,7 @@ This maps directly to the NDAI paper (Section 5): A_B is the buyer's agent, and 
 | T4 | Agent emits raw quality scores instead of bands | Agent implementation bug | Buyer learns exact value, gains bargaining leverage | Output bounding is in the control plane, not the agent. Agent returns raw numbers, control plane maps to bands before egress. |
 | T5 | Buyer reverse-engineers artifact from bounded output | Sophisticated buyer | Partial disclosure beyond intended band | Score bands are coarse by design. Offer price derived from band, not raw delta. Paper's analysis shows bounded outputs preserve seller leverage. |
 | T6 | Tinker platform inspects training data | Tinker insider / compelled access | Sees seller's raw artifact | Tinker sees training data by design (API-based training). Mitigation: Tinker is not a deal party. Future: encrypt training data client-side (requires Tinker support for encrypted compute). |
-| T7 | Deploy malicious code to exfiltrate API key or artifact | Compromised developer | Full compromise | AppAuth contract requires multi-sig for code upgrades. dstack-KMS only provisions keys to authorized compose hashes. |
+| T7 | Deploy malicious oracle code to exfiltrate API key or artifact | Compromised developer | Full compromise | Oracle compose hashes are governed on-chain, new oracle code can be timelocked during development, and oracle code authorization is permanently frozen after production sign-off. dstack-KMS only provisions keys to authorized compose hashes. |
 | T8 | Tinker account suspended | ToS violation or abuse detection | Service interruption, stuck deals | Monitor account health. Escrow contract has expiry — deals auto-resolve. Backup: pre-register second account during genesis. |
 | T9 | Seller uploads poisoned artifact to corrupt evaluation | Malicious seller | Agent produces wrong valuation | Agent uses held-out eval set. Anomaly detection on training metrics (NaN loss, divergence). Does not affect TEE security — only evaluation quality. |
 | T10 | Replay a previous deal's evaluation result | Attacker with network access | Fake evaluation for a different artifact | Each result includes TDX quote binding deal_id + artifact_hash + result. On-chain verification. |

@@ -16,9 +16,14 @@
  ──────────────────────────────────────────
  Email oracle creates cock.email account (cock.li IMAP, domain passes blocklist)
    → Seals credentials via dstack-KMS derive_key("email/creds")
+   → Oracle compose hash is authorized on-chain for KMS boot
  Browser automation signs up for Tinker (magic-code OTP, no captcha)
    → Captures tml-... API key from console modal
    → Seals API key via dstack-KMS derive_key("tinker/api_key")
+ Approved consumer app ID + compose hash are registered for OTP access
+ Production hardening:
+   → Freeze oracle code authorization permanently after final audited deploy
+   → Optionally freeze consumer registry after final consumer measurement is approved
  Developer encrypts credit card to TEE's X25519 public key (from /attestation)
    → TEE fills Stripe form via browser, zeroes card from memory
  Control plane starts, emits genesis attestation (TDX quote binding identity)
@@ -194,6 +199,7 @@
 | **Contract deployment** | P0 (critical) | < 1 day | Deploy DiligenceRoom.sol to Base Sepolia via forge-deploy. Verify on BaseScan. |
 | **dstack-KMS key sealing** | P1 (high) | 1 day | Replace env-var API key with `TappdClient.derive_key("tinker/api_key")`. Currently API key is in plaintext env. |
 | **Phala Cloud deployment** | P1 (high) | 2 days | Merge docker-compose with email oracle. Deploy to Phala Cloud. Test real TDX attestation. |
+| **Oracle auth contract** | P1 (high) | 1-2 days | Deploy on Base Sepolia. Separate oracle boot authorization from OTP consumer authorization. Add irreversible freeze for oracle code policy. |
 | **Local testing with Phala simulator** | P1 (high) | 1 day | Use `phala simulator start` for local dev without real TDX hardware. |
 | **SFT evaluator integration test** | P2 (medium) | 1-2 days | Test with real Tinker API key. Verify training, sampling, perplexity comparison, cleanup. |
 | **Session isolation unit tests** | P2 (medium) | 1 day | Verify path-checking blocks cross-deal sampling. Verify cleanup deletes all checkpoints. |
@@ -706,13 +712,15 @@ Practical limit: 3-5 concurrent evaluations per CVM (limited by Tinker account r
 |--------|----------------|------------|
 | **Security stage** | Teaches Stage 0 → Stage 1 (DevProof). On-chain authorization for upgrades. | Currently Stage 0 (no upgrade transparency). |
 | **Reproducible builds** | Tutorial section 02: pin base images by digest, normalize timestamps. | Not yet implemented. Using tags, not digests. |
-| **On-chain authorization** | AppAuth contract: only approved compose hashes can get KMS keys. | Not yet implemented. Anyone who deploys gets keys. |
+| **On-chain authorization** | Oracle auth contract governs oracle compose hashes for KMS boot and separately governs which consumer app IDs / compose hashes may request OTPs. | Not yet implemented. Anyone who deploys gets keys and runtime OTP policy is not yet anchored on-chain. |
 | **Key derivation** | Tutorial section 03: KMS trust model, deterministic keys per app. | Planned: `derive_key("tinker/api_key")`. Not yet integrated. |
 
 **What we must adopt for production**:
 - Reproducible Docker builds (pin by digest).
 - AppAuth contract for upgrade authorization.
-- On-chain compose hash registration before deployment.
+- On-chain oracle compose-hash registration before deployment.
+- Separate consumer app ID + compose-hash registration for OTP access.
+- Permanent freeze of oracle code authorization after final audited deployment.
 - Timelock on upgrades (per dstack-tutorial section 08) to give users exit opportunity.
 
 ---
