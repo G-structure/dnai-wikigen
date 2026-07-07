@@ -90,7 +90,12 @@ def cli():
     args = parser.parse_args()
 
     settings = Settings()
-    store = CredentialStore(settings.cred_store_path, settings.cred_store_key)
+    store = CredentialStore(
+        settings.cred_store_path,
+        settings.cred_store_key,
+        dstack_enabled=settings.dstack_enabled,
+        dstack_key_path=settings.dstack_key_path,
+    )
 
     if args.command == "genesis":
         asyncio.run(cmd_genesis(settings, store))

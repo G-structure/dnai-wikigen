@@ -5,13 +5,14 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # --- Credential store ---
-    # Local PoC: AES key from env. In dstack: replaced by derive_key().
+    # Local PoC: AES key from env or local sidecar file.
+    # In dstack: derived deterministically from the enclave identity.
     cred_store_path: str = "/data/credentials.enc"
     cred_store_key: str = ""  # 32-byte hex key; auto-generated if empty
 
     # --- cock.li registration ---
     cockli_register_url: str = "https://cock.li/register.php"
-    cockli_domain: str = "firemail.cc"
+    cockli_domain: str = "cock.email"
     cockli_imap_host: str = "mail.cock.li"
     cockli_imap_port: int = 993
 

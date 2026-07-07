@@ -35,7 +35,6 @@ is attested. The card is delivered to Stripe, not stored by the TEE.
 """
 import asyncio
 import json
-import os
 from typing import Optional
 
 from pydantic import BaseModel
@@ -43,6 +42,7 @@ from pydantic import BaseModel
 from tinker_delegate.billing import CardDetails, add_payment_method, add_balance, get_balance
 from tinker_delegate.config import Settings
 from tinker_delegate.crypto import TEEKeyPair, EncryptedPayload
+from tinker_delegate.dstack_utils import get_attestation as get_dstack_attestation, is_dstack_enabled
 
 
 # ---------------------------------------------------------------------------
@@ -114,17 +114,15 @@ def get_attestation() -> dict:
     Locally: returns a stub with the encryption public key (for testing).
     """
     keypair = get_tee_keypair()
-    dstack_enabled = os.environ.get("DSTACK_ENABLED", "false").lower() == "true"
-
-    if dstack_enabled:
+    if is_dstack_enabled():
         try:
-            from dstack_sdk import TappdClient
-            client = TappdClient()
-            quote = client.tdx_quote("billing-attestation")
+            quote, app_id, compose_hash = get_dstack_attestation("billing-attestation")
             return {
                 "mode": "tdx",
-                "quote": quote.hex(),
+                "quote": quote,
                 "encryption_public_key": keypair.public_key_bytes.hex(),
+                "app_id": app_id,
+                "compose_hash": compose_hash,
                 "verified": True,
             }
         except Exception as e:

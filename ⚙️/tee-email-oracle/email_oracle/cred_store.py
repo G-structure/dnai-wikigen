@@ -1,8 +1,4 @@
-"""Encrypted credential storage.
-
-Local PoC: AES-256-GCM with key from env var or auto-generated.
-dstack TEE: swap to derive_key("email/creds") for deterministic key.
-"""
+"""Encrypted credential storage."""
 
 import json
 import os
@@ -10,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+from email_oracle.dstack_utils import derive_storage_key
 
 
 @dataclass
@@ -37,17 +35,27 @@ class EmailCredentials:
 class CredentialStore:
     """AES-256-GCM encrypted credential file.
 
-    In dstack TEE, the key comes from derive_key("email/creds").
+    In dstack TEE, the key is derived deterministically from dstack KMS.
     Locally, it's from ORACLE_CRED_STORE_KEY env var or auto-generated.
     Auto-generated keys are persisted to a .key file next to credentials.
     """
 
-    def __init__(self, path: str, key_hex: str = ""):
+    def __init__(
+        self,
+        path: str,
+        key_hex: str = "",
+        *,
+        dstack_enabled: bool = False,
+        dstack_key_path: str = "email/creds",
+    ):
         self.path = Path(path)
         self._key_path = self.path.with_suffix(".key")
 
         if key_hex:
             self.key = bytes.fromhex(key_hex)
+        elif dstack_enabled:
+            self.key = derive_storage_key(dstack_key_path)
+            print(f"[cred_store] derived storage key from dstack path {dstack_key_path}")
         elif self._key_path.exists():
             # Load previously auto-generated key
             self.key = bytes.fromhex(self._key_path.read_text().strip())

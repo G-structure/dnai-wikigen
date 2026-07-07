@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from email_oracle.config import Settings
 from email_oracle.cred_store import CredentialStore, EmailCredentials
+from email_oracle.dstack_utils import get_attestation
 from email_oracle.imap_client import IMAPClient
 
 
@@ -73,7 +74,12 @@ async def lifespan(app: FastAPI):
     """Initialize oracle on startup."""
     settings = Settings()
     state.settings = settings
-    state.store = CredentialStore(settings.cred_store_path, settings.cred_store_key)
+    state.store = CredentialStore(
+        settings.cred_store_path,
+        settings.cred_store_key,
+        dstack_enabled=settings.dstack_enabled,
+        dstack_key_path=settings.dstack_key_path,
+    )
 
     # Load existing credentials
     if state.store.exists():
@@ -82,7 +88,7 @@ async def lifespan(app: FastAPI):
             print(f"[api] loaded credentials for {state.creds.email}")
         except Exception as e:
             print(f"[api] failed to decrypt credentials (wrong key?): {e}")
-            print("[api] delete the credential file or set the correct ORACLE_CRED_STORE_KEY")
+            print("[api] delete the credential file or use the same dstack key path / ORACLE_CRED_STORE_KEY")
             state.creds = None
     else:
         print("[api] no credentials found — run genesis first")
@@ -134,7 +140,7 @@ async def extract_pin(req: PinRequest):
 
     tdx_quote = ""
     if state.settings.dstack_enabled:
-        tdx_quote = _get_tdx_quote(f"pin:{result.pin}")
+        tdx_quote, _, _ = get_attestation(f"pin:{result.pin}")
 
     return PinResponse(
         pin=result.pin,
@@ -188,31 +194,11 @@ async def attestation():
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
-    # In dstack TEE, this would call TappdClient
-    quote = _get_tdx_quote("attestation")
+    quote, app_id, compose_hash = get_attestation("attestation")
     return AttestationResponse(
         tdx_quote=quote,
-        app_id=_get_app_id(),
-        compose_hash=_get_compose_hash(),
+        app_id=app_id,
+        compose_hash=compose_hash,
         oracle_email=state.creds.email if state.creds else "",
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
-
-
-def _get_tdx_quote(report_data: str) -> str:
-    """Get TDX quote — stub for local, real in dstack."""
-    # In TEE: from dstack_sdk import DstackClient
-    # client = DstackClient()
-    # quote = client.get_quote(report_data=report_data.encode())
-    # return quote.quote.hex()
-    return "stub-tdx-quote"
-
-
-def _get_app_id() -> str:
-    # In TEE: client.info().app_id
-    return "local-dev"
-
-
-def _get_compose_hash() -> str:
-    # In TEE: client.info().tcb_info.compose_hash
-    return "local-dev"

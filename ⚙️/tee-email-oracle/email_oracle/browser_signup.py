@@ -19,7 +19,7 @@ async def main():
 
     parser = argparse.ArgumentParser(description="Browser signup via neko CDP")
     parser.add_argument("--cdp-url", default="http://localhost:9222", help="CDP endpoint URL")
-    parser.add_argument("--domain", default="firemail.cc", help="Email domain")
+    parser.add_argument("--domain", default="cock.email", help="Email domain")
     parser.add_argument("--cred-store", default="./data/credentials.enc", help="Credential store path")
     parser.add_argument("--cred-key", default="", help="Credential store key (hex)")
     args = parser.parse_args()
@@ -30,7 +30,12 @@ async def main():
         cred_store_path=args.cred_store,
         cred_store_key=args.cred_key,
     )
-    store = CredentialStore(settings.cred_store_path, settings.cred_store_key)
+    store = CredentialStore(
+        settings.cred_store_path,
+        settings.cred_store_key,
+        dstack_enabled=settings.dstack_enabled,
+        dstack_key_path=settings.dstack_key_path,
+    )
 
     creds = await signup_browser(settings)
     store.save(creds)

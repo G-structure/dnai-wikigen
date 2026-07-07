@@ -19,8 +19,10 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from tinker_delegate.api_key_store import resolve_api_key
 from tinker_delegate.config import Settings
 from tinker_delegate.oracle_client import OracleClient
+from tinker_delegate.runtime_state import get_runtime_state
 from tinker_delegate.card_channel import (
     CardPayload,
     EncryptedCardPayload,
@@ -46,13 +48,29 @@ settings = Settings()
 _control_plane = None
 
 
+def _agent_stack_available() -> bool:
+    try:
+        import tinker  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
 def _get_control_plane():
     global _control_plane
     if _control_plane is None:
-        api_key = os.environ.get("TINKER_API_KEY", "")
+        api_key = resolve_api_key(settings)
         if not api_key:
             raise HTTPException(503, "TINKER_API_KEY not configured — control plane unavailable")
-        from tinker_delegate.control_plane import ControlPlane
+        try:
+            from tinker_delegate.control_plane import ControlPlane
+        except ModuleNotFoundError as exc:
+            if exc.name == "tinker":
+                raise HTTPException(
+                    503,
+                    "Tinker agent stack is not installed in this deployment",
+                ) from exc
+            raise
         _control_plane = ControlPlane(api_key)
     return _control_plane
 
@@ -99,6 +117,10 @@ async def health():
         "status": "ok",
         "oracle": oracle_health,
         "cdp_url": settings.cdp_url,
+        "browser_ws_endpoint": settings.browser_ws_endpoint,
+        "api_key_configured": bool(resolve_api_key(settings)),
+        "agent_stack_available": _agent_stack_available(),
+        "runtime": get_runtime_state(),
     }
 
 

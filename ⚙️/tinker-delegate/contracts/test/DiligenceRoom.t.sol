@@ -1,8 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {DiligenceRoom} from "../src/DiligenceRoom.sol";
+
+contract RevertingReceiver {
+    DiligenceRoom internal immutable room;
+
+    constructor(DiligenceRoom _room) {
+        room = _room;
+    }
+
+    function createDeal(
+        uint256 reservePrice,
+        uint256 expiry,
+        bytes32 artifactHash,
+        address teeIdentity
+    ) external returns (uint256) {
+        return room.createDeal(reservePrice, expiry, artifactHash, teeIdentity);
+    }
+
+    function withdraw() external {
+        room.withdraw();
+    }
+
+    receive() external payable {
+        revert("nope");
+    }
+}
 
 contract DiligenceRoomTest is Test {
     DiligenceRoom public room;
@@ -57,6 +82,24 @@ contract DiligenceRoomTest is Test {
         assertEq(d.artifactHash, artifactHash);
         assertEq(d.teeIdentity, tee);
         assertEq(uint8(d.state), uint8(DiligenceRoom.State.Created));
+    }
+
+    function test_CreateDeal_RevertInvalidExpiry() public {
+        vm.prank(seller);
+        vm.expectRevert(DiligenceRoom.InvalidExpiry.selector);
+        room.createDeal(reservePrice, block.timestamp, artifactHash, tee);
+    }
+
+    function test_CreateDeal_RevertZeroArtifactHash() public {
+        vm.prank(seller);
+        vm.expectRevert(DiligenceRoom.ZeroArtifactHash.selector);
+        room.createDeal(reservePrice, expiry, bytes32(0), tee);
+    }
+
+    function test_CreateDeal_RevertZeroTEEIdentity() public {
+        vm.prank(seller);
+        vm.expectRevert(DiligenceRoom.ZeroTEEIdentity.selector);
+        room.createDeal(reservePrice, expiry, artifactHash, address(0));
     }
 
     function test_DealCountIncrements() public {
@@ -135,6 +178,15 @@ contract DiligenceRoomTest is Test {
         room.submitResult(id, DiligenceRoom.ScoreBand.High, 0.1 ether, keccak256("r"));
     }
 
+    function test_SubmitResult_RevertComputeCostOverBudget() public {
+        uint256 id = _createDeal();
+        _fundDeal(id);
+
+        vm.prank(tee);
+        vm.expectRevert(DiligenceRoom.ComputeCostOverBudget.selector);
+        room.submitResult(id, DiligenceRoom.ScoreBand.High, 1.99 ether, keccak256("r"));
+    }
+
     // ── Accept ─────────────────────────────────────────────────────────
 
     function test_AcceptDeal() public {
@@ -153,16 +205,41 @@ contract DiligenceRoomTest is Test {
         DiligenceRoom.Deal memory d = room.getDeal(id);
         assertEq(uint8(d.state), uint8(DiligenceRoom.State.Accepted));
 
-        // Seller gets dealPayment
-        assertEq(seller.balance - sellerBefore, dealPayment);
-
-        // Developer gets compute + fee
         uint256 devPayment = 0.1 ether + 0.001 ether;
-        assertEq(dev.balance - devBefore, devPayment);
-
-        // Buyer gets remainder
         uint256 expectedRefund = budgetCap - dealPayment - devPayment;
+
+        assertEq(room.pendingWithdrawals(seller), dealPayment);
+        assertEq(room.pendingWithdrawals(dev), devPayment);
+        assertEq(room.pendingWithdrawals(buyer), expectedRefund);
+
+        vm.prank(seller);
+        room.withdraw();
+        room.withdraw();
+        vm.prank(buyer);
+        room.withdraw();
+
+        assertEq(seller.balance - sellerBefore, dealPayment);
+        assertEq(dev.balance - devBefore, devPayment);
         assertEq(buyer.balance - buyerBefore, expectedRefund);
+    }
+
+    function test_AcceptDeal_RevertingSellerCannotBlockSettlement() public {
+        RevertingReceiver revertingSeller = new RevertingReceiver(room);
+        uint256 id = revertingSeller.createDeal(reservePrice, expiry, artifactHash, tee);
+
+        _fundDeal(id);
+        _submitResult(id, DiligenceRoom.ScoreBand.High, 0.1 ether);
+
+        vm.prank(buyer);
+        room.acceptDeal(id, 1 ether);
+
+        DiligenceRoom.Deal memory d = room.getDeal(id);
+        assertEq(uint8(d.state), uint8(DiligenceRoom.State.Accepted));
+        assertEq(room.pendingWithdrawals(address(revertingSeller)), 1 ether);
+
+        vm.expectRevert(DiligenceRoom.TransferFailed.selector);
+        revertingSeller.withdraw();
+        assertEq(room.pendingWithdrawals(address(revertingSeller)), 1 ether);
     }
 
     function test_AcceptDeal_RevertBelowReserve() public {
@@ -211,12 +288,18 @@ contract DiligenceRoomTest is Test {
         DiligenceRoom.Deal memory d = room.getDeal(id);
         assertEq(uint8(d.state), uint8(DiligenceRoom.State.Rejected));
 
-        // Developer gets compute + fee
         uint256 devPayment = 0.05 ether + 0.0005 ether;
-        assertEq(dev.balance - devBefore, devPayment);
+        uint256 buyerRefund = budgetCap - devPayment;
 
-        // Buyer gets remainder
-        assertEq(buyer.balance - buyerBefore, budgetCap - devPayment);
+        assertEq(room.pendingWithdrawals(dev), devPayment);
+        assertEq(room.pendingWithdrawals(buyer), buyerRefund);
+
+        room.withdraw();
+        vm.prank(buyer);
+        room.withdraw();
+
+        assertEq(dev.balance - devBefore, devPayment);
+        assertEq(buyer.balance - buyerBefore, buyerRefund);
     }
 
     // ── Expire ─────────────────────────────────────────────────────────
@@ -239,7 +322,10 @@ contract DiligenceRoomTest is Test {
         uint256 buyerBefore = buyer.balance;
         room.expireDeal(id);
 
-        // Full refund to buyer (no compute happened)
+        assertEq(room.pendingWithdrawals(buyer), budgetCap);
+
+        vm.prank(buyer);
+        room.withdraw();
         assertEq(buyer.balance - buyerBefore, budgetCap);
     }
 
@@ -255,12 +341,18 @@ contract DiligenceRoomTest is Test {
 
         room.expireDeal(id);
 
-        // Developer gets compute + fee
         uint256 devPayment = 0.02 ether + 0.0002 ether;
-        assertEq(dev.balance - devBefore, devPayment);
+        uint256 buyerRefund = budgetCap - devPayment;
 
-        // Buyer gets remainder
-        assertEq(buyer.balance - buyerBefore, budgetCap - devPayment);
+        assertEq(room.pendingWithdrawals(dev), devPayment);
+        assertEq(room.pendingWithdrawals(buyer), buyerRefund);
+
+        room.withdraw();
+        vm.prank(buyer);
+        room.withdraw();
+
+        assertEq(dev.balance - devBefore, devPayment);
+        assertEq(buyer.balance - buyerBefore, buyerRefund);
     }
 
     function test_ExpireDeal_RevertNotExpired() public {
@@ -282,6 +374,11 @@ contract DiligenceRoomTest is Test {
         vm.warp(expiry + 1);
         vm.expectRevert();
         room.expireDeal(id);
+    }
+
+    function test_Withdraw_RevertNothingToWithdraw() public {
+        vm.expectRevert(DiligenceRoom.NothingToWithdraw.selector);
+        room.withdraw();
     }
 
     // ── Full lifecycle ─────────────────────────────────────────────────
@@ -336,10 +433,13 @@ contract DiligenceRoomTest is Test {
         vm.prank(buyer);
         room.acceptDeal(id, payment);
 
-        uint256 totalAfter = seller.balance + dev.balance + buyer.balance;
+        uint256 totalPending =
+            room.pendingWithdrawals(seller) +
+            room.pendingWithdrawals(dev) +
+            room.pendingWithdrawals(buyer);
 
-        // Conservation: all funds accounted for
-        assertEq(totalAfter - totalBefore, budgetCap);
+        assertEq(totalPending, budgetCap);
+        assertEq(seller.balance + dev.balance + buyer.balance - totalBefore, 0);
     }
 
     // Allow receiving ETH (developer is this contract in tests)

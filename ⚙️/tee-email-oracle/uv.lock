@@ -34,6 +34,15 @@ wheels = [
 ]
 
 [[package]]
+name = "asyncio"
+version = "4.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/71/ea/26c489a11f7ca862d5705db67683a7361ce11c23a7b98fc6c2deaeccede2/asyncio-4.0.0.tar.gz", hash = "sha256:570cd9e50db83bc1629152d4d0b7558d6451bb1bfd5dfc2e935d96fc2f40329b", size = 5371, upload-time = "2025-08-05T02:51:46.605Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/64/eff2564783bd650ca25e15938d1c5b459cda997574a510f7de69688cb0b4/asyncio-4.0.0-py3-none-any.whl", hash = "sha256:c1eddb0659231837046809e68103969b2bef8b0400d59cfa6363f6b5ed8cc88b", size = 5555, upload-time = "2025-08-05T02:51:45.767Z" },
+]
+
+[[package]]
 name = "beautifulsoup4"
 version = "4.14.3"
 source = { registry = "https://pypi.org/simple" }
@@ -222,6 +231,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ac/97/a538654732974a94ff96c1db621fa464f455c02d4bb7d2652f4edc21d600/cryptography-46.0.5-pp311-pypy311_pp73-manylinux_2_34_aarch64.whl", hash = "sha256:d861ee9e76ace6cf36a6a89b959ec08e7bc2493ee39d07ffe5acb23ef46d27da", size = 4217990, upload-time = "2026-02-10T19:18:25.957Z" },
     { url = "https://files.pythonhosted.org/packages/ae/11/7e500d2dd3ba891197b9efd2da5454b74336d64a7cc419aa7327ab74e5f6/cryptography-46.0.5-pp311-pypy311_pp73-manylinux_2_34_x86_64.whl", hash = "sha256:2b7a67c9cd56372f3249b39699f2ad479f6991e62ea15800973b956f4b73e257", size = 4381252, upload-time = "2026-02-10T19:18:27.496Z" },
     { url = "https://files.pythonhosted.org/packages/bc/58/6b3d24e6b9bc474a2dcdee65dfd1f008867015408a271562e4b690561a4d/cryptography-46.0.5-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:8456928655f856c6e1533ff59d5be76578a7157224dbd9ce6872f25055ab9ab7", size = 3407605, upload-time = "2026-02-10T19:18:29.233Z" },
+]
+
+[[package]]
+name = "dstack-sdk"
+version = "0.5.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asyncio" },
+    { name = "cryptography" },
+    { name = "httpx" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1b/ae/6b7c47c4851529cdc48f2d10598c8027c94f00a203abd182ce5d2891e788/dstack_sdk-0.5.3.tar.gz", hash = "sha256:d159c577faa05840d5286170639b391fac8bd46a6a9016f582f8f1289ce25c8c", size = 39848, upload-time = "2025-10-08T07:03:44.145Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/79/8a3213d0eb3b7f1e9c9d02e7f5fec8e418b6f287120f4faf3f73f1a75331/dstack_sdk-0.5.3-py3-none-any.whl", hash = "sha256:3f0002efcf54f51cbd00e993492ea80a4870beb13abe1b1165e2f64a9c0f32c3", size = 23763, upload-time = "2025-10-08T07:03:42.491Z" },
 ]
 
 [[package]]
@@ -742,6 +766,7 @@ source = { editable = "." }
 dependencies = [
     { name = "cockli-captcha-solver" },
     { name = "cryptography" },
+    { name = "dstack-sdk" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pillow" },
@@ -756,6 +781,7 @@ dependencies = [
 requires-dist = [
     { name = "cockli-captcha-solver", directory = "captcha-solver" },
     { name = "cryptography", specifier = ">=44.0" },
+    { name = "dstack-sdk", specifier = ">=0.5.2" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pillow", specifier = ">=10.0" },

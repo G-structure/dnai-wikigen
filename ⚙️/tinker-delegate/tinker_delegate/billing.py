@@ -15,6 +15,7 @@ import asyncio
 
 from playwright.async_api import async_playwright, Page, Frame
 
+from tinker_delegate.browser_ready import connect_chromium, get_browser_context
 from tinker_delegate.config import Settings
 
 
@@ -124,8 +125,8 @@ async def add_payment_method(card: CardDetails, settings: Settings | None = None
 async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
     """Internal: fill and submit the payment method form."""
     async with async_playwright() as p:
-        browser = await p.chromium.connect_over_cdp(settings.cdp_url)
-        context = browser.contexts[0]
+        browser = await connect_chromium(p, settings)
+        context = await get_browser_context(browser)
         page = context.pages[0] if context.pages else await context.new_page()
 
         # Navigate to billing page
@@ -233,8 +234,8 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
         settings = Settings()
 
     async with async_playwright() as p:
-        browser = await p.chromium.connect_over_cdp(settings.cdp_url)
-        context = browser.contexts[0]
+        browser = await connect_chromium(p, settings)
+        context = await get_browser_context(browser)
         page = context.pages[0] if context.pages else await context.new_page()
 
         await page.goto(
@@ -278,8 +279,8 @@ async def configure_auto_reload(
         settings = Settings()
 
     async with async_playwright() as p:
-        browser = await p.chromium.connect_over_cdp(settings.cdp_url)
-        context = browser.contexts[0]
+        browser = await connect_chromium(p, settings)
+        context = await get_browser_context(browser)
         page = context.pages[0] if context.pages else await context.new_page()
 
         await page.goto(
@@ -327,8 +328,8 @@ async def get_balance(settings: Settings | None = None) -> dict:
         settings = Settings()
 
     async with async_playwright() as p:
-        browser = await p.chromium.connect_over_cdp(settings.cdp_url)
-        context = browser.contexts[0]
+        browser = await connect_chromium(p, settings)
+        context = await get_browser_context(browser)
         page = context.pages[0] if context.pages else await context.new_page()
 
         await page.goto(

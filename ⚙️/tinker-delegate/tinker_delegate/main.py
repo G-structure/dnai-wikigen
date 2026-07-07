@@ -2,9 +2,111 @@
 import argparse
 import asyncio
 import json
+import os
+import time
 import sys
 
+from tinker_delegate.api_key_store import build_api_key_store
 from tinker_delegate.config import Settings
+from tinker_delegate.oracle_client import OracleClient
+from tinker_delegate.runtime_state import reset_runtime_state, update_runtime_state
+from tinker_delegate.signup import AuthAccessBlockedError
+
+
+def _wait_for_oracle(settings: Settings) -> None:
+    """Wait until the email oracle reports a healthy inbox."""
+    oracle = OracleClient(settings)
+    deadline = time.time() + settings.bootstrap_oracle_timeout
+
+    while time.time() < deadline:
+        try:
+            health = oracle.health()
+            if health.get("imap_connected") and health.get("oracle_email"):
+                print(f"[serve] oracle ready: {health['oracle_email']}")
+                return
+            print(f"[serve] oracle not ready yet: {health}")
+        except Exception as exc:
+            print(f"[serve] oracle check failed: {exc}")
+
+        time.sleep(settings.bootstrap_oracle_poll_interval)
+
+    raise RuntimeError(
+        f"oracle did not become ready within {settings.bootstrap_oracle_timeout}s"
+    )
+
+
+async def _ensure_api_key(settings: Settings) -> None:
+    """Load or bootstrap the Tinker API key before serving."""
+    if os.environ.get("TINKER_API_KEY"):
+        print("[serve] using TINKER_API_KEY from environment")
+        update_runtime_state(
+            api_key_available=True,
+            api_key_source="environment",
+            bootstrap_attempted=False,
+            bootstrap_success=False,
+            bootstrap_error="",
+            bootstrap_error_kind="",
+        )
+        return
+
+    store = build_api_key_store(settings)
+    if store.exists():
+        try:
+            api_key = store.load()
+        except Exception as exc:
+            raise RuntimeError(f"failed to load stored API key: {exc}") from exc
+        if api_key:
+            print(f"[serve] loaded stored API key from {settings.api_key_store_path}")
+            update_runtime_state(
+                api_key_available=True,
+                api_key_source="encrypted_store",
+                bootstrap_attempted=False,
+                bootstrap_success=False,
+                bootstrap_error="",
+                bootstrap_error_kind="",
+            )
+            return
+
+    if not settings.bootstrap_signup:
+        print("[serve] no Tinker API key configured or stored")
+        update_runtime_state(
+            api_key_available=False,
+            api_key_source="none",
+            bootstrap_attempted=False,
+            bootstrap_success=False,
+            bootstrap_error="",
+            bootstrap_error_kind="",
+        )
+        return
+
+    _wait_for_oracle(settings)
+    print("[serve] no API key found, running signup bootstrap...")
+    from tinker_delegate.signup import signup
+
+    update_runtime_state(
+        api_key_available=False,
+        api_key_source="bootstrap",
+        bootstrap_attempted=True,
+        bootstrap_success=False,
+        bootstrap_error="",
+        bootstrap_error_kind="",
+    )
+
+    result = await signup(settings)
+    api_key = result.get("api_key")
+    if not api_key:
+        raise RuntimeError("signup bootstrap did not produce an API key")
+
+    store.save(api_key)
+    print(f"[serve] bootstrap complete, API key stored at {settings.api_key_store_path}")
+    update_runtime_state(
+        api_key_available=True,
+        api_key_source="bootstrap",
+        bootstrap_attempted=True,
+        bootstrap_success=True,
+        bootstrap_error="",
+        bootstrap_error_kind="",
+    )
 
 
 def cli():
@@ -91,6 +193,25 @@ def cli():
 
     elif args.command == "serve":
         import uvicorn
+        reset_runtime_state()
+        try:
+            asyncio.run(_ensure_api_key(settings))
+        except Exception as exc:
+            print(f"[serve] bootstrap failed: {exc}")
+            update_runtime_state(
+                api_key_available=False,
+                api_key_source="bootstrap" if settings.bootstrap_signup else "none",
+                bootstrap_attempted=settings.bootstrap_signup,
+                bootstrap_success=False,
+                bootstrap_error=str(exc),
+                bootstrap_error_kind=(
+                    "auth_access_blocked"
+                    if isinstance(exc, AuthAccessBlockedError)
+                    else "bootstrap_error"
+                ),
+            )
+            if not settings.bootstrap_fail_open:
+                sys.exit(1)
         uvicorn.run(
             "tinker_delegate.api:app",
             host=args.host,

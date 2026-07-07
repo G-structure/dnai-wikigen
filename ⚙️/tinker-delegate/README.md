@@ -2,6 +2,12 @@
 
 Automated Thinking Machines Tinker account signup, sign-in, and API key provisioning inside a TEE. No human ever touches the credentials — the email oracle handles OTP verification, Playwright over CDP handles browser automation.
 
+## Current Status
+
+As of 2026-03-17, the Phala deployment is live, the email oracle is healthy, and the delegate API can now stay up even when bootstrap fails. The remaining blocker is Tinker auth automation: their auth flow now includes explicit bot-check and fingerprint components, and the currently deployed headless browser path is blocked with `Access blocked, please contact support.` even when tested with a `gmail.com` control.
+
+The old recon notes below that claim `cock.email` alone solves signup are stale. A headed real Chrome session still reaches the magic-code page, so the open problem is browser posture, not just email domain selection.
+
 ## How It Works
 
 ```
@@ -32,23 +38,21 @@ For new accounts, there's an additional **onboarding** step after first auth:
 - Purpose (optional)
 - Terms of Service checkbox (required, custom styled — hidden `<input>`, click label text)
 
-### Email Domain Blocklist
+### Historical Domain Notes
 
-Thinking Machines blocks known disposable email domains. Tested results:
+Earlier recon suggested Thinking Machines was mainly blocking known disposable domains. Those notes are no longer enough to explain the current behavior.
 
 | Domain | Status |
 |--------|--------|
-| `cock.li` | **BLOCKED** |
-| `airmail.cc` | **BLOCKED** |
-| `firemail.cc` | **BLOCKED** |
-| `cock.email` | **ALLOWED** |
-| `protonmail.com` | ALLOWED |
-| `outlook.com` | ALLOWED |
-| `gmail.com` | ALLOWED |
+| `cock.li` | historically blocked |
+| `airmail.cc` | historically blocked |
+| `firemail.cc` | historically blocked |
+| `cock.email` | previously observed as allowed |
+| `protonmail.com` | previously observed as allowed |
+| `outlook.com` | previously observed as allowed |
+| `gmail.com` | currently reaches magic-code in headed local Chrome |
 
-**`cock.email` is a cock.li domain that passes the blocklist.** The IMAP server is still `mail.cock.li` — only the domain suffix matters for signup.
-
-The auth page also has a hidden `signals` field (bot detection) but it appears non-functional — it stays empty and doesn't affect the flow. The block is purely domain-based.
+Current March 17, 2026 finding: the auth flow now includes explicit bot-check and fingerprint components, and the deployed headless automation path is blocked even with a `gmail.com` control. That means browser posture matters now; email domain selection alone does not solve bootstrap.
 
 ## Prerequisites
 
@@ -57,7 +61,7 @@ The auth page also has a hidden `signals` field (bot detection) but it appears n
 Both from the `tee-email-oracle` project:
 
 1. **Email oracle** — `http://localhost:8000`
-   - Must be configured with `ORACLE_DOMAIN=cock.email`
+   - Historically tested with `ORACLE_DOMAIN=cock.email`
    - Creates a cock.email account on first boot (genesis)
    - Exposes `/health`, `/pin`, `/inbox` endpoints
 
@@ -272,6 +276,8 @@ The API key is sealed via dstack-KMS after creation — only the same enclave ca
 
 All core components are implemented. Remaining integration work:
 
+- **Web frontend** — the public publication + interactive gate demo lives in [`web/`](web/) ("The Gate: Health", Vite + React + TS). It renders the deployment-locality spine, the four-stage pre-inference safeguards gate, a live gate simulator (with per-run attestation JSON), the health/bio app catalog, and the capability registry — all against synthetic data. Run `cd web && npm install && npm run dev`. This is the missing "Frontend: TBD" from the root README.
+- **Deployment record** — see `docs/DEPLOYMENT-RUNBOOK.md` for the live Base Sepolia contract addresses, verification links, and current Phala CVM state
 - **Deploy DiligenceRoom.sol** to Base Sepolia via `/forge-deploy`
 - **On-chain watcher** — listen for DiligenceRoom events, call control plane API
 - **Test SFT evaluator** end-to-end with real Tinker API key

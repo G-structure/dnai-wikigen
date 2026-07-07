@@ -34,6 +34,15 @@ wheels = [
 ]
 
 [[package]]
+name = "asyncio"
+version = "4.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/71/ea/26c489a11f7ca862d5705db67683a7361ce11c23a7b98fc6c2deaeccede2/asyncio-4.0.0.tar.gz", hash = "sha256:570cd9e50db83bc1629152d4d0b7558d6451bb1bfd5dfc2e935d96fc2f40329b", size = 5371, upload-time = "2025-08-05T02:51:46.605Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/64/eff2564783bd650ca25e15938d1c5b459cda997574a510f7de69688cb0b4/asyncio-4.0.0-py3-none-any.whl", hash = "sha256:c1eddb0659231837046809e68103969b2bef8b0400d59cfa6363f6b5ed8cc88b", size = 5555, upload-time = "2025-08-05T02:51:45.767Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.2.25"
 source = { registry = "https://pypi.org/simple" }
@@ -199,6 +208,21 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/fc/f8/98eea607f65de6527f8a2e8885fc8015d3e6f5775df186e443e0964a11c3/distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed", size = 60722, upload-time = "2023-12-24T09:54:32.31Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2", size = 20277, upload-time = "2023-12-24T09:54:30.421Z" },
+]
+
+[[package]]
+name = "dstack-sdk"
+version = "0.5.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asyncio" },
+    { name = "cryptography" },
+    { name = "httpx" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1b/ae/6b7c47c4851529cdc48f2d10598c8027c94f00a203abd182ce5d2891e788/dstack_sdk-0.5.3.tar.gz", hash = "sha256:d159c577faa05840d5286170639b391fac8bd46a6a9016f582f8f1289ce25c8c", size = 39848, upload-time = "2025-10-08T07:03:44.145Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/79/8a3213d0eb3b7f1e9c9d02e7f5fec8e418b6f287120f4faf3f73f1a75331/dstack_sdk-0.5.3-py3-none-any.whl", hash = "sha256:3f0002efcf54f51cbd00e993492ea80a4870beb13abe1b1165e2f64a9c0f32c3", size = 23763, upload-time = "2025-10-08T07:03:42.491Z" },
 ]
 
 [[package]]
@@ -966,6 +990,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
+    { name = "dstack-sdk" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "playwright" },
@@ -982,6 +1007,7 @@ agent = [
 [package.metadata]
 requires-dist = [
     { name = "cryptography", specifier = ">=44.0" },
+    { name = "dstack-sdk", specifier = ">=0.5.2" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "playwright", specifier = ">=1.49" },

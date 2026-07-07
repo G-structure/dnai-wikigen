@@ -14,7 +14,6 @@ that the watcher calls when events occur.
 """
 from __future__ import annotations
 
-import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -22,6 +21,7 @@ from typing import Optional
 
 import tinker
 
+from tinker_delegate.dstack_utils import get_attestation, is_dstack_enabled
 from tinker_delegate.session import IsolatedTinkerSession
 
 
@@ -318,14 +318,11 @@ class ControlPlane:
     @staticmethod
     def _get_tdx_quote(deal_id: str, result: EvaluationResult) -> bytes:
         """Generate TDX quote binding the evaluation result to the enclave."""
-        dstack_enabled = os.environ.get("DSTACK_ENABLED", "false").lower() == "true"
-        if dstack_enabled:
+        if is_dstack_enabled():
             try:
-                from dstack_sdk import TappdClient
-                client = TappdClient()
                 report_data = f"{deal_id}:{result.score_band.value}:{result.offer_price}"
-                quote = client.tdx_quote(report_data)
-                return quote
+                quote, _, _ = get_attestation(report_data)
+                return bytes.fromhex(quote)
             except Exception:
                 return b""
         return b""

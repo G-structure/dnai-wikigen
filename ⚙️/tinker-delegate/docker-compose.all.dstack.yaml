@@ -28,7 +28,6 @@ services:
       neko:
         condition: service_healthy
     volumes:
-      - oracle-data:/data
       - /var/run/dstack.sock:/var/run/dstack.sock
     environment:
       ORACLE_DSTACK_ENABLED: "true"
@@ -43,3 +42,5 @@ services:
       DSTACK_ENABLED: "true"
       TINKER_CDP_URL: http://172.20.0.3:9222
       TINKER_ORACLE_URL: http://172.20.0.4:8000
+      TINKER_BOOTSTRAP_SIGNUP: "true"
+      TINKER_API_KEY_STORE_PATH: /data/tinker_api_key.enc

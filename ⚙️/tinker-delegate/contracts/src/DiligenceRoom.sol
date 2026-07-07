@@ -48,6 +48,7 @@ contract DiligenceRoom {
     // ── State ──────────────────────────────────────────────────────────
     address public immutable developer;
     mapping(uint256 => Deal) public deals;
+    mapping(address => uint256) public pendingWithdrawals;
     uint256 public nextDealId;
 
     // ── Events ─────────────────────────────────────────────────────────
@@ -82,15 +83,22 @@ contract DiligenceRoom {
         uint256 buyerRefund
     );
     event DealExpired(uint256 indexed dealId, uint256 refund);
+    event PayoutAccrued(uint256 indexed dealId, address indexed recipient, uint256 amount);
+    event Withdrawal(address indexed recipient, uint256 amount);
 
     // ── Errors ─────────────────────────────────────────────────────────
     error InvalidState(State expected, State actual);
+    error InvalidExpiry();
+    error ZeroArtifactHash();
+    error ZeroTEEIdentity();
     error NotSeller();
     error NotBuyer();
     error NotTEE();
     error InsufficientFunding();
     error NotExpired();
     error AlreadyExpired();
+    error ComputeCostOverBudget();
+    error NothingToWithdraw();
     error PaymentBelowReserve();
     error PaymentAboveBudget();
     error TransferFailed();
@@ -112,6 +120,10 @@ contract DiligenceRoom {
         bytes32 artifactHash,
         address teeIdentity
     ) external returns (uint256 dealId) {
+        if (expiry <= block.timestamp) revert InvalidExpiry();
+        if (artifactHash == bytes32(0)) revert ZeroArtifactHash();
+        if (teeIdentity == address(0)) revert ZeroTEEIdentity();
+
         dealId = nextDealId++;
         Deal storage d = deals[dealId];
         d.seller = msg.sender;
@@ -157,9 +169,12 @@ contract DiligenceRoom {
         if (msg.sender != d.teeIdentity) revert NotTEE();
         if (block.timestamp >= d.expiry) revert AlreadyExpired();
 
+        uint256 fee = (computeCost * FEE_BPS) / 10000;
+        if (computeCost + fee > d.budgetCap) revert ComputeCostOverBudget();
+
         d.scoreBand = scoreBand;
         d.computeCost = computeCost;
-        d.fee = (computeCost * FEE_BPS) / 10000;
+        d.fee = fee;
         d.resultHash = resultHash;
         d.state = State.Evaluated;
 
@@ -185,24 +200,9 @@ contract DiligenceRoom {
         d.state = State.Accepted;
 
         uint256 buyerRefund = d.budgetCap - totalOut;
-
-        // Transfer: seller
-        if (dealPayment > 0) {
-            (bool ok1,) = d.seller.call{value: dealPayment}("");
-            if (!ok1) revert TransferFailed();
-        }
-
-        // Transfer: developer (compute cost + fee)
-        if (devPayment > 0) {
-            (bool ok2,) = developer.call{value: devPayment}("");
-            if (!ok2) revert TransferFailed();
-        }
-
-        // Transfer: buyer refund
-        if (buyerRefund > 0) {
-            (bool ok3,) = d.buyer.call{value: buyerRefund}("");
-            if (!ok3) revert TransferFailed();
-        }
+        _accruePayout(dealId, d.seller, dealPayment);
+        _accruePayout(dealId, developer, devPayment);
+        _accruePayout(dealId, d.buyer, buyerRefund);
 
         emit DealAccepted(dealId, dealPayment, devPayment, buyerRefund);
     }
@@ -219,18 +219,8 @@ contract DiligenceRoom {
 
         uint256 devPayment = d.computeCost + d.fee;
         uint256 buyerRefund = d.budgetCap - devPayment;
-
-        // Developer gets compute cost + fee
-        if (devPayment > 0) {
-            (bool ok1,) = developer.call{value: devPayment}("");
-            if (!ok1) revert TransferFailed();
-        }
-
-        // Buyer gets remainder
-        if (buyerRefund > 0) {
-            (bool ok2,) = d.buyer.call{value: buyerRefund}("");
-            if (!ok2) revert TransferFailed();
-        }
+        _accruePayout(dealId, developer, devPayment);
+        _accruePayout(dealId, d.buyer, buyerRefund);
 
         emit DealRejected(dealId, devPayment, buyerRefund);
     }
@@ -256,18 +246,26 @@ contract DiligenceRoom {
         // Funded or Evaluated — refund buyer (minus compute if any)
         uint256 devPayment = d.computeCost + d.fee;
         uint256 refund = d.budgetCap - devPayment;
-
-        if (devPayment > 0) {
-            (bool ok1,) = developer.call{value: devPayment}("");
-            if (!ok1) revert TransferFailed();
-        }
-
-        if (refund > 0) {
-            (bool ok2,) = d.buyer.call{value: refund}("");
-            if (!ok2) revert TransferFailed();
-        }
+        _accruePayout(dealId, developer, devPayment);
+        _accruePayout(dealId, d.buyer, refund);
 
         emit DealExpired(dealId, refund);
+    }
+
+    /// @notice Withdraw claimable proceeds from prior settlements.
+    function withdraw() external {
+        uint256 amount = pendingWithdrawals[msg.sender];
+        if (amount == 0) revert NothingToWithdraw();
+
+        pendingWithdrawals[msg.sender] = 0;
+
+        (bool ok,) = msg.sender.call{value: amount}("");
+        if (!ok) {
+            pendingWithdrawals[msg.sender] = amount;
+            revert TransferFailed();
+        }
+
+        emit Withdrawal(msg.sender, amount);
     }
 
     // ── View helpers ───────────────────────────────────────────────────
@@ -277,5 +275,12 @@ contract DiligenceRoom {
 
     function dealCount() external view returns (uint256) {
         return nextDealId;
+    }
+
+    function _accruePayout(uint256 dealId, address recipient, uint256 amount) internal {
+        if (amount == 0) return;
+
+        pendingWithdrawals[recipient] += amount;
+        emit PayoutAccrued(dealId, recipient, amount);
     }
 }

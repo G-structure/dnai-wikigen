@@ -9,16 +9,22 @@ Full flow:
   6. Return email + API key
 
 Requires:
-  - Email oracle running (cock.email domain — firemail.cc/cock.li are blocked)
-  - Neko Chrome with CDP on localhost:9222
+  - Email oracle running
+  - Browser automation path that Tinker does not classify as blocked
 """
 import asyncio
 import time
 
 from playwright.async_api import async_playwright, Page
 
+from tinker_delegate.browser_ready import connect_chromium, get_browser_context
+from tinker_delegate.api_key_store import build_api_key_store
 from tinker_delegate.config import Settings
 from tinker_delegate.oracle_client import OracleClient
+
+
+class AuthAccessBlockedError(RuntimeError):
+    """Raised when the Tinker auth flow rejects the browser session."""
 
 
 async def wait_for_otp(oracle: OracleClient, settings: Settings) -> str:
@@ -110,8 +116,8 @@ async def signup(settings: Settings | None = None) -> dict:
     print(f"[signup] email: {email}")
 
     async with async_playwright() as p:
-        browser = await p.chromium.connect_over_cdp(settings.cdp_url)
-        context = browser.contexts[0]
+        browser = await connect_chromium(p, settings)
+        context = await get_browser_context(browser)
         page = context.pages[0] if context.pages else await context.new_page()
 
         # Step 1: Authenticate
@@ -126,6 +132,13 @@ async def signup(settings: Settings | None = None) -> dict:
         result = {"email": email, "api_key": api_key, "success": bool(api_key)}
         print(f"\n[done] success={result['success']}")
         if api_key:
+            try:
+                store = build_api_key_store(settings)
+                store.save(api_key)
+                result["stored"] = True
+            except Exception as e:
+                result["stored"] = False
+                result["store_error"] = str(e)
             print(f"[done] TINKER_API_KEY={api_key}")
         return result
 
@@ -140,8 +153,8 @@ async def signin(settings: Settings | None = None) -> dict:
     print(f"[signin] email: {email}")
 
     async with async_playwright() as p:
-        browser = await p.chromium.connect_over_cdp(settings.cdp_url)
-        context = browser.contexts[0]
+        browser = await connect_chromium(p, settings)
+        context = await get_browser_context(browser)
         page = context.pages[0] if context.pages else await context.new_page()
 
         await _authenticate(page, email, oracle, settings)
@@ -160,6 +173,14 @@ async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: 
     await _navigate(page, settings.tinker_console_url)
 
     state = await _page_state(page)
+
+    def ensure_not_access_blocked(state: dict) -> None:
+        if "access blocked" in state["text"].lower():
+            raise AuthAccessBlockedError(
+                "Tinker auth returned 'Access blocked, please contact support.' "
+                "The current headed local Chrome control passes, but the deployed "
+                "headless automation path is being blocked."
+            )
 
     # If on leftover OTP page, start fresh
     if state["hasOtpInputs"] > 0 or "magic-code" in state["url"]:
@@ -185,9 +206,7 @@ async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: 
         await asyncio.sleep(4)
 
         state = await _page_state(page)
-
-        if "blocked" in state["text"].lower():
-            raise RuntimeError(f"Email domain blocked: {email}")
+        ensure_not_access_blocked(state)
 
         # If landed on sign-up form (new account via sign-in flow)
         if state["hasFirstNameInput"]:
@@ -223,8 +242,7 @@ async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: 
                 await asyncio.sleep(4)
                 state = await _page_state(page)
 
-        if "blocked" in state["text"].lower():
-            raise RuntimeError(f"Email domain blocked: {email}")
+        ensure_not_access_blocked(state)
 
     # Complete OTP
     if "magic-code" in state["url"] or "Check your email" in state["text"]:
