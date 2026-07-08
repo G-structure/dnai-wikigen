@@ -369,6 +369,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `Your card was declined.`
       - [x] Add-balance fails closed with `Payment method required before adding
             balance` when no real payment method is on file.
+      - [x] Enforce `TINKER_MAX_ADD_BALANCE_USD` before launching browser
+            automation so real-card top-ups cannot exceed the approved cap by
+            caller input alone.
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
             attempt after receiving approved card details.
 - [ ] `P0` Confirm PCI and Stripe obligations.

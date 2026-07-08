@@ -592,6 +592,10 @@ Implementation status:
             delegate storage with a separate `tinker/funding_receipts` dstack
             key path and can be read through `GET /billing/funding-receipts`.
             The store rejects unknown fields and `raw_secret_egress=true`.
+[real]      Add-balance automation enforces `TINKER_MAX_ADD_BALANCE_USD`
+            before launching browser automation. Non-finite, non-positive, and
+            over-cap requests return bounded `policy_denied` `add_balance`
+            receipts at `not_started` with amount bands, not page text.
 [real]      Plaintext card API is disabled by default and unavailable in dstack mode.
 [real]      Central redaction helpers scrub bearer, OTP/password, card, API-key,
             and artifact-shaped values from bounded errors and high-risk logs.

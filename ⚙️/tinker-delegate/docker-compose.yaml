@@ -30,6 +30,7 @@ services:
       TINKER_ORACLE_URL: ${TINKER_ORACLE_URL:-http://host.docker.internal:8000}
       TINKER_API_KEY_STORE_PATH: /data/tinker_api_key.enc
       TINKER_FUNDING_RECEIPT_STORE_PATH: /data/funding_receipts.enc
+      TINKER_MAX_ADD_BALANCE_USD: ${TINKER_MAX_ADD_BALANCE_USD:-5.0}
       TINKER_BOOTSTRAP_SIGNUP: ${TINKER_BOOTSTRAP_SIGNUP:-false}
     extra_hosts:
       - "host.docker.internal:host-gateway"

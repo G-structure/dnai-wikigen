@@ -197,6 +197,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Bounded funding receipts are persisted in encrypted/sealed delegate storage
   under a separate funding-receipt key path and exposed through
   `GET /billing/funding-receipts`.
+- Add-balance automation enforces `TINKER_MAX_ADD_BALANCE_USD` before launching
+  browser automation. Non-finite, non-positive, or over-cap requests return
+  bounded `policy_denied` receipts at `not_started` with amount bands.
 - The encrypted card client/harness verifies context-bound billing attestation,
   posts only ciphertext to `/billing/card/encrypted`, and was locally exercised
   against the Neko/Tinker/Stripe test-card path. It returned bounded

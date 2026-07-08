@@ -12,6 +12,7 @@ Trust model:
   - TEE never persists card details — they're ephemeral
 """
 import asyncio
+import math
 import re
 
 from playwright.async_api import async_playwright, Page, Frame
@@ -306,6 +307,13 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
         settings = Settings()
 
     furthest_stage = AutomationStage.NOT_STARTED
+    if not math.isfinite(amount_dollars) or amount_dollars <= 0:
+        error = "Funding amount must be finite and positive"
+        return _add_balance_result(False, error, amount_dollars, furthest_stage, error)
+    if amount_dollars > settings.max_add_balance_usd:
+        error = "Funding amount exceeds approved cap"
+        return _add_balance_result(False, error, amount_dollars, furthest_stage, error)
+
     async with async_playwright() as p:
         browser = await connect_chromium(p, settings)
         context = await get_browser_context(browser)

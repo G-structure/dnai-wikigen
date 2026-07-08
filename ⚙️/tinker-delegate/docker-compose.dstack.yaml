@@ -17,6 +17,7 @@ services:
       TINKER_ORACLE_URL: http://oracle:8000
       TINKER_FUNDING_RECEIPT_STORE_PATH: /data/funding_receipts.enc
       TINKER_FUNDING_RECEIPT_KEY_PATH: tinker/funding_receipts
+      TINKER_MAX_ADD_BALANCE_USD: ${TINKER_MAX_ADD_BALANCE_USD:-5.0}
       DSTACK_ENABLED: "true"
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock

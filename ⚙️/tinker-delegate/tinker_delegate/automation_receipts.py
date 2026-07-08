@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -49,6 +50,7 @@ class AutomationOutcome(StrEnum):
     SELECTOR_MISSING = "selector_missing"
     AUTH_ACCESS_BLOCKED = "auth_access_blocked"
     STORE_FAILED = "store_failed"
+    POLICY_DENIED = "policy_denied"
     BOT_OR_RATE_LIMIT = "bot_or_rate_limit"
     TRANSIENT_BROWSER_FAILURE = "transient_browser_failure"
     UNKNOWN_FAILURE = "unknown_failure"
@@ -115,6 +117,8 @@ def amount_band(amount_dollars: float | int | None) -> str:
     if amount_dollars is None:
         return "unknown"
     amount = float(amount_dollars)
+    if not math.isfinite(amount):
+        return "invalid_amount"
     if amount <= 0:
         return "zero_or_negative"
     if amount < 5:
@@ -154,6 +158,13 @@ def classify_automation_error(error: str | None) -> AutomationOutcome:
         return AutomationOutcome.SELECTOR_MISSING
     if "access blocked" in text or ("auth" in text and "blocked" in text):
         return AutomationOutcome.AUTH_ACCESS_BLOCKED
+    if (
+        "exceeds approved cap" in text
+        or "must be finite and positive" in text
+        or "must be positive" in text
+        or "policy" in text
+    ):
+        return AutomationOutcome.POLICY_DENIED
     if "rate limit" in text or "too many" in text or "bot" in text:
         return AutomationOutcome.BOT_OR_RATE_LIMIT
     if "timeout" in text or "browser" in text or "navigation" in text:

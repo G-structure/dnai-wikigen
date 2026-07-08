@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 from tinker_delegate.automation_receipts import AutomationStage
 from tinker_delegate.billing import (
     CardDetails,
+    add_balance,
     add_payment_method,
     _debug_screenshot,
     _add_balance_result,
@@ -66,6 +67,42 @@ class BillingHelpersTest(unittest.TestCase):
         self.assertEqual(result["attempt_record"]["surface"], "add_balance")
         self.assertEqual(result["attempt_record"]["outcome"], "payment_method_required")
         self.assertEqual(result["attempt_record"]["amount_band"], "lt_5_usd")
+
+    def test_add_balance_rejects_non_positive_amount_before_browser(self):
+        with patch("tinker_delegate.billing.async_playwright") as playwright:
+            result = asyncio.run(add_balance(0, Settings(max_add_balance_usd=5.0)))
+
+        playwright.assert_not_called()
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Funding amount must be finite and positive")
+        self.assertEqual(result["attempt_record"]["surface"], "add_balance")
+        self.assertEqual(result["attempt_record"]["outcome"], "policy_denied")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "not_started")
+        self.assertEqual(result["attempt_record"]["amount_band"], "zero_or_negative")
+
+    def test_add_balance_rejects_non_finite_amount_before_browser(self):
+        with patch("tinker_delegate.billing.async_playwright") as playwright:
+            result = asyncio.run(add_balance(float("nan"), Settings(max_add_balance_usd=5.0)))
+
+        playwright.assert_not_called()
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Funding amount must be finite and positive")
+        self.assertEqual(result["attempt_record"]["surface"], "add_balance")
+        self.assertEqual(result["attempt_record"]["outcome"], "policy_denied")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "not_started")
+        self.assertEqual(result["attempt_record"]["amount_band"], "invalid_amount")
+
+    def test_add_balance_rejects_over_cap_amount_before_browser(self):
+        with patch("tinker_delegate.billing.async_playwright") as playwright:
+            result = asyncio.run(add_balance(10.0, Settings(max_add_balance_usd=5.0)))
+
+        playwright.assert_not_called()
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Funding amount exceeds approved cap")
+        self.assertEqual(result["attempt_record"]["surface"], "add_balance")
+        self.assertEqual(result["attempt_record"]["outcome"], "policy_denied")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "not_started")
+        self.assertEqual(result["attempt_record"]["amount_band"], "5_25_usd")
 
     def test_debug_screenshot_writes_non_secret_artifact_when_enabled(self):
         page = FakeScreenshotPage()

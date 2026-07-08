@@ -248,6 +248,7 @@ All settings use the `TINKER_` env prefix:
 | `TINKER_FUNDING_RECEIPT_STORE_PATH` | `./data/funding_receipts.enc` | Encrypted bounded funding receipt store |
 | `TINKER_FUNDING_RECEIPT_STORE_KEY` | *(empty)* | Local-dev hex key override; dstack should derive the key instead |
 | `TINKER_FUNDING_RECEIPT_KEY_PATH` | `tinker/funding_receipts` | dstack key path for funding receipt storage |
+| `TINKER_MAX_ADD_BALANCE_USD` | `5.0` | Maximum add-balance amount allowed before browser automation starts |
 | `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT` | `false` | Local-dev only flag for `POST /billing/card`; production uses `/billing/card/encrypted` |
 | `TINKER_DEBUG_ARTIFACT_DIR` | *(empty)* | Optional browser debug artifact directory; card submissions purge known secret-bearing trace/HAR/video/card screenshot files here |
 | `TINKER_PURGE_SECRET_DEBUG_ARTIFACTS` | `true` | Delete known secret-bearing browser debug artifacts after card submission attempts |
