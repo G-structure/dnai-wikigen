@@ -409,6 +409,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             through the sealed credential store, and returns only hashes/status.
       - [x] Store captured Tinker API keys in the encrypted key store and return
             only bounded hash/status metadata from signup/bootstrap.
+      - [x] Bound Tinker signup/signin observable outputs before deployed
+            bootstrap: signup/signin stdout and return payloads now expose
+            `email_hash` / `url_hash` instead of raw mailbox addresses or
+            Tinker URLs, and regression tests cover stdout and result egress.
       - [x] Confirm currently implemented funding state and run metadata are
             sealed/persisted only under the CVM data volume: bounded funding
             receipts use `/data/funding_receipts.enc`, and control-plane deal
@@ -429,6 +433,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             printing raw generated mailbox addresses, generated usernames,
             IMAP sender filters, or mail subject/sender headers. Covered by
             `tee-email-oracle/tests/test_log_hygiene.py`.
+      - [x] Hash Tinker signup/signin mailbox and browser URL identifiers in
+            stdout/CLI-visible results, and redact email addresses in shared
+            Tinker delegate error rendering. Covered by
+            `tests.test_signup_key_egress` and `tests.test_redaction`.
       - [x] Keep secret-bearing screenshots disabled by default and behind
             explicit debug flags.
       - [x] Add trace/HAR/video/card-screenshot deletion for configured browser
@@ -592,6 +600,8 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             API-key creation.
       - [x] Store local captured API keys in the encrypted key store without
             returning or logging the raw key.
+      - [x] Remove raw mailbox and browser URL egress from signup/signin logs
+            and return payloads before enabling deployed-CVM bootstrap.
       - [ ] Complete the same flow inside the deployed CVM and seal the API key
             with the dstack-derived key path.
 - [x] `P0` Add a Tinker re-auth path for future OTP challenges.

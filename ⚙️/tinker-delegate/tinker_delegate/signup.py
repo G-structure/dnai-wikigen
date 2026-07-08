@@ -6,7 +6,7 @@ Full flow:
   3. Poll email oracle /pin for 6-digit code → enter code
   4. Complete onboarding form (name, TOS)
   5. Create API key → capture it
-  6. Return email + API key
+  6. Seal API key and return bounded hash/status metadata
 
 Requires:
   - Email oracle running
@@ -80,6 +80,10 @@ API_KEY_CLOSE_SELECTORS = (
 )
 
 
+def _hash_text(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
 async def _click_first_available(page: Page, selectors: tuple[str, ...]) -> str | None:
     """Click the first available selector and return the selector family hit."""
     for selector in selectors:
@@ -106,7 +110,9 @@ async def wait_for_otp(oracle: OracleClient, settings: Settings) -> str:
         )
         if result and result.get("pin"):
             pin = result["pin"]
-            print(f"[otp] got code from: {result.get('sender', '?')}")
+            sender = str(result.get("sender", ""))
+            sender_hash = _hash_text(sender) if sender else ""
+            print(f"[otp] got code sender_hash={sender_hash}")
             return pin
 
         elapsed = int(time.time() - start)
@@ -115,7 +121,7 @@ async def wait_for_otp(oracle: OracleClient, settings: Settings) -> str:
 
     raise TimeoutError(
         f"No OTP received within {settings.otp_poll_timeout}s. "
-        f"Check oracle inbox: {settings.oracle_url}/inbox"
+        "Check oracle readiness and inbox policy."
     )
 
 
@@ -179,7 +185,8 @@ async def signup(settings: Settings | None = None) -> dict:
 
     oracle = OracleClient(settings)
     email = settings.email or oracle.get_email()
-    print(f"[signup] email: {email}")
+    email_hash = _hash_text(email)
+    print(f"[signup] email_hash={email_hash}")
 
     async with async_playwright() as p:
         browser = await connect_chromium(p, settings)
@@ -203,9 +210,9 @@ async def signup(settings: Settings | None = None) -> dict:
             selector_error=None if api_key else "API key was not captured from the keys page",
         )
         result = {
-            "email": email,
+            "email_hash": email_hash,
             "api_key_created": bool(api_key),
-            "api_key_hash": hashlib.sha256(api_key.encode()).hexdigest() if api_key else "",
+            "api_key_hash": _hash_text(api_key) if api_key else "",
             "stored": False,
             "success": False,
             "attempt_record": receipt.to_public_dict(),
@@ -244,7 +251,8 @@ async def signin(settings: Settings | None = None) -> dict:
 
     oracle = OracleClient(settings)
     email = settings.email or oracle.get_email()
-    print(f"[signin] email: {email}")
+    email_hash = _hash_text(email)
+    print(f"[signin] email_hash={email_hash}")
 
     async with async_playwright() as p:
         browser = await connect_chromium(p, settings)
@@ -254,7 +262,11 @@ async def signin(settings: Settings | None = None) -> dict:
         await _authenticate(page, email, oracle, settings)
 
         final_url = page.url
-        return {"email": email, "url": final_url, "success": "tinker-console" in final_url}
+        return {
+            "email_hash": email_hash,
+            "url_hash": _hash_text(final_url),
+            "success": "tinker-console" in final_url,
+        }
 
 
 async def reauth(settings: Settings | None = None) -> dict:
@@ -416,9 +428,11 @@ async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: 
             pass
 
         await asyncio.sleep(2)
-        print(f"[auth] authenticated → {page.url}")
+        print(f"[auth] authenticated url_hash={_hash_text(page.url)}")
     else:
-        raise RuntimeError(f"Unexpected state after email submit: {state['url']}")
+        raise RuntimeError(
+            f"Unexpected state after email submit url_hash={_hash_text(str(state['url']))}"
+        )
 
 
 async def _handle_onboarding(page: Page, settings: Settings) -> None:
@@ -440,7 +454,7 @@ async def _handle_onboarding(page: Page, settings: Settings) -> None:
 
     await page.click('button:has-text("Continue")')
     await asyncio.sleep(5)
-    print(f"[onboarding] done → {page.url}")
+    print(f"[onboarding] done url_hash={_hash_text(page.url)}")
 
 
 async def _create_api_key(page: Page, settings: Settings | None = None) -> str | None:

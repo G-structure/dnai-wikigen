@@ -16,6 +16,7 @@ _REDACTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"((?:cvc|cvv)\s*=\s*)\S+", re.IGNORECASE), r"\1<redacted>"),
     (re.compile(r'("artifact_hex"\s*:\s*")[0-9a-fA-F]{32,}(")', re.IGNORECASE), r"\1<redacted>\2"),
     (re.compile(r"\b(?:\d[ -]?){13,19}\b"), "<redacted-card-number>"),
+    (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "<redacted-email>"),
 )
 
 

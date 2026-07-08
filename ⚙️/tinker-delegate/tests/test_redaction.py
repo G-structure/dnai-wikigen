@@ -13,7 +13,8 @@ class RedactionTest(unittest.IsolatedAsyncioTestCase):
         text = (
             'Authorization: Bearer secret-token TINKER_API_KEY=tml-secretsecretsecretsecret '
             '"card_number":"4242424242424242" cvc=123 '
-            '"artifact_hex":"abcdefabcdefabcdefabcdefabcdefabcdef"'
+            '"artifact_hex":"abcdefabcdefabcdefabcdefabcdefabcdef" '
+            "oracle@example.com"
         )
 
         redacted = redact_text(text)
@@ -23,6 +24,7 @@ class RedactionTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("4242424242424242", redacted)
         self.assertNotIn("cvc=123", redacted)
         self.assertNotIn("abcdefabcdefabcdefabcdefabcdefabcdef", redacted)
+        self.assertNotIn("oracle@example.com", redacted)
 
     async def test_card_update_error_is_redacted(self):
         with tempfile.TemporaryDirectory() as tmpdir:

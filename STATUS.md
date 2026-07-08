@@ -70,6 +70,9 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   provisioning have been validated locally.
 - API keys are stored encrypted and leave only as bounded metadata such as
   status, hash, and masked prefix.
+- Signup/signin stdout and return payloads expose mailbox and browser-route
+  hashes rather than raw account email or Tinker URLs; regression tests cover
+  stdout and result egress before the deployed-CVM bootstrap path is retried.
 - Browser/control-plane diagnostics are redacted before egress.
 
 [real] `tinker-delegate` funding channel:

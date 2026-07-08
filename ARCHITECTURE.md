@@ -675,6 +675,11 @@ Implementation status:
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
 [real]      Signup/bootstrap stores captured Tinker API keys in encrypted
             storage and returns only bounded hash/status metadata.
+[real]      Signup/signin observable egress is bounded before deployed bootstrap:
+            stdout and return payloads expose `email_hash` / `url_hash` rather
+            than raw mailbox addresses or Tinker browser URLs, and shared
+            Tinker delegate redaction removes email addresses from rendered
+            errors.
 [real]      API-key provisioning uses a small selector fallback family for
             current Tinker key-creation copy plus aria-label/data-testid
             variants, returns bounded `api_key_provisioning` attempt records,
