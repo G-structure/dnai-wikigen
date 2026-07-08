@@ -37,8 +37,11 @@ commands can save bounded attempt records with `--receipt-output`. The
 a public audit envelope of hashes, bands, outcome, TDX quote hash, and
 card-destruction/no-raw-egress booleans without card material.
 `verify-funding-manifest` replay-verifies saved packets by recomputing hashes
-and emitting named bounded checks. CLI output fails closed if a delegate
-response tries to echo submitted card material. The
+and emitting named bounded checks. `funding-validation-packet` creates the
+preflight, receipt, manifest, verification, and summary JSON artifacts in one
+bounded packet directory; it requires explicit `--run-card-attempt` before card
+fields are accepted. CLI output fails closed if a delegate response tries to
+echo submitted card material. The
 plaintext card API endpoint is disabled by default and unavailable in dstack
 mode; it can only be enabled as a local-development test hook with
 `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. The add-balance HTTP mutation
@@ -210,9 +213,22 @@ build a public manifest:
   --app-id 0xEXPECTED_APP_ID \
   --os-image-hash 0xEXPECTED_OS_IMAGE_HASH \
   --require-ready
+
+.venv/bin/python -m tinker_delegate.main funding-validation-packet \
+  --output-dir ./funding-validation-packet \
+  --api-url https://delegate.example \
+  --amount 5 \
+  --compose-hash 0xEXPECTED_COMPOSE_HASH \
+  --app-id 0xEXPECTED_APP_ID \
+  --os-image-hash 0xEXPECTED_OS_IMAGE_HASH \
+  --validation-id operator-run-1 \
+  --receipt-json ./payment-method-receipt.json
 ```
 
-The manifest builder rejects raw card, API-key, and secret-shaped inputs.
+The manifest builder and packet runner reject raw card, API-key, and
+secret-shaped inputs. To run an encrypted card attempt inside the packet
+command, pass `--run-card-attempt` plus the same card and policy flags used by
+`add-card-encrypted`; card fields without `--run-card-attempt` are rejected.
 
 The CLI card flags are for local development only. Read
 `docs/STRIPE-PCI-FUNDING-SCOPE.md` before any real-card attempt. The encrypted
@@ -462,6 +478,11 @@ contracts/
   bounded checks for version, manifest hash, preflight hash, receipt hash,
   validation ID hash, attestation policy hash, readiness, and
   no-raw-card-retained status without echoing packet bodies.
+- **Funding validation packet**: `python -m tinker_delegate.main
+  funding-validation-packet` writes preflight, receipt, manifest, verification,
+  and summary JSON into one directory. It can bind an existing bounded receipt
+  with `--receipt-json`, or run encrypted card submission only with explicit
+  `--run-card-attempt`.
 - **Run metadata storage**: deal lifecycle events are persisted in a separate
   encrypted delegate store under `/data/run_metadata.enc` in compose profiles.
   Records contain only bounded metadata such as hashed deal/account/run handles,

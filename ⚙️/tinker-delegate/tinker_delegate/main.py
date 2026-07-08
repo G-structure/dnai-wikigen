@@ -240,6 +240,49 @@ def cli():
     )
     verify_funding_manifest_p.add_argument("--output", default="", help="Optional output path for verification JSON")
 
+    validation_packet_p = sub.add_parser(
+        "funding-validation-packet",
+        help="Create a bounded preflight/receipt/manifest/verification packet",
+    )
+    validation_packet_p.add_argument("--output-dir", required=True, help="Directory for bounded packet JSON artifacts")
+    validation_packet_p.add_argument("--api-url", required=True, help="Tinker delegate API base URL")
+    validation_packet_p.add_argument("--amount", type=float, default=None, help="Planned add-balance amount in USD")
+    validation_packet_p.add_argument("--compose-hash", default="", help="Expected dstack compose hash")
+    validation_packet_p.add_argument("--app-id", default="", help="Expected dstack app ID")
+    validation_packet_p.add_argument("--os-image-hash", default="", help="Expected dstack OS image hash")
+    validation_packet_p.add_argument("--validation-id", default="", help="Operator-local validation run ID to hash")
+    validation_packet_p.add_argument("--receipt-json", default="", help="Existing bounded receipt JSON to bind")
+    validation_packet_p.add_argument(
+        "--require-add-balance-endpoint",
+        action="store_true",
+        help="Require POST /billing/add-balance to be explicitly enabled",
+    )
+    validation_packet_p.add_argument(
+        "--allow-local-attestation",
+        action="store_true",
+        help="Allow local-mode billing attestation for development only",
+    )
+    validation_packet_p.add_argument(
+        "--fetch-attestation",
+        action="store_true",
+        help="Live-fetch and verify /attestation?context=billing during preflight",
+    )
+    validation_packet_p.add_argument(
+        "--run-card-attempt",
+        action="store_true",
+        help="Explicitly run encrypted card submission; requires card fields",
+    )
+    validation_packet_p.add_argument("--number", default="", help="Card number; requires --run-card-attempt")
+    validation_packet_p.add_argument("--exp-month", default="", help="Expiration month; requires --run-card-attempt")
+    validation_packet_p.add_argument("--exp-year", default="", help="Expiration year; requires --run-card-attempt")
+    validation_packet_p.add_argument("--cvc", default="", help="CVC/CVV; requires --run-card-attempt")
+    validation_packet_p.add_argument("--name", default="", help="Cardholder name; requires --run-card-attempt")
+    validation_packet_p.add_argument("--address-line1", default="", help="Address line 1")
+    validation_packet_p.add_argument("--address-city", default="", help="City")
+    validation_packet_p.add_argument("--address-state", default="", help="State")
+    validation_packet_p.add_argument("--address-postal", default="", help="Postal code")
+    validation_packet_p.add_argument("--address-country", default="US", help="Country (default: US)")
+
     add_card_p = sub.add_parser("add-card", help="Add payment method (card) to Tinker account")
     add_card_p.add_argument("--number", required=True, help="Card number")
     add_card_p.add_argument("--exp-month", required=True, help="Expiration month (01-12)")
@@ -465,6 +508,53 @@ def cli():
             require_no_raw_card_retained=not args.allow_card_retention_flag,
         )
         _emit_bounded_json(result.to_public_dict(), output_path=args.output)
+        sys.exit(0 if result.ok else 1)
+
+    elif args.command == "funding-validation-packet":
+        from tinker_delegate.funding_validation_packet import run_funding_validation_packet
+
+        card_fields = {
+            "card_number": args.number,
+            "exp_month": args.exp_month,
+            "exp_year": args.exp_year,
+            "cvc": args.cvc,
+            "cardholder_name": args.name,
+            "address_line1": args.address_line1,
+            "address_city": args.address_city,
+            "address_state": args.address_state,
+            "address_postal": args.address_postal,
+            "address_country": args.address_country,
+        }
+        provided_card_fields = [
+            value
+            for key, value in card_fields.items()
+            if key != "address_country" and value
+        ]
+        if provided_card_fields and not args.run_card_attempt:
+            print("[funding-validation-packet] card fields require --run-card-attempt")
+            sys.exit(1)
+        required_card_fields = ("card_number", "exp_month", "exp_year", "cvc", "cardholder_name")
+        if args.run_card_attempt and any(not card_fields[field] for field in required_card_fields):
+            print("[funding-validation-packet] --run-card-attempt requires card number, expiration, CVC, and name")
+            sys.exit(1)
+
+        result = run_funding_validation_packet(
+            settings,
+            output_dir=Path(args.output_dir),
+            api_url=args.api_url,
+            amount_dollars=args.amount,
+            expected_compose_hash=args.compose_hash,
+            expected_app_id=args.app_id,
+            expected_os_image_hash=args.os_image_hash,
+            allow_local_attestation=args.allow_local_attestation,
+            fetch_attestation=args.fetch_attestation,
+            require_add_balance_endpoint=args.require_add_balance_endpoint,
+            validation_id=args.validation_id,
+            receipt_json=Path(args.receipt_json) if args.receipt_json else None,
+            run_card_attempt=args.run_card_attempt,
+            card_data=card_fields if args.run_card_attempt else None,
+        )
+        _emit_bounded_json(result.to_public_dict())
         sys.exit(0 if result.ok else 1)
 
     elif args.command == "add-card":

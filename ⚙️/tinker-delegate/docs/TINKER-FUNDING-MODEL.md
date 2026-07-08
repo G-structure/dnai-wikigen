@@ -116,6 +116,16 @@ python -m tinker_delegate.main verify-funding-manifest \
   --app-id EXPECTED_APP_ID \
   --os-image-hash EXPECTED_OS_IMAGE_HASH \
   --require-ready
+
+python -m tinker_delegate.main funding-validation-packet \
+  --output-dir ./funding-validation-packet \
+  --api-url https://delegate.example \
+  --amount 5 \
+  --compose-hash EXPECTED_COMPOSE_HASH \
+  --app-id EXPECTED_APP_ID \
+  --os-image-hash EXPECTED_OS_IMAGE_HASH \
+  --validation-id operator-run-1 \
+  --receipt-json ./payment-method-receipt.json
 ```
 
 The manifest publishes only hashes, bands, outcome, TDX quote hash,
@@ -123,7 +133,10 @@ card-destruction/no-raw-egress booleans, and the attestation-policy hash. It
 rejects raw card, API-key, and secret-shaped inputs and does not prove funding
 by itself; it is the audit envelope around the preflight/receipt pair. The
 verifier recomputes the saved packet hashes and returns named bounded checks
-without echoing the packet bodies.
+without echoing the packet bodies. The packet runner writes the bounded
+preflight, receipt, manifest, verification, and summary JSON artifacts in one
+directory. To include an encrypted card submission, the operator must pass
+`--run-card-attempt`; card fields without that flag are rejected.
 
 ## Validation Boundary
 
@@ -143,6 +156,9 @@ What is real:
   receipt JSON.
 - Funding validation manifests can be replay-verified against saved preflight,
   receipt, validation ID, and attestation policy inputs.
+- Funding validation packet generation can produce the full bounded artifact
+  directory from one command, either by binding an existing bounded receipt or
+  by explicitly running encrypted card submission.
 
 What remains partial:
 

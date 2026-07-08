@@ -635,6 +635,12 @@ Implementation status:
             with `--receipt-output` for later manifest binding. CLI rendering
             fails closed before printing or writing JSON when output contains
             secret-shaped material or submitted card values.
+[real]      `funding-validation-packet` generates a bounded operator packet in
+            one command: preflight JSON, receipt JSON, manifest JSON,
+            verification JSON, and summary JSON. It can bind an existing
+            bounded receipt, or run encrypted card submission only when
+            `--run-card-attempt` is explicitly set; card fields without that
+            flag are rejected before any network or browser path.
 [real]      The FastAPI `POST /billing/add-balance` mutation endpoint is
             disabled by default behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`.
             The lower-level CLI/internal handler still requires

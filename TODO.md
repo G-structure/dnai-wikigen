@@ -400,6 +400,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `funding-preflight --output` writes preflight JSON, and billing
             receipt-producing commands can write attempt records via
             `--receipt-output` for manifest binding.
+      - [x] Add one-command bounded validation packet generation:
+            `funding-validation-packet` writes preflight, receipt, manifest,
+            verification, and summary JSON, with explicit `--run-card-attempt`
+            required before card fields are accepted.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
@@ -468,6 +472,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Add CLI `--receipt-output` support for bounded billing attempt
             records so validation receipts can be saved without console
             scraping.
+      - [x] Add a packet summary artifact for funding validation runs so
+            reviewers can see preflight readiness, receipt outcome, manifest
+            hash, and verification status without packet body disclosure.
       - [ ] Add payment-method token/reference to funding receipts once the
             live funding path exposes a safe non-card reference.
 - [ ] `P1` Add budget enforcement:

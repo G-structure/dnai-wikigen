@@ -246,6 +246,11 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   receipt-producing commands support `--receipt-output` for bounded attempt
   records. CLI output fails closed if a response contains submitted card
   material or secret-shaped fields.
+- `python -m tinker_delegate.main funding-validation-packet` creates a
+  bounded packet directory containing preflight, receipt, manifest,
+  verification, and summary JSON. It can bind an existing bounded receipt, or
+  run encrypted card submission only when `--run-card-attempt` is explicitly
+  set.
 - The HTTP `POST /billing/add-balance` mutation endpoint is disabled by default
   behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; the capped CLI/internal path also
   requires `TINKER_FUNDING_MODE=operator_capped_validation` for deliberate
