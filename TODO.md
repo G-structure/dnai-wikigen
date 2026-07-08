@@ -1174,6 +1174,16 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             add-balance attempts reach `billing_page_loaded` but return
             `selector_missing`. Do not run real card material until this path
             reaches the Stripe form and a bounded test-card receipt on Phala.
+            - [x] Source/test 2026-07-08: add a bounded billing auth-state
+                  classifier before payment-method/add-balance selector
+                  searches. Billing pages that are actually auth-required or
+                  access-blocked now return `auth_required` or
+                  `auth_access_blocked` receipts at `billing_page_loaded`
+                  without clicking billing controls or echoing page text.
+            - [ ] Rebuild/pin/deploy this classifier to Phala and rerun the
+                  live encrypted Stripe test-card and `$5` add-balance probes
+                  to distinguish auth-state failure from true billing selector
+                  drift.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
       account and a safe test card or approved real card.
       - [x] Stripe test card reaches live Tinker/Stripe submission and returns

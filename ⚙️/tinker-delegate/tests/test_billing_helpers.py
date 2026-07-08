@@ -68,6 +68,20 @@ class BillingHelpersTest(unittest.TestCase):
         self.assertEqual(result["attempt_record"]["outcome"], "payment_method_required")
         self.assertEqual(result["attempt_record"]["amount_band"], "lt_5_usd")
 
+    def test_auth_required_result_is_bounded_distinct_outcome(self):
+        result = _payment_method_result(
+            False,
+            "Tinker auth required before billing",
+            AutomationStage.BILLING_PAGE_LOADED,
+            "raw page text should be hashed only",
+        )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["attempt_record"]["surface"], "payment_method")
+        self.assertEqual(result["attempt_record"]["outcome"], "auth_required")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "billing_page_loaded")
+        self.assertNotIn("raw page text", repr(result))
+
     def test_add_balance_rejects_non_positive_amount_before_browser(self):
         with patch("tinker_delegate.billing.async_playwright") as playwright:
             result = asyncio.run(add_balance(0, Settings(max_add_balance_usd=5.0)))

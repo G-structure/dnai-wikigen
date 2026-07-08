@@ -289,6 +289,12 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   attempts reach `billing_page_loaded` but return bounded `selector_missing`
   receipts. Do not run approved real-card material until this deployed path is
   repaired with a bounded test-card success/failure receipt.
+  Source/tests now add a bounded billing auth-state classifier before
+  payment-method/add-balance selector searches: sign-in or magic-code surfaces
+  return `auth_required`, and Tinker's access-blocked surface returns
+  `auth_access_blocked`, both without exposing page text or clicking billing
+  controls. This classifier still needs a GitHub-attested image build and Phala
+  redeploy before it changes live evidence.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,

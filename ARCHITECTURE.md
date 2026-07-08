@@ -1053,6 +1053,17 @@ Implementation status:
             card also returns bounded `selector_missing`. The next live step is
             Tinker auth/billing selector-route repair on Phala, not a real-card
             prompt.
+[real]      Source/tests now distinguish billing selector drift from auth-state
+            failure before card fields or top-up controls are touched. The
+            payment-method and add-balance flows classify a billing navigation
+            that lands on sign-in or magic-code surfaces as bounded
+            `auth_required`, and a page containing Tinker's access-blocked
+            surface as bounded `auth_access_blocked`, both at
+            `billing_page_loaded` without echoing page text. This extends the
+            bounded receipt vocabulary with `auth_required`.
+[planned]   The billing auth-state classifier still needs GitHub-attested image
+            build, digest pinning, Phala redeploy, and live test-card /
+            add-balance repro before it becomes deployed evidence.
 [real]      `check-funding-validation-packet` replay-checks packet directories:
             required files, payment manifest replay, optional add-balance
             manifest replay, summary hash consistency, and optional deployed

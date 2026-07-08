@@ -100,10 +100,12 @@ class FakeBillingPage:
         amount_input_present: bool = True,
         confirm_present: bool = True,
         available_overrides: dict[str, int] | None = None,
+        url: str = "https://tinker-console.thinkingmachines.ai/billing/balance",
     ):
         self.frames = frames or []
         self.initial_text = initial_text
         self.result_text = result_text
+        self.url = url
         self.dialog_present = dialog_present
         self.amount_input_present = amount_input_present
         self.confirm_present = confirm_present
@@ -272,8 +274,30 @@ class BillingMockPagesTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn(("fill", CARDHOLDER_NAME_SELECTORS[1], "Test User"), page.actions)
         self.assertIn(("click", ADD_PAYMENT_METHOD_SELECTORS[-1], "1"), page.actions)
 
+    async def test_add_payment_method_reports_auth_access_blocked_before_selector_search(self):
+        page = FakeBillingPage(initial_text="Access blocked, please contact support.")
+        card = CardDetails("4242424242424242", "12", "2030", "123", "Test User")
+
+        with (
+            patch("tinker_delegate.billing.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.billing.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.billing.get_browser_context", new=AsyncMock(return_value=FakeContext(page))),
+            patch("tinker_delegate.billing.asyncio.sleep", new=AsyncMock()),
+        ):
+            result = await _do_add_payment_method(card, Settings())
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Tinker auth access blocked before billing")
+        self.assertEqual(result["attempt_record"]["surface"], "payment_method")
+        self.assertEqual(result["attempt_record"]["outcome"], "auth_access_blocked")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "billing_page_loaded")
+        self.assertEqual(page.actions, [])
+
     async def test_add_balance_mock_page_detects_missing_payment_method(self):
-        page = FakeBillingPage(initial_text="Add payment method\nName on card")
+        page = FakeBillingPage(
+            initial_text="Add payment method\nName on card",
+            result_text="Add payment method\nName on card",
+        )
 
         with (
             patch("tinker_delegate.billing.async_playwright", return_value=AsyncPlaywrightStub()),
@@ -289,6 +313,28 @@ class BillingMockPagesTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["attempt_record"]["outcome"], "payment_method_required")
         self.assertEqual(result["attempt_record"]["furthest_stage"], "add_balance_modal_opened")
         self.assertEqual(result["attempt_record"]["amount_band"], "lt_5_usd")
+
+    async def test_add_balance_reports_auth_required_before_selector_search(self):
+        page = FakeBillingPage(
+            initial_text="Sign in to continue",
+            available_overrides={selector: 0 for selector in ADD_TO_BALANCE_SELECTORS},
+        )
+
+        with (
+            patch("tinker_delegate.billing.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.billing.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.billing.get_browser_context", new=AsyncMock(return_value=FakeContext(page))),
+            patch("tinker_delegate.billing.asyncio.sleep", new=AsyncMock()),
+        ):
+            result = await add_balance(3.0, Settings(max_add_balance_usd=5.0))
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Tinker auth required before billing")
+        self.assertEqual(result["attempt_record"]["surface"], "add_balance")
+        self.assertEqual(result["attempt_record"]["outcome"], "auth_required")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "billing_page_loaded")
+        self.assertEqual(result["attempt_record"]["amount_band"], "lt_5_usd")
+        self.assertEqual(page.actions, [])
 
     async def test_add_balance_reports_missing_open_selector_before_amount_entry(self):
         page = FakeBillingPage(

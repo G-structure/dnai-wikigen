@@ -291,6 +291,23 @@ async def _first_available_scope(scope, selectors: tuple[str, ...]):
     return scope
 
 
+async def _billing_auth_blocker(page: Page) -> str | None:
+    """Return a bounded auth-state reason when billing controls are unavailable."""
+    text = await page.evaluate("() => document.body?.innerText || ''")
+    lowered = text.lower()
+    url = (getattr(page, "url", "") or "").lower()
+
+    if "access blocked" in lowered:
+        return "Tinker auth access blocked before billing"
+    if "magic-code" in url or "check your email" in lowered:
+        return "Tinker auth required before billing"
+    if "sign in" in lowered or "log in" in lowered or "login" in lowered:
+        return "Tinker auth required before billing"
+    if await page.locator('input[type="email"], input[name="email"], input[autocomplete="email"]').count() > 0:
+        return "Tinker auth required before billing"
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -327,12 +344,18 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
         await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
         await asyncio.sleep(3)
         furthest_stage = AutomationStage.BILLING_PAGE_LOADED
+        auth_blocker = await _billing_auth_blocker(page)
+        if auth_blocker:
+            return _payment_method_result(False, auth_blocker, furthest_stage, auth_blocker)
 
         # Click "Add to balance" to trigger the payment modal
         # (which includes "Add payment method" if no card exists)
         if await _click_first_available(page, ADD_TO_BALANCE_SELECTORS):
             await asyncio.sleep(3)
             furthest_stage = AutomationStage.PAYMENT_MODAL_OPENED
+            auth_blocker = await _billing_auth_blocker(page)
+            if auth_blocker:
+                return _payment_method_result(False, auth_blocker, furthest_stage, auth_blocker)
 
         # Check if we got the add payment method form
         text = await page.evaluate("() => document.body?.innerText || ''")
@@ -440,6 +463,9 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
         await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
         await asyncio.sleep(3)
         furthest_stage = AutomationStage.BILLING_PAGE_LOADED
+        auth_blocker = await _billing_auth_blocker(page)
+        if auth_blocker:
+            return _add_balance_result(False, auth_blocker, amount_dollars, furthest_stage, auth_blocker)
 
         # Click "Add to balance"
         if not await _click_first_available(page, ADD_TO_BALANCE_SELECTORS):
@@ -447,6 +473,9 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
             return _add_balance_result(False, error, amount_dollars, furthest_stage, error)
         await asyncio.sleep(3)
         furthest_stage = AutomationStage.ADD_BALANCE_MODAL_OPENED
+        auth_blocker = await _billing_auth_blocker(page)
+        if auth_blocker:
+            return _add_balance_result(False, auth_blocker, amount_dollars, furthest_stage, auth_blocker)
 
         text = await page.evaluate("() => document.body?.innerText || ''")
         if "Add payment method" in text and "Name on card" in text:

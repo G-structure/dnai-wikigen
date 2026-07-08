@@ -51,6 +51,7 @@ class AutomationOutcome(StrEnum):
     CARD_DECLINED = "card_declined"
     PAYMENT_METHOD_REQUIRED = "payment_method_required"
     SELECTOR_MISSING = "selector_missing"
+    AUTH_REQUIRED = "auth_required"
     AUTH_ACCESS_BLOCKED = "auth_access_blocked"
     STORE_FAILED = "store_failed"
     POLICY_DENIED = "policy_denied"
@@ -159,6 +160,8 @@ def classify_automation_error(error: str | None) -> AutomationOutcome:
         return AutomationOutcome.PAYMENT_METHOD_REQUIRED
     if "selector" in text or "not found" in text or "iframe" in text or "button" in text:
         return AutomationOutcome.SELECTOR_MISSING
+    if "auth required" in text or "sign in required" in text:
+        return AutomationOutcome.AUTH_REQUIRED
     if "access blocked" in text or ("auth" in text and "blocked" in text):
         return AutomationOutcome.AUTH_ACCESS_BLOCKED
     if (

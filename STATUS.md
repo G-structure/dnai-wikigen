@@ -72,6 +72,16 @@ card payload and failed bounded with `payment_method` / `selector_missing` at
 profile is live and guarded, but approved real-card funding is still blocked on
 Tinker auth/billing selector repair and must not be attempted yet.
 
+Source/test follow-up, 2026-07-08: billing automation now checks bounded
+auth-state before searching payment-method or add-balance selectors. If the
+billing navigation lands on sign-in or magic-code surfaces, receipts return the
+new bounded `auth_required` outcome at `billing_page_loaded`; if it lands on
+Tinker's access-blocked surface, receipts return `auth_access_blocked`. The
+check does not expose page text and does not click billing controls before
+classifying auth-state failures. This still needs GitHub-attested images,
+digest pinning, Phala redeploy, and live test-card/add-balance repro before it
+updates the live evidence above.
+
 ## Built
 
 [real] Contracts:
