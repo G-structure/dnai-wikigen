@@ -375,12 +375,21 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `scripts/verify-cvm-attestation.sh` so an operator can tie a live
             CVM attestation to the locally rendered Phala compose hash and
             required digest-pinned images from a laptop.
+      - [x] Add `verify-deployment-bundle` so an operator can verify the full
+            current deploy chain in one bounded JSON packet: GitHub-signed SLSA
+            provenance and SPDX SBOM attestations for digest-pinned GHCR
+            oracle/delegate images, those exact image refs in the Phala compose,
+            required sidecar digests, and the live CVM app/compose/OS-image
+            attestation envelope.
       - [ ] Add cryptographic Intel TDX quote parsing and quote-internal
             freshness checks; current `dstack_sdk` helpers do not expose a
             complete verifier.
       - [x] Run `verify-cvm-attestation` against a real Phala CVM and record
             app ID, compose hash, image digest, report data, public key,
             fetched-at time, and command evidence in `STATUS.md`.
+      - [x] Run `verify-deployment-bundle` against the current Phala CVM and
+            record the combined GitHub-attestation-to-Phala-attestation evidence
+            in `STATUS.md`.
 - [x] `P0` Deploy the combined email-oracle + tinker-delegate stack to Phala
       from registry images only, no local `build:` contexts.
       Done 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59`

@@ -851,14 +851,22 @@ Implementation status:
             provenance predicate, and SPDX SBOM predicate before a digest is
             allowed into the Phala compose file.
 [real]      Standalone `verify-cvm-attestation` CLI and
-            `scripts/verify-cvm-attestation.sh` combine those two checks for
-            operators: render the Phala compose file, enforce required
-            digest-pinned image references or sha256 image digests, fetch
-            `/attestation?context=...`, and accept only a live attestation whose
-            compose hash, app ID, OS image hash, report-data key binding,
-            public key, and client freshness match policy. The emitted bundle is
-            bounded public evidence and labels Intel TDX quote internals as
-            not yet cryptographically parsed.
+            `scripts/verify-cvm-attestation.sh` render the Phala compose file,
+            enforce required digest-pinned image references or sha256 image
+            digests, fetch `/attestation?context=...`, and accept only a live
+            attestation whose compose hash, app ID, OS image hash, report-data
+            key binding, public key, and client freshness match policy. The
+            emitted bundle is bounded public evidence and labels Intel TDX
+            quote internals as not yet cryptographically parsed.
+[real]      Standalone `verify-deployment-bundle` CLI combines the deploy-time
+            and runtime gates in one public certificate: it verifies
+            GitHub-signed SLSA provenance and SPDX SBOM attestations for each
+            digest-pinned GHCR oracle/delegate image, requires those exact image
+            refs inside the rendered Phala compose, optionally requires sidecar
+            image digests, then verifies the live CVM app/compose/OS-image
+            attestation envelope. The bundle records `raw_secret_egress=false`
+            and does not include raw quotes, app-compose bodies, secrets, OTPs,
+            card material, artifacts, or API keys.
 [real]      Current Phala deployment runs the combined oracle/delegate stack in
             CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` with app ID
             `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, public logs/sysinfo

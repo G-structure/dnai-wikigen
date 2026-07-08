@@ -683,6 +683,101 @@ def cli():
         help="Allow mutable tag images in compose verification; development only",
     )
 
+    verify_deployment_p = sub.add_parser(
+        "verify-deployment-bundle",
+        help="Verify GitHub image attestations plus live Phala CVM attestation",
+    )
+    verify_deployment_p.add_argument("api_url", help="Tinker delegate API base URL")
+    verify_deployment_p.add_argument("--compose", required=True, help="Docker Compose file")
+    verify_deployment_p.add_argument(
+        "--image",
+        action="append",
+        default=[],
+        help="Digest-pinned GHCR image ref verified by GitHub attestations; repeatable",
+    )
+    verify_deployment_p.add_argument(
+        "--source-digest",
+        required=True,
+        help="Expected Git commit SHA used by GitHub image attestations",
+    )
+    verify_deployment_p.add_argument(
+        "--source-ref",
+        default="",
+        help="Optional expected Git ref, for example refs/heads/main",
+    )
+    verify_deployment_p.add_argument(
+        "--repo",
+        default="G-structure/dnai-wikigen",
+        help="GitHub repository that owns the image attestations",
+    )
+    verify_deployment_p.add_argument(
+        "--signer-workflow",
+        default="G-structure/dnai-wikigen/.github/workflows/build-tee-images.yml",
+        help="Expected GitHub Actions workflow identity for signed attestations",
+    )
+    verify_deployment_p.add_argument(
+        "--env-file",
+        action="append",
+        default=[],
+        help="Environment file used by docker compose config; repeatable",
+    )
+    verify_deployment_p.add_argument(
+        "--allowed-env-file",
+        default="",
+        help="Runtime env file whose keys should be included as allowed_envs",
+    )
+    verify_deployment_p.add_argument(
+        "--allowed-env",
+        action="append",
+        default=[],
+        help="Runtime env key included as an encrypted Phala allowed_env; repeatable",
+    )
+    verify_deployment_p.add_argument(
+        "--phala-raw-compose",
+        action="store_true",
+        help="Hash raw compose source plus allowed_envs, matching Phala deploy",
+    )
+    verify_deployment_p.add_argument(
+        "--expected-compose-hash",
+        default="",
+        help="Expected local compose/image-policy hash before live attestation",
+    )
+    verify_deployment_p.add_argument(
+        "--attested-compose-hash",
+        default="",
+        help="Expected live Phala attested compose hash",
+    )
+    verify_deployment_p.add_argument("--app-id", default="", help="Expected dstack app ID")
+    verify_deployment_p.add_argument(
+        "--os-image-hash",
+        default="",
+        help="Expected dstack OS image hash",
+    )
+    verify_deployment_p.add_argument(
+        "--require-image-digest",
+        action="append",
+        default=[],
+        help="Additional required sha256 image digest, for sidecars; repeatable",
+    )
+    verify_deployment_p.add_argument("--context", default="artifact", help="Expected report context")
+    verify_deployment_p.add_argument(
+        "--max-age-seconds",
+        type=float,
+        default=60.0,
+        help="Maximum client-side age for fetched evidence",
+    )
+    verify_deployment_p.add_argument(
+        "--allow-local-attestation",
+        action="store_true",
+        help="Allow local-mode attestation for development only",
+    )
+    verify_deployment_p.add_argument(
+        "--allow-tags",
+        action="store_true",
+        help="Allow mutable tag images in compose verification; development only",
+    )
+    verify_deployment_p.add_argument("--output", default="", help="Optional output path for bundle JSON")
+
     verify_compose_p = sub.add_parser(
         "verify-compose-hash",
         help="Render a registry-image compose file and compute its Phala compose hash",
@@ -1322,6 +1417,53 @@ def cli():
             sys.exit(1)
 
         print(bundle_to_json(bundle))
+
+    elif args.command == "verify-deployment-bundle":
+        from tinker_delegate.deployment_bundle import (
+            DeploymentBundleError,
+            DeploymentBundlePolicy,
+            GithubImagePolicy,
+            verify_deployment_bundle,
+        )
+
+        image_policies = tuple(
+            GithubImagePolicy(
+                image=image,
+                source_digest=args.source_digest,
+                source_ref=args.source_ref,
+                repo=args.repo,
+                signer_workflow=args.signer_workflow,
+            )
+            for image in args.image
+        )
+        policy = DeploymentBundlePolicy(
+            api_url=args.api_url,
+            compose_path=Path(args.compose),
+            images=image_policies,
+            env_files=tuple(Path(path) for path in args.env_file),
+            allowed_env_file=Path(args.allowed_env_file) if args.allowed_env_file else None,
+            allowed_envs=tuple(args.allowed_env),
+            context=args.context,
+            expected_compose_hash=args.expected_compose_hash,
+            expected_attested_compose_hash=args.attested_compose_hash,
+            expected_app_id=args.app_id,
+            expected_os_image_hash=args.os_image_hash,
+            extra_required_image_digests=tuple(args.require_image_digest),
+            allow_local=args.allow_local_attestation,
+            allow_tags=args.allow_tags,
+            phala_raw_compose=args.phala_raw_compose,
+            max_age_seconds=args.max_age_seconds,
+        )
+        try:
+            bundle = verify_deployment_bundle(policy)
+        except DeploymentBundleError as exc:
+            print(f"[verify-deployment-bundle] rejected: {redact_text(exc)}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"[verify-deployment-bundle] failed: {redact_text(exc)}")
+            sys.exit(1)
+
+        _emit_bounded_json(bundle.to_public_dict(), output_path=args.output)
 
     elif args.command == "verify-compose-hash":
         from tinker_delegate.compose_hash import ComposeHashError, verify_compose_hash

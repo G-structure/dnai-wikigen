@@ -364,10 +364,15 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   local Phala compose-hash verification with live `/attestation?context=...`
   checks, including required digest-pinned image references or sha256 image
   digests, app ID, OS image hash, report data, public key, and client fetch
-  freshness. This is ready to run once a Phala CVM exists.
+  freshness.
+- `verify-deployment-bundle` now combines GitHub image-attestation verification
+  with live CVM attestation verification in one bounded JSON certificate:
+  GitHub-signed SLSA provenance and SPDX SBOM attestations for digest-pinned
+  GHCR oracle/delegate images, required Phala compose image refs, required
+  sidecar image digests, app ID, OS image hash, report data, public key, and
+  client fetch freshness.
 - Full cryptographic Intel TDX quote parsing, quote-internal freshness,
-  signer allowlists, anti-replay, and live deployed CVM evidence are not
-  implemented or recorded yet.
+  signer allowlists, and anti-replay checks are still incomplete.
 
 [partial] Contracts and settlement:
 
@@ -529,6 +534,10 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   source commit, SLSA provenance predicate, SPDX SBOM predicate, and
   non-self-hosted-runner policy before the image digest is allowed into Phala
   deployment inputs.
+- `python -m tinker_delegate.main verify-deployment-bundle` verifies the
+  current deployment as one bounded certificate by combining the GitHub image
+  attestation gate, digest-pinned compose policy, sidecar digest requirements,
+  and live Phala CVM attestation envelope.
 - GitHub Actions run `28936575672` built the current deploy-critical images on
   GitHub-hosted workers and attached GitHub-signed SLSA provenance plus SPDX
   SBOM attestations. The local deploy gate verified both image digests with
@@ -570,6 +579,13 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     encryption public key
     `a076e8573339129a8461278ca9d049b25477755a422e40a8373365ec238cb370`,
     and the attested compose/app/OS-image/image-digest policy above.
+  - `verify-deployment-bundle` succeeded against the same delegate endpoint:
+    both deploy-critical GHCR image refs verified GitHub SLSA provenance and
+    SPDX SBOM attestations for source commit
+    `c1105f639dc00426acc17587d26ebf5a5b0f535c`, the rendered compose included
+    those exact oracle/delegate refs plus required Neko and Playwright sidecar
+    digests, and the live CVM attestation matched app ID, attested compose hash,
+    OS image hash, report data, public key, and quote size `5010`.
 - `deployments/base-sepolia.json` is now the machine-readable deployment
   manifest. It records the funded current operator deployer, current
   operator-controlled Base Sepolia contracts, and their deployment transaction
@@ -584,7 +600,9 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   with `DILIGENCE_RESULT_VERIFIER` recorded in the manifest is required before
   claiming the live contract enforces result-verifier authorization.
 - Phala CVM deployment with current recorded CVM ID, app ID, compose hash, image
-  digest, gateway endpoint, and quote evidence still needs revalidation.
+  digests, gateway endpoint, and public dstack quote envelope was revalidated
+  with `verify-deployment-bundle`; full Intel TDX quote-internal parsing remains
+  incomplete.
 - Docker compose validation, docs stale-phrase checks, and broader container
   build CI remain open beyond the current local/CI verification gate.
 
@@ -679,6 +697,7 @@ cd "⚙️/tinker-delegate" && curl --retry 12 --retry-delay 1 --retry-connrefus
 cd "⚙️/tinker-delegate" && docker stop dnai-tinker-delegate-agent-extra-check
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-attestation --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-cvm-attestation --help
+cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-deployment-bundle --help
 cd "⚙️/tinker-delegate" && scripts/verify-cvm-attestation.sh --help
 cd "⚙️/tinker-delegate" && scripts/verify-ghcr-image-attestation.sh --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-compose-hash --help
@@ -712,6 +731,26 @@ cd "⚙️/tinker-delegate" && \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
     --require-image-digest sha256:4c90e5adf1a7f5021fe746025f9e5e57540750e9fd7338f86d745545a9a3ca89 \
     --require-image-digest sha256:c45082f939dd5788f706f6f87b2773a21a41485a5e547a32935660ab59e9678f
+
+cd "⚙️/tinker-delegate" && \
+  TINKER_ORACLE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:4c90e5adf1a7f5021fe746025f9e5e57540750e9fd7338f86d745545a9a3ca89 \
+  TINKER_DELEGATE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c45082f939dd5788f706f6f87b2773a21a41485a5e547a32935660ab59e9678f \
+  uv run python -m tinker_delegate.main verify-deployment-bundle \
+    https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network \
+    --compose docker-compose.all.phala.yaml \
+    --image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:4c90e5adf1a7f5021fe746025f9e5e57540750e9fd7338f86d745545a9a3ca89 \
+    --image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c45082f939dd5788f706f6f87b2773a21a41485a5e547a32935660ab59e9678f \
+    --source-digest c1105f639dc00426acc17587d26ebf5a5b0f535c \
+    --source-ref refs/heads/codex/wikigen-private-reward-pitch \
+    --phala-raw-compose \
+    --allowed-env TINKER_ORACLE_IMAGE \
+    --allowed-env TINKER_DELEGATE_IMAGE \
+    --allowed-env TINKER_BOOTSTRAP_SIGNUP \
+    --attested-compose-hash cb4e3a013cedb9d14db49ad745dfde44eeb7b6a57121e892bd3e51b2a1f25b71 \
+    --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
+    --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
+    --require-image-digest sha256:320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \
+    --require-image-digest sha256:e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f
 
 cd "⚙️/tee-email-oracle" && uv run python -m unittest discover -s tests -v
 cd "⚙️/tee-email-oracle" && uv run python -m compileall email_oracle
