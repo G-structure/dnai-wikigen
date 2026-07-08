@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+import hashlib
+import json
+from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
@@ -73,6 +76,98 @@ class DispatchSummary:
             "funded_notifications": self.funded_notifications,
             "resolved_notifications": self.resolved_notifications,
             "missing_created_context": self.missing_created_context,
+        }
+
+
+@dataclass(frozen=True)
+class ChainCursorState:
+    """Durable public-chain watcher cursor."""
+
+    next_block: int | None = None
+    created_deals: dict[str, dict[str, Any]] = field(default_factory=dict)
+    confirmations: int = 0
+    last_scanned_to_block: int | None = None
+    contract_address: str = ""
+
+
+class ChainCursorStore:
+    """Persist watcher cursor and public DealCreated context atomically."""
+
+    schema_version = 1
+
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+
+    def load(self) -> ChainCursorState:
+        if not self.path.exists():
+            return ChainCursorState()
+        data = json.loads(self.path.read_text(encoding="utf-8"))
+        if data.get("schema_version") != self.schema_version:
+            raise ChainWatcherError("unsupported chain watcher cursor schema")
+        return ChainCursorState(
+            next_block=data.get("next_block"),
+            created_deals={
+                str(deal_id): _sanitize_created_context(fields)
+                for deal_id, fields in data.get("created_deals", {}).items()
+            },
+            confirmations=int(data.get("confirmations", 0)),
+            last_scanned_to_block=data.get("last_scanned_to_block"),
+            contract_address=str(data.get("contract_address", "")),
+        )
+
+    def save(self, state: ChainCursorState) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_version": self.schema_version,
+            "next_block": state.next_block,
+            "created_deals": {
+                str(deal_id): _sanitize_created_context(fields)
+                for deal_id, fields in sorted(state.created_deals.items())
+            },
+            "confirmations": int(state.confirmations),
+            "last_scanned_to_block": state.last_scanned_to_block,
+            "contract_address": _normalize_address(state.contract_address) if state.contract_address else "",
+            "raw_secret_egress": False,
+        }
+        tmp_path = self.path.with_suffix(self.path.suffix + ".tmp")
+        tmp_path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+        tmp_path.replace(self.path)
+
+    def update_after_scan(
+        self,
+        *,
+        previous: ChainCursorState,
+        from_block: int,
+        to_block: int,
+        confirmations: int,
+        contract_address: str,
+        created_deals: dict[str, dict[str, Any]],
+    ) -> ChainCursorState:
+        next_block = max(to_block + 1, from_block)
+        updated = ChainCursorState(
+            next_block=next_block,
+            created_deals=created_deals,
+            confirmations=max(0, confirmations),
+            last_scanned_to_block=to_block,
+            contract_address=contract_address,
+        )
+        self.save(updated)
+        return updated
+
+    def public_summary(self) -> dict[str, Any]:
+        state = self.load()
+        return {
+            "exists": self.path.exists(),
+            "next_block": state.next_block,
+            "created_deal_count": len(state.created_deals),
+            "confirmations": state.confirmations,
+            "last_scanned_to_block": state.last_scanned_to_block,
+            "contract_address_hash": (
+                stable_hash_text(state.contract_address, prefix="chain_contract")
+                if state.contract_address
+                else ""
+            ),
+            "raw_secret_egress": False,
         }
 
 
@@ -210,13 +305,22 @@ class JsonRpcLogSource:
 class ChainEventDispatcher:
     """Dispatch decoded DiligenceRoom events to the TEE control-plane API."""
 
-    def __init__(self, control_plane_url: str, *, client: httpx.Client | None = None):
+    def __init__(
+        self,
+        control_plane_url: str,
+        *,
+        client: httpx.Client | None = None,
+        created_context: dict[str, dict[str, Any]] | None = None,
+    ):
         if not control_plane_url:
             raise ChainWatcherError("control-plane API URL is required")
         self.control_plane_url = control_plane_url
         self._client = client or httpx.Client(timeout=30.0)
         self._owns_client = client is None
-        self._created: dict[str, dict[str, Any]] = {}
+        self._created: dict[str, dict[str, Any]] = {
+            str(deal_id): _sanitize_created_context(fields)
+            for deal_id, fields in (created_context or {}).items()
+        }
 
     def close(self) -> None:
         if self._owns_client:
@@ -233,7 +337,7 @@ class ChainEventDispatcher:
             chain_event_posts += 1
 
             if event.name == "DealCreated":
-                self._created[event.deal_id] = event.fields
+                self._created[event.deal_id] = _sanitize_created_context(event.fields)
                 continue
 
             if event.name == "DealFunded":
@@ -271,6 +375,13 @@ class ChainEventDispatcher:
         response.raise_for_status()
         return response.json()
 
+    @property
+    def created_context(self) -> dict[str, dict[str, Any]]:
+        return {
+            str(deal_id): _sanitize_created_context(fields)
+            for deal_id, fields in self._created.items()
+        }
+
 
 class ChainWatcher:
     """Poll a JSON-RPC endpoint and dispatch DiligenceRoom events."""
@@ -282,6 +393,50 @@ class ChainWatcher:
     def poll_once(self, from_block: int, to_block: int) -> DispatchSummary:
         return self.dispatcher.dispatch(self.source.get_events(from_block, to_block))
 
+    def poll_once_with_cursor(
+        self,
+        *,
+        cursor_store: ChainCursorStore,
+        start_block: int | None = None,
+        confirmations: int = 2,
+    ) -> dict[str, Any]:
+        state = cursor_store.load()
+        if not self.dispatcher.created_context and state.created_deals:
+            self.dispatcher._created = dict(state.created_deals)
+
+        latest = self.source.latest_block()
+        safe_tip = max(0, latest - max(0, confirmations))
+        from_block = state.next_block if state.next_block is not None else start_block
+        if from_block is None:
+            from_block = safe_tip
+        if from_block > safe_tip:
+            return {
+                "from_block": from_block,
+                "to_block": safe_tip,
+                "cursor_advanced": False,
+                "reorg_policy": "confirmed_blocks_only",
+                "confirmations": max(0, confirmations),
+                **DispatchSummary().to_public_dict(),
+            }
+
+        summary = self.poll_once(from_block, safe_tip)
+        cursor_store.update_after_scan(
+            previous=state,
+            from_block=from_block,
+            to_block=safe_tip,
+            confirmations=confirmations,
+            contract_address=self.source.contract_address,
+            created_deals=self.dispatcher.created_context,
+        )
+        return {
+            "from_block": from_block,
+            "to_block": safe_tip,
+            "cursor_advanced": True,
+            "reorg_policy": "confirmed_blocks_only",
+            "confirmations": max(0, confirmations),
+            **summary.to_public_dict(),
+        }
+
     def run(
         self,
         *,
@@ -289,21 +444,40 @@ class ChainWatcher:
         poll_interval: float = 5.0,
         confirmations: int = 2,
         once: bool = False,
+        cursor_store: ChainCursorStore | None = None,
     ):
         next_block = start_block
         while True:
-            latest = self.source.latest_block()
-            safe_tip = latest - max(0, confirmations)
-            if safe_tip < 0:
-                safe_tip = 0
-            if next_block is None:
-                next_block = safe_tip
-            summary = self.poll_once(next_block, safe_tip)
-            yield {"from_block": next_block, "to_block": safe_tip, **summary.to_public_dict()}
-            next_block = safe_tip + 1
+            if cursor_store is not None:
+                yield self.poll_once_with_cursor(
+                    cursor_store=cursor_store,
+                    start_block=start_block,
+                    confirmations=confirmations,
+                )
+            else:
+                latest = self.source.latest_block()
+                safe_tip = latest - max(0, confirmations)
+                if safe_tip < 0:
+                    safe_tip = 0
+                if next_block is None:
+                    next_block = safe_tip
+                summary = self.poll_once(next_block, safe_tip)
+                yield {
+                    "from_block": next_block,
+                    "to_block": safe_tip,
+                    "cursor_advanced": False,
+                    "reorg_policy": "confirmed_blocks_only",
+                    "confirmations": max(0, confirmations),
+                    **summary.to_public_dict(),
+                }
+                next_block = safe_tip + 1
             if once:
                 return
             time.sleep(poll_interval)
+
+
+def stable_hash_text(value: str, *, prefix: str) -> str:
+    return hashlib.sha256(prefix.encode("utf-8") + b"\0" + value.encode("utf-8")).hexdigest()
 
 
 def parse_start_block(value: str | int | None) -> int | None:
@@ -318,10 +492,28 @@ def _endpoint(base_url: str, path: str) -> str:
     return urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
 
 
+def _sanitize_created_context(fields: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "seller": _normalize_address(str(fields["seller"])),
+        "reserve_price": int(fields["reserve_price"]),
+        "expiry": int(fields["expiry"]),
+        "artifact_hash": _normalize_bytes32(str(fields["artifact_hash"])),
+        "tee_identity": _normalize_address(str(fields["tee_identity"])),
+    }
+
+
 def _normalize_address(value: str) -> str:
     raw = _strip_0x(value).lower()
     if len(raw) != 40:
         raise ChainWatcherError("address must be 20 bytes")
+    int(raw, 16)
+    return "0x" + raw
+
+
+def _normalize_bytes32(value: str) -> str:
+    raw = _strip_0x(value).lower()
+    if len(raw) != 64:
+        raise ChainWatcherError("bytes32 value must be 32 bytes")
     int(raw, 16)
     return "0x" + raw
 

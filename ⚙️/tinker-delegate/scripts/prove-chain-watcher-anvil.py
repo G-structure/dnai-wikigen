@@ -14,6 +14,7 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -23,6 +24,7 @@ from urllib.parse import urlparse
 
 from tinker_delegate.chain_watcher import (
     ChainEventDispatcher,
+    ChainCursorStore,
     ChainWatcher,
     JsonRpcLogSource,
 )
@@ -57,26 +59,39 @@ def main() -> int:
         contract_address = _deploy_diligence_room(rpc_url)
         start_block = _block_number(rpc_url)
         create_tx = _create_deal(rpc_url, contract_address)
-        fund_tx = _fund_deal(rpc_url, contract_address)
-        latest_block = _block_number(rpc_url)
+        created_block = _block_number(rpc_url)
 
-        source = JsonRpcLogSource(rpc_url, contract_address)
-        dispatcher = ChainEventDispatcher(api_url)
-        try:
-            summary = ChainWatcher(source, dispatcher).poll_once(start_block, latest_block)
-        finally:
-            dispatcher.close()
-            source.close()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cursor_store = ChainCursorStore(Path(tmpdir) / "chain_watcher_cursor.json")
+            first_summary = _run_watcher_once(
+                rpc_url,
+                api_url,
+                contract_address,
+                cursor_store,
+                start_block=start_block,
+            )
+            fund_tx = _fund_deal(rpc_url, contract_address)
+            funded_block = _block_number(rpc_url)
+            second_summary = _run_watcher_once(
+                rpc_url,
+                api_url,
+                contract_address,
+                cursor_store,
+            )
+            cursor_summary = cursor_store.public_summary()
 
-        _assert_proof_state(state, summary)
+        _assert_proof_state(state, first_summary, second_summary)
         print(json.dumps({
             "ok": True,
             "contract_address": contract_address,
             "from_block": start_block,
-            "to_block": latest_block,
+            "created_block": created_block,
+            "funded_block": funded_block,
             "create_tx_hash": create_tx,
             "fund_tx_hash": fund_tx,
-            "watcher": summary.to_public_dict(),
+            "watcher_first_scan": first_summary,
+            "watcher_after_restart": second_summary,
+            "cursor": cursor_summary,
             "control_plane_stub": {
                 "chain_event_count": len(state.chain_events),
                 "funded_deal_ids": sorted(state.funded),
@@ -144,6 +159,27 @@ def _start_control_plane_stub(port: int, state: ProofState) -> ThreadingHTTPServ
     return server
 
 
+def _run_watcher_once(
+    rpc_url: str,
+    api_url: str,
+    contract_address: str,
+    cursor_store: ChainCursorStore,
+    *,
+    start_block: int | None = None,
+) -> dict[str, Any]:
+    source = JsonRpcLogSource(rpc_url, contract_address)
+    dispatcher = ChainEventDispatcher(api_url, created_context=cursor_store.load().created_deals)
+    try:
+        return ChainWatcher(source, dispatcher).poll_once_with_cursor(
+            cursor_store=cursor_store,
+            start_block=start_block,
+            confirmations=0,
+        )
+    finally:
+        dispatcher.close()
+        source.close()
+
+
 def _deploy_diligence_room(rpc_url: str) -> str:
     output = _run_json([
         "forge",
@@ -203,7 +239,7 @@ def _fund_deal(rpc_url: str, contract_address: str) -> str:
     return _tx_hash(output)
 
 
-def _assert_proof_state(state: ProofState, summary: Any) -> None:
+def _assert_proof_state(state: ProofState, first_summary: dict[str, Any], second_summary: dict[str, Any]) -> None:
     names = [event["event_name"] for event in state.chain_events]
     if names != ["DealCreated", "DealFunded"]:
         raise AssertionError(f"expected DealCreated/DealFunded chain events, got {names}")
@@ -218,7 +254,9 @@ def _assert_proof_state(state: ProofState, summary: Any) -> None:
         raise AssertionError("funded notification budget cap mismatch")
     if int(funded["reserve_price"]) != 10**15:
         raise AssertionError("funded notification reserve price mismatch")
-    if summary.funded_notifications != 1 or summary.chain_event_posts != 2:
+    if first_summary["chain_event_posts"] != 1 or first_summary["funded_notifications"] != 0:
+        raise AssertionError("first watcher scan did not persist only DealCreated")
+    if second_summary["funded_notifications"] != 1 or second_summary["chain_event_posts"] != 1:
         raise AssertionError("watcher summary did not match expected dispatch counts")
 
 

@@ -76,15 +76,18 @@ Important current status:
             `EmailOracleAuth` deployments plus historical Phala records. BaseScan
             source verification, compose-hash registration, and fresh Phala
             quote evidence remain open.
-[partial]   Chain watcher. `tinker_delegate.chain_watcher` can decode
+[real]      Local chain watcher. `tinker_delegate.chain_watcher` can decode
             `DiligenceRoom` lifecycle logs from JSON-RPC, post bounded
             `/deal/chain-event` audit markers, call `/deal/notify-funded` when
             a funded event has matching created-deal context, and call
             `/deal/{deal_id}/resolve` for accept/reject/expire events. It has
-            mocked JSON-RPC/API coverage, a `watch-chain` CLI, and a local
-            Anvil proof script that emits real `DealCreated`/`DealFunded` logs
-            and verifies bounded control-plane state updates. Durable cursor
-            storage and reorg recovery remain open.
+            mocked JSON-RPC/API coverage, a `watch-chain` CLI, durable
+            `ChainCursorStore` restart state, confirmation-safe polling, and a
+            local Anvil proof script that emits real `DealCreated`/`DealFunded`
+            logs and verifies bounded control-plane state updates.
+[partial]   Chain-watcher operations. The watcher is not yet deployed as a
+            Phala/CVM process and does not yet have chain-lag alerting or
+            deep-reorg rollback beyond the configured confirmation policy.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -1354,6 +1357,10 @@ watch-chain CLI
   |
   | JSON-RPC eth_getLogs over DiligenceRoom lifecycle events
   v
+ChainCursorStore persists next block + public DealCreated context
+  |
+  | only scan blocks older than configured confirmations
+  v
 /deal/chain-event records bounded audit metadata
   |
   | DealFunded with matching DealCreated context
@@ -1562,9 +1569,11 @@ bounded aggregate results
 5. Real TTT/RL bio-validation is not implemented.
 6. DLP/egress enforcement is not implemented.
 7. Corpus policy and consent/revocation are modeled but not enforced.
-8. Chain watcher wiring is partial: JSON-RPC decoding, API dispatch, bounded
-   chain-event audit metadata, CLI entrypoint, and local Anvil proof exist, but
-   durable cursors and reorg recovery are open.
+8. Chain watcher wiring is locally implemented: JSON-RPC decoding, API dispatch,
+   bounded chain-event audit metadata, CLI entrypoint, durable cursor storage,
+   confirmation-safe polling, restart recovery, and local Anvil proof exist.
+   Production deployment, chain-lag alerting, and deep-reorg rollback beyond
+   confirmation depth remain open.
 9. Per-query royalty settlement is not wired to a live chain watcher.
 10. The production frontend is not present on this branch.
 11. Current-operator Base Sepolia contracts are deployed, but source

@@ -116,7 +116,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 ### DiligenceRoom vNext
 
-- [ ] `P0` Add a chain watcher that listens for `DealCreated`, `DealFunded`,
+- [x] `P0` Add a chain watcher that listens for `DealCreated`, `DealFunded`,
       `EvaluationSubmitted`, `DealAccepted`, `DealRejected`, and `DealExpired`
       and calls the TEE control plane.
       Done when a local Anvil or Base Sepolia event creates/updates the matching
@@ -134,8 +134,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             logs, runs the watcher over JSON-RPC, and verifies a bounded
             control-plane stub receives deal `0` funded state without manual
             curl calls or raw private-key flags.
-      - [ ] Add durable cursor storage, restart recovery, and reorg/confirmation
+      - [x] Add durable cursor storage, restart recovery, and reorg/confirmation
             policy before production use.
+            Done with `ChainCursorStore` plus `watch-chain --cursor-store`:
+            the watcher persists next block, confirmation depth, contract hash
+            summary, and public `DealCreated` context; restart tests prove a
+            later `DealFunded` can still notify `/deal/notify-funded`; polling
+            advances only after successful dispatch and only over
+            confirmation-safe blocks.
+      Production note: deployment wiring, chain-lag alerting, and any stricter
+      deep-reorg rollback policy remain covered by later operations tasks, not
+      this local watcher P0.
 - [ ] `P0` Implement TEE-to-chain transaction signing using a dstack-derived
       Ethereum key or equivalent TEE-held signer.
       Done when `submitResult()` can be broadcast from inside the CVM without raw

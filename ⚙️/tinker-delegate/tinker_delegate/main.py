@@ -539,6 +539,21 @@ def cli():
     )
     watch_chain_p.add_argument("--poll-interval", type=float, default=None, help="Polling interval in seconds")
     watch_chain_p.add_argument("--confirmations", type=int, default=None, help="Confirmation depth")
+    watch_chain_p.add_argument(
+        "--cursor-store",
+        default="",
+        help="Durable cursor JSON path, or TINKER_CHAIN_CURSOR_STORE_PATH",
+    )
+    watch_chain_p.add_argument(
+        "--no-cursor",
+        action="store_true",
+        help="Disable durable cursor storage for one-off local probes",
+    )
+    watch_chain_p.add_argument(
+        "--cursor-summary",
+        action="store_true",
+        help="Print bounded cursor summary and exit without polling",
+    )
     watch_chain_p.add_argument("--once", action="store_true", help="Poll one range and exit")
 
     # API server
@@ -950,6 +965,7 @@ def cli():
     elif args.command == "watch-chain":
         from tinker_delegate.chain_watcher import (
             ChainEventDispatcher,
+            ChainCursorStore,
             ChainWatcher,
             ChainWatcherError,
             JsonRpcLogSource,
@@ -970,18 +986,29 @@ def cli():
             else settings.chain_confirmations
         )
         from_block = args.from_block or settings.chain_start_block
+        cursor_path = args.cursor_store or settings.chain_cursor_store_path
+        cursor_store = None if args.no_cursor else ChainCursorStore(cursor_path)
+
+        if args.cursor_summary:
+            if cursor_store is None:
+                _emit_bounded_json({"cursor_enabled": False, "raw_secret_egress": False})
+            else:
+                _emit_bounded_json({"cursor_enabled": True, **cursor_store.public_summary()})
+            sys.exit(0)
 
         source = None
         dispatcher = None
         try:
             source = JsonRpcLogSource(rpc_url, contract_address)
-            dispatcher = ChainEventDispatcher(api_url)
+            created_context = cursor_store.load().created_deals if cursor_store is not None else None
+            dispatcher = ChainEventDispatcher(api_url, created_context=created_context)
             watcher = ChainWatcher(source, dispatcher)
             for summary in watcher.run(
                 start_block=parse_start_block(from_block),
                 poll_interval=poll_interval,
                 confirmations=confirmations,
                 once=args.once,
+                cursor_store=cursor_store,
             ):
                 _emit_bounded_json(summary)
         except ChainWatcherError as exc:

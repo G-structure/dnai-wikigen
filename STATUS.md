@@ -26,7 +26,7 @@ encrypted artifact upload -> TEE-bound attestation report_data -> hash-checked i
 ```
 
 Production deployment, real account funding, full TDX quote verification,
-chain-watcher settlement, and RLVR/bio-validation remain incomplete.
+TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
 
 ## Built
 
@@ -334,9 +334,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 [partial] Contracts and settlement:
 
 - Core escrow and auth contracts exist with tests.
-- A partial chain watcher now exists in `tinker_delegate.chain_watcher`: it
-  decodes the six public `DiligenceRoom` lifecycle events from JSON-RPC logs,
-  posts every event to bounded `/deal/chain-event` audit metadata, calls
+- A local chain watcher exists in `tinker_delegate.chain_watcher`: it decodes
+  the six public `DiligenceRoom` lifecycle events from JSON-RPC logs, posts
+  every event to bounded `/deal/chain-event` audit metadata, calls
   `/deal/notify-funded` when a `DealFunded` event has matching prior
   `DealCreated` context, and calls `/deal/{deal_id}/resolve` for accepted,
   rejected, or expired events. The `watch-chain` CLI exposes the same path for
@@ -347,9 +347,15 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   `DealFunded`, runs the watcher over JSON-RPC, and verifies a bounded
   control-plane stub receives funded state for deal `0` without manual curl
   calls or raw private-key flags.
-- The watcher slice is tested with mocked JSON-RPC/API transports, bounded
-  control-plane metadata tests, and the local Anvil proof, but it does not yet
-  persist cursors or handle reorg recovery.
+- `ChainCursorStore` gives the watcher durable restart state: it stores the
+  next block, confirmation depth, contract address hash summary, and public
+  `DealCreated` context. Restart tests and the Anvil proof show a later
+  `DealFunded` can still notify funded state after the created context has
+  crossed a process boundary. The watcher advances the cursor only after
+  successful dispatch and only scans confirmation-safe blocks.
+- The watcher is not yet deployed as a Phala/CVM process and does not include
+  chain-lag alerting or deep-reorg rollback beyond the configured confirmation
+  policy.
 - TEE-derived transaction signing, on-chain quote verification, compose/app
   identity binding, and full settlement-event integration are not built.
 

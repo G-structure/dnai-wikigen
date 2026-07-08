@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     chain_start_block: str = ""
     chain_poll_interval: float = 5.0
     chain_confirmations: int = 2
+    chain_cursor_store_path: str = "./data/chain_watcher_cursor.json"
     bootstrap_signup: bool = False
     bootstrap_fail_open: bool = False
     bootstrap_oracle_timeout: float = 300.0

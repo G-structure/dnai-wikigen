@@ -1,7 +1,9 @@
 import json
 import sys
+import tempfile
 import types
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import httpx
@@ -10,6 +12,8 @@ from fastapi.testclient import TestClient
 from tinker_delegate import api
 from tinker_delegate.chain_watcher import (
     ChainEventDispatcher,
+    ChainCursorStore,
+    ChainCursorState,
     ChainWatcher,
     JsonRpcLogSource,
     decode_diligence_room_log,
@@ -244,6 +248,95 @@ class ChainWatcherDispatchTest(unittest.TestCase):
         self.assertEqual(summary.funded_notifications, 1)
         self.assertIn("/deal/notify-funded", api_requests)
 
+    def test_cursor_persists_created_context_for_restart_recovery(self):
+        api_requests = []
+
+        def api_handler(request: httpx.Request) -> httpx.Response:
+            api_requests.append((request.url.path, json.loads(request.content)))
+            return httpx.Response(200, json={"ok": True})
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cursor = ChainCursorStore(Path(tmpdir) / "cursor.json")
+
+            created_source = _source_for_logs([_created_log(block=10, index=0)], latest_block=10)
+            first_dispatcher = ChainEventDispatcher(
+                "https://tee.example",
+                client=httpx.Client(transport=httpx.MockTransport(api_handler)),
+            )
+            first_summary = ChainWatcher(created_source, first_dispatcher).poll_once_with_cursor(
+                cursor_store=cursor,
+                start_block=10,
+                confirmations=0,
+            )
+
+            self.assertTrue(first_summary["cursor_advanced"])
+            self.assertEqual(first_summary["chain_event_posts"], 1)
+            saved = cursor.load()
+            self.assertEqual(saved.next_block, 11)
+            self.assertIn("7", saved.created_deals)
+            self.assertEqual(saved.created_deals["7"]["seller"], SELLER)
+
+            funded_source = _source_for_logs([_funded_log(block=11, index=0)], latest_block=11)
+            restarted_dispatcher = ChainEventDispatcher(
+                "https://tee.example",
+                client=httpx.Client(transport=httpx.MockTransport(api_handler)),
+                created_context=cursor.load().created_deals,
+            )
+            second_summary = ChainWatcher(funded_source, restarted_dispatcher).poll_once_with_cursor(
+                cursor_store=cursor,
+                confirmations=0,
+            )
+
+            self.assertEqual(second_summary["from_block"], 11)
+            self.assertEqual(second_summary["funded_notifications"], 1)
+            self.assertEqual(cursor.load().next_block, 12)
+
+        self.assertEqual(
+            [path for path, _payload in api_requests],
+            [
+                "/deal/chain-event",
+                "/deal/chain-event",
+                "/deal/notify-funded",
+            ],
+        )
+        funded = api_requests[-1][1]
+        self.assertEqual(funded["buyer"], BUYER)
+        self.assertEqual(funded["seller"], SELLER)
+
+    def test_cursor_does_not_advance_past_confirmation_safe_tip(self):
+        api_requests = []
+
+        def api_handler(request: httpx.Request) -> httpx.Response:
+            api_requests.append(request.url.path)
+            return httpx.Response(200, json={"ok": True})
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cursor = ChainCursorStore(Path(tmpdir) / "cursor.json")
+            cursor.save(
+                ChainCursorState(
+                    next_block=12,
+                    created_deals={},
+                    confirmations=2,
+                    last_scanned_to_block=11,
+                    contract_address="0x4444444444444444444444444444444444444444",
+                )
+            )
+            source = _source_for_logs([_funded_log(block=12)], latest_block=13)
+            dispatcher = ChainEventDispatcher(
+                "https://tee.example",
+                client=httpx.Client(transport=httpx.MockTransport(api_handler)),
+            )
+
+            summary = ChainWatcher(source, dispatcher).poll_once_with_cursor(
+                cursor_store=cursor,
+                confirmations=2,
+            )
+
+            self.assertFalse(summary["cursor_advanced"])
+            self.assertEqual(summary["to_block"], 11)
+            self.assertEqual(cursor.load().next_block, 12)
+            self.assertEqual(api_requests, [])
+
 
 class ChainWatcherApiTest(unittest.TestCase):
     def test_chain_event_endpoint_calls_control_plane_without_raw_page_state(self):
@@ -276,6 +369,22 @@ class ChainWatcherApiTest(unittest.TestCase):
         self.assertEqual(cp.calls[0][0], ("DealCreated", "7"))
         self.assertEqual(cp.calls[0][1]["block_number"], 10)
         self.assertEqual(cp.calls[0][1]["fields"]["seller"], SELLER)
+
+
+def _source_for_logs(logs: list[dict], latest_block: int) -> JsonRpcLogSource:
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        if payload["method"] == "eth_blockNumber":
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": hex(latest_block)})
+        if payload["method"] == "eth_getLogs":
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": logs})
+        return httpx.Response(500, json={"error": "unexpected method"})
+
+    return JsonRpcLogSource(
+        "https://rpc.example",
+        "0x4444444444444444444444444444444444444444",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
 
 
 if __name__ == "__main__":
