@@ -561,11 +561,15 @@ Implementation status:
 [real]      In dstack mode `/attestation` includes public dstack evidence fields
             when available: event log, VM config, instance/device IDs,
             aggregated measurement, OS image hash, compose hash, and TCB info.
+[real]      Encrypted FastAPI artifact ingress and control-plane evaluation
+            dispatch have regression tests that fail on Python file open/write
+            calls while raw artifact buffers are in scope.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE, but a capped real-card funding attempt still needs to be proven.
 [partial]   Optional Tinker SDK dependency must be installed for real evaluator execution.
 [partial]   Artifact upload still needs full cryptographic Intel TDX quote
-            parsing/freshness validation and evaluator-side raw-byte lifetime audit.
+            parsing/freshness validation, downstream evaluator/Tinker/browser
+            no-disk audit, and evaluator-side raw-byte lifetime audit.
 [planned]   Dedicated Tinker account encumbrance contract / funding-rail policy contract.
 ```
 

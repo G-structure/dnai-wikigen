@@ -540,6 +540,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Add per-corpus/per-deal key derivation:
       no single static artifact key for all rooms.
 - [ ] `P0` Ensure artifacts never touch disk unencrypted.
+      - [x] Add no-disk-write regression tests around encrypted FastAPI ingress
+            and control-plane evaluation dispatch so raw artifact buffers in
+            this TEE service path cannot call Python file write/open APIs.
+      - [ ] Audit the real SFT evaluator, Tinker SDK calls, browser tracing,
+            and deployed debug tooling before claiming the full artifact
+            lifecycle never touches disk unencrypted.
 - [ ] `P0` Add memory zeroing for raw artifact buffers after resolution.
       - [x] Zero mutable API upload decode buffers after ingress and stored
             control-plane artifact buffers after deal resolution.

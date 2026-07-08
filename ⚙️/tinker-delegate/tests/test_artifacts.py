@@ -1,7 +1,7 @@
 import sys
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -214,6 +214,74 @@ class ArtifactIngressTest(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("could not be decrypted or verified", response.json()["detail"])
         get_control_plane.assert_not_called()
+
+    def test_encrypted_api_does_not_write_raw_artifact_to_disk(self):
+        class AcceptingControlPlane:
+            def receive_artifact(self, _deal_id, artifact, artifact_hash):
+                self.seen = (bytes(artifact), artifact_hash)
+
+        cp = AcceptingControlPlane()
+        client = TestClient(api.app)
+        keypair = api.get_tee_keypair()
+        encrypted = encrypt_artifact_payload(
+            b"test-artifact",
+            keypair.public_key_bytes.hex(),
+            deal_id="deal-1",
+            artifact_hash=EXPECTED_TEST_ARTIFACT_HASH,
+        )
+
+        with (
+            patch("builtins.open", side_effect=AssertionError("raw artifact disk open")),
+            patch("pathlib.Path.open", side_effect=AssertionError("raw artifact path open")),
+            patch("pathlib.Path.write_bytes", side_effect=AssertionError("raw artifact write_bytes")),
+            patch("pathlib.Path.write_text", side_effect=AssertionError("raw artifact write_text")),
+            patch("tinker_delegate.api._get_control_plane", return_value=cp),
+        ):
+            response = client.post("/deal/deal-1/artifact/encrypted", json=encrypted)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(cp.seen, (b"test-artifact", EXPECTED_TEST_ARTIFACT_HASH))
+
+    def test_control_plane_evaluation_does_not_write_raw_artifact_to_disk(self):
+        sys.modules.setdefault("tinker", types.SimpleNamespace())
+        from tinker_delegate.control_plane import ControlPlane, DealContext
+
+        class Session:
+            compute_cost_wei = 0
+            fee_wei = 0
+
+            def cleanup(self):
+                pass
+
+        evaluator = AsyncMock(
+            return_value={
+                "quality_delta": 0.05,
+                "benchmark": "unit",
+                "confidence": "high",
+                "methodology": "bounded",
+            }
+        )
+        cp = ControlPlane.__new__(ControlPlane)
+        ctx = DealContext("deal-1", "buyer", "seller", 100, 10, session=Session())
+        ctx.artifact = bytearray(b"test-artifact")
+        cp._deals = {"deal-1": ctx}
+
+        async def run():
+            with (
+                patch("builtins.open", side_effect=AssertionError("raw artifact disk open")),
+                patch("pathlib.Path.open", side_effect=AssertionError("raw artifact path open")),
+                patch("pathlib.Path.write_bytes", side_effect=AssertionError("raw artifact write_bytes")),
+                patch("pathlib.Path.write_text", side_effect=AssertionError("raw artifact write_text")),
+            ):
+                return await cp.evaluate("deal-1", evaluator)
+
+        import asyncio
+
+        result = asyncio.run(run())
+
+        self.assertEqual(result.quality_delta, "+5-10% on unit")
+        evaluator.assert_awaited_once()
+        self.assertEqual(evaluator.await_args.kwargs["artifact"], b"test-artifact")
 
 
 if __name__ == "__main__":
