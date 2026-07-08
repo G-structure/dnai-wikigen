@@ -463,10 +463,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Add the encrypted operator-provisioning path for an existing mailbox
             so credentials can enter the oracle only after the client verifies
             attestation and encrypts to the oracle's context-bound key.
+      - [x] Debug current captcha/local-vs-Phala state.
+            Done 2026-07-08: local cock.li captcha fetch/parse/solve still
+            works for live registration pages, but the deployed Phala oracle is
+            configured with `ORACLE_AUTO_GENESIS=false` and has
+            `oracle_email=""` / `imap_connected=false`; the current Phala gap is
+            no sealed mailbox credentials, not a proven captcha-solver failure.
       - [ ] Run the encrypted provisioning path against the deployed Phala CVM
             with real mailbox credentials and record only bounded hashes/status.
 - [ ] `P0` Prove the email TEE can receive Tinker magic-code OTPs in the running
       CVM.
+      - [ ] Provision mailbox credentials or run a separate explicit
+            auto-genesis debug CVM, then re-test Tinker OTP receipt in Phala.
 - [ ] `P0` Add outbound email support for:
       reviewer holds, consent confirmations, revocations, bounded-result
       delivery, and recovery notices.
@@ -1237,6 +1245,12 @@ vision Wiki is reaching for.
       - [x] Oracle `/attestation?context=oracle-credentials` returns a live
             TDX credential-ingress envelope, and `POST /credentials/encrypted`
             rejects while disabled by default.
+      - [ ] Revert temporary Phala public-log debug posture before production
+            wrap-up or before any real mailbox, OTP, Tinker API-key, or card
+            material is handled. Current debug redeploy intentionally has
+            public logs on, public sysinfo off, dev OS/SSH off, and
+            `ORACLE_AUTO_GENESIS=false`, `TINKER_BOOTSTRAP_SIGNUP=false`, and
+            credential provisioning disabled.
       - [ ] Verify credential provisioning with real mailbox credentials,
             Tinker API-key capture, and funded billing flow inside the
             deployed CVM.

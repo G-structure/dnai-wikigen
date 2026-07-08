@@ -880,12 +880,19 @@ Implementation status:
             card material, artifacts, or API keys.
 [real]      Current Phala deployment runs the combined oracle/delegate stack in
             CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` with app ID
-            `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, public logs/sysinfo
-            disabled, digest-pinned GHCR images verified by GitHub
+            `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, digest-pinned GHCR
+            images verified by GitHub
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning degraded until credentials are sealed, and live delegate
             attestation verification passing against Phala compose hash
-            `0c745547099dd2c1f0777cc60deb163b040b920dfcf736697edd53dce1d26985`.
+            `c6d5f83fedfb259fcadaf227e0de6cdc6a8154990bdcc4e68610b81ef26abf53`.
+[partial]   Temporary debug exception active: public logs are enabled on the
+            current Phala CVM to inspect startup behavior, public sysinfo and
+            dev OS/SSH are disabled, and runtime guards keep
+            `ORACLE_AUTO_GENESIS=false`, `TINKER_BOOTSTRAP_SIGNUP=false`, and
+            credential provisioning disabled. This must be reverted before
+            production wrap-up or any real mailbox/Tinker/card secret enters
+            the deployment.
             Oracle credential-ingress attestation is live for
             `context=oracle-credentials`, but credential provisioning is
             disabled by default and no real mailbox credentials have been

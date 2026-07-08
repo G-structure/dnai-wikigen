@@ -563,13 +563,21 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   - App ID: `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`
   - Status: `running`
   - Gateway base: `dstack-pha-prod9.phala.network`
-  - Public logs/sysinfo: `false` / `false`
+  - Public logs/sysinfo: `true` / `false`.
+  - TEMPORARY DEBUG EXCEPTION: public logs were enabled on 2026-07-08 to debug
+    Phala oracle/delegate startup behavior. Dev OS/SSH remains disabled.
+    `ORACLE_AUTO_GENESIS=false`, `TINKER_BOOTSTRAP_SIGNUP=false`, and
+    `ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=false` are active so no
+    mailbox genesis, Tinker login, or credential provisioning should write
+    secrets to logs. Public logs must be turned back off before production
+    wrap-up or before any real mailbox, Tinker API-key, OTP, or card-bearing
+    flow is attempted.
   - OS image hash:
     `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`
   - Attested compose hash:
-    `0c745547099dd2c1f0777cc60deb163b040b920dfcf736697edd53dce1d26985`
+    `c6d5f83fedfb259fcadaf227e0de6cdc6a8154990bdcc4e68610b81ef26abf53`
   - Local raw-compose/image-policy hash:
-    `e7027ccb2fd071d589d3ad43de96ee2b13c3b8e04ba56072edb388a4d54ea799`
+    `964db3ef75bfca58483176e5e2dd3490dbbd6fd80e4e079856a3de413332cc28`
   - Delegate endpoint:
     `https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network`
   - Oracle endpoint:
@@ -578,14 +586,26 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     `api_key_configured=false`, `bootstrap_attempted=false`.
   - Oracle `/health`: `status=degraded`, `oracle_email=""`,
     `imap_connected=false`, `dstack_enabled=true`.
+  - Current captcha/genesis finding: local cock.li captcha fetch/parse/solve
+    still works against live registration pages, but the deployed Phala oracle
+    is configured with `ORACLE_AUTO_GENESIS=false`, credential provisioning is
+    disabled by default, and the health endpoint shows no sealed mailbox
+    credentials. The current Phala failure is therefore at credential genesis or
+    provisioning not being run, not evidence that the captcha solver failed in
+    the CVM.
+  - With temporary public logs enabled, sanitized Phala logs confirm the oracle
+    derives the dstack storage key, finds no credentials, starts in degraded
+    mode, and loads zero OTP replay entries; delegate logs confirm no Tinker API
+    key is configured. No genesis, captcha, OTP, Tinker login, API-key capture,
+    or billing flow ran in the current Phala CVM.
   - Oracle `/pin` without bearer auth returns `401 Bearer token required`.
   - Public CDP gateway `/json/version` returns host-header rejection rather than
     a usable browser-control response.
   - `verify-cvm-attestation` succeeded against delegate
     `/attestation?context=artifact`: mode `tdx`, quote size `5010`, report data
-    `fc845ae4dd1e5362a30552da36d5e96df35bfae7a8c1b3175a50ecac1c09f371`,
+    `b036c7fa5fc619774455f9bf54e2aebe7ca6897c5d213de31323e4df23f03f01`,
     encryption public key
-    `d17076aae4ce30f1468c92b52b22f5359890753e996a5ff788e11d8f1f43b066`,
+    `16e4a457a800bba5366fa6cac2ef3a69b964f49de359213dc6a14d32f883b653`,
     and the attested compose/app/OS-image/image-digest policy above.
   - `verify-deployment-bundle` succeeded against the same delegate endpoint:
     both deploy-critical GHCR image refs verified GitHub SLSA provenance and
@@ -596,9 +616,9 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     OS image hash, report data, public key, and quote size `5010`.
   - Oracle `/attestation?context=oracle-credentials` now returns a live TDX
     credential-ingress envelope with report data
-    `4040f319b9cdf29496710aa1d1e3ef51553fd175a2fbbc81e8038227e54252f8`,
+    `577a52603ad7fe011f7047efa91aa6b6a5d62ac483f07aef71b41cf23d182353`,
     encryption public key
-    `80e3c8a45c3ecda90e8cc2b1d914d8e284458c515ee24d7ea016e9119d9fdc1d`,
+    `c12677be3987e293224810201c7681dfdca298877b97767b217a86b60b5deb7b`,
     quote size `5010`, `oracle_email=""`, and no raw credential output.
     `POST /credentials/encrypted` rejects while disabled by default.
 - `deployments/base-sepolia.json` is now the machine-readable deployment
@@ -687,6 +707,15 @@ explicitly legacy.
   intentionally disabled by default. It has not been run with real mailbox
   credentials; the oracle has no sealed email credentials, and the delegate has
   no Tinker API key configured.
+- The current Phala CVM cannot prove cock.li captcha/account genesis because
+  `ORACLE_AUTO_GENESIS=false` keeps the oracle in degraded wait-for-credentials
+  mode. To debug captcha inside Phala, deploy a separate explicit debug CVM or
+  redeploy with auto-genesis enabled and secret-safe log/SSH access; otherwise
+  use the attested encrypted provisioning path for an existing mailbox.
+- Temporary public-log debug posture is active on the current Phala CVM. Revert
+  to `--no-public-logs --no-public-sysinfo` before production wrap-up and before
+  any run that could handle mailbox credentials, OTPs, Tinker API keys, or card
+  material.
 - Deployed headed Neko and Playwright sidecar containers are running, but
   Tinker login/API-key capture inside the deployed CVM is not yet proven.
 - Full Intel TDX quote-internal parsing and quote freshness checking need
@@ -736,6 +765,7 @@ cd "⚙️/tinker-delegate" && \
 cd "⚙️/tinker-delegate" && \
   TINKER_ORACLE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55 \
   TINKER_DELEGATE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ac2617341d56023da207340eb2219608710bf67beb05cb28688a68d755b8ae3f \
+  ORACLE_AUTO_GENESIS=false \
   ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=false \
   ORACLE_CREDENTIAL_PROVISIONING_TOKEN= \
   TINKER_BOOTSTRAP_SIGNUP=false \
@@ -746,9 +776,10 @@ cd "⚙️/tinker-delegate" && \
     --allowed-env TINKER_ORACLE_IMAGE \
     --allowed-env TINKER_DELEGATE_IMAGE \
     --allowed-env TINKER_BOOTSTRAP_SIGNUP \
+    --allowed-env ORACLE_AUTO_GENESIS \
     --allowed-env ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT \
     --allowed-env ORACLE_CREDENTIAL_PROVISIONING_TOKEN \
-    --attested-compose-hash 0c745547099dd2c1f0777cc60deb163b040b920dfcf736697edd53dce1d26985 \
+    --attested-compose-hash c6d5f83fedfb259fcadaf227e0de6cdc6a8154990bdcc4e68610b81ef26abf53 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
     --require-image-digest sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55 \
@@ -757,6 +788,7 @@ cd "⚙️/tinker-delegate" && \
 cd "⚙️/tinker-delegate" && \
   TINKER_ORACLE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55 \
   TINKER_DELEGATE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ac2617341d56023da207340eb2219608710bf67beb05cb28688a68d755b8ae3f \
+  ORACLE_AUTO_GENESIS=false \
   ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=false \
   ORACLE_CREDENTIAL_PROVISIONING_TOKEN= \
   TINKER_BOOTSTRAP_SIGNUP=false \
@@ -771,9 +803,10 @@ cd "⚙️/tinker-delegate" && \
     --allowed-env TINKER_ORACLE_IMAGE \
     --allowed-env TINKER_DELEGATE_IMAGE \
     --allowed-env TINKER_BOOTSTRAP_SIGNUP \
+    --allowed-env ORACLE_AUTO_GENESIS \
     --allowed-env ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT \
     --allowed-env ORACLE_CREDENTIAL_PROVISIONING_TOKEN \
-    --attested-compose-hash 0c745547099dd2c1f0777cc60deb163b040b920dfcf736697edd53dce1d26985 \
+    --attested-compose-hash c6d5f83fedfb259fcadaf227e0de6cdc6a8154990bdcc4e68610b81ef26abf53 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
     --require-image-digest sha256:320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \
