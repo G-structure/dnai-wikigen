@@ -1,4 +1,5 @@
 import asyncio
+import json
 import unittest
 from unittest.mock import patch
 
@@ -8,7 +9,13 @@ from tinker_delegate import api
 from tinker_delegate.config import Settings
 from tinker_delegate.main import _render_bounded_json
 from tinker_delegate.redaction import redact_text
-from tinker_delegate.selector_map import build_selector_map, probe_selector_map_context, selector_map_hash
+from tinker_delegate.selector_map import (
+    _probe_raw_cdp_targets,
+    build_selector_map,
+    probe_live_selector_map,
+    probe_selector_map_context,
+    selector_map_hash,
+)
 
 
 class FakeLocator:
@@ -38,6 +45,54 @@ class FakePage(FakeScope):
 class FakeContext:
     def __init__(self, pages: list[FakePage]):
         self.pages = pages
+
+
+class FakeResponse:
+    def __init__(self, payload: dict):
+        self.payload = json.dumps(payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self):
+        return self.payload
+
+
+class ChunkedFakeSocket:
+    def __init__(self, chunks: list[bytes]):
+        self.chunks = chunks
+        self.sent = b""
+        self.timeout = None
+        self.closed = False
+
+    def settimeout(self, timeout):
+        self.timeout = timeout
+
+    def sendall(self, payload: bytes):
+        self.sent += payload
+
+    def recv(self, size: int) -> bytes:
+        if not self.chunks:
+            return b""
+        chunk = self.chunks[0]
+        if len(chunk) <= size:
+            return self.chunks.pop(0)
+        self.chunks[0] = chunk[size:]
+        return chunk[:size]
+
+    def close(self):
+        self.closed = True
+
+
+def server_text_frame(payload: dict) -> bytes:
+    payload_bytes = json.dumps(payload).encode("utf-8")
+    length = len(payload_bytes)
+    if length < 126:
+        return bytes([0x81, length]) + payload_bytes
+    return bytes([0x81, 126, (length >> 8) & 0xFF, length & 0xFF]) + payload_bytes
 
 
 class SelectorMapTest(unittest.TestCase):
@@ -183,6 +238,87 @@ class SelectorMapTest(unittest.TestCase):
         self.assertFalse(body["raw_secret_egress"])
         self.assertNotIn("oracle@example.com", repr(body))
         self.assertNotIn("ws://secret", repr(body))
+
+    def test_raw_cdp_target_frame_probe_is_bounded(self):
+        raw_cdp_url = "http://172.20.0.3:9223"
+        raw_ws_url = "ws://172.20.0.3:9223/devtools/browser/raw-session-id"
+        raw_page_url = "https://tinker-console.thinkingmachines.ai/keys?session=secret"
+        raw_frame_url = "https://js.stripe.com/elements-inner-card.html#private"
+        response = FakeResponse({"webSocketDebuggerUrl": raw_ws_url})
+        fake_socket = ChunkedFakeSocket(
+            [
+                b"HTTP/1.1 101 Switching Protocols\r\n\r\n",
+                server_text_frame(
+                    {
+                        "id": 1,
+                        "result": {
+                            "targetInfos": [
+                                {"targetId": "page-1", "type": "page", "url": raw_page_url},
+                                {"targetId": "worker-1", "type": "worker", "url": ""},
+                            ]
+                        },
+                    }
+                ),
+                server_text_frame({"id": 2, "result": {"sessionId": "session-1"}}),
+                server_text_frame(
+                    {
+                        "id": 3,
+                        "sessionId": "session-1",
+                        "result": {
+                            "frameTree": {
+                                "frame": {"url": raw_page_url},
+                                "childFrames": [{"frame": {"url": raw_frame_url}}],
+                            }
+                        },
+                    }
+                ),
+            ]
+        )
+
+        with (
+            patch("tinker_delegate.selector_map.urlopen", return_value=response),
+            patch("tinker_delegate.selector_map.socket.create_connection", return_value=fake_socket),
+        ):
+            result = _probe_raw_cdp_targets(Settings(cdp_url=raw_cdp_url))
+
+        self.assertTrue(result["success"])
+        self.assertTrue(result["metadata_success"])
+        self.assertTrue(result["upgrade_success"])
+        self.assertTrue(result["target_command_success"])
+        self.assertTrue(result["frame_tree_command_success"])
+        self.assertEqual(result["probe_backend"], "raw_cdp")
+        self.assertEqual(result["method"], "raw_cdp_target_frame_inventory")
+        self.assertEqual(result["pages"][0]["url_class"], "tinker_console_keys")
+        self.assertEqual(result["pages"][0]["frame_observations"][1]["kind"], "stripe_card")
+        rendered = _render_bounded_json(result)
+        self.assertNotIn(raw_cdp_url, rendered)
+        self.assertNotIn(raw_ws_url, rendered)
+        self.assertNotIn("session=secret", rendered)
+        self.assertNotIn("elements-inner-card.html#private", rendered)
+        self.assertEqual(redact_text(rendered), rendered)
+
+    def test_live_selector_probe_falls_back_to_raw_cdp(self):
+        async def failing_context(_playwright, _settings):
+            raise RuntimeError("playwright cdp timeout")
+
+        fallback = {
+            "surface": "tinker_console_and_stripe_billing",
+            "raw_secret_egress": False,
+            "bounded_output": True,
+            "read_only": True,
+            "method": "raw_cdp_target_frame_inventory",
+            "success": True,
+            "pages": [],
+        }
+
+        with (
+            patch("tinker_delegate.selector_map.connect_chromium", new=failing_context),
+            patch("tinker_delegate.selector_map._probe_raw_cdp_targets", return_value=fallback),
+        ):
+            result = asyncio.run(probe_live_selector_map(Settings(cdp_url="http://172.20.0.3:9223")))
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["method"], "raw_cdp_target_frame_inventory")
 
 
 if __name__ == "__main__":

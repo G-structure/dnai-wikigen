@@ -8,15 +8,20 @@ page text, account identifiers, OTPs, cards, API keys, cookies, or browser URLs.
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import json
+import os
+import socket
+import ssl
 import time
 from typing import Any
 from urllib.parse import urlparse
+from urllib.request import urlopen
 
 from playwright.async_api import async_playwright
 
-from tinker_delegate.browser_ready import connect_chromium, get_browser_context
+from tinker_delegate.browser_ready import _cdp_probe_url, connect_chromium, get_browser_context
 from tinker_delegate.billing import (
     ADD_BALANCE_AMOUNT_SELECTORS,
     ADD_BALANCE_CONFIRM_SELECTORS,
@@ -55,6 +60,7 @@ from tinker_delegate.signup import (
 SELECTOR_MAP_VERSION = "2026-07-08.1"
 DEPLOYED_SELECTOR_EVIDENCE_STATUS = "pending_deployed_cvm_capture"
 PROBE_VERSION = "2026-07-08.1"
+RAW_CDP_PROBE_VERSION = "2026-07-08.1"
 COUNT_BAND_CAP = 2
 
 
@@ -247,6 +253,315 @@ def _frame_kind(frame: Any) -> str:
     return _classify_url(url)
 
 
+def _url_summary(url: str) -> dict[str, Any]:
+    return {
+        "url_class": _classify_url(url),
+        "url_hash": _hash_text(url) if url else "",
+    }
+
+
+def _read_exact(sock: socket.socket, length: int) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    while total < length:
+        chunk = sock.recv(length - total)
+        if not chunk:
+            raise ConnectionError("socket closed before enough bytes were read")
+        chunks.append(chunk)
+        total += len(chunk)
+    return b"".join(chunks)
+
+
+def _websocket_text_frame(payload: str) -> bytes:
+    payload_bytes = payload.encode("utf-8")
+    length = len(payload_bytes)
+    if length > 65535:
+        raise ValueError("payload too large")
+    header = bytearray([0x81])
+    if length < 126:
+        header.append(0x80 | length)
+    else:
+        header.extend([0x80 | 126, (length >> 8) & 0xFF, length & 0xFF])
+    mask = os.urandom(4)
+    masked = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload_bytes))
+    return bytes(header) + mask + masked
+
+
+def _read_websocket_text_frame(sock: socket.socket, max_payload: int = 65535) -> dict[str, Any]:
+    first = _read_exact(sock, 2)
+    opcode = first[0] & 0x0F
+    masked = bool(first[1] & 0x80)
+    length = first[1] & 0x7F
+    if length == 126:
+        extended = _read_exact(sock, 2)
+        length = (extended[0] << 8) | extended[1]
+    elif length == 127:
+        extended = _read_exact(sock, 8)
+        length = int.from_bytes(extended, "big")
+    if length > max_payload:
+        return {"received": True, "opcode": opcode, "too_large": True, "payload": b""}
+    mask = _read_exact(sock, 4) if masked else b""
+    payload = _read_exact(sock, length)
+    if masked:
+        payload = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+    return {"received": True, "opcode": opcode, "too_large": False, "payload": payload}
+
+
+def _read_http_headers(sock: socket.socket) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    while total < 4096:
+        chunk = sock.recv(512)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+        joined = b"".join(chunks)
+        if b"\r\n\r\n" in joined:
+            return joined.split(b"\r\n\r\n", 1)[0]
+    return b"".join(chunks)
+
+
+def _parse_http_status(headers: str) -> int:
+    first_line = headers.splitlines()[0] if headers.splitlines() else ""
+    parts = first_line.split()
+    if len(parts) >= 2 and parts[1].isdigit():
+        return int(parts[1])
+    return 0
+
+
+def _http_status_band(status_code: int) -> str:
+    if status_code == 101:
+        return "101"
+    if 100 <= status_code <= 599:
+        return f"{status_code // 100}xx"
+    return "unknown"
+
+
+def _read_matching_cdp_response(
+    sock: socket.socket,
+    command_id: int,
+    *,
+    session_id: str = "",
+    max_frames: int = 8,
+) -> dict[str, Any]:
+    saw_event = False
+    for _ in range(max_frames):
+        frame = _read_websocket_text_frame(sock)
+        if frame.get("too_large"):
+            raise RuntimeError("response_too_large")
+        opcode = int(frame.get("opcode") or 0)
+        if opcode == 8:
+            raise RuntimeError("websocket_closed")
+        if opcode not in {1, 2}:
+            raise RuntimeError("unexpected_websocket_frame")
+        try:
+            payload = json.loads(bytes(frame.get("payload") or b"").decode("utf-8", errors="replace"))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("invalid_json") from exc
+        if payload.get("id") == command_id and (not session_id or payload.get("sessionId") == session_id):
+            payload["_saw_event_before_response"] = saw_event
+            return payload
+        if "method" in payload:
+            saw_event = True
+            continue
+    raise RuntimeError("missing_cdp_response")
+
+
+class _RawCdpClient:
+    def __init__(self, websocket_url: str, timeout_seconds: float):
+        self.websocket_url = websocket_url
+        self.timeout_seconds = timeout_seconds
+        self.sock: socket.socket | None = None
+        self.raw_sock: socket.socket | None = None
+        self.wrapped_sock: socket.socket | None = None
+        self.next_id = 1
+        self.http_status_band = ""
+        self.tls = False
+
+    def __enter__(self) -> "_RawCdpClient":
+        parsed = urlparse(self.websocket_url)
+        if parsed.scheme not in {"ws", "wss"} or not parsed.hostname:
+            raise RuntimeError("unsupported_websocket_url")
+        port = parsed.port or (443 if parsed.scheme == "wss" else 80)
+        path = parsed.path or "/"
+        if parsed.query:
+            path = f"{path}?{parsed.query}"
+        host_header = parsed.hostname if parsed.port is None else f"{parsed.hostname}:{port}"
+        self.raw_sock = socket.create_connection((parsed.hostname, port), timeout=self.timeout_seconds)
+        self.raw_sock.settimeout(self.timeout_seconds)
+        if parsed.scheme == "wss":
+            self.wrapped_sock = ssl.create_default_context().wrap_socket(
+                self.raw_sock,
+                server_hostname=parsed.hostname,
+            )
+            self.sock = self.wrapped_sock
+            self.tls = True
+        else:
+            self.sock = self.raw_sock
+
+        nonce = base64.b64encode(os.urandom(16)).decode("ascii")
+        request = (
+            f"GET {path} HTTP/1.1\r\n"
+            f"Host: {host_header}\r\n"
+            "Upgrade: websocket\r\n"
+            "Connection: Upgrade\r\n"
+            f"Sec-WebSocket-Key: {nonce}\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "\r\n"
+        )
+        self.sock.sendall(request.encode("ascii"))
+        status_code = _parse_http_status(_read_http_headers(self.sock).decode("iso-8859-1", errors="replace"))
+        self.http_status_band = _http_status_band(status_code)
+        if status_code != 101:
+            raise RuntimeError("upgrade_rejected" if status_code else "invalid_upgrade_response")
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        for sock in (self.wrapped_sock, self.raw_sock):
+            if sock is None:
+                continue
+            try:
+                sock.close()
+            except OSError:
+                pass
+        return False
+
+    def command(self, method: str, params: dict[str, Any] | None = None, *, session_id: str = "") -> dict[str, Any]:
+        if self.sock is None:
+            raise RuntimeError("not_connected")
+        command_id = self.next_id
+        self.next_id += 1
+        payload: dict[str, Any] = {"id": command_id, "method": method}
+        if params is not None:
+            payload["params"] = params
+        if session_id:
+            payload["sessionId"] = session_id
+        self.sock.sendall(_websocket_text_frame(json.dumps(payload, separators=(",", ":"))))
+        return _read_matching_cdp_response(self.sock, command_id, session_id=session_id)
+
+
+def _frame_tree_items(frame_tree: dict[str, Any]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+
+    def visit(node: dict[str, Any], depth: int) -> None:
+        frame = node.get("frame") if isinstance(node, dict) else {}
+        frame_url = str(frame.get("url") or "") if isinstance(frame, dict) else ""
+        items.append(
+            {
+                "depth_band": "2+" if depth >= 2 else str(depth),
+                "kind": "stripe_card" if "elements-inner-card" in frame_url else _classify_url(frame_url),
+                **_url_summary(frame_url),
+            }
+        )
+        for child in list(node.get("childFrames", []) or [])[:10]:
+            if isinstance(child, dict):
+                visit(child, depth + 1)
+
+    visit(frame_tree, 0)
+    return items
+
+
+def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "version": RAW_CDP_PROBE_VERSION,
+        "surface": "tinker_console_and_stripe_billing",
+        "raw_secret_egress": False,
+        "bounded_output": True,
+        "read_only": True,
+        "probe_backend": "raw_cdp",
+        "method": "raw_cdp_target_frame_inventory",
+        "success": False,
+        "attempted": bool(settings.cdp_url),
+        "metadata_success": False,
+        "upgrade_success": False,
+        "target_command_success": False,
+        "frame_tree_command_success": False,
+        "http_status_band": "",
+        "target_count_band": "0",
+        "page_count_band": "0",
+        "pages_observed": 0,
+        "pages": [],
+        "error_kind": "not_configured" if not settings.cdp_url else "",
+    }
+    if not settings.cdp_url:
+        return result
+
+    try:
+        with urlopen(_cdp_probe_url(settings.cdp_url), timeout=5) as response:
+            metadata = json.loads(response.read().decode("utf-8", errors="replace"))
+    except Exception:
+        result["error_kind"] = "metadata_unavailable"
+        return result
+
+    result["metadata_success"] = True
+    websocket_url = str(metadata.get("webSocketDebuggerUrl") or "")
+    if not websocket_url:
+        result["error_kind"] = "missing_websocket_debugger_url"
+        return result
+
+    timeout_seconds = max(0.1, min(float(settings.cdp_connect_timeout or 5.0), 10.0))
+    try:
+        with _RawCdpClient(websocket_url, timeout_seconds) as client:
+            result["upgrade_success"] = True
+            result["http_status_band"] = client.http_status_band
+            targets_response = client.command("Target.getTargets")
+            targets = list(targets_response.get("result", {}).get("targetInfos", []) or [])
+            result["target_command_success"] = True
+            result["target_count_band"] = _count_band(len(targets))
+            page_targets = [
+                target
+                for target in targets
+                if isinstance(target, dict) and str(target.get("type") or "") == "page"
+            ]
+            result["page_count_band"] = _count_band(len(page_targets))
+            pages: list[dict[str, Any]] = []
+            for page_index, target in enumerate(page_targets[:5]):
+                target_url = str(target.get("url") or "")
+                page_result: dict[str, Any] = {
+                    "page_index": page_index,
+                    **_url_summary(target_url),
+                    "target_type": "page",
+                    "attached": False,
+                    "frame_tree_success": False,
+                    "frame_count_band": "0",
+                    "frame_observations": [],
+                }
+                target_id = str(target.get("targetId") or "")
+                if target_id:
+                    attach = client.command(
+                        "Target.attachToTarget",
+                        {"targetId": target_id, "flatten": True},
+                    )
+                    session_id = str(attach.get("result", {}).get("sessionId") or "")
+                    page_result["attached"] = bool(session_id)
+                    if session_id:
+                        frame_tree = client.command("Page.getFrameTree", session_id=session_id)
+                        tree = frame_tree.get("result", {}).get("frameTree")
+                        if isinstance(tree, dict):
+                            observations = _frame_tree_items(tree)[:10]
+                            page_result["frame_tree_success"] = True
+                            page_result["frame_count_band"] = _count_band(len(observations))
+                            page_result["frame_observations"] = observations
+                            result["frame_tree_command_success"] = True
+                pages.append(page_result)
+            result["pages"] = pages
+            result["pages_observed"] = len(pages)
+    except socket.timeout:
+        result["error_kind"] = "timeout"
+        return result
+    except RuntimeError as exc:
+        result["error_kind"] = str(exc) or "cdp_protocol_error"
+        return result
+    except Exception:
+        result["error_kind"] = "raw_cdp_probe_failed"
+        return result
+
+    result["success"] = bool(result["target_command_success"])
+    result["error_kind"] = "" if result["success"] else "target_inventory_failed"
+    return result
+
+
 async def _selector_count_band(scope: Any, selectors: list[str]) -> str:
     total = 0
     for selector in selectors:
@@ -345,10 +660,18 @@ async def probe_live_selector_map(settings: Settings | None = None) -> dict[str,
 
     if settings is None:
         settings = Settings()
-    async with async_playwright() as playwright:
-        browser = await connect_chromium(playwright, settings)
-        context = await get_browser_context(browser)
-        return await probe_selector_map_context(context)
+    try:
+        async with async_playwright() as playwright:
+            browser = await connect_chromium(playwright, settings)
+            context = await get_browser_context(browser)
+            result = await probe_selector_map_context(context)
+            result["probe_backend"] = "playwright"
+            return result
+    except Exception:
+        raw_result = await asyncio.to_thread(_probe_raw_cdp_targets, settings)
+        if raw_result.get("success"):
+            return raw_result
+        raise
 
 
 def run_live_selector_map_probe(settings: Settings | None = None) -> dict[str, Any]:

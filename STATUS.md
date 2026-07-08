@@ -95,15 +95,22 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   pages/frames without navigation, clicks, typing, screenshots, or page-text
   capture, emits only URL classes/hashes, selector match bands, frame kinds,
   selector-map hash, and `raw_secret_egress=false`, and fails closed with
-  bounded `browser_unavailable` JSON if the browser cannot be reached. The
-  matching `GET /browser/selector-probe` endpoint is now Phala-proven as a
+  bounded `browser_unavailable` JSON if the browser cannot be reached. In
+  source/tests, the probe now falls back to a raw-CDP target/frame inventory
+  path when Playwright attachment fails: it uses `Target.getTargets`,
+  `Target.attachToTarget`, and `Page.getFrameTree` to emit only stage booleans,
+  HTTP status band, target/page/frame count bands, URL classes/hashes, frame
+  kinds, and bounded error kinds. It does not yet run DOM selector counting and
+  is not yet Phala-proven. The matching `GET /browser/selector-probe` endpoint
+  is now Phala-proven as a
   deployed gate/fail-closed path: one-shot compose with GitHub-attested
   `7973b27` images enabled it on top of the bounded bootstrap profile, the live
   response returned bounded `browser_unavailable` JSON with
   `raw_secret_egress=false`, and the restored normal compose returns 403.
   Deployed selector/frame match capture remains open because CDP metadata and
   raw WebSocket upgrade succeeded but Playwright/CDP protocol connection timed
-  out during that probe.
+  out during that probe; the next Phala attempt should measure the raw-CDP
+  fallback with GitHub-attested images.
 - `tinker-delegate browser-readiness` and disabled-by-default
   `GET /browser/readiness` now provide a bounded way to diagnose that deployed
   browser-control failure without logs, SSH, screenshots, page text, cookies,

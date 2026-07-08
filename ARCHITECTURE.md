@@ -714,6 +714,16 @@ Implementation status:
             kinds, selector-map hash, bounded timestamps, and
             `raw_secret_egress=false`. Browser connection failures return
             bounded `browser_unavailable` JSON instead of tracebacks.
+[real]      Source/tests also include a raw DevTools-protocol fallback for
+            `selector-probe` when Playwright `connect_over_cdp` fails. The
+            fallback uses the advertised WebSocket debugger URL in memory only,
+            upgrades the raw WebSocket, runs `Target.getTargets`, attaches to
+            up to five page targets, reads `Page.getFrameTree`, and emits only
+            `probe_backend=raw_cdp`, stage booleans, HTTP status band,
+            target/page/frame count bands, URL classes/hashes, frame kinds, and
+            bounded error kinds. It performs no navigation, clicking, typing,
+            screenshots, page-text capture, cookie reads, DOM text extraction,
+            or raw URL egress. It does not yet run DOM selector counting.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed
             one-shot evidence capture. It is disabled by default and returns
             403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
@@ -761,9 +771,11 @@ Implementation status:
             metadata advertised, raw WebSocket upgrade status `101`, a
             successful bounded one-command CDP protocol response, then
             `connect_over_cdp` timeout. Actual selector/frame match evidence
-            from the deployed browser remains open until the Playwright CDP
-            client path is repaired or replaced by another bounded
-            browser-control path.
+            from the deployed browser remains open until the raw-CDP target/frame
+            fallback is built into GitHub-attested images, deployed, and
+            measured. Actual DOM selector match evidence remains open until
+            Playwright attachment is repaired or the raw-CDP fallback grows a
+            bounded Runtime evaluation path.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,

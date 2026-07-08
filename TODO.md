@@ -736,8 +736,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `connect_over_cdp` still timing out. The selector probe still
             returned bounded `browser_unavailable`, and the CVM was restored to
             normal compose where the readiness and selector endpoints return
-            403. Next step: replace or repair the Playwright CDP client path
-            before selector/frame matches can be captured.
+            403. Next step: build and deploy the raw-CDP target/frame fallback,
+            then retry deployed selector/frame inventory capture. DOM selector
+            match counts remain open until the fallback grows bounded Runtime
+            evaluation or Playwright attachment is repaired.
       - [x] Add a bounded post-upgrade DevTools-protocol probe.
             Done in source/tests and Phala-proven 2026-07-08:
             `browser-readiness` now includes
@@ -754,6 +756,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             measurement with GitHub-attested `59a9eac` images proved this basic
             DevTools protocol command path succeeds after HTTP `101`, even
             though Playwright `connect_over_cdp` still times out.
+      - [x] Add a bounded raw-CDP target/frame inventory fallback.
+            Done in source/tests 2026-07-08: if Playwright CDP attachment
+            fails, `selector-probe` falls back to a raw DevTools WebSocket path
+            that performs `Target.getTargets`, attaches read-only to up to five
+            page targets, runs `Page.getFrameTree`, and emits only
+            `probe_backend=raw_cdp`, stage booleans, HTTP status band,
+            target/page/frame count bands, URL classes/hashes, frame kinds, and
+            bounded error kinds. The raw CDP URL and WebSocket debugger URL stay
+            in memory only; tests prove the rendered output omits raw browser
+            URLs, query strings, Stripe frame URLs, page text, cookies, account
+            data, OTPs, API keys, and card data. This fallback does not yet run
+            DOM selector counting and is not yet Phala-proven.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to
