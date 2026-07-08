@@ -32,11 +32,16 @@ Decision:
    authorization expiry, and verifier-signature hash. This is enough for local
    verifier tooling and reviewer audit, but not yet enough for production quote
    verification because the verifier service/policy is not built.
-4. `[planned]` The production verifier must accept live quote evidence only
-   when it verifies approved compose/app measurement, quote freshness window,
-   chain ID, contract address, deal ID, TEE identity, and result commitment.
-   Until that service exists, the contract gate proves authorization mechanics
-   locally but not complete production quote verification.
+4. `[real]` `tinker_delegate.result_verifier` implements the policy/signature
+   core for the production verifier path. It accepts bounded signer attestation
+   evidence only when it matches signer address, chain ID, contract address,
+   report data, quote report data, approved compose hash, approved app ID,
+   optional OS image hash, revocation policy, distinct verifier/TEE keys, and a
+   short authorization TTL; then it signs the exact contract digest.
+5. `[planned]` The production verifier service/path must wrap this module,
+   consume live Phala quote evidence from the submitter, and add cryptographic
+   Intel TDX quote parsing/freshness before the repo can claim complete
+   production quote verification.
 
 Rationale:
 
@@ -57,9 +62,10 @@ Open follow-ups:
 - `[real]` Add a verifier signature format for result submissions.
 - `[real]` Add contract enforcement so a bogus bare `teeIdentity` cannot submit
   without a verifier authorization.
-- `[planned]` Build the production verifier service that issues those
-  signatures only after quote, compose/app, freshness, and revocation checks.
-- `[planned]` Add quote freshness/revocation policy once production Phala quote
-  evidence is available.
+- `[real]` Add the bounded policy/signature core for the production verifier
+  path.
+- `[planned]` Wrap the verifier module as a deployed service/operator path.
+- `[planned]` Add full cryptographic quote parsing/freshness once production
+  Phala quote evidence is available.
 - `[planned]` Repeat the proof from a deployed Phala CVM, not only the local
   simulator.

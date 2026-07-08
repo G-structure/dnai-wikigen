@@ -111,6 +111,19 @@ Important current status:
             and verifies a real `EvaluationSubmitted` event. This still needs a
             production verifier service that signs only after live Phala quote
             verification and a deployed-CVM broadcast proof.
+[real]      Result-verifier authorization policy module.
+            `tinker_delegate.result_verifier` validates signer attestation
+            evidence against signer address, chain ID, contract address, report
+            data, quote report data, approved compose hashes, approved app IDs,
+            optional OS image hashes, revoked quote hashes, revoked TEE signers,
+            distinct verifier/TEE keys, and a short authorization TTL before it
+            signs the exact `DiligenceRoom` authorization digest. Tests prove
+            accepted authorization and fail-closed policy, context, revocation,
+            self-approval, and non-dstack custody cases.
+[partial]   Production result-verifier service. The policy/signature library is
+            real, but it is not yet deployed as a Phala/CVM service or operator
+            path, and it still relies on bounded dstack quote envelope checks
+            rather than full cryptographic Intel TDX quote parsing/freshness.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -1255,13 +1268,16 @@ expiry, verifies signer quote evidence whose report data binds the signer
 address to the chain ID and contract address, signs the transaction in memory,
 and returns bounded receipt metadata. `DiligenceRoom.sol` requires a
 result-verifier signature over the same bounded submission context plus
-authorization expiry before accepting the call. A local Phala/dstack simulator
-proof broadcasts `submitResult()` to ephemeral Anvil and verifies
+authorization expiry before accepting the call. The result-verifier module now
+applies approved compose/app policy, optional OS image policy, revoked
+quote/signer lists, distinct verifier/TEE keys, and short authorization TTLs
+before signing that digest. A local Phala/dstack simulator proof broadcasts
+`submitResult()` to ephemeral Anvil and verifies
 `EvaluationSubmitted` carries the replay-bound commitment rather than the raw
-payload hash. The remaining production gap is the verifier service/policy: it
-must validate live Phala quote evidence, compose/app allowlists, freshness, and
-revocation before signing; the deployed Phala CVM-origin broadcast path still
-needs live validation.
+payload hash. The remaining production gap is deployment and deeper quote
+verification: the verifier module must be wrapped as a deployed service/path,
+full Intel TDX quote parsing/freshness is still incomplete, and the deployed
+Phala CVM-origin broadcast path still needs live validation.
 ```
 
 ## Service Architecture

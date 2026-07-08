@@ -371,6 +371,15 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   deal ID, TEE identity, compose hash, score band, compute cost, replay-bound
   result commitment, and authorization expiry. Contract tests cover wrong
   verifier, expired authorization, and zero compose hash.
+- `tinker_delegate.result_verifier` implements the bounded verifier
+  authorization path that should issue those signatures: it validates signer
+  attestation evidence against signer address, chain ID, contract, report data,
+  quote report data, approved compose hashes, approved app IDs, optional OS
+  image hashes, revoked quote hashes, revoked TEE signers, distinct
+  verifier/TEE keys, and a short authorization TTL before signing the exact
+  `DiligenceRoom` authorization digest. Tests cover accepted authorization and
+  fail-closed policy, context, revocation, self-approval, and non-dstack custody
+  cases.
 - The `submit-result` path now uses a pre-broadcast off-chain verifier gate:
   it fetches dstack signer quote evidence whose report data binds the signer
   address, chain ID, and contract address; rejects signer/chain/contract/report
@@ -392,9 +401,10 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   chain-lag alerting or deep-reorg rollback beyond the configured confirmation
   policy.
 - A deployed-CVM proof of verifier-authorized `submitResult()` broadcast has
-  not yet been run. The production verifier service that validates live Phala
-  quote evidence, compose/app identity, freshness, and revocation before
-  signing is not built. Full settlement-event integration is still incomplete.
+  not yet been run. The verifier policy/signature module is real, but it has
+  not yet been wrapped as a deployed verifier service or operator path, and full
+  cryptographic Intel TDX quote parsing/freshness is still incomplete. Full
+  settlement-event integration is still incomplete.
 
 [partial] Data custody:
 

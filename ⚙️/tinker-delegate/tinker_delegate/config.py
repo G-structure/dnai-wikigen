@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     chain_confirmations: int = 2
     chain_cursor_store_path: str = "./data/chain_watcher_cursor.json"
     chain_signer_key_path: str = "tinker/chain_signer"
+    chain_result_verifier_key_path: str = "tinker/chain_result_verifier"
+    chain_result_authorization_ttl_seconds: int = 300
     chain_submit_gas_limit: int = 0
     bootstrap_signup: bool = False
     bootstrap_fail_open: bool = False

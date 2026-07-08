@@ -215,6 +215,21 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [ ] Build the production verifier service/path that validates live
             Phala quote evidence, approved compose/app identity, freshness, and
             revocation policy before issuing verifier signatures.
+            - [x] Add a bounded result-verifier authorization module.
+                  Done in `tinker_delegate.result_verifier`: it validates signer
+                  attestation evidence against signer address, chain ID,
+                  contract, report data, quote report data, approved compose
+                  hashes, approved app IDs, optional OS image hashes, revoked
+                  quote hashes, revoked TEE signers, and a short authorization
+                  TTL before signing the exact `DiligenceRoom` authorization
+                  digest. Tests cover accepted authorization, policy mismatch,
+                  quote-context mismatch, revocation, self-approval rejection,
+                  and dstack-only verifier key custody.
+            - [ ] Wrap the verifier module as a deployed service or operator
+                  path that receives bounded quote evidence from the submitter
+                  and returns only authorization metadata/signature.
+            - [ ] Add cryptographic Intel TDX quote parsing/freshness once the
+                  production quote evidence format is available.
       - [ ] Repeat the verifier-authorized submitter proof from a deployed Phala
             CVM against Base Sepolia or an Anvil fork.
 - [ ] `P1` Add ERC20/USDC support in addition to native ETH.
