@@ -17,6 +17,7 @@ import re
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
+from email_oracle.chain_auth import EmailOracleAuthError, check_consumer_authorization
 from email_oracle.config import Settings
 from email_oracle.cred_store import CredentialStore, EmailCredentials
 from email_oracle.dstack_utils import derive_storage_key, get_attestation
@@ -174,6 +175,31 @@ def require_runtime_auth(authorization: str = Header(default="")) -> None:
         )
 
 
+def require_consumer_registry_authorization(*, caller_identity: str = "") -> None:
+    """Fail closed unless configured EmailOracleAuth consumer policy allows egress."""
+    settings = state.settings
+    if not settings:
+        return
+    try:
+        result = check_consumer_authorization(settings, caller_identity=caller_identity)
+    except EmailOracleAuthError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"EmailOracleAuth policy check failed: {redact_text(exc)}",
+        ) from exc
+    if result.allowed:
+        return
+    status_code = (
+        status.HTTP_403_FORBIDDEN
+        if result.checked and result.reason == "consumer_not_authorized"
+        else status.HTTP_503_SERVICE_UNAVAILABLE
+    )
+    raise HTTPException(
+        status_code=status_code,
+        detail=f"EmailOracleAuth policy denied: {result.reason}",
+    )
+
+
 def _hash_json(data: dict) -> str:
     canonical = json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(canonical).hexdigest()
@@ -296,6 +322,7 @@ app = FastAPI(
 @app.post("/pin", response_model=PinResponse, dependencies=[Depends(require_runtime_auth)])
 async def extract_pin(req: PinRequest):
     """Extract a verification pin from the oracle's inbox."""
+    require_consumer_registry_authorization(caller_identity=req.caller_identity)
     if not state.creds or not state.imap:
         raise HTTPException(503, "Oracle not initialized — no credentials")
 
@@ -363,6 +390,7 @@ async def health():
 @app.get("/inbox", dependencies=[Depends(require_runtime_auth)])
 async def list_inbox(max_age: int = 3600, limit: int = 20):
     """List recent emails (debug endpoint)."""
+    require_consumer_registry_authorization()
     if not state.imap:
         raise HTTPException(503, "IMAP not connected")
     return state.imap.list_recent(max_age_seconds=max_age, limit=limit)

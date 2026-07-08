@@ -1196,8 +1196,12 @@ The contract exists and is tested. The FastAPI /pin and /inbox paths now have
 [real] runtime bearer enforcement for same-CVM deployments: the oracle and
 delegate derive the same secret from the dstack key path
 oracle/runtime-auth, and local dev can use ORACLE_RUNTIME_AUTH_TOKEN /
-TINKER_ORACLE_AUTH_TOKEN. Full on-chain EmailOracleAuth consumer-registry
-checks are still [planned].
+TINKER_ORACLE_AUTH_TOKEN. The routes also have [real] optional on-chain
+EmailOracleAuth consumer-registry enforcement: when ORACLE_AUTH_REQUIRED=true
+or a contract is configured, /pin and /inbox fail closed before IMAP access
+unless isConsumerAuthorized(consumerApp, composeHash) returns true. Live
+compose-hash registration on Base Sepolia is still [partial]/[planned] until
+the final oracle and consumer compose hashes are registered.
 ```
 
 ### DiligenceRoom.sol
@@ -1395,6 +1399,10 @@ IMAPClient connects
   |
   v
 /pin and /inbox require the same-CVM runtime bearer token
+  |
+  v
+if configured, /pin and /inbox read EmailOracleAuth.isConsumerAuthorized
+before mailbox access
   |
   v
 /pin request must include target service, expected sender, subject scope,

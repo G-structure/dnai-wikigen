@@ -300,13 +300,19 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 ### EmailOracleAuth Completion
 
-- [ ] `P0` Enforce `EmailOracleAuth` at the FastAPI `/pin` and `/inbox`
+- [x] `P0` Enforce `EmailOracleAuth` at the FastAPI `/pin` and `/inbox`
       endpoints.
       Done when unauthenticated callers cannot retrieve OTPs or inbox metadata.
       - [x] Add runtime bearer guard for `/pin` and `/inbox` so unauthenticated
             network callers cannot retrieve OTPs or inbox metadata.
-      - [ ] Check the caller identity against the on-chain `EmailOracleAuth`
+      - [x] Check the caller identity against the on-chain `EmailOracleAuth`
             consumer registry before releasing OTP or inbox data.
+            Done with `email_oracle.chain_auth` and FastAPI guards for `/pin`
+            and `/inbox`. When `ORACLE_AUTH_REQUIRED=true` or a contract is
+            configured, the service fails closed before IMAP access unless
+            `isConsumerAuthorized(ORACLE_AUTH_CONSUMER_APP_ID,
+            ORACLE_AUTH_CONSUMER_COMPOSE_HASH)` returns true; optional
+            `ORACLE_AUTH_EXPECTED_CALLER_IDENTITY` binds `/pin` request metadata.
 - [ ] `P0` Register the final oracle compose hash and consumer compose hash on
       Base Sepolia.
 - [ ] `P0` Turn off `allowAnyDevice` for production or document why it remains
@@ -1298,9 +1304,10 @@ vision Wiki is reaching for.
 4. [ ] Build a fake private-reward environment with a synthetic hidden dataset.
 5. [ ] Fix `tinker-delegate` Docker install so the Tinker SDK path is present in
        the deployed image.
-6. [ ] Enforce oracle auth on `/pin` and `/inbox`.
-       Runtime bearer auth is implemented; on-chain `EmailOracleAuth` consumer
-       registry enforcement remains.
+6. [x] Enforce oracle auth on `/pin` and `/inbox`.
+       Runtime bearer auth and optional on-chain `EmailOracleAuth` consumer
+       registry enforcement are implemented locally. Base Sepolia compose-hash
+       registration remains a separate deployment step.
 7. [ ] Add chain watcher + TEE chain signer for `DiligenceRoom`.
        Local watcher and signer/broadcaster plumbing now exist; remaining proof
        is dstack/CVM-originated `submitResult()` broadcast and measured-code

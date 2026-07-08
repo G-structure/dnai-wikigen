@@ -47,6 +47,10 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
 [real] `tee-email-oracle`:
 
 - FastAPI service with runtime bearer authentication for sensitive routes.
+- Optional on-chain `EmailOracleAuth` consumer-registry checks for `/pin` and
+  `/inbox`. When `ORACLE_AUTH_REQUIRED=true` or a contract is configured,
+  sensitive routes fail closed before IMAP access unless the configured
+  consumer app and compose hash are authorized by the contract.
 - Sealed credential store abstraction.
 - Scoped OTP request path so callers receive only the OTP they requested.
 - Encrypted OTP replay ledger.

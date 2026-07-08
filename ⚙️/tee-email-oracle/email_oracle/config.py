@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     runtime_auth_required: bool = False
     runtime_auth_token: str = ""
     runtime_auth_key_path: str = "oracle/runtime-auth"
+    auth_required: bool = False
+    auth_contract_address: str = ""
+    auth_rpc_url: str = ""
+    auth_consumer_app_id: str = ""
+    auth_consumer_compose_hash: str = ""
+    auth_expected_caller_identity: str = ""
     pin_max_length: int = 16
     otp_replay_store_path: str = "/data/otp_replay.enc"
     otp_replay_store_key: str = ""

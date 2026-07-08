@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -100,6 +101,48 @@ class ApiAuthTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 503)
         self.assertIn("Oracle not initialized", response.json()["detail"])
+
+    def test_pin_requires_consumer_registry_when_configured_before_imap(self):
+        _reset_state(
+            Settings(
+                runtime_auth_required=True,
+                runtime_auth_token="shared-secret",
+                auth_required=True,
+            )
+        )
+        state.creds = EmailCredentials("oracle", "example.com", "pw")
+        state.imap = FakeIMAP()
+
+        response = self.client.post(
+            "/pin",
+            headers={"Authorization": "Bearer shared-secret"},
+            json=_scoped_pin_payload(),
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("EmailOracleAuth policy denied: missing_contract", response.json()["detail"])
+        self.assertEqual(state.imap.search_calls, [])
+
+    def test_pin_rejects_unauthorized_consumer_before_imap(self):
+        _reset_state(Settings(runtime_auth_required=True, runtime_auth_token="shared-secret"))
+        state.creds = EmailCredentials("oracle", "example.com", "pw")
+        state.imap = FakeIMAP()
+
+        class Denied:
+            allowed = False
+            checked = True
+            reason = "consumer_not_authorized"
+
+        with patch("email_oracle.api.check_consumer_authorization", return_value=Denied()):
+            response = self.client.post(
+                "/pin",
+                headers={"Authorization": "Bearer shared-secret"},
+                json=_scoped_pin_payload(),
+            )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("consumer_not_authorized", response.json()["detail"])
+        self.assertEqual(state.imap.search_calls, [])
 
     def test_pin_requires_scoped_request_metadata(self):
         _reset_state(Settings(runtime_auth_required=True, runtime_auth_token="shared-secret"))
@@ -216,6 +259,22 @@ class ApiAuthTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 503)
         self.assertIn("IMAP not connected", response.json()["detail"])
+
+    def test_inbox_requires_consumer_registry_before_imap(self):
+        _reset_state(
+            Settings(
+                runtime_auth_required=True,
+                runtime_auth_token="shared-secret",
+                auth_required=True,
+            )
+        )
+        state.imap = FakeIMAP()
+
+        response = self.client.get("/inbox", headers={"Authorization": "Bearer shared-secret"})
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("EmailOracleAuth policy denied: missing_contract", response.json()["detail"])
+        self.assertEqual(state.imap.search_calls, [])
 
     def test_local_dev_can_leave_runtime_auth_disabled(self):
         _reset_state(Settings(runtime_auth_required=False, runtime_auth_token=""))
