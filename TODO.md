@@ -795,12 +795,22 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             text, raw URLs, cookies, account identifiers, OTPs, API keys, and
             card material. Frame inventory and DOM selector counting remain
             open.
-- [ ] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
+- [x] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
       needed by each compose profile.
-      Evidence 2026-07-08: `scripts/redeploy-phala-cvm.mjs` encrypted the
-      broad `.env` runtime file into the TEE and printed 90 env key names while
-      redeploying diagnostic and normal profiles. No values were printed, but
-      the deployment surface should be reduced before production.
+      Done 2026-07-08: `scripts/redeploy-phala-cvm.mjs` now defaults to
+      `--runtime-env-policy compose-refs`, selecting only keys referenced by the
+      compose source plus explicitly allowed keys. The legacy broad behavior
+      requires `--runtime-env-policy all`. Default output is bounded to
+      `runtime_env_policy`, `runtime_env_key_count`, and
+      `runtime_env_keys_sha256`; printing key names requires
+      `--print-runtime-env-keys`. Node tests cover compose-reference filtering,
+      explicit missing-key fail-closed behavior, allow-file additions, and the
+      explicit all-env fallback. The current Phala normal profile was redeployed
+      with this policy: live compose hash
+      `000ac9ba94fc8cf1870786f9a9a3f7b1586ce74ad21f23143ce4e3d88941318e`,
+      `allowed_env_count=7`, public logs/sysinfo disabled, health OK, and both
+      browser diagnostic endpoints still 403. Deployment-bundle verification
+      passed against the narrowed allowed-env policy with `raw_secret_egress=false`.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to
@@ -1554,15 +1564,17 @@ vision Wiki is reaching for.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a23063c8d6cd892be4cd82ea69a927455b41451e7e6a3f54fb3c34edad2c6673`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:15085c1dadb2f771f8fa1faeb463413adc9351a5433d939b5155c602d229c9ca`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ff8fbb18ea96b83f8c119d2b5692f2c9e61931e91067c38e4fe59ef1cfba2d1d`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:7ddea52df75ab0392defbb35d568649ab21bb67352e6cc55ce1aeb154470c83e`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
-      image refs change. Live update with `--no-public-logs`,
-      `--no-public-sysinfo`, and `--no-dev-os` succeeded, but Phala still
-      reports `dstack-dev-0.5.9` / `is_dev=true`.
+      image refs change. The current normal profile is live at attested compose
+      hash `000ac9ba94fc8cf1870786f9a9a3f7b1586ce74ad21f23143ce4e3d88941318e`
+      with narrowed `allowed_env_count=7`. Live update with disabled public
+      logs/sysinfo succeeded, but Phala still reports `dstack-dev-0.5.9` /
+      `is_dev=true`.
 - [ ] `Deploy` Verify CVM endpoints:
       `/health`, `/attestation`, oracle `/pin` auth rejection, delegate status,
       browser CDP internal-only or protected.
@@ -1581,16 +1593,16 @@ vision Wiki is reaching for.
       - [x] `verify-deployment-bundle` passes against the live log-hardened
             Phala deployment with GitHub image provenance/SBOM checks, required
             sidecar digests, local raw compose hash
-            `e7145375b721ed8c0e2629fce1c9ecdf61a42fa28f1151a2d8f7f5d27fce7f3d`,
+            `63b4b43e50ba1938bf0f1d266eff60a67a431ccc4b4d0e1829d3f738d53e4993`,
             and live attested compose hash
-            `76537ab3ff5efa672a31690ccd03ff77bf991e47fe064e79bb8cceefd589d309`.
+            `000ac9ba94fc8cf1870786f9a9a3f7b1586ce74ad21f23143ce4e3d88941318e`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.
             Done 2026-07-08: live delegate image
-            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ff8fbb18ea96b83f8c119d2b5692f2c9e61931e91067c38e4fe59ef1cfba2d1d`
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:7ddea52df75ab0392defbb35d568649ab21bb67352e6cc55ce1aeb154470c83e`
             is GitHub-attested from commit
-            `59a9eac5d22f9834d74e3f263de2f46130a0a898`; `/pin` rejects
+            `a384db22f442f19796e4818c68060aa107bd54ee`; `/pin` rejects
             unauthenticated requests with `401`, `/browser/readiness` and
             `/browser/selector-probe` reject while disabled with `403`,
             `/credentials/encrypted` is closed on the delegate port with `404`,

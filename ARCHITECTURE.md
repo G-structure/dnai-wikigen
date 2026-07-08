@@ -973,6 +973,15 @@ Implementation status:
             quote-bound trust roots; a 2026-07-08 intermediate redeploy showed
             changing only image env values did not by itself change the live
             attested compose hash.
+[real]      `scripts/redeploy-phala-cvm.mjs` now defaults to a least-privilege
+            runtime-env policy for existing CVM updates. `compose-refs` selects
+            only encrypted env keys referenced by the compose source plus any
+            operator-approved explicit keys; the legacy broad `.env` behavior
+            requires `--runtime-env-policy all`. CLI output is bounded to
+            policy, selected-key count, and a SHA-256 of the key set unless
+            `--print-runtime-env-keys` is explicitly requested. The current
+            normal Phala profile was redeployed with this policy and reports
+            `allowed_env_count=7` instead of the earlier broad 90-key surface.
 [real]      `.github/workflows/build-tee-images.yml` builds the deploy-critical
             `tee-email-oracle` and `tinker-delegate` images on GitHub-hosted
             runners for `linux/amd64`, pushes SHA-tagged images to GHCR, asks
@@ -1009,19 +1018,21 @@ Implementation status:
             CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` with app ID
             `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, digest-pinned GHCR
             images verified by GitHub
-            attestations, delegate `/health` returning `ok`, oracle `/health`
-            returning `ok` with sealed mailbox readiness/hash only, and live delegate
-            attestation verification passing against local raw compose hash
-            `e7145375b721ed8c0e2629fce1c9ecdf61a42fa28f1151a2d8f7f5d27fce7f3d`
+            attestations, delegate `/health` returning `ok`, and live delegate
+            deployment-bundle verification passing against local raw compose
+            image-policy hash
+            `63b4b43e50ba1938bf0f1d266eff60a67a431ccc4b4d0e1829d3f738d53e4993`
             and live Phala attested compose hash
-            `76537ab3ff5efa672a31690ccd03ff77bf991e47fe064e79bb8cceefd589d309`.
-            The live delegate image is built from commit
-            `59a9eac5d22f9834d74e3f263de2f46130a0a898`, so it includes the
-            bounded signup/signin egress fix, bounded early-stage
-            startup-bootstrap attempt records, and the disabled-by-default
-            selector-probe and browser-readiness endpoints plus the bounded
-            post-upgrade CDP protocol probe. Tinker bootstrap, selector-probe,
-            and browser-readiness are disabled in the current normal compose.
+            `000ac9ba94fc8cf1870786f9a9a3f7b1586ce74ad21f23143ce4e3d88941318e`.
+            The current oracle image is
+            `tee-email-oracle@sha256:15085c1dadb2f771f8fa1faeb463413adc9351a5433d939b5155c602d229c9ca`
+            and the current delegate image is
+            `tinker-delegate@sha256:7ddea52df75ab0392defbb35d568649ab21bb67352e6cc55ce1aeb154470c83e`,
+            both built from source commit
+            `a384db22f442f19796e4818c68060aa107bd54ee`. Tinker bootstrap,
+            selector-probe, and browser-readiness are disabled in the current
+            normal compose, and live checks return 403 for both diagnostic
+            endpoints.
 [real]      The temporary public-log debug exception has been reverted on the
             current main Phala CVM. Public logs and public sysinfo are disabled
             while runtime guards keep `ORACLE_AUTO_GENESIS=false`,
@@ -1923,7 +1934,8 @@ docker-compose.dstack.yaml       dstack overlay
 docker-compose.all.yaml          local all-in-one oracle + browser + delegate
 docker-compose.all.dstack.yaml   all-in-one dstack overlay
 docker-compose.all.phala.yaml    registry-image Phala deployment
-scripts/redeploy-phala-cvm.mjs   update compose/env for existing Phala CVM
+scripts/redeploy-phala-cvm.mjs   update compose/env for existing Phala CVM;
+                                  defaults to compose-referenced env keys
 ```
 
 ## Security Boundaries
