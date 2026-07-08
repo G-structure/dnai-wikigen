@@ -100,8 +100,9 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   path when Playwright attachment fails: it uses `Target.getTargets`,
   `Target.attachToTarget`, and `Page.getFrameTree` to emit only stage booleans,
   HTTP status band, target/page/frame count bands, URL classes/hashes, frame
-  kinds, and bounded error kinds. It does not yet run DOM selector counting and
-  is not yet Phala-proven. The matching `GET /browser/selector-probe` endpoint
+  kinds, and bounded error kinds, including bounded raw-CDP fallback failure
+  receipts. It does not yet run DOM selector counting and is not yet
+  Phala-proven. The matching `GET /browser/selector-probe` endpoint
   is now Phala-proven as a
   deployed gate/fail-closed path: one-shot compose with GitHub-attested
   `7973b27` images enabled it on top of the bounded bootstrap profile, the live

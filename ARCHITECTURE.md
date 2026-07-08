@@ -721,7 +721,8 @@ Implementation status:
             up to five page targets, reads `Page.getFrameTree`, and emits only
             `probe_backend=raw_cdp`, stage booleans, HTTP status band,
             target/page/frame count bands, URL classes/hashes, frame kinds, and
-            bounded error kinds. It performs no navigation, clicking, typing,
+            bounded error kinds, even when the fallback cannot complete target
+            inventory. It performs no navigation, clicking, typing,
             screenshots, page-text capture, cookie reads, DOM text extraction,
             or raw URL egress. It does not yet run DOM selector counting.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed

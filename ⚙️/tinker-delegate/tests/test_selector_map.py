@@ -320,6 +320,37 @@ class SelectorMapTest(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(result["method"], "raw_cdp_target_frame_inventory")
 
+    def test_live_selector_probe_returns_bounded_raw_cdp_failure(self):
+        async def failing_context(_playwright, _settings):
+            raise RuntimeError("playwright cdp timeout ws://secret")
+
+        fallback = {
+            "surface": "tinker_console_and_stripe_billing",
+            "raw_secret_egress": False,
+            "bounded_output": True,
+            "read_only": True,
+            "probe_backend": "raw_cdp",
+            "method": "raw_cdp_target_frame_inventory",
+            "success": False,
+            "error_kind": "metadata_unavailable",
+            "pages": [],
+        }
+
+        with (
+            patch("tinker_delegate.selector_map.connect_chromium", new=failing_context),
+            patch("tinker_delegate.selector_map._probe_raw_cdp_targets", return_value=fallback),
+        ):
+            result = asyncio.run(probe_live_selector_map(Settings(cdp_url="http://172.20.0.3:9223")))
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["probe_backend"], "raw_cdp")
+        self.assertEqual(result["error_kind"], "metadata_unavailable")
+        self.assertEqual(result["fallback_from_backend"], "playwright")
+        self.assertEqual(result["fallback_reason_kind"], "timeout")
+        rendered = _render_bounded_json(result)
+        self.assertNotIn("ws://secret", rendered)
+        self.assertEqual(redact_text(rendered), rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

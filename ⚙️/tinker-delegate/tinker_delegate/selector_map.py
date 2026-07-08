@@ -562,6 +562,17 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
     return result
 
 
+def _playwright_error_kind(exc: Exception) -> str:
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
+        return "timeout"
+    message = str(exc).lower()
+    if "timeout" in message or "timed out" in message:
+        return "timeout"
+    if "connect" in message:
+        return "connect_failed"
+    return "browser_unavailable"
+
+
 async def _selector_count_band(scope: Any, selectors: list[str]) -> str:
     total = 0
     for selector in selectors:
@@ -667,11 +678,11 @@ async def probe_live_selector_map(settings: Settings | None = None) -> dict[str,
             result = await probe_selector_map_context(context)
             result["probe_backend"] = "playwright"
             return result
-    except Exception:
+    except Exception as exc:
         raw_result = await asyncio.to_thread(_probe_raw_cdp_targets, settings)
-        if raw_result.get("success"):
-            return raw_result
-        raise
+        raw_result["fallback_from_backend"] = "playwright"
+        raw_result["fallback_reason_kind"] = _playwright_error_kind(exc)
+        return raw_result
 
 
 def run_live_selector_map_probe(settings: Settings | None = None) -> dict[str, Any]:
