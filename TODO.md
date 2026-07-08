@@ -425,6 +425,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Add centralized redaction helpers for bearer tokens, card payloads,
             API keys, OTP/password text, and raw artifact-shaped error text;
             wire them into API errors and high-risk automation logs.
+      - [x] Hash email-oracle genesis/signup/check log identifiers instead of
+            printing raw generated mailbox addresses, generated usernames,
+            IMAP sender filters, or mail subject/sender headers. Covered by
+            `tee-email-oracle/tests/test_log_hygiene.py`.
       - [x] Keep secret-bearing screenshots disabled by default and behind
             explicit debug flags.
       - [x] Add trace/HAR/video/card-screenshot deletion for configured browser

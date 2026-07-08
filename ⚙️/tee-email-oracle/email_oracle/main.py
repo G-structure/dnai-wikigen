@@ -13,14 +13,13 @@ Commands:
 import argparse
 import asyncio
 import getpass
-import hashlib
 import json
 import os
 import sys
 
 from email_oracle.config import Settings
 from email_oracle.cred_store import CredentialStore
-from email_oracle.redaction import redact_text
+from email_oracle.redaction import hash_text, redact_text
 
 
 def _emit_bounded_json(payload: dict, *, forbidden_values: tuple[str, ...] = ()) -> None:
@@ -38,21 +37,17 @@ def _prompt_credentials(prompt_fn=input, secret_prompt_fn=getpass.getpass) -> di
     return {"username": username, "domain": domain, "password": password}
 
 
-def _hash_text(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
 async def cmd_genesis(settings: Settings, store: CredentialStore) -> None:
     """Create a new email account."""
     if store.exists():
         creds = store.load()
-        print(f"[genesis] credentials already exist email_hash={_hash_text(creds.email)}")
+        print(f"[genesis] credentials already exist email_hash={hash_text(creds.email)}")
         print("[genesis] delete the credential file to re-create")
         return
 
     from email_oracle.account_creator import create_account
     creds = await create_account(settings, store)
-    print(f"[genesis] complete email_hash={_hash_text(creds.email)}")
+    print(f"[genesis] complete email_hash={hash_text(creds.email)}")
 
 
 def cmd_serve(settings: Settings, store: CredentialStore) -> None:
@@ -88,7 +83,7 @@ def cmd_check(settings: Settings, store: CredentialStore) -> None:
         sys.exit(1)
 
     creds = store.load()
-    print(f"[check] testing IMAP email_hash={_hash_text(creds.email)}")
+    print(f"[check] testing IMAP email_hash={hash_text(creds.email)}")
 
     from email_oracle.imap_client import IMAPClient
     client = IMAPClient(creds, settings)
@@ -97,7 +92,11 @@ def cmd_check(settings: Settings, store: CredentialStore) -> None:
         emails = client.list_recent(max_age_seconds=86400, limit=5)
         print(f"[check] IMAP OK — {len(emails)} recent emails")
         for e in emails:
-            print(f"  {e['date']}  {e['from']}  {e['subject']}")
+            print(
+                f"  {e['date']}  "
+                f"from_hash={hash_text(e['from'])} "
+                f"subject_hash={hash_text(e['subject'])}"
+            )
     except Exception as e:
         print(f"[check] IMAP FAILED: {redact_text(e)}")
         sys.exit(1)

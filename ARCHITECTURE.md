@@ -802,6 +802,12 @@ Implementation status:
 [real]      Plaintext card API is disabled by default and unavailable in dstack mode.
 [real]      Central redaction helpers scrub bearer, OTP/password, card, API-key,
             and artifact-shaped values from bounded errors and high-risk logs.
+[real]      Email-oracle genesis, browser signup, IMAP search, and check-command
+            logs use stable SHA-256 hashes for generated mailbox identifiers,
+            sender filters, and mail subject/sender headers instead of printing
+            the raw values. This supports temporary Phala public-log debugging
+            after a log-hardened image is built/deployed, but does not change
+            `/pin` response contracts.
 [real]      Artifact upload verifies Ethereum keccak256 against artifactHash
             before DealContext state changes; mutable API decode buffers and
             stored control-plane artifact buffers are best-effort zeroed.

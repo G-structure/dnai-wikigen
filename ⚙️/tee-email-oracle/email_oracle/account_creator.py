@@ -13,7 +13,7 @@ import httpx
 
 from email_oracle.config import Settings
 from email_oracle.cred_store import CredentialStore, EmailCredentials
-from email_oracle.redaction import redact_text
+from email_oracle.redaction import hash_text, redact_text
 
 
 from captcha_solver.parser import parse_box_shadow_pixels, pixels_to_image, extract_captcha_key
@@ -40,7 +40,8 @@ def signup_http(settings: Settings) -> EmailCredentials:
     4. Verify IMAP login works
     """
     creds = generate_credentials(settings.cockli_domain)
-    print(f"[signup] attempting HTTP registration for {creds.email}")
+    email_hash = hash_text(creds.email)
+    print(f"[signup] attempting HTTP registration email_hash={email_hash}")
 
     with httpx.Client(
         follow_redirects=True,
@@ -91,7 +92,7 @@ def signup_http(settings: Settings) -> EmailCredentials:
 
         # cock.li shows specific error messages in the form
         if "already taken" in response_lower or "username is taken" in response_lower:
-            raise RuntimeError(f"Username {creds.username} already taken")
+            raise RuntimeError(f"Generated mailbox collision email_hash={email_hash}")
         if "incorrect" in response_lower and "captcha" in response_lower:
             raise RuntimeError("Captcha solution was incorrect")
 
@@ -103,13 +104,13 @@ def signup_http(settings: Settings) -> EmailCredentials:
 
     # Verify IMAP login
     verify_imap_login(creds, settings)
-    print(f"[signup] account created and IMAP verified: {creds.email}")
+    print(f"[signup] account created and IMAP verified email_hash={email_hash}")
     return creds
 
 
 def verify_imap_login(creds: EmailCredentials, settings: Settings) -> None:
     """Verify credentials work via IMAP."""
-    print(f"[signup] verifying IMAP login for {creds.email}")
+    print(f"[signup] verifying IMAP login email_hash={hash_text(creds.email)}")
     mail = imaplib.IMAP4_SSL(settings.cockli_imap_host, settings.cockli_imap_port)
     try:
         mail.login(creds.imap_login, creds.password)
@@ -131,7 +132,8 @@ async def signup_browser(settings: Settings) -> EmailCredentials:
     from playwright.async_api import async_playwright
 
     creds = generate_credentials(settings.cockli_domain)
-    print(f"[signup] attempting browser registration for {creds.email}")
+    email_hash = hash_text(creds.email)
+    print(f"[signup] attempting browser registration email_hash={email_hash}")
     print(f"[signup] connecting to CDP at {settings.cdp_url}")
 
     async with async_playwright() as p:
@@ -164,7 +166,7 @@ async def signup_browser(settings: Settings) -> EmailCredentials:
             # Check result
             result_text = (await page.content()).lower()
             if "already taken" in result_text:
-                raise RuntimeError(f"Username {creds.username} already taken")
+                raise RuntimeError(f"Generated mailbox collision email_hash={email_hash}")
             if "incorrect" in result_text and "captcha" in result_text:
                 raise RuntimeError("Captcha solution was incorrect")
 
@@ -173,7 +175,7 @@ async def signup_browser(settings: Settings) -> EmailCredentials:
 
     # Verify IMAP login
     verify_imap_login(creds, settings)
-    print(f"[signup] browser registration succeeded: {creds.email}")
+    print(f"[signup] browser registration succeeded email_hash={email_hash}")
     return creds
 
 

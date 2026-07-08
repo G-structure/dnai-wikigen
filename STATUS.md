@@ -598,6 +598,11 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     mode, and loads zero OTP replay entries; delegate logs confirm no Tinker API
     key is configured. No genesis, captcha, OTP, Tinker login, API-key capture,
     or billing flow ran in the current Phala CVM.
+  - Source-level email-oracle log hardening now hashes generated mailbox
+    identifiers, sender filters, and inbound mail subject/sender headers in
+    genesis/signup/check/IMAP diagnostics. The current live Phala CVM still runs
+    the older oracle image digest above until a new GitHub-built, attested image
+    is deployed, so do not run auto-genesis or secret-bearing flows there yet.
   - Oracle `/pin` without bearer auth returns `401 Bearer token required`.
   - Public CDP gateway `/json/version` returns host-header rejection rather than
     a usable browser-control response.
@@ -749,6 +754,9 @@ cd "⚙️/tinker-delegate" && scripts/verify-ghcr-image-attestation.sh --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-compose-hash --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main upload-artifact --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main funding-preflight --help
+
+cd "⚙️/tee-email-oracle" && uv run python -m unittest discover -s tests -v
+cd "⚙️/tee-email-oracle" && uv run python -m compileall email_oracle
 
 cd "⚙️/tinker-delegate" && \
   scripts/verify-ghcr-image-attestation.sh \
