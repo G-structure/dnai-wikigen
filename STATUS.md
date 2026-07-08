@@ -555,6 +555,27 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55`
   - Delegate:
     `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ac2617341d56023da207340eb2219608710bf67beb05cb28688a68d755b8ae3f`
+- Log-hardened images built after source commit
+  `b49ff2ca678d8860cccd69fb38a385dbc853bfbc`:
+  - GitHub Actions `Build TEE Images` run `28941069823` completed
+    successfully on 2026-07-08 and generated registry-attached BuildKit SBOM,
+    BuildKit provenance, GitHub provenance attestation, and GitHub SBOM
+    attestation for both TEE images.
+  - Oracle image index:
+    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:688b8b48a6621072b99fe9d515998f9bc4313215163c4d689a927da853926a23`
+    with linux/amd64 manifest
+    `sha256:2e1d078fbca37fa53c25a0a85bbe764e76df9ca725f0f3991c7473ff3d2069f1`.
+  - Delegate image index:
+    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c072442365abe4e2ca6b0823c460563e1b8870a503e31a65eb88a6f59cc5bb70`
+    with linux/amd64 manifest
+    `sha256:fbb3599014220319c298eaf27640619177371b728fc62131227605eadfa8e9b2`.
+  - Local `verify-ghcr-image-attestation` checks passed for both fresh image
+    indexes with source commit `b49ff2ca678d8860cccd69fb38a385dbc853bfbc`,
+    source ref `refs/heads/codex/wikigen-private-reward-pitch`, verified
+    provenance attestation, verified SBOM attestation, and `raw_secret_egress=false`.
+  - These log-hardened image digests have not yet been deployed to Phala. The
+    current live CVM still uses the previous deploy-critical image digests
+    listed above.
 - Full reproducible container images for every side service, apt package
   pinning, timestamp normalization, and published digest evidence for
   non-critical side services remain open.
