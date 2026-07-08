@@ -14,7 +14,7 @@ from tinker_delegate.config import Settings
 from tinker_delegate.oracle_client import OracleClient
 from tinker_delegate.redaction import redact_text
 from tinker_delegate.runtime_hardening import disable_core_dumps
-from tinker_delegate.runtime_state import reset_runtime_state, update_runtime_state
+from tinker_delegate.runtime_state import get_runtime_state, reset_runtime_state, update_runtime_state
 from tinker_delegate.signup import AuthAccessBlockedError
 
 
@@ -263,6 +263,20 @@ async def _ensure_api_key(settings: Settings) -> None:
         bootstrap_error_kind="",
         last_bootstrap_attempt_record=result.get("attempt_record"),
     )
+
+
+def _bootstrap_error_kind_from_runtime(exc: Exception) -> str:
+    """Preserve bounded bootstrap attempt outcomes when startup catches failures."""
+
+    runtime = get_runtime_state()
+    record = runtime.get("last_bootstrap_attempt_record")
+    if isinstance(record, dict):
+        outcome = record.get("outcome")
+        if outcome:
+            return str(outcome)
+    if isinstance(exc, AuthAccessBlockedError):
+        return "auth_access_blocked"
+    return "bootstrap_error"
 
 
 def cli():
@@ -1716,11 +1730,7 @@ def cli():
                 bootstrap_attempted=settings.bootstrap_signup,
                 bootstrap_success=False,
                 bootstrap_error=redact_text(exc),
-                bootstrap_error_kind=(
-                    "auth_access_blocked"
-                    if isinstance(exc, AuthAccessBlockedError)
-                    else "bootstrap_error"
-                ),
+                bootstrap_error_kind=_bootstrap_error_kind_from_runtime(exc),
             )
             if not settings.bootstrap_fail_open:
                 sys.exit(1)

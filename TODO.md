@@ -621,12 +621,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       `outcome=unknown_failure`, `furthest_stage=not_started`, and
       `raw_secret_egress=false`; no API key was created and the CVM was
       redeployed back to normal compose.
-- [ ] `P0` Preserve the bounded deployed-bootstrap attempt outcome in
+- [x] `P0` Preserve the bounded deployed-bootstrap attempt outcome in
       `/health.runtime.bootstrap_error_kind` instead of flattening the
       serve-level catch to generic `bootstrap_error`.
-      Evidence 2026-07-08: the instrumented Phala retry recorded
+      Done in source/tests 2026-07-08: the instrumented Phala retry recorded
       `last_bootstrap_attempt_record.outcome=unknown_failure`, but the outer
-      runtime field still reported `bootstrap_error`.
+      runtime field still reported `bootstrap_error`. The serve catch now
+      preserves the bounded attempt record's `outcome` before falling back to
+      `AuthAccessBlockedError` or generic `bootstrap_error`, and
+      `test_bootstrap_runtime_state` covers the bubbled failure path without
+      leaking raw mailbox, OTP, browser URL, page text, or API-key-shaped
+      values. This source/test fix still needs a GHCR build and Phala retry
+      before the deployed evidence is updated.
 - [ ] `P0` Capture a selector/frame/auth-flow map for:
       email input, magic-code page, OTP boxes, onboarding, keys page, billing,
       Stripe iframe, balance page, and auto-reload settings.
@@ -679,7 +685,8 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `74ad4b6` images captured a bounded `tinker_auth`
             `unknown_failure` receipt at `not_started`, with no raw secret
             egress and no API-key capture. The outer runtime
-            `bootstrap_error_kind` still needs the preservation fix above.
+            `bootstrap_error_kind` preservation fix is now implemented in
+            source/tests and needs the next GHCR build plus Phala retry.
             Local Neko still works, so next work should either repair the
             supportable headed-browser posture or obtain an official/support-
             approved Tinker service-account/API-key route.

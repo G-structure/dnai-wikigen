@@ -958,12 +958,15 @@ Implementation status:
             `outcome=unknown_failure`, `furthest_stage=not_started`, and
             `raw_secret_egress=false`; the outer runtime
             `bootstrap_error_kind` still flattened to generic
-            `bootstrap_error`, which is a remaining observability bug. In all
-            live attempts the oracle mailbox stayed ready, no API key was
-            configured or stored, endpoint gates stayed closed, and the CVM was
-            redeployed back to the normal compose. Completing deployed Tinker
-            signup now requires fixing that runtime-kind preservation issue and
-            then either a supportable headed-browser posture inside Phala or an
+            `bootstrap_error`. That preservation issue is now fixed in
+            source/tests: the serve catch keeps the bounded attempt `outcome`
+            before falling back to `AuthAccessBlockedError` or generic
+            `bootstrap_error`, but the fix is not yet Phala-proven. In all live
+            attempts the oracle mailbox stayed ready, no API key was configured
+            or stored, endpoint gates stayed closed, and the CVM was redeployed
+            back to the normal compose. Completing deployed Tinker signup now
+            requires rebuilding/redeploying this preservation fix and then
+            either a supportable headed-browser posture inside Phala or an
             official/support-approved Tinker API-key/service-account route;
             stealth/evasion remains out of scope.
 [partial]   Production OS posture is not solved. The main CVM still reports
@@ -1870,9 +1873,9 @@ bounded aggregate results
 3. Tinker browser automation works locally through Neko/CDP. The deployed
    headed-Neko packaging is Phala-proven, but deployed signup still fails
    closed before API-key sealing. Bounded early-stage bootstrap receipts are
-   now Phala-proven, though the outer runtime error kind still needs to
-   preserve the bounded attempt outcome instead of flattening to
-   `bootstrap_error`.
+   now Phala-proven. The outer runtime error-kind preservation fix is
+   implemented in source/tests and still needs the next image/deploy retry
+   before it becomes deployed evidence.
 4. Reliable Tinker account funding through Stripe browser automation is in progress:
    the test-card path reaches Stripe and declines as expected, the plaintext
    card API is disabled by default, `manual_prefund` is the default production

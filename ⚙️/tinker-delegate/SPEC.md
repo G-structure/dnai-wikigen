@@ -145,10 +145,11 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   `/health.runtime.last_bootstrap_attempt_record` reported
   `surface=tinker_auth`, `outcome=unknown_failure`,
   `furthest_stage=not_started`, and `raw_secret_egress=false`. The outer
-  `bootstrap_error_kind` still flattened to generic `bootstrap_error`, so
-  preserving that bounded outcome in the top-level runtime field remains a
-  follow-up fix. No API key was created, no card or add-balance path was
-  opened, and the normal compose was restored after each attempt.
+  `bootstrap_error_kind` still flattened to generic `bootstrap_error` in that
+  live run; source/tests now preserve the bounded outcome in the top-level
+  runtime field, and this fix needs the next image/deploy retry for deployed
+  proof. No API key was created, no card or add-balance path was opened, and
+  the normal compose was restored after each attempt.
 
 PHASE 2: READY
   Control plane starts listening for on-chain deal events

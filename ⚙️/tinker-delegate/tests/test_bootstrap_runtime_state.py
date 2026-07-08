@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
 from tinker_delegate.config import Settings
-from tinker_delegate.main import _ensure_api_key
+from tinker_delegate.main import _bootstrap_error_kind_from_runtime, _ensure_api_key
 from tinker_delegate.runtime_state import get_runtime_state, reset_runtime_state
 
 
@@ -28,6 +28,12 @@ BOUNDED_AUTH_BOOTSTRAP_RECEIPT = {
     "outcome": "transient_browser_failure",
     "furthest_stage": "not_started",
     "bounded_message": "transient_browser_failure",
+}
+
+BOUNDED_UNKNOWN_AUTH_BOOTSTRAP_RECEIPT = {
+    **BOUNDED_AUTH_BOOTSTRAP_RECEIPT,
+    "outcome": "unknown_failure",
+    "bounded_message": "unknown_failure",
 }
 
 
@@ -133,6 +139,37 @@ class BootstrapRuntimeStateTest(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(runtime["bootstrap_success"])
         self.assertEqual(runtime["bootstrap_error_kind"], "transient_browser_failure")
         self.assertEqual(runtime["last_bootstrap_attempt_record"], BOUNDED_AUTH_BOOTSTRAP_RECEIPT)
+        self.assertNotIn("oracle@example.com", repr(runtime))
+        self.assertNotIn("123456", repr(runtime))
+        self.assertNotIn("tml-", repr(runtime))
+
+    async def test_serve_catch_preserves_bounded_attempt_outcome(self):
+        store = Mock()
+        store.exists.return_value = False
+        signup_result = {
+            "success": False,
+            "stored": False,
+            "api_key_created": False,
+            "api_key_hash": "",
+            "attempt_record": BOUNDED_UNKNOWN_AUTH_BOOTSTRAP_RECEIPT,
+        }
+
+        with (
+            patch.dict(os.environ, {"TINKER_API_KEY": ""}, clear=False),
+            patch("tinker_delegate.main.build_api_key_store", return_value=store),
+            patch("tinker_delegate.main._wait_for_oracle"),
+            patch("tinker_delegate.signup.signup", new=AsyncMock(return_value=signup_result)),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "did not store an API key") as caught:
+                await _ensure_api_key(self._settings())
+
+        self.assertEqual(_bootstrap_error_kind_from_runtime(caught.exception), "unknown_failure")
+        runtime = get_runtime_state()
+        self.assertEqual(runtime["bootstrap_error_kind"], "unknown_failure")
+        self.assertEqual(
+            runtime["last_bootstrap_attempt_record"],
+            BOUNDED_UNKNOWN_AUTH_BOOTSTRAP_RECEIPT,
+        )
         self.assertNotIn("oracle@example.com", repr(runtime))
         self.assertNotIn("123456", repr(runtime))
         self.assertNotIn("tml-", repr(runtime))

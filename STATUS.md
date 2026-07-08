@@ -81,7 +81,10 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   Phala-proven for the `74ad4b6` image: the latest one-shot bootstrap emitted
   a bounded `tinker_auth` `unknown_failure` record at `not_started`, with
   hashes and `raw_secret_egress=false`, not raw mailbox, OTP, browser URL,
-  page text, or API key.
+  page text, or API key. The source now also preserves that bounded outcome in
+  top-level `/health.runtime.bootstrap_error_kind` when the serve-level catch
+  handles the bubbled startup failure; that top-level preservation fix is
+  locally tested and awaiting the next GHCR build/Phala retry.
 - `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps
@@ -750,7 +753,8 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     and captured a bounded `last_bootstrap_attempt_record` with
     `surface=tinker_auth`, `outcome=unknown_failure`,
     `furthest_stage=not_started`, and `raw_secret_egress=false`. The outer
-    `bootstrap_error_kind` flattening remains a follow-up bug. The oracle
+    `bootstrap_error_kind` flattening is fixed in source/tests after that live
+    run and needs the next image/deploy retry for deployed proof. The oracle
     stayed ready with
     `oracle_email=""` and the existing mailbox hash, `/pin` still returned 401
     without bearer auth, `/credentials/encrypted` returned 403 while disabled,
