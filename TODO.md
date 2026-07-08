@@ -463,6 +463,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Add hidden-holdout separation:
       train/reward split, final validation split, and anti-overfitting checks
       for adaptive query attacks.
+  - [x] `P0` Add a hidden-holdout split/accounting contract with train,
+        reward, and final-validation partitions, public commitments, bounded
+        reward-query tracking, and one-shot final-validation gating.
+  - [ ] `P0` Wire hidden-holdout checks into concrete private-reward
+        environments and add domain-specific anti-overfitting rules.
 - [ ] `P1` Implement a toy `private_reward_envs/` package with:
       environment base class, reward evaluator base class, bounded reducer,
       transcript logger, sandbox runner, and tests.

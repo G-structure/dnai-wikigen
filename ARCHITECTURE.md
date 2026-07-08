@@ -59,6 +59,10 @@ Important current status:
             stripped environment, deterministic seed, timeout, capped
             stdout/stderr, timing bands, public failure-code buckets, static
             preflight, and runtime import/file guards.
+[real]      HiddenHoldoutSet split/accounting contract for private reward
+            datasets. It creates train/reward/final-validation partitions,
+            exposes public counts and split commitments, tracks reward-query
+            counts, and gates final validation to bounded use.
 [partial]   Candidate sandboxing for arbitrary third-party code. The local
             Python sandbox is not OS/container isolation and is not sufficient
             for untrusted production candidate execution inside a CVM.
@@ -675,6 +679,21 @@ answer for hostile third-party code. Production CVM execution still needs
 OS/container isolation, no-network policy, mounted scratch-only filesystem,
 resource cgroups/ulimits, and egress auditing.
 
+The hidden holdout contract is:
+
+```
+HiddenHoldoutSet(records, policy)
+  internal: raw records and record IDs
+  split:    train / reward / final_validation
+  public:   split commitment, partition counts, query counts, seed hash
+  guard:    reward-query budget and one-shot final validation gate
+```
+
+Public holdout manifests intentionally do not include record IDs, payloads, raw
+labels, or split membership. Concrete private-reward environments still need to
+wire this into their reward/final-validation control flow and add
+domain-specific anti-overfitting tests.
+
 Target architecture:
 
 ```
@@ -737,6 +756,9 @@ Implementation status:
 [real]      Local sandbox side-channel buckets for elapsed timing, timeout
             normalization, capped output, best-effort memory limits, and
             policy/syntax/runtime/timeout failure codes.
+[real]      HiddenHoldoutSet with deterministic private split, public split
+            commitment, reward-query accounting, and one-shot final-validation
+            gating.
 [modeled]   TTT/RL bio-validation concept.
 [partial]   SFT evaluator scaffold.
 [real]      Output banding and offer computation.

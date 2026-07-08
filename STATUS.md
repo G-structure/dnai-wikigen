@@ -133,6 +133,19 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Failure traces are bucketed into policy, syntax, runtime, and timeout classes
   instead of returning raw exception strings or preflight details.
 
+[real] Hidden holdout accounting:
+
+- `tinker_delegate.private_reward_holdout.HiddenHoldoutSet` creates deterministic
+  train, reward, and final-validation partitions over TEE-held records.
+- Public holdout manifests expose split commitment, split policy, partition
+  counts, reward-query counts, unique candidate counts, final-validation count,
+  and whether reward queries are closed.
+- Public manifests do not include raw record IDs, payloads, labels, or split
+  membership.
+- Reward-query accounting enforces a configured query budget, and final
+  validation is gated to one-shot use by default; once final validation starts,
+  additional reward queries fail closed.
+
 ## Partial
 
 [partial] Deployed Tinker automation:
@@ -192,8 +205,11 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   implemented.
 - Local sandbox side-channel controls exist, but deployed reward side-channel
   hardening for real evaluator/Tinker/browser paths remains open.
-- Hidden-holdout separation and integration of optimizer policy with real
-  Tinker/browser execution remain open P0 work.
+- Hidden-holdout split/accounting exists, but concrete private-reward
+  environments still need to wire it into their reward and final-validation
+  paths with domain-specific anti-overfitting checks.
+- Integration of optimizer policy with real Tinker/browser execution remains
+  open P0 work.
 
 [partial] Frontend and product surface:
 

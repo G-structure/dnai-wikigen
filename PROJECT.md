@@ -252,6 +252,7 @@ The environment owns:
 - private data `D`
 - reward function `R_D`
 - candidate sandbox
+- hidden train/reward/final-validation split
 - query budget
 - reward precision policy
 - optimizer placement policy
@@ -269,8 +270,11 @@ interface layer only. `tinker_delegate.private_reward_sandbox` adds a local
 Python sandbox for toy candidates with subprocess timeout, scratch cwd,
 stripped environment, deterministic seed, capped stdout/stderr, timing bands,
 public failure-code buckets, and file, network, process, and import guards.
-Real RLVR, TTT, bio-validation, and hardened production candidate-sandbox
-environments are still separate implementation work.
+`tinker_delegate.private_reward_holdout` adds a hidden-holdout split and
+accounting contract with public split commitments, partition counts,
+reward-query tracking, and one-shot final-validation gating. Real RLVR, TTT,
+bio-validation, domain-specific anti-overfitting rules, and hardened production
+candidate-sandbox environments are still separate implementation work.
 
 ## Security Goal
 
