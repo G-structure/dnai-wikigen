@@ -480,6 +480,16 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             custody as real: make captcha solving reproducible inside the
             deployed linux/amd64 image, and repair or replace the Neko/CDP
             browser fallback timeout.
+            - [x] Repair the cock.li registration form contract in the oracle
+                  source: the real confirmation field is currently
+                  `password_confinm`, while `password_confirm` is a tabindex
+                  `-1` honeypot that must stay empty; HTTP payloads also mirror
+                  `csrf_valid`.
+            - [ ] Build/push a new oracle image, pin the debug/Phala compose to
+                  it, and re-run the explicit auto-genesis debug CVM to prove
+                  whether HTTP signup now reaches IMAP verification.
+            - [ ] If HTTP signup still fails, repair the Neko/CDP browser
+                  fallback timeout separately.
       - [ ] Run the encrypted provisioning path against the deployed Phala CVM
             with real mailbox credentials and record only bounded hashes/status.
 - [ ] `P0` Prove the email TEE can receive Tinker magic-code OTPs in the running

@@ -22,6 +22,8 @@ from captcha_solver.fetcher import _extract_field
 
 
 UA = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+PASSWORD_CONFIRM_FIELD = "password_confinm"
+PASSWORD_CONFIRM_HONEYPOT_FIELD = "password_confirm"
 
 
 def generate_credentials(domain: str) -> EmailCredentials:
@@ -29,6 +31,30 @@ def generate_credentials(domain: str) -> EmailCredentials:
     username = secrets.token_hex(8)  # 16-char hex string
     password = secrets.token_urlsafe(32)  # 256-bit password
     return EmailCredentials(username=username, domain=domain, password=password)
+
+
+def _registration_form_data(
+    *,
+    csrf: str,
+    creds: EmailCredentials,
+    captcha_key: str,
+    captcha_solution: str,
+) -> dict[str, str]:
+    """Build cock.li registration form data without filling honeypots."""
+    return {
+        "csrf": csrf,
+        "csrf_valid": csrf,
+        "username": creds.username,
+        "domain": creds.domain,
+        "password": creds.password,
+        # cock.li currently misspells the real confirm field as "confinm".
+        PASSWORD_CONFIRM_FIELD: creds.password,
+        "captcha_key": captcha_key,
+        "captcha_solution": captcha_solution,
+        "noscript": "1",
+        "tos_agree": "on",
+        PASSWORD_CONFIRM_HONEYPOT_FIELD: "",
+    }
 
 
 def signup_http(settings: Settings) -> EmailCredentials:
@@ -64,16 +90,12 @@ def signup_http(settings: Settings) -> EmailCredentials:
         print("[signup] captcha solved")
 
         # Submit registration
-        form_data = {
-            "csrf": csrf,
-            "username": creds.username,
-            "domain": creds.domain,
-            "password": creds.password,
-            "password_confirm": creds.password,
-            "captcha_key": captcha_key,
-            "captcha_solution": captcha_solution,
-            "tos_agree": "on",
-        }
+        form_data = _registration_form_data(
+            csrf=csrf,
+            creds=creds,
+            captcha_key=captcha_key,
+            captcha_solution=captcha_solution,
+        )
 
         resp = client.post(
             settings.cockli_register_url,
@@ -155,7 +177,7 @@ async def signup_browser(settings: Settings) -> EmailCredentials:
             await page.fill('input[name="username"]', creds.username)
             await page.select_option('select[name="domain"]', creds.domain)
             await page.fill('input[name="password"]', creds.password)
-            await page.fill('input[name="password_confirm"]', creds.password)
+            await page.fill(f'input[name="{PASSWORD_CONFIRM_FIELD}"]', creds.password)
             await page.fill('input[name="captcha_solution"]', captcha_solution)
             await page.check('input[name="tos_agree"]')
 

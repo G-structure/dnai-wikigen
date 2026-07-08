@@ -156,6 +156,11 @@
       "rawSecretEgress": false,
       "deletedAt": "2026-07-08T12:43:00Z"
     },
+    "oracleGenesisSourceFixPendingDeployment": {
+      "status": "implemented_not_deployed",
+      "finding": "cock.li real password confirmation field is password_confinm; password_confirm is a honeypot and must stay empty; csrf_valid mirrors csrf",
+      "nextVerification": "build and pin a new tee-email-oracle image, then rerun the oracle-genesis debug CVM"
+    },
     "credentialProvisioningEvidence": {
       "status": "endpoint_deployed_disabled_by_default",
       "context": "oracle-credentials",

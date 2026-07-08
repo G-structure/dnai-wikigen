@@ -109,9 +109,13 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
 
   HISTORICAL FINDING: cock.li and firemail.cc domains were blocked by Thinking
   Machines while cock.email was previously observed to pass the blocklist.
-  CAPTCHA FINDING: local cock.li captcha fetch/parse/solve still works against
-  live registration pages as of 2026-07-08, but the current Phala deployment has
-  ORACLE_AUTO_GENESIS=false and does not attempt account creation.
+  CAPTCHA FINDING: an explicit Phala oracle-genesis debug CVM with
+  ORACLE_AUTO_GENESIS=true parsed/solved three cock.li captchas, but signup was
+  rejected as incorrect and browser fallback timed out in Playwright CDP
+  connection. A source-level fix now tracks cock.li's current form contract:
+  fill `password_confinm`, leave the `password_confirm` honeypot empty, and
+  mirror `csrf_valid`; this still needs a rebuilt/pinned oracle image and a
+  fresh Phala debug proof.
   CURRENT FINDING: the local Neko browser path works end to end through API-key
   capture. The older Phala/headless blocker has not been revalidated in this
   cycle, so deployed CVM browser posture remains pending.
@@ -832,8 +836,12 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] Document: API key generation — New key → Generate key → copy from modal
 - [x] Test: API key can only be generated via console UI (no API endpoint found)
 - [x] Historical discovery: `cock.li`/`firemail.cc` domains blocked, `cock.email` observed as allowed
-- [x] Confirm local cock.li captcha fetch/parse/solve still works; current
-      Phala deployment does not exercise genesis because `ORACLE_AUTO_GENESIS=false`
+- [x] Confirm Phala oracle-genesis failure evidence: auto-genesis debug CVM
+      reached captcha submission, but HTTP signup was rejected and browser
+      fallback timed out.
+- [x] Repair source-level cock.li form mapping for `password_confinm`,
+      `password_confirm` honeypot, and `csrf_valid`.
+- [ ] Rebuild/pin oracle image and re-run Phala oracle-genesis debug proof.
 - [x] Implement: full automation in `tinker_delegate/signup.py`
 - [x] Validate local Neko/CDP auth, onboarding, and API-key provisioning against the live Tinker UI
 - [ ] Revalidate the deployed Phala/CVM browser posture against the live Tinker UI

@@ -624,6 +624,12 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     `BrowserType.connect_over_cdp`. The debug CVM was deleted after collecting
     this bounded evidence, so no temporary public-log/dev-OS debug CVM is left
     running.
+  - Current source-level genesis fix: live form inspection showed cock.li's real
+    password confirmation field is currently `password_confinm`, while
+    `password_confirm` is a tabindex `-1` honeypot. The oracle HTTP payload now
+    fills `password_confinm`, mirrors `csrf_valid`, and leaves
+    `password_confirm` empty; the browser fallback now fills
+    `password_confinm`. This is not deployed or Phala-proven yet.
   - Historical temporary-public-log evidence from before the 2026-07-08 revert
     confirmed the oracle derived the dstack storage key, found no credentials,
     started in degraded mode, and loaded zero OTP replay entries; delegate logs
@@ -748,8 +754,10 @@ explicitly legacy.
 - Cock.li account genesis inside Phala is not working yet: a temporary
   auto-genesis debug CVM proved HTTP captcha submissions are rejected as
   incorrect and the browser fallback times out in Playwright CDP connection.
-  Fix the linux/amd64 captcha solver reproducibility and the Neko/CDP fallback
-  before relying on generated TEE mailbox custody.
+  A source-level form-contract fix for cock.li's `password_confinm` field and
+  `password_confirm` honeypot is implemented but not yet rebuilt, pinned, or
+  Phala-verified. Re-run the explicit auto-genesis debug CVM with the new oracle
+  image before relying on generated TEE mailbox custody.
 - The main Phala CVM still runs a dev OS image (`dstack-dev-0.5.9`,
   `is_dev=true`). Public logs and public sysinfo are off, but production wrap-up
   must move to a non-dev dstack OS image or record a Phala-side blocker; the
