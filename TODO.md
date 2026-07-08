@@ -680,6 +680,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             material. The steady-state Phala compose remains disabled until a
             new GitHub-built image is pinned and deployed for capture.
       - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
+            Attempted 2026-07-08 with GitHub-attested `ca877db` oracle/delegate
+            images and a one-shot Phala profile enabling only
+            `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true` on top of the existing
+            bounded bootstrap profile. The live endpoint returned bounded
+            `browser_unavailable` JSON with `raw_secret_egress=false`, then the
+            CVM was restored to normal compose where the endpoint returns 403.
+            This proves the deployed endpoint gate/fail-closed path, but does
+            not yet capture selector/frame match evidence because the browser
+            connection was unavailable.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to
@@ -1415,15 +1424,18 @@ vision Wiki is reaching for.
             Refreshed again 2026-07-08 for preserved bounded bootstrap error
             kind commit `8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e` with
             GitHub Actions run `28954112809`.
+            Refreshed again 2026-07-08 for bounded selector-probe endpoint
+            commit `ca877db2d02ee4498d30560f19d4d394cf165676` with GitHub
+            Actions run `28957360340`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:b1251b071e981c4f6cba40c61b0806eb4523642e2857bdd0f14c27609ca19ed1`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:19359e6df891cb48ecf1b051d499d39f2f8a7be2dfe5c62e3c568402cb372f79`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b2bf8627c96945e976cd348cd29845a7440ef43d4b7d7cc4d727d81442950fe1`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:16b2dfa8428a8a2f234b5a2ad1dbb57db7cd67ca1e1e655d02633f4201a8506b`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
@@ -1448,16 +1460,16 @@ vision Wiki is reaching for.
       - [x] `verify-deployment-bundle` passes against the live log-hardened
             Phala deployment with GitHub image provenance/SBOM checks, required
             sidecar digests, local raw compose hash
-            `665a4fe15f99cf5aa837583ff57c1d15bc1bbe87e74b3f9ba5a7ddfc27d47f8f`,
+            `313d34a589316197740b1f81e43b2d1b5bc4ee98985e078bc551e61c96b7c728`,
             and live attested compose hash
-            `4494c06b2df4f48722b8c274444db093447ce8001a845bd51a68b026554054a1`.
+            `d8dbb33db7ec175838c3aca1c4bc2226bf745925b38105c1807789003f594009`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.
             Done 2026-07-08: live delegate image
-            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b2bf8627c96945e976cd348cd29845a7440ef43d4b7d7cc4d727d81442950fe1`
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:16b2dfa8428a8a2f234b5a2ad1dbb57db7cd67ca1e1e655d02633f4201a8506b`
             is GitHub-attested from commit
-            `8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e`; `/pin` rejects
+            `ca877db2d02ee4498d30560f19d4d394cf165676`; `/pin` rejects
             unauthenticated requests with `401`, `/credentials/encrypted`
             rejects while disabled with `403`, and `/billing/add-balance`
             rejects while disabled with `403`.

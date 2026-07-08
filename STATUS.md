@@ -96,12 +96,13 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   capture, emits only URL classes/hashes, selector match bands, frame kinds,
   selector-map hash, and `raw_secret_egress=false`, and fails closed with
   bounded `browser_unavailable` JSON if the browser cannot be reached. The
-  matching `GET /browser/selector-probe` endpoint is now implemented for
-  one-shot Phala evidence capture, but it is disabled by default and returns
-  403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`. The deployed-CVM
-  selector/frame capture remains open until a new GitHub-built image is pinned,
-  the temporary endpoint flag is enabled in the measurement profile, and the
-  live endpoint response is recorded.
+  matching `GET /browser/selector-probe` endpoint is now Phala-proven as a
+  deployed gate/fail-closed path: one-shot compose with GitHub-attested
+  `ca877db` images enabled only the selector-probe endpoint on top of the
+  bounded bootstrap profile, the live response returned bounded
+  `browser_unavailable` JSON with `raw_secret_egress=false`, and the restored
+  normal compose returns 403. Deployed selector/frame match capture remains
+  open because the browser connection was unavailable during that probe.
 - `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps
@@ -593,11 +594,11 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   `⚙️/tinker-delegate/scripts/verify-ghcr-image-attestation.sh`.
 - Current deploy-critical image digests:
   - Oracle:
-    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:b1251b071e981c4f6cba40c61b0806eb4523642e2857bdd0f14c27609ca19ed1`.
+    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:19359e6df891cb48ecf1b051d499d39f2f8a7be2dfe5c62e3c568402cb372f79`.
   - Delegate:
-    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b2bf8627c96945e976cd348cd29845a7440ef43d4b7d7cc4d727d81442950fe1`.
+    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:16b2dfa8428a8a2f234b5a2ad1dbb57db7cd67ca1e1e655d02633f4201a8506b`.
 - Local `verify-ghcr-image-attestation` checks passed for both current image
-  indexes with source commit `8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e`,
+  indexes with source commit `ca877db2d02ee4498d30560f19d4d394cf165676`,
   source ref `refs/heads/codex/wikigen-private-reward-pitch`, verified
   provenance attestation, verified SBOM attestation, and
   `raw_secret_egress=false`.
@@ -620,9 +621,10 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     `ORACLE_AUTO_GENESIS=false`,
     `TINKER_BOOTSTRAP_SIGNUP=false`,
     `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`, and
+    `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=false`,
     `ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=false` are still bound
     directly in compose so no mailbox genesis, Tinker login, credential
-    provisioning, or add-balance endpoint is active.
+    provisioning, add-balance endpoint, or selector-probe endpoint is active.
   - OS posture: still partial. `phala cvms get` reports
     `dstack-dev-0.5.9`, `is_dev=true`, and OS image hash
     `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`
@@ -634,11 +636,11 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   - OS image hash:
     `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`
   - Attested compose hash:
-    `4494c06b2df4f48722b8c274444db093447ce8001a845bd51a68b026554054a1`
+    `d8dbb33db7ec175838c3aca1c4bc2226bf745925b38105c1807789003f594009`
   - Local raw-compose/image-policy hash:
-    `665a4fe15f99cf5aa837583ff57c1d15bc1bbe87e74b3f9ba5a7ddfc27d47f8f`
+    `313d34a589316197740b1f81e43b2d1b5bc4ee98985e078bc551e61c96b7c728`
   - Rendered compose SHA-256:
-    `d29d934f505aa2c8bf5e6113b7a86ed7ffe9c13c95e99651436d5eb30649214c`
+    `c0cec8d59f80a8e2bb97da12a3b1a46fbc4a59a4a67f0506bbedf84d2762b1df`
   - Delegate endpoint:
     `https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network`
   - Oracle endpoint:
@@ -787,6 +789,24 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     redeployed back to `docker-compose.all.phala.yaml`; final health showed
     `api_key_configured=false`, `api_key_source=none`, and
     `bootstrap_attempted=false`.
+    The fifth live run used GitHub-attested oracle/delegate images from commit
+    `ca877db2d02ee4498d30560f19d4d394cf165676` and enabled
+    `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true` only in the one-shot bootstrap
+    profile. Its local raw-compose/image-policy hash was
+    `329c9bb241f3ab8c068e38e0321ee7c3a0cc182e1b33f17d06b0521e71316293`,
+    rendered compose SHA-256 was
+    `5b93911f98626d33ec4d8ca5c42ec031e7d8700ff1e024756f071e8941f58e37`,
+    and live attested compose hash was
+    `276cf111536f8ac1bdfe628a1e5d7451ea43a8bd895a8e120dd47d16ef7a98d9`.
+    `/health` again showed bounded `tinker_auth` `unknown_failure` bootstrap
+    evidence with `raw_secret_egress=false`. `GET /browser/selector-probe`
+    returned HTTP 503 with bounded `browser_unavailable`,
+    `bounded_output=true`, `read_only=true`, and `raw_secret_egress=false`;
+    no page text, account identifier, OTP, API key, card material, cookie, or
+    raw browser URL was returned. The CVM was then redeployed back to
+    `docker-compose.all.phala.yaml`; final health showed
+    `api_key_configured=false`, `api_key_source=none`,
+    `bootstrap_attempted=false`, and `/browser/selector-probe` returned 403.
   - Public logs are disabled; OTP, Tinker API-key, or card-bearing flows must
     still use only bounded interfaces and disabled endpoint gates must be
     intentionally reopened with fresh evidence.
@@ -802,10 +822,14 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   - `verify-deployment-bundle` succeeded against the same delegate endpoint:
     both deploy-critical GHCR image refs verified GitHub SLSA provenance and
     SPDX SBOM attestations for source commit
-    `8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e`, the rendered compose included
+    `ca877db2d02ee4498d30560f19d4d394cf165676`, the rendered compose included
     those exact oracle/delegate refs plus required Neko and Playwright sidecar
     digests, and the live CVM attestation matched app ID, attested compose hash,
-    OS image hash, report data, public key, and quote size `5010`.
+    OS image hash, report data
+    `b4c353d94d3295246021b9c8aadc2ede1ae4fdfa09059d13fffdc8d6892302bc`,
+    public key
+    `5c7f4a6edabf4428bcb8faf7ba1590ed8c28741b73ae5c958af82b52bae3f07e`,
+    and quote size `5010`.
   - Oracle `/attestation?context=oracle-credentials` now returns a live TDX
     credential-ingress envelope with report data
     `561e8fd43159ed838406827fb19531880c82e795ddb636dd0fec08f99b91203e`,
@@ -917,9 +941,10 @@ explicitly legacy.
   update with `--no-dev-os` still left the CVM reporting dev OS.
 - Deployed headed-Neko bootstrap packaging has now been Phala-tested without the
   Playwright sidecar, but Tinker login/API-key capture inside the deployed CVM
-  is not yet proven. Source/tests now add bounded early-stage bootstrap
-  receipts for the next Phala retry, but that instrumentation is not yet in the
-  live CVM image.
+  is not yet proven. Bounded early-stage bootstrap receipts and the
+  disabled-by-default selector-probe endpoint are now in the live CVM image; the
+  latest one-shot selector probe returned bounded `browser_unavailable`, so
+  actual deployed selector/frame match evidence is still open.
 - Full Intel TDX quote-internal parsing and quote freshness checking need
   implementation; current verifier checks the public dstack envelope and
   report-data binding only.
@@ -957,15 +982,15 @@ cd "⚙️/tee-email-oracle" && uv run python -m compileall email_oracle
 
 cd "⚙️/tinker-delegate" && \
   scripts/verify-ghcr-image-attestation.sh \
-    ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:b1251b071e981c4f6cba40c61b0806eb4523642e2857bdd0f14c27609ca19ed1 \
-    --source-digest 8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e \
+    ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:19359e6df891cb48ecf1b051d499d39f2f8a7be2dfe5c62e3c568402cb372f79 \
+    --source-digest ca877db2d02ee4498d30560f19d4d394cf165676 \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch \
     --repo G-structure/dnai-wikigen
 
 cd "⚙️/tinker-delegate" && \
   scripts/verify-ghcr-image-attestation.sh \
-    ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b2bf8627c96945e976cd348cd29845a7440ef43d4b7d7cc4d727d81442950fe1 \
-    --source-digest 8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e \
+    ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:16b2dfa8428a8a2f234b5a2ad1dbb57db7cd67ca1e1e655d02633f4201a8506b \
+    --source-digest ca877db2d02ee4498d30560f19d4d394cf165676 \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch \
     --repo G-structure/dnai-wikigen
 
@@ -974,12 +999,12 @@ cd "⚙️/tinker-delegate" && \
     https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network \
     --compose docker-compose.all.phala.yaml \
     --phala-raw-compose \
-    --expected-compose-hash 665a4fe15f99cf5aa837583ff57c1d15bc1bbe87e74b3f9ba5a7ddfc27d47f8f \
-    --attested-compose-hash 4494c06b2df4f48722b8c274444db093447ce8001a845bd51a68b026554054a1 \
+    --expected-compose-hash 313d34a589316197740b1f81e43b2d1b5bc4ee98985e078bc551e61c96b7c728 \
+    --attested-compose-hash d8dbb33db7ec175838c3aca1c4bc2226bf745925b38105c1807789003f594009 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
-    --require-image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:b1251b071e981c4f6cba40c61b0806eb4523642e2857bdd0f14c27609ca19ed1 \
-    --require-image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b2bf8627c96945e976cd348cd29845a7440ef43d4b7d7cc4d727d81442950fe1 \
+    --require-image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:19359e6df891cb48ecf1b051d499d39f2f8a7be2dfe5c62e3c568402cb372f79 \
+    --require-image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:16b2dfa8428a8a2f234b5a2ad1dbb57db7cd67ca1e1e655d02633f4201a8506b \
     --require-image-digest 320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \
     --require-image-digest e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f
 
@@ -987,14 +1012,14 @@ cd "⚙️/tinker-delegate" && \
   uv run python -m tinker_delegate.main verify-deployment-bundle \
     https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network \
     --compose docker-compose.all.phala.yaml \
-    --image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:b1251b071e981c4f6cba40c61b0806eb4523642e2857bdd0f14c27609ca19ed1 \
-    --image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b2bf8627c96945e976cd348cd29845a7440ef43d4b7d7cc4d727d81442950fe1 \
-    --source-digest 8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e \
+    --image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:19359e6df891cb48ecf1b051d499d39f2f8a7be2dfe5c62e3c568402cb372f79 \
+    --image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:16b2dfa8428a8a2f234b5a2ad1dbb57db7cd67ca1e1e655d02633f4201a8506b \
+    --source-digest ca877db2d02ee4498d30560f19d4d394cf165676 \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch \
     --repo G-structure/dnai-wikigen \
     --phala-raw-compose \
-    --expected-compose-hash 665a4fe15f99cf5aa837583ff57c1d15bc1bbe87e74b3f9ba5a7ddfc27d47f8f \
-    --attested-compose-hash 4494c06b2df4f48722b8c274444db093447ce8001a845bd51a68b026554054a1 \
+    --expected-compose-hash 313d34a589316197740b1f81e43b2d1b5bc4ee98985e078bc551e61c96b7c728 \
+    --attested-compose-hash d8dbb33db7ec175838c3aca1c4bc2226bf745925b38105c1807789003f594009 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
     --require-image-digest 320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \

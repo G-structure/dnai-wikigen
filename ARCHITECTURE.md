@@ -722,6 +722,13 @@ Implementation status:
             `browser_unavailable` JSON. The normal Phala compose keeps this
             endpoint disabled; enabling it is a temporary measurement profile,
             not a widened production interface.
+[partial]   The selector-probe endpoint has been Phala-proven as an endpoint
+            gate and fail-closed path using GitHub-attested `ca877db` images:
+            one-shot bootstrap compose enabled the endpoint, live response was
+            bounded `browser_unavailable` with `raw_secret_egress=false`, and
+            the restored normal compose returns 403. Actual selector/frame match
+            evidence from the deployed browser remains open because the browser
+            connection was unavailable during the probe.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
@@ -898,6 +905,7 @@ Implementation status:
             not encrypted-env substitutions. The current deployment also binds
             `ORACLE_AUTO_GENESIS=false`, `TINKER_BOOTSTRAP_SIGNUP=false`,
             `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`, and
+            `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=false`, and
             `ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=false` directly in
             that compose file. This avoids treating encrypted env values as
             quote-bound trust roots; a 2026-07-08 intermediate redeploy showed
@@ -942,19 +950,21 @@ Implementation status:
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning `ok` with sealed mailbox readiness/hash only, and live delegate
             attestation verification passing against local raw compose hash
-            `665a4fe15f99cf5aa837583ff57c1d15bc1bbe87e74b3f9ba5a7ddfc27d47f8f`
+            `313d34a589316197740b1f81e43b2d1b5bc4ee98985e078bc551e61c96b7c728`
             and live Phala attested compose hash
-            `4494c06b2df4f48722b8c274444db093447ce8001a845bd51a68b026554054a1`.
+            `d8dbb33db7ec175838c3aca1c4bc2226bf745925b38105c1807789003f594009`.
             The live delegate image is built from commit
-            `8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e`, so it includes the
-            bounded signup/signin egress fix and bounded early-stage
-            startup-bootstrap attempt records. Tinker bootstrap is disabled in
-            the current normal compose.
+            `ca877db2d02ee4498d30560f19d4d394cf165676`, so it includes the
+            bounded signup/signin egress fix, bounded early-stage
+            startup-bootstrap attempt records, and the disabled-by-default
+            selector-probe endpoint. Tinker bootstrap and selector-probe are
+            disabled in the current normal compose.
 [real]      The temporary public-log debug exception has been reverted on the
             current main Phala CVM. Public logs and public sysinfo are disabled
             while runtime guards keep `ORACLE_AUTO_GENESIS=false`,
             `TINKER_BOOTSTRAP_SIGNUP=false`, `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`,
-            and credential provisioning disabled.
+            `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=false`, and credential
+            provisioning disabled.
 [real]      Main-CVM mailbox genesis has been Phala-proven without enabling
             Tinker bootstrap or billing. A one-shot
             `docker-compose.mailbox-genesis.phala.yaml` deployment reached

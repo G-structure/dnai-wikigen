@@ -133,7 +133,7 @@ services:
       timeout: 5s
 
   oracle:
-    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:b1251b071e981c4f6cba40c61b0806eb4523642e2857bdd0f14c27609ca19ed1
+    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:19359e6df891cb48ecf1b051d499d39f2f8a7be2dfe5c62e3c568402cb372f79
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -172,7 +172,7 @@ services:
       start_period: 180s
 
   delegate:
-    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b2bf8627c96945e976cd348cd29845a7440ef43d4b7d7cc4d727d81442950fe1
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:16b2dfa8428a8a2f234b5a2ad1dbb57db7cd67ca1e1e655d02633f4201a8506b
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -204,6 +204,7 @@ services:
       TINKER_FUNDING_MODE: ${TINKER_FUNDING_MODE:-manual_prefund}
       TINKER_MAX_ADD_BALANCE_USD: ${TINKER_MAX_ADD_BALANCE_USD:-5.0}
       TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "false"
+      TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT: "false"
       TINKER_BOOTSTRAP_SIGNUP: "false"
       TINKER_BOOTSTRAP_FAIL_OPEN: "true"
       TINKER_BOOTSTRAP_ORACLE_TIMEOUT: ${TINKER_BOOTSTRAP_ORACLE_TIMEOUT:-300}
