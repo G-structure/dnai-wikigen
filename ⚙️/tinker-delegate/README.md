@@ -12,7 +12,7 @@ The email oracle is still required. It is not just a disposable inbox: it is the
 
 The oracle's `/pin` and `/inbox` endpoints are now protected by runtime bearer auth when enabled. In the combined dstack/Phala deployment, the oracle and delegate derive the bearer token from the same dstack key path (`oracle/runtime-auth`). Local development can use an explicit `ORACLE_RUNTIME_AUTH_TOKEN` / `TINKER_ORACLE_AUTH_TOKEN` pair instead. `/pin` requests are scoped: the delegate sends target service, expected sender, caller identity, reason, nonce, max age, and bounded extraction pattern. The oracle persists released OTP hashes in an encrypted/sealed replay ledger so one-time-use survives restart, and logs only bounded metadata, not the OTP value.
 
-Tinker account funding remains in progress. The intended payment path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code now reach Stripe in the local Neko session: a Stripe test card filled the live payment form and was rejected with `Your card was declined.` Adding balance correctly fails closed with `Payment method required before adding balance` when no real card is on file. The plaintext card API endpoint is disabled by default and unavailable in dstack mode; it can only be enabled as a local-development test hook with `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. A capped real-card funding attempt is still required before funding can be called production-complete.
+Tinker account funding remains in progress. The intended payment path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code now reach Stripe in the local Neko session: a Stripe test card filled the live payment form and was rejected with `Your card was declined.` Adding balance correctly fails closed with `Payment method required before adding balance` when no real card is on file. On 2026-07-08, the same local session produced bounded `payment_method` and `add_balance` attempt records with outcome classes, furthest-stage markers, timestamps, evidence hashes, amount bands, and card-payload destruction status. The plaintext card API endpoint is disabled by default and unavailable in dstack mode; it can only be enabled as a local-development test hook with `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. A capped real-card funding attempt is still required before funding can be called production-complete.
 
 ## How It Works
 
@@ -111,9 +111,9 @@ uv venv && uv pip install playwright httpx pydantic pydantic-settings
 # Check balance
 .venv/bin/python -m tinker_delegate.main balance
 
-# Add payment method (card details — use encrypted channel in production)
+# Add payment method (card details -- use encrypted channel in production)
 .venv/bin/python -m tinker_delegate.main add-card \
-  --number 4242424242424242 \
+  --number <stripe-test-card-number> \
   --exp-month 12 --exp-year 2028 \
   --cvc 123 --name "Dev Team" \
   --address-line1 "123 Main St" --address-city "SF" \
@@ -191,7 +191,15 @@ POST /deal/{id}/artifact — plaintext local-dev hook, disabled by default
   "api_key_created": true,
   "api_key_hash": "9b3f...",
   "stored": true,
-  "success": true
+  "success": true,
+  "attempt_record": {
+    "surface": "api_key_provisioning",
+    "outcome": "success",
+    "furthest_stage": "api_key_stored",
+    "evidence_hash": "sha256...",
+    "account_hash": "sha256...",
+    "raw_secret_egress": false
+  }
 }
 ```
 
@@ -300,6 +308,10 @@ contracts/
 - **Model**: Prepaid balance (add credit, spend on API usage)
 - **Local test-card result**: Stripe test card reaches submission and returns `Your card was declined.`
 - **No-card funding result**: add-balance fails closed with `Payment method required before adding balance`
+- **Attempt records**: payment-method and add-balance responses expose bounded
+  `surface`, `outcome`, `furthest_stage`, `issued_at`, `evidence_hash`,
+  amount/balance bands, TDX quote hash when present, and card-payload
+  destruction status; they do not return raw card fields or browser page bodies.
 - **Auto-reload**: Configurable threshold + amount
 - **Pricing** (USD/million tokens): Llama-3.2-1B $0.03-$0.09, Llama-3.1-8B $0.13-$0.40, Qwen3-235B $0.68-$2.04
 - **Trust model**: Developer encrypts card to TEE's TDX key → TEE fills Stripe form → zeroes memory → card never persisted
