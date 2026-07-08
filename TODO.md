@@ -157,9 +157,19 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             funded state and compute budget before signing, broadcasts a raw
             transaction through JSON-RPC, and returns only bounded receipt
             metadata.
-      - [ ] Prove the submitter from a dstack simulator or deployed CVM against
+      - [x] Prove the submitter from a dstack simulator or deployed CVM against
             Anvil/Base Sepolia so `submitResult()` is actually broadcast from
             inside the attested runtime.
+            Done with
+            `⚙️/tinker-delegate/scripts/prove-chain-submitter-dstack-anvil.py`:
+            it uses the Phala/dstack simulator as the key source, derives the
+            TEE Ethereum signer inside the `submit-result` CLI path, funds that
+            signer on ephemeral Anvil, creates/funds a DiligenceRoom deal with
+            the derived signer as `teeIdentity`, broadcasts `submitResult()`,
+            and verifies the real `EvaluationSubmitted` event without accepting
+            or printing raw private keys.
+      - [ ] Repeat the submitter proof from a deployed Phala CVM before marking
+            production CVM signing complete.
 - [ ] `P0` Bind `teeIdentity` to an attested compose/app identity instead of a
       bare trusted address.
       Done when result submission proves the signer is controlled by a verified

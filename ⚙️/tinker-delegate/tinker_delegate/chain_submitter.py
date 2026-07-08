@@ -15,6 +15,7 @@ from typing import Any, Protocol
 import httpx
 from eth_account import Account
 from eth_hash.auto import keccak
+from eth_utils import to_checksum_address
 
 from tinker_delegate.config import Settings
 from tinker_delegate.dstack_utils import derive_storage_key, is_dstack_enabled
@@ -371,7 +372,7 @@ class DiligenceRoomSubmitter:
             "nonce": nonce,
             "gas": gas_limit,
             "gasPrice": gas_price,
-            "to": self.contract_address,
+            "to": to_checksum_address(self.contract_address),
             "value": 0,
             "data": calldata,
         }

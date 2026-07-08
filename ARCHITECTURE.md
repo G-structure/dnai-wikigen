@@ -92,9 +92,12 @@ Important current status:
             can derive an Ethereum signer from dstack key material, guard
             `submitResult()` against public `deals(dealId)` state, sign a raw
             transaction without a raw-private-key CLI/env path, broadcast it
-            through JSON-RPC, and emit only bounded receipt metadata. This still
-            needs a dstack simulator or deployed-CVM broadcast proof and does
-            not yet bind `teeIdentity` to a measured compose/app identity.
+            through JSON-RPC, and emit only bounded receipt metadata.
+            `scripts/prove-chain-submitter-dstack-anvil.py` proves this against
+            the Phala/dstack simulator plus ephemeral Anvil and verifies a real
+            `EvaluationSubmitted` event. This still needs a deployed-CVM
+            broadcast proof and does not yet bind `teeIdentity` to a measured
+            compose/app identity.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -1233,9 +1236,11 @@ submitResult() trusts a bare teeIdentity address. The delegate now has partial
 TEE-held signing plumbing: in dstack mode it derives an Ethereum key from a
 dstack key path, preflights `deals(dealId)` so the signer must match the public
 teeIdentity, checks funded state and compute budget, signs the transaction in
-memory, and returns bounded receipt metadata. This is not yet proof that the
-address is controlled by a verified compose/app measurement, and the CVM-origin
-broadcast path still needs live dstack/Phala validation.
+memory, and returns bounded receipt metadata. A local Phala/dstack simulator
+proof broadcasts `submitResult()` to ephemeral Anvil and verifies
+`EvaluationSubmitted`. This is not yet proof that the address is controlled by a
+verified compose/app measurement, and the deployed Phala CVM-origin broadcast
+path still needs live validation.
 ```
 
 ## Service Architecture

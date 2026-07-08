@@ -362,12 +362,18 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   bounded receipt metadata. Current tests use an injected test signer to verify
   signed transaction recovery and receipt shape without committing or accepting
   raw keys.
+- `⚙️/tinker-delegate/scripts/prove-chain-submitter-dstack-anvil.py` proves the
+  submitter against Phala/dstack simulator key derivation and real local Anvil:
+  it derives the signer through the same dstack path used by the CLI, funds that
+  signer on ephemeral Anvil, creates and funds a deal whose `teeIdentity` is the
+  derived address, runs `tinker-delegate submit-result`, and verifies the real
+  `EvaluationSubmitted` event with `raw_secret_egress=false`.
 - The watcher is not yet deployed as a Phala/CVM process and does not include
   chain-lag alerting or deep-reorg rollback beyond the configured confirmation
   policy.
-- A dstack-simulator or deployed-CVM proof of `submitResult()` broadcast has
-  not yet been run, and on-chain quote verification, compose/app identity
-  binding, and full settlement-event integration are not built.
+- A deployed-CVM proof of `submitResult()` broadcast has not yet been run, and
+  on-chain quote verification, compose/app identity binding, and full
+  settlement-event integration are not built.
 
 [partial] Data custody:
 
