@@ -334,8 +334,19 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 [partial] Contracts and settlement:
 
 - Core escrow and auth contracts exist with tests.
-- Chain watcher, TEE-derived transaction signing, on-chain quote verification,
-  compose/app identity binding, and settlement-event integration are not built.
+- A partial chain watcher now exists in `tinker_delegate.chain_watcher`: it
+  decodes the six public `DiligenceRoom` lifecycle events from JSON-RPC logs,
+  posts every event to bounded `/deal/chain-event` audit metadata, calls
+  `/deal/notify-funded` when a `DealFunded` event has matching prior
+  `DealCreated` context, and calls `/deal/{deal_id}/resolve` for accepted,
+  rejected, or expired events. The `watch-chain` CLI exposes the same path for
+  operator/CVM use.
+- The watcher slice is tested with mocked JSON-RPC/API transports and bounded
+  control-plane metadata tests, but it has not yet been proven against a live
+  Anvil or Base Sepolia contract event and does not yet persist cursors or
+  handle reorg recovery.
+- TEE-derived transaction signing, on-chain quote verification, compose/app
+  identity binding, and full settlement-event integration are not built.
 
 [partial] Data custody:
 

@@ -166,6 +166,46 @@ class ControlPlaneRunMetadataTest(unittest.TestCase):
         self.assertNotIn("run-secret-1", str(records))
         self.assertNotIn("private-artifact", str(records))
 
+    def test_control_plane_records_bounded_chain_event_metadata(self):
+        from tinker_delegate.control_plane import ControlPlane
+
+        records = []
+
+        class Store:
+            def append(self, record):
+                records.append(record)
+                return record
+
+        cp = ControlPlane.__new__(ControlPlane)
+        cp._run_metadata_store = Store()
+
+        cp.on_chain_event(
+            "DealCreated",
+            "deal-raw",
+            block_number=43866350,
+            tx_hash="0x" + "12" * 32,
+            log_index=4,
+            fields={
+                "seller": "0x1111111111111111111111111111111111111111",
+                "tee_identity": "0x2222222222222222222222222222222222222222",
+                "reserve_price": 10**15,
+                "expiry": 1783502000,
+                "artifact_hash": "0x" + "ab" * 32,
+            },
+        )
+
+        self.assertEqual(records[0]["event"], "chain_event")
+        self.assertEqual(records[0]["chain_event_name"], "DealCreated")
+        self.assertEqual(records[0]["reserve_price_band"], "1e15-1e18")
+        self.assertEqual(records[0]["artifact_hash"], "0x" + "ab" * 32)
+        self.assertIn("seller_hash", records[0])
+        self.assertIn("tee_identity_hash", records[0])
+        self.assertIn("chain_tx_hash", records[0])
+        self.assertNotIn("deal-raw", str(records))
+        self.assertNotIn("0x1111111111111111111111111111111111111111", str(records))
+        self.assertNotIn("0x2222222222222222222222222222222222222222", str(records))
+        self.assertNotIn("0x" + "12" * 32, str(records))
+
 
 if __name__ == "__main__":
     unittest.main()

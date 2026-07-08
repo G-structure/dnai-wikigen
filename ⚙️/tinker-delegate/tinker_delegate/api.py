@@ -11,6 +11,7 @@ Endpoints:
   POST /billing/card              — add payment method (plaintext — local dev only)
   POST /billing/card/encrypted    — add payment method (encrypted to TEE — production)
   POST /billing/add-balance       — add credit balance
+  POST /deal/chain-event       — bounded chain event audit marker (internal)
   POST /deal/{deal_id}/artifact/encrypted — upload seller's encrypted artifact
   POST /deal/{deal_id}/artifact   — plaintext local-dev artifact hook
   GET  /deal/{deal_id}/result     — get bounded evaluation result
@@ -19,11 +20,11 @@ Endpoints:
   POST /deal/{deal_id}/resolve    — notify deal resolution (internal)
 """
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
 from cryptography.exceptions import InvalidTag
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from tinker_delegate.api_key_store import resolve_api_key
 from tinker_delegate.artifacts import (
@@ -129,6 +130,14 @@ class DealFundedNotification(BaseModel):
     seller: str
     budget_cap: int          # wei
     reserve_price: int       # wei
+
+class ChainEventNotification(BaseModel):
+    event_name: str
+    deal_id: str
+    block_number: int | None = None
+    tx_hash: str = ""
+    log_index: int | None = None
+    fields: dict[str, Any] = Field(default_factory=dict)
 
 class DealResolvedNotification(BaseModel):
     deal_id: str
@@ -319,6 +328,21 @@ async def billing_add_balance(payload: BalancePayload):
 # ═══════════════════════════════════════════════════════════════════════════
 # Deal lifecycle endpoints
 # ═══════════════════════════════════════════════════════════════════════════
+
+@app.post("/deal/chain-event")
+async def deal_chain_event(notification: ChainEventNotification):
+    """Called by the on-chain watcher for bounded event audit metadata."""
+    cp = _get_control_plane()
+    cp.on_chain_event(
+        notification.event_name,
+        notification.deal_id,
+        block_number=notification.block_number,
+        tx_hash=notification.tx_hash,
+        log_index=notification.log_index,
+        fields=notification.fields,
+    )
+    return {"deal_id": notification.deal_id, "event": notification.event_name, "recorded": True}
+
 
 @app.post("/deal/notify-funded")
 async def deal_notify_funded(notification: DealFundedNotification):

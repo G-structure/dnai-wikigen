@@ -121,6 +121,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       and calls the TEE control plane.
       Done when a local Anvil or Base Sepolia event creates/updates the matching
       control-plane state without manual curl calls.
+      - [x] Add a JSON-RPC DiligenceRoom event decoder/dispatcher, bounded
+            `/deal/chain-event` audit endpoint, `watch-chain` CLI, and tests
+            proving `DealCreated` + `DealFunded` dispatch can call
+            `/deal/notify-funded` while resolution events call
+            `/deal/{deal_id}/resolve`.
+      - [ ] Prove the watcher against a local Anvil or Base Sepolia event so a
+            real contract log creates/updates matching control-plane state.
+      - [ ] Add durable cursor storage, restart recovery, and reorg/confirmation
+            policy before production use.
 - [ ] `P0` Implement TEE-to-chain transaction signing using a dstack-derived
       Ethereum key or equivalent TEE-held signer.
       Done when `submitResult()` can be broadcast from inside the CVM without raw

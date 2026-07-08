@@ -76,6 +76,14 @@ Important current status:
             `EmailOracleAuth` deployments plus historical Phala records. BaseScan
             source verification, compose-hash registration, and fresh Phala
             quote evidence remain open.
+[partial]   Chain watcher. `tinker_delegate.chain_watcher` can decode
+            `DiligenceRoom` lifecycle logs from JSON-RPC, post bounded
+            `/deal/chain-event` audit markers, call `/deal/notify-funded` when
+            a funded event has matching created-deal context, and call
+            `/deal/{deal_id}/resolve` for accept/reject/expire events. It has
+            mocked JSON-RPC/API coverage and a `watch-chain` CLI, but still
+            needs live Anvil/Base-Sepolia proof, durable cursor storage, and
+            reorg recovery.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -1314,6 +1322,7 @@ GET  /billing/funding-receipts bounded funding attempt audit records
 POST /billing/card            local-dev plaintext hook, disabled by default
 POST /billing/card/encrypted  production encrypted card channel
 POST /billing/add-balance
+POST /deal/chain-event        bounded chain-event audit marker
 POST /deal/notify-funded
 POST /deal/{deal_id}/artifact/encrypted
 POST /deal/{deal_id}/artifact local-dev plaintext hook, disabled by default
@@ -1340,6 +1349,14 @@ FastAPI app
 Deal flow:
 
 ```
+watch-chain CLI
+  |
+  | JSON-RPC eth_getLogs over DiligenceRoom lifecycle events
+  v
+/deal/chain-event records bounded audit metadata
+  |
+  | DealFunded with matching DealCreated context
+  v
 /deal/notify-funded
   |
   v
@@ -1392,7 +1409,8 @@ Current status:
 
 ```
 [partial] FastAPI/control-plane/sealed-store stubs exist.
-[planned] real wallet auth, chain watcher, attestation verification, Tinker integration.
+[planned] real wallet auth, attestation verification, Tinker integration, and
+          props-room wiring into the partial tinker-delegate chain watcher.
 ```
 
 ### whatsapp-delegate
@@ -1543,9 +1561,12 @@ bounded aggregate results
 5. Real TTT/RL bio-validation is not implemented.
 6. DLP/egress enforcement is not implemented.
 7. Corpus policy and consent/revocation are modeled but not enforced.
-8. Per-query royalty settlement is not wired to a live chain watcher.
-9. The production frontend is not present on this branch.
-10. Current-operator Base Sepolia contracts are deployed, but source
+8. Chain watcher wiring is partial: JSON-RPC decoding, API dispatch, bounded
+   chain-event audit metadata, and CLI entrypoint exist, but live
+   Anvil/Base-Sepolia proof, durable cursors, and reorg recovery are open.
+9. Per-query royalty settlement is not wired to a live chain watcher.
+10. The production frontend is not present on this branch.
+11. Current-operator Base Sepolia contracts are deployed, but source
     verification and compose-hash/consumer registration are still pending.
 ```
 

@@ -517,6 +517,30 @@ def cli():
         help="Allow mutable tag images; development only",
     )
 
+    watch_chain_p = sub.add_parser(
+        "watch-chain",
+        help="Watch DiligenceRoom events and notify the TEE control-plane API",
+    )
+    watch_chain_p.add_argument("--rpc-url", default="", help="JSON-RPC URL, or TINKER_CHAIN_RPC_URL")
+    watch_chain_p.add_argument(
+        "--contract-address",
+        default="",
+        help="DiligenceRoom address, or TINKER_CHAIN_CONTRACT_ADDRESS",
+    )
+    watch_chain_p.add_argument(
+        "--api-url",
+        default="",
+        help="TEE control-plane API URL, or TINKER_CHAIN_CONTROL_PLANE_URL",
+    )
+    watch_chain_p.add_argument(
+        "--from-block",
+        default="",
+        help="First block to scan; omit to start at the current safe tip",
+    )
+    watch_chain_p.add_argument("--poll-interval", type=float, default=None, help="Polling interval in seconds")
+    watch_chain_p.add_argument("--confirmations", type=int, default=None, help="Confirmation depth")
+    watch_chain_p.add_argument("--once", action="store_true", help="Poll one range and exit")
+
     # API server
     serve_p = sub.add_parser("serve", help="Start the FastAPI server")
     serve_p.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
@@ -922,6 +946,55 @@ def cli():
             sys.exit(1)
 
         print(json.dumps(result.to_public_dict(), indent=2))
+
+    elif args.command == "watch-chain":
+        from tinker_delegate.chain_watcher import (
+            ChainEventDispatcher,
+            ChainWatcher,
+            ChainWatcherError,
+            JsonRpcLogSource,
+            parse_start_block,
+        )
+
+        rpc_url = args.rpc_url or settings.chain_rpc_url
+        contract_address = args.contract_address or settings.chain_contract_address
+        api_url = args.api_url or settings.chain_control_plane_url
+        poll_interval = (
+            args.poll_interval
+            if args.poll_interval is not None
+            else settings.chain_poll_interval
+        )
+        confirmations = (
+            args.confirmations
+            if args.confirmations is not None
+            else settings.chain_confirmations
+        )
+        from_block = args.from_block or settings.chain_start_block
+
+        source = None
+        dispatcher = None
+        try:
+            source = JsonRpcLogSource(rpc_url, contract_address)
+            dispatcher = ChainEventDispatcher(api_url)
+            watcher = ChainWatcher(source, dispatcher)
+            for summary in watcher.run(
+                start_block=parse_start_block(from_block),
+                poll_interval=poll_interval,
+                confirmations=confirmations,
+                once=args.once,
+            ):
+                _emit_bounded_json(summary)
+        except ChainWatcherError as exc:
+            print(f"[watch-chain] rejected: {redact_text(exc)}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"[watch-chain] failed: {redact_text(exc)}")
+            sys.exit(1)
+        finally:
+            if dispatcher is not None:
+                dispatcher.close()
+            if source is not None:
+                source.close()
 
     elif args.command == "serve":
         import uvicorn

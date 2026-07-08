@@ -317,6 +317,61 @@ class ControlPlane:
             )
         )
 
+    def on_chain_event(
+        self,
+        event: str,
+        deal_id: str,
+        *,
+        block_number: int | None = None,
+        tx_hash: str = "",
+        log_index: int | None = None,
+        fields: dict[str, Any] | None = None,
+    ) -> None:
+        """Persist a bounded audit marker for a DiligenceRoom chain event."""
+        event_fields = fields or {}
+        metadata: dict[str, Any] = {"chain_event_name": event}
+        if block_number is not None:
+            metadata["chain_block_band"] = value_band(block_number)
+        if log_index is not None:
+            metadata["chain_log_index_band"] = value_band(log_index)
+        if tx_hash:
+            metadata["chain_tx_hash"] = stable_hash(tx_hash, prefix="chain_tx")
+
+        address_fields = {
+            "buyer": ("buyer_hash", "buyer"),
+            "seller": ("seller_hash", "seller"),
+            "tee_identity": ("tee_identity_hash", "tee_identity"),
+        }
+        for source, (target, prefix) in address_fields.items():
+            value = event_fields.get(source)
+            if value:
+                metadata[target] = stable_hash(value, prefix=prefix)
+
+        value_fields = {
+            "budget_cap": "budget_cap_band",
+            "reserve_price": "reserve_price_band",
+            "expiry": "expiry_band",
+            "compute_cost": "compute_cost_band",
+            "seller_payment": "seller_payment_band",
+            "dev_payment": "dev_payment_band",
+            "buyer_refund": "buyer_refund_band",
+            "refund": "refund_band",
+        }
+        for source, target in value_fields.items():
+            if source in event_fields:
+                metadata[target] = value_band(event_fields.get(source))
+
+        if "score_band" in event_fields:
+            metadata["score_band"] = str(event_fields["score_band"])
+        for hash_field in ("artifact_hash", "result_hash"):
+            value = event_fields.get(hash_field)
+            if value:
+                metadata[hash_field] = str(value)
+
+        self._append_run_metadata(
+            make_run_metadata_event("chain_event", deal_id, **metadata)
+        )
+
     def get_result(self, deal_id: str) -> EvaluationResult | None:
         """Get bounded evaluation result for a deal."""
         ctx = self._deals.get(deal_id)

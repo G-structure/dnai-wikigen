@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     run_metadata_store_path: str = "./data/run_metadata.enc"
     run_metadata_store_key: str = ""
     run_metadata_key_path: str = "tinker/run_metadata"
+    chain_rpc_url: str = ""
+    chain_contract_address: str = ""
+    chain_control_plane_url: str = "http://localhost:8080"
+    chain_start_block: str = ""
+    chain_poll_interval: float = 5.0
+    chain_confirmations: int = 2
     bootstrap_signup: bool = False
     bootstrap_fail_open: bool = False
     bootstrap_oracle_timeout: float = 300.0
