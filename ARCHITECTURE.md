@@ -735,8 +735,13 @@ Implementation status:
             maps the returned matrix onto known flow/family names, so public
             output cannot include page text, raw DOM, raw selectors, cookies,
             account identifiers, OTPs, API keys, card data, or arbitrary
-            page-controlled strings. This Runtime selector-counting refinement
-            is not yet Phala-proven.
+            page-controlled strings. A Phala one-shot measurement with
+            GitHub-attested `50de0a9` images proved the command path is built
+            into the deployed image and preserves bounded output, but the
+            page-scoped Runtime command still timed out:
+            `runtime_selector_error_kind=timeout` and `flow_observations=[]`.
+            Selector-family bands are therefore source/test-real but still not
+            Phala-proven.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed
             one-shot evidence capture. It is disabled by default and returns
             403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
@@ -800,8 +805,10 @@ Implementation status:
             `Page.getFrameTree` still times out, so actual frame inventory
             remains open. Source/tests now add bounded raw-CDP Runtime selector
             counting that should capture deployed selector-family bands even
-            when frame traversal times out, but that refinement is not yet
-            Phala-proven.
+            when frame traversal times out, but the 2026-07-08 Phala
+            measurement on `50de0a9` images returned
+            `runtime_selector_error_kind=timeout` and empty
+            `flow_observations`; selector-family match capture remains open.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
@@ -1026,24 +1033,26 @@ Implementation status:
             and does not include raw quotes, app-compose bodies, secrets, OTPs,
             card material, artifacts, or API keys.
 [real]      Current Phala deployment runs the combined oracle/delegate stack in
-            CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` with app ID
-            `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, digest-pinned GHCR
-            images verified by GitHub
-            attestations, delegate `/health` returning `ok`, and live delegate
+            CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` / `cvm_1w85mGjo`
+            with app ID `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`,
+            digest-pinned GHCR images verified by GitHub attestations,
+            delegate `/health` returning `ok`, and live delegate
             deployment-bundle verification passing against local raw compose
             image-policy hash
-            `63b4b43e50ba1938bf0f1d266eff60a67a431ccc4b4d0e1829d3f738d53e4993`
+            `8f0b2a966fec6ad786b025a22b177f19f38d8d3d6d2be899fe0210fc7ce7ba90`,
+            rendered compose SHA-256
+            `4903e10d35dbf339fdad4168da9df837438d66f9a202833e892fe69ae6894d20`,
             and live Phala attested compose hash
-            `000ac9ba94fc8cf1870786f9a9a3f7b1586ce74ad21f23143ce4e3d88941318e`.
+            `26b3b3a4feba6a2935900fafa733a7e39846f50845317561e1bbccf4ed3e743a`.
             The current oracle image is
-            `tee-email-oracle@sha256:15085c1dadb2f771f8fa1faeb463413adc9351a5433d939b5155c602d229c9ca`
+            `tee-email-oracle@sha256:88fc9e44b12e218a0d8202c7f10f5c6b96cdbdb81c41dcfe69652994e076e0cf`
             and the current delegate image is
-            `tinker-delegate@sha256:7ddea52df75ab0392defbb35d568649ab21bb67352e6cc55ce1aeb154470c83e`,
+            `tinker-delegate@sha256:10e32c7ac9544b3cdb1bf098038d66b388e07e917b1a4783211246831dc9cc3a`,
             both built from source commit
-            `a384db22f442f19796e4818c68060aa107bd54ee`. Tinker bootstrap,
-            selector-probe, and browser-readiness are disabled in the current
-            normal compose, and live checks return 403 for both diagnostic
-            endpoints.
+            `50de0a945e60b0602b5d944c0fa09951da2c3410`. Tinker bootstrap,
+            selector-probe, browser-readiness, and add-balance are disabled in
+            the current normal compose, and live checks return 403 for those
+            widened/diagnostic endpoints.
 [real]      The temporary public-log debug exception has been reverted on the
             current main Phala CVM. Public logs and public sysinfo are disabled
             while runtime guards keep `ORACLE_AUTO_GENESIS=false`,

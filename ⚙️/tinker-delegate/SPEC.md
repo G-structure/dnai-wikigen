@@ -184,7 +184,14 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   to normal compose afterward, and both diagnostic endpoints returned 403.
   Source/tests now add a bounded raw-CDP `Runtime.evaluate` selector-family
   counter that emits only declared flow/family names plus `0`, `1`, `2+`, or
-  `probe_error` bands; this refinement is not yet Phala-proven.
+  `probe_error` bands. A 2026-07-08 Phala one-shot run with GitHub-attested
+  `50de0a9` images proved the deployed route still returns bounded raw-CDP
+  output, but the page-scoped Runtime command timed out:
+  `runtime_selector_error_kind=timeout` and `flow_observations=[]`. The CVM was
+  restored to normal compose afterward at live hash
+  `26b3b3a4feba6a2935900fafa733a7e39846f50845317561e1bbccf4ed3e743a`, and
+  `/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
+  returned 403. Selector-family match capture remains not Phala-proven.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,
