@@ -587,8 +587,14 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Local Neko/CDP probe against live Tinker UI succeeds: email OTP
             arrives through the oracle, onboarding completes, and API-key
             provisioning captures a one-time `tml-...` key.
-      - [ ] Re-test Phala/deployed browser posture with the current selector
+      - [x] Re-test Phala/deployed browser posture with the current selector
             flow before calling production bootstrap solved.
+            Done 2026-07-08: a one-shot
+            `docker-compose.tinker-bootstrap.phala.yaml` Phala deploy reached
+            the Tinker auth surface and failed closed with
+            `bootstrap_error_kind=auth_access_blocked`; no API key was created,
+            billing/add-balance and credential provisioning remained disabled,
+            and the CVM was redeployed back to normal compose.
 - [ ] `P0` Replace the deployed headless Playwright sidecar with a headed browser
       path that survives Phala packaging if browser automation remains the route.
 - [ ] `P0` Capture a selector/frame/auth-flow map for:
@@ -633,6 +639,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             only `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main
             `delegate-data` volume for sealed API-key persistence, and keeps
             oracle genesis, credential provisioning, and add-balance disabled.
+      - [ ] Resolve deployed Tinker auth access block without evasion.
+            Evidence 2026-07-08: Phala one-shot bootstrap failed closed at
+            Tinker auth with `auth_access_blocked`; local Neko still works, so
+            next work should either move the deployed path to a supportable
+            headed browser posture or obtain an official/support-approved
+            Tinker service-account/API-key route.
       - [ ] Complete the same flow inside the deployed CVM and seal the API key
             with the dstack-derived key path.
 - [x] `P0` Add a Tinker re-auth path for future OTP challenges.
@@ -1320,15 +1332,18 @@ vision Wiki is reaching for.
             Refreshed again 2026-07-08 for main-CVM mailbox-genesis evidence
             commit `1acdebd0c1e07c03b57533852985ac174d4f1261` with GitHub
             Actions run `28947685641`.
+            Refreshed again 2026-07-08 for bounded Tinker bootstrap evidence
+            commit `24ba5edf3b9d56429499bdcd602b3a808e37ba12` with GitHub
+            Actions run `28949229390`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:4debf5642a50ece6315c5d9693d2a048e6ad02b1f26c18d9522d2489e9a9a136`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:447a66382c4f742c0af6ac7a53b4b521c23402e21a5a4deb342964ab5bcf7f10`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ad678080b874e402c05265d02a141a855a3c947b616425159ba5acc62d60ca21`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:76d2f8bd1c264cffd25949820d33047b1f5874142bf7d48c55fa5d91d997d7ba`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
@@ -1353,16 +1368,16 @@ vision Wiki is reaching for.
       - [x] `verify-deployment-bundle` passes against the live log-hardened
             Phala deployment with GitHub image provenance/SBOM checks, required
             sidecar digests, local raw compose hash
-            `6a414b9b65764e01104d53643dd854ca6af26fc11eac4fe338d8186da46ef75d`,
+            `b57f1d97085c1910772b43086dc41bc859132f9d140edcf27e2bbe48f4d8c243`,
             and live attested compose hash
-            `538cc2cd5072944d132946b4632bed7a5731e481c33d72a5ecf31d93c7b00971`.
+            `df36312196dc33ea2c9a1faf772549734da7ddfffe4d100fa2193d04d8839183`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.
             Done 2026-07-08: live delegate image
-            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ad678080b874e402c05265d02a141a855a3c947b616425159ba5acc62d60ca21`
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:76d2f8bd1c264cffd25949820d33047b1f5874142bf7d48c55fa5d91d997d7ba`
             is GitHub-attested from commit
-            `1acdebd0c1e07c03b57533852985ac174d4f1261`; `/pin` rejects
+            `24ba5edf3b9d56429499bdcd602b3a808e37ba12`; `/pin` rejects
             unauthenticated requests with `401`, `/credentials/encrypted`
             rejects while disabled with `403`, and `/billing/add-balance`
             rejects while disabled with `403`.

@@ -916,13 +916,14 @@ Implementation status:
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning `ok` with sealed mailbox readiness/hash only, and live delegate
             attestation verification passing against local raw compose hash
-            `6a414b9b65764e01104d53643dd854ca6af26fc11eac4fe338d8186da46ef75d`
+            `b57f1d97085c1910772b43086dc41bc859132f9d140edcf27e2bbe48f4d8c243`
             and live Phala attested compose hash
-            `538cc2cd5072944d132946b4632bed7a5731e481c33d72a5ecf31d93c7b00971`.
+            `df36312196dc33ea2c9a1faf772549734da7ddfffe4d100fa2193d04d8839183`.
             The live delegate image is built from commit
-            `1acdebd0c1e07c03b57533852985ac174d4f1261`, so it includes the
-            bounded signup/signin egress fix, but Tinker bootstrap remains
-            disabled and unattempted in the main CVM.
+            `24ba5edf3b9d56429499bdcd602b3a808e37ba12`, so it includes the
+            bounded signup/signin egress fix and bounded startup-bootstrap
+            attempt records. Tinker bootstrap is disabled in the current normal
+            compose.
 [real]      The temporary public-log debug exception has been reverted on the
             current main Phala CVM. Public logs and public sysinfo are disabled
             while runtime guards keep `ORACLE_AUTO_GENESIS=false`,
@@ -935,15 +936,21 @@ Implementation status:
             a non-empty `oracle_email_hash`; unauthenticated `/email` returned
             401. The CVM was then redeployed back to the normal compose with
             `ORACLE_AUTO_GENESIS=false`, and the sealed mailbox remained ready.
-[partial]   `docker-compose.tinker-bootstrap.phala.yaml` is the explicit
-            one-shot profile for the next deployed Tinker bootstrap attempt. It
-            reuses the main `delegate-data` volume, keeps
-            `ORACLE_AUTO_GENESIS=false`, keeps credential provisioning and
-            add-balance disabled, enables only `TINKER_BOOTSTRAP_SIGNUP=true`,
-            and uses fail-open bounded evidence mode so selector/posture
-            failures can be inspected through `/health` runtime state. It is
-            not yet Phala-proven and must be redeployed back to the normal
-            compose after collecting success/failure evidence.
+[real]      `docker-compose.tinker-bootstrap.phala.yaml` is the explicit
+            one-shot profile for deployed Tinker bootstrap attempts. It reuses
+            the main `delegate-data` volume, keeps `ORACLE_AUTO_GENESIS=false`,
+            keeps credential provisioning and add-balance disabled, enables
+            only `TINKER_BOOTSTRAP_SIGNUP=true`, and uses fail-open bounded
+            evidence mode so selector/posture failures can be inspected through
+            `/health` runtime state.
+[partial]   The first Phala-proven Tinker bootstrap attempt failed closed at
+            the Tinker auth surface with `bootstrap_error_kind=auth_access_blocked`.
+            The oracle mailbox stayed ready, no API key was configured or
+            stored, endpoint gates stayed closed, and the CVM was redeployed
+            back to the normal compose. Completing deployed Tinker signup now
+            requires either a supportable headed-browser posture inside Phala
+            or an official/support-approved Tinker API-key/service-account
+            route; stealth/evasion remains out of scope.
 [partial]   Production OS posture is not solved. The main CVM still reports
             `dstack-dev-0.5.9` / `is_dev=true`; earlier attempts to update the
             existing CVM to `dstack-0.5.10*` with `--no-dev-os` failed in the

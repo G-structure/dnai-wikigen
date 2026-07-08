@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-08T13:58:59Z",
+  "lastReviewedAt": "2026-07-08T14:22:10Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -42,12 +42,12 @@
     }
   },
   "phala": {
-    "status": "running_bounded_oracle_delegate_mailbox_ready_pinned_compose_private_logs_revalidated_by_deployment_bundle",
+    "status": "running_bounded_oracle_delegate_mailbox_ready_tinker_bootstrap_failed_closed_pinned_compose_private_logs_revalidated_by_deployment_bundle",
     "cvmId": "670b3b21-4338-4d4e-ae72-7c8922579f59",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "538cc2cd5072944d132946b4632bed7a5731e481c33d72a5ecf31d93c7b00971",
-    "localRawComposeImagePolicyHash": "6a414b9b65764e01104d53643dd854ca6af26fc11eac4fe338d8186da46ef75d",
-    "renderedComposeSha256": "c61d0e9811cea2cc68ffa6c96b48e909cd8b1653b44cbac3ba8b125d1c556ce3",
+    "composeHash": "df36312196dc33ea2c9a1faf772549734da7ddfffe4d100fa2193d04d8839183",
+    "localRawComposeImagePolicyHash": "b57f1d97085c1910772b43086dc41bc859132f9d140edcf27e2bbe48f4d8c243",
+    "renderedComposeSha256": "c61ff030c341d5d1ec5f7c7d49a2b75740beabf4abad4452fb53c8b70b5843a4",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -88,10 +88,10 @@
         "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "1acdebd0c1e07c03b57533852985ac174d4f1261",
+    "sourceDigest": "24ba5edf3b9d56429499bdcd602b3a808e37ba12",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 28947685641,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28947685641",
+    "githubActionsRunId": 28949229390,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28949229390",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -101,13 +101,13 @@
     "imageDigests": [
       {
         "service": "oracle",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:4debf5642a50ece6315c5d9693d2a048e6ad02b1f26c18d9522d2489e9a9a136",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:447a66382c4f742c0af6ac7a53b4b521c23402e21a5a4deb342964ab5bcf7f10",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ad678080b874e402c05265d02a141a855a3c947b616425159ba5acc62d60ca21",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:76d2f8bd1c264cffd25949820d33047b1f5874142bf7d48c55fa5d91d997d7ba",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
@@ -128,8 +128,8 @@
       "mode": "tdx",
       "context": "artifact",
       "quoteSize": 5010,
-      "reportData": "76d31c0cf71515a51edca9bc600dbac1faa398502e1a1b1a73827d2b9d2b5568",
-      "encryptionPublicKey": "3c3f31bc8c6ed6d935e7813fc27258ddf9d099da3ec38497e85a5f149b6df438",
+      "reportData": "c7e4b4fe296995f010afb86afaff3fa6df245be4a7f23835263ccc35ae9f05f1",
+      "encryptionPublicKey": "7daa336913f5371f92158dadaca81e0a91bddcbb4af3d75b39788b9dfffcd11b",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -140,9 +140,9 @@
       "oneShotAttestedComposeHash": "0541c599acc399f943c6b1804cbf0e8b15aedbf2efeea98d9b2ac856b826f101",
       "oneShotDeploymentBundle": "verified",
       "steadyStateCompose": "⚙️/tinker-delegate/docker-compose.all.phala.yaml",
-      "steadyStateAttestedComposeHash": "538cc2cd5072944d132946b4632bed7a5731e481c33d72a5ecf31d93c7b00971",
-      "currentOneShotProfileLocalRawComposeImagePolicyHash": "ea7b335b1e6f9c1113f28b35a86bfcba450baabe01376e2914bccce753eedf3a",
-      "currentOneShotProfileRenderedComposeSha256": "08b2bc032d48b8c323adced4fc364c82f7bfce5070cb6e7bc6193ff7e7925d7c",
+      "steadyStateAttestedComposeHash": "df36312196dc33ea2c9a1faf772549734da7ddfffe4d100fa2193d04d8839183",
+      "currentOneShotProfileLocalRawComposeImagePolicyHash": "93171544e7dcad7738df2b623625e6fb97ea16557d0e5af6e6fcf9cf9b7a8cac",
+      "currentOneShotProfileRenderedComposeSha256": "3bb385928598d63e5697f06d3c34a5ffab23ac547f0c633ac62bf921c7f73d88",
       "currentOneShotProfileLiveProof": "not_re_run_after_image_refresh_existing_mailbox_ready",
       "publicHealthEvidence": {
         "status": "ok",
@@ -171,6 +171,53 @@
         "TINKER_BOOTSTRAP_SIGNUP": "false",
         "TINKER_ALLOW_ADD_BALANCE_ENDPOINT": "false",
         "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT": "false"
+      },
+      "publicLogs": false,
+      "publicSysinfo": false,
+      "rawSecretEgress": false
+    },
+    "tinkerBootstrapEvidence": {
+      "status": "failed_closed_auth_access_blocked_then_reverted_to_normal_compose",
+      "oneShotCompose": "⚙️/tinker-delegate/docker-compose.tinker-bootstrap.phala.yaml",
+      "oneShotLocalRawComposeImagePolicyHash": "ae49a564f5b2a49a5ef4942230f293d6437a30c30f9d9e5bce1a5bc21eff6975",
+      "oneShotRenderedComposeSha256": "6a6ecc35faa323f9506b259677b4a9747c483ee7c3087f931a5b450f019b5664",
+      "oneShotAttestedComposeHash": "1a5dc7877d02f15b920736469c1fd4cde750f10f68773b74365257647629c42f",
+      "oneShotDeploymentBundle": "verified",
+      "sourceDigest": "24ba5edf3b9d56429499bdcd602b3a808e37ba12",
+      "githubActionsRunId": 28949229390,
+      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:447a66382c4f742c0af6ac7a53b4b521c23402e21a5a4deb342964ab5bcf7f10",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:76d2f8bd1c264cffd25949820d33047b1f5874142bf7d48c55fa5d91d997d7ba",
+      "reportData": "2bdc93d432df10b42d43f706de950b35da1f00ebc00eff4cc8ba9898d653a066",
+      "encryptionPublicKey": "dda1374f0988b1f5236ead6fb39299a67a041b42f98a14345f93ba41fcf2e25d",
+      "runtimeEvidence": {
+        "apiKeyConfigured": false,
+        "apiKeyAvailable": false,
+        "apiKeySource": "bootstrap",
+        "bootstrapAttempted": true,
+        "bootstrapSuccess": false,
+        "bootstrapErrorKind": "auth_access_blocked",
+        "lastBootstrapAttemptRecord": null
+      },
+      "oracleHealthEvidence": {
+        "status": "ok",
+        "oracleEmail": "",
+        "oracleEmailHash": "535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
+        "oracleReady": true,
+        "imapConnected": true
+      },
+      "publicEndpointGates": {
+        "unauthenticatedPinEndpoint": "401 Bearer token required",
+        "credentialProvisioningEndpoint": "403_disabled",
+        "addBalanceEndpoint": "403_disabled"
+      },
+      "steadyStateCompose": "⚙️/tinker-delegate/docker-compose.all.phala.yaml",
+      "steadyStateAttestedComposeHashAfterRevert": "df36312196dc33ea2c9a1faf772549734da7ddfffe4d100fa2193d04d8839183",
+      "steadyStateRuntimeAfterRevert": {
+        "apiKeyConfigured": false,
+        "apiKeyAvailable": false,
+        "apiKeySource": "none",
+        "bootstrapAttempted": false,
+        "bootstrapSuccess": false
       },
       "publicLogs": false,
       "publicSysinfo": false,
@@ -267,9 +314,9 @@
       "status": "endpoint_deployed_disabled_by_default_mailbox_ready",
       "context": "oracle-credentials",
       "mode": "tdx",
-      "quoteSize": 5010,
-      "reportData": "532d92a7e9d14a5163de98715df2e6011db7c2b759bd9d2a1c3fb802a526d304",
-      "encryptionPublicKey": "04c63aa9de4e649e82eaa0c7c18774f5eab5af9d38e10e717842f8e73baef620",
+      "quoteSize": null,
+      "reportData": "c2ff494d0893ccff4dbc149c9d1e11bf333630550ecd3b309aa46402b363f533",
+      "encryptionPublicKey": "ace1671590733315c7df7ac2e0c1b79058dcc1cda3272190ecdcc5ae9183647d",
       "oracleEmail": "",
       "oracleEmailHash": "535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
       "oracleReady": true,
