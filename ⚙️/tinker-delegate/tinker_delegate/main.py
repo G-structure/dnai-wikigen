@@ -308,6 +308,11 @@ def cli():
         help="Fail if the configured remote browser is unavailable instead of launching local Chromium",
     )
     selector_probe_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    browser_readiness_p = sub.add_parser(
+        "browser-readiness",
+        help="Bounded readiness diagnostics for browser-control endpoints",
+    )
+    browser_readiness_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     synthetic_reward_p = sub.add_parser(
         "synthetic-private-reward-demo",
         help="Run a bounded synthetic hidden-dataset private reward demo",
@@ -1061,6 +1066,13 @@ def cli():
             _emit_bounded_json(result, output_path=args.output)
             sys.exit(1)
         _emit_bounded_json(result, output_path=args.output)
+
+    elif args.command == "browser-readiness":
+        from tinker_delegate.browser_diagnostics import run_browser_readiness
+
+        result = run_browser_readiness(settings)
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result.get("success") else 1)
 
     elif args.command == "synthetic-private-reward-demo":
         from tinker_delegate.private_reward_envs.synthetic_demo import (

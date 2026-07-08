@@ -722,6 +722,15 @@ Implementation status:
             `browser_unavailable` JSON. The normal Phala compose keeps this
             endpoint disabled; enabling it is a temporary measurement profile,
             not a widened production interface.
+[real]      `tinker-delegate browser-readiness` and `GET /browser/readiness`
+            provide bounded browser-control diagnostics for the deployed
+            selector-probe failure path. They report endpoint classes/hashes,
+            CDP metadata reachability, Playwright/CDP handshake success bands,
+            and bounded error kinds only. They do not navigate, click, type,
+            screenshot, inspect pages, return page text, or expose raw CDP /
+            browser URLs. The HTTP endpoint is disabled by default and normal
+            Phala compose binds `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`;
+            the one-shot measurement profile enables it temporarily.
 [partial]   The selector-probe endpoint has been Phala-proven as an endpoint
             gate and fail-closed path using GitHub-attested `ca877db` images:
             one-shot bootstrap compose enabled the endpoint, live response was

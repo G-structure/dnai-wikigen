@@ -679,6 +679,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             account identifiers, page text, cookies, OTPs, API keys, or card
             material. The steady-state Phala compose remains disabled until a
             new GitHub-built image is pinned and deployed for capture.
+      - [x] Add bounded browser-control readiness diagnostics for deployed
+            selector-probe failures.
+            Done 2026-07-08: `tinker-delegate browser-readiness` and
+            disabled-by-default `GET /browser/readiness` report only endpoint
+            classes/hashes, CDP metadata reachability, Playwright/CDP handshake
+            success bands, and bounded error kinds. They do not navigate,
+            click, type, screenshot, return page text, or expose raw CDP/browser
+            URLs. Normal Phala compose sets
+            `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`; the one-shot
+            bootstrap measurement profile sets it true alongside
+            `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`.
       - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
             Attempted 2026-07-08 with GitHub-attested `ca877db` oracle/delegate
             images and a one-shot Phala profile enabling only

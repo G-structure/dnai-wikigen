@@ -103,6 +103,14 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   `browser_unavailable` JSON with `raw_secret_egress=false`, and the restored
   normal compose returns 403. Deployed selector/frame match capture remains
   open because the browser connection was unavailable during that probe.
+- `tinker-delegate browser-readiness` and disabled-by-default
+  `GET /browser/readiness` now provide a bounded way to diagnose that deployed
+  browser-control failure without logs, SSH, screenshots, page text, cookies,
+  or raw browser/CDP URLs. Output is limited to endpoint classes/hashes, CDP
+  metadata reachability, Playwright/CDP handshake status, context-count bands,
+  and bounded error kinds. Normal Phala compose keeps
+  `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`; the one-shot bootstrap
+  measurement compose enables it alongside the selector probe.
 - `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps
@@ -621,10 +629,12 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     `ORACLE_AUTO_GENESIS=false`,
     `TINKER_BOOTSTRAP_SIGNUP=false`,
     `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`, and
+    `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`,
     `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=false`,
     `ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=false` are still bound
     directly in compose so no mailbox genesis, Tinker login, credential
-    provisioning, add-balance endpoint, or selector-probe endpoint is active.
+    provisioning, add-balance endpoint, browser-readiness endpoint, or
+    selector-probe endpoint is active.
   - OS posture: still partial. `phala cvms get` reports
     `dstack-dev-0.5.9`, `is_dev=true`, and OS image hash
     `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`
@@ -942,9 +952,11 @@ explicitly legacy.
 - Deployed headed-Neko bootstrap packaging has now been Phala-tested without the
   Playwright sidecar, but Tinker login/API-key capture inside the deployed CVM
   is not yet proven. Bounded early-stage bootstrap receipts and the
-  disabled-by-default selector-probe endpoint are now in the live CVM image; the
-  latest one-shot selector probe returned bounded `browser_unavailable`, so
-  actual deployed selector/frame match evidence is still open.
+  disabled-by-default selector-probe and browser-readiness endpoints are now in
+  source and compose; the latest one-shot selector probe returned bounded
+  `browser_unavailable`, so actual deployed selector/frame match evidence is
+  still open until the readiness diagnostic is built, deployed, and used against
+  the live CVM.
 - Full Intel TDX quote-internal parsing and quote freshness checking need
   implementation; current verifier checks the public dstack envelope and
   report-data binding only.

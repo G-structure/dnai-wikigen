@@ -4,6 +4,7 @@ Endpoints:
   GET  /health                    — service health + oracle email
   GET  /attestation               — TDX attestation quote + context-bound encryption public key
   POST /auth/reauth               — bounded Tinker OTP re-auth, disabled unless explicitly enabled
+  GET  /browser/readiness         — bounded browser-control readiness probe, disabled unless explicitly enabled
   GET  /browser/selector-probe    — bounded read-only selector/frame probe, disabled unless explicitly enabled
   GET  /billing/balance           — current Tinker balance
   GET  /billing/funding-policy    — bounded active funding mode
@@ -243,6 +244,22 @@ async def browser_selector_probe():
                 "bounded_message": "selector_probe_browser_unavailable",
             },
         )
+
+
+@app.get("/browser/readiness")
+async def browser_readiness_probe():
+    """Return bounded browser-control readiness evidence.
+
+    Disabled by default. Enable only for deployed debugging/measurement. The
+    probe performs metadata and connection checks only; it must not navigate,
+    click, type, screenshot, or return page text/raw browser URLs.
+    """
+    if not settings.allow_browser_readiness_endpoint:
+        raise HTTPException(403, "browser readiness endpoint is disabled")
+
+    from tinker_delegate.browser_diagnostics import browser_readiness
+
+    return await browser_readiness(settings)
 
 
 @app.get("/billing/balance")

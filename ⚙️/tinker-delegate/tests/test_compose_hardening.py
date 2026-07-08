@@ -89,6 +89,8 @@ class ComposeHardeningTest(unittest.TestCase):
 
         self.assertIn('TINKER_BOOTSTRAP_SIGNUP: "false"', block)
         self.assertIn('TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "false"', block)
+        self.assertIn('TINKER_ALLOW_BROWSER_READINESS_ENDPOINT: "false"', block)
+        self.assertIn('TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT: "false"', block)
 
     def test_phala_oracle_credential_provisioning_is_disabled_by_default(self):
         block = _service_block(
@@ -137,6 +139,8 @@ class ComposeHardeningTest(unittest.TestCase):
         self.assertIn('ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ""', oracle)
         self.assertIn('TINKER_BOOTSTRAP_SIGNUP: "false"', delegate)
         self.assertIn('TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "false"', delegate)
+        self.assertIn('TINKER_ALLOW_BROWSER_READINESS_ENDPOINT: "false"', delegate)
+        self.assertIn('TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT: "false"', delegate)
 
     def test_tinker_bootstrap_compose_only_enables_tinker_bootstrap(self):
         compose = (ROOT / "docker-compose.tinker-bootstrap.phala.yaml").read_text()
@@ -155,6 +159,8 @@ class ComposeHardeningTest(unittest.TestCase):
         self.assertIn("TINKER_CDP_URL: http://172.20.0.3:9223", delegate)
         self.assertIn('TINKER_BOOTSTRAP_SIGNUP: "true"', delegate)
         self.assertIn('TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "false"', delegate)
+        self.assertIn('TINKER_ALLOW_BROWSER_READINESS_ENDPOINT: "true"', delegate)
+        self.assertIn('TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT: "true"', delegate)
         self.assertIn('TINKER_BOOTSTRAP_FAIL_OPEN: "true"', delegate)
         self.assertIn('TINKER_LOCAL_BROWSER_FALLBACK: "false"', delegate)
 
