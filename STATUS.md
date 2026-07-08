@@ -237,6 +237,10 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   only hashes, bands, outcome, TDX quote hash, card-destruction /
   no-raw-egress booleans, and an optional attestation-policy hash, and rejects
   raw card/API-key/secret-shaped inputs.
+- `python -m tinker_delegate.main verify-funding-manifest` replay-verifies a
+  saved preflight, receipt, manifest, validation ID, and attestation-policy
+  tuple. It returns named bounded pass/fail checks and does not echo packet
+  bodies.
 - Operator CLIs can write validation artifacts directly:
   `funding-preflight --output` writes bounded preflight JSON, and billing
   receipt-producing commands support `--receipt-output` for bounded attempt

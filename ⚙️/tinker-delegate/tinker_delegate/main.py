@@ -217,6 +217,29 @@ def cli():
     funding_manifest_p.add_argument("--os-image-hash", default="", help="Expected OS image hash to bind by hash")
     funding_manifest_p.add_argument("--output", default="", help="Optional output path for manifest JSON")
 
+    verify_funding_manifest_p = sub.add_parser(
+        "verify-funding-manifest",
+        help="Verify a bounded funding manifest against saved preflight and receipt JSON",
+    )
+    verify_funding_manifest_p.add_argument("--preflight-json", required=True, help="Path to saved funding-preflight JSON")
+    verify_funding_manifest_p.add_argument("--receipt-json", required=True, help="Path to bounded funding receipt JSON")
+    verify_funding_manifest_p.add_argument("--manifest-json", required=True, help="Path to saved funding manifest JSON")
+    verify_funding_manifest_p.add_argument("--validation-id", default="", help="Operator-local validation run ID to hash")
+    verify_funding_manifest_p.add_argument("--compose-hash", default="", help="Expected compose hash bound by hash")
+    verify_funding_manifest_p.add_argument("--app-id", default="", help="Expected app ID bound by hash")
+    verify_funding_manifest_p.add_argument("--os-image-hash", default="", help="Expected OS image hash bound by hash")
+    verify_funding_manifest_p.add_argument(
+        "--require-ready",
+        action="store_true",
+        help="Require the saved preflight to be ready",
+    )
+    verify_funding_manifest_p.add_argument(
+        "--allow-card-retention-flag",
+        action="store_true",
+        help="Do not require no_raw_card_retained=true; development/debug only",
+    )
+    verify_funding_manifest_p.add_argument("--output", default="", help="Optional output path for verification JSON")
+
     add_card_p = sub.add_parser("add-card", help="Add payment method (card) to Tinker account")
     add_card_p.add_argument("--number", required=True, help="Card number")
     add_card_p.add_argument("--exp-month", required=True, help="Expiration month (01-12)")
@@ -421,6 +444,28 @@ def cli():
         else:
             print(rendered)
         sys.exit(0 if manifest["no_raw_card_retained"] else 1)
+
+    elif args.command == "verify-funding-manifest":
+        from tinker_delegate.funding_manifest import verify_funding_validation_manifest
+
+        preflight = json.loads(Path(args.preflight_json).read_text(encoding="utf-8"))
+        receipt = json.loads(Path(args.receipt_json).read_text(encoding="utf-8"))
+        manifest = json.loads(Path(args.manifest_json).read_text(encoding="utf-8"))
+        result = verify_funding_validation_manifest(
+            preflight=preflight,
+            receipt=receipt,
+            manifest=manifest,
+            validation_id=args.validation_id,
+            attestation_policy={
+                "compose_hash": args.compose_hash,
+                "app_id": args.app_id,
+                "os_image_hash": args.os_image_hash,
+            },
+            require_ready=args.require_ready,
+            require_no_raw_card_retained=not args.allow_card_retention_flag,
+        )
+        _emit_bounded_json(result.to_public_dict(), output_path=args.output)
+        sys.exit(0 if result.ok else 1)
 
     elif args.command == "add-card":
         from tinker_delegate.card_channel import CardPayload, handle_card_update

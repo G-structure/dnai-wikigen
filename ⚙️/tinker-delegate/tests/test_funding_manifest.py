@@ -9,6 +9,7 @@ from tinker_delegate.funding_manifest import (
     MANIFEST_VERSION,
     assert_no_secret_material,
     build_funding_validation_manifest,
+    verify_funding_validation_manifest,
 )
 
 
@@ -120,6 +121,115 @@ class FundingManifestTest(unittest.TestCase):
             manifest = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(manifest["receipt_outcome"], "card_declined")
             self.assertTrue(manifest["no_raw_card_retained"])
+
+    def test_verifier_accepts_matching_saved_packet(self):
+        manifest = build_funding_validation_manifest(
+            preflight=_preflight(),
+            receipt=_receipt(),
+            validation_id="operator-run-1",
+            attestation_policy={
+                "compose_hash": "c" * 64,
+                "app_id": "app-ok",
+                "os_image_hash": "os-ok",
+            },
+        ).to_public_dict()
+
+        verification = verify_funding_validation_manifest(
+            preflight=_preflight(),
+            receipt=_receipt(),
+            manifest=manifest,
+            validation_id="operator-run-1",
+            attestation_policy={
+                "compose_hash": "c" * 64,
+                "app_id": "app-ok",
+                "os_image_hash": "os-ok",
+            },
+            require_ready=True,
+        ).to_public_dict()
+
+        self.assertTrue(verification["ok"])
+        self.assertEqual(verification["manifest_hash"], manifest["manifest_hash"])
+        self.assertEqual(verification["receipt_outcome"], "card_declined")
+        self.assertTrue(verification["no_raw_card_retained"])
+
+    def test_verifier_rejects_tampered_receipt_or_secret_material(self):
+        manifest = build_funding_validation_manifest(
+            preflight=_preflight(),
+            receipt=_receipt(),
+            validation_id="operator-run-1",
+        ).to_public_dict()
+        receipt = _receipt()
+        receipt["outcome"] = "success"
+
+        tampered = verify_funding_validation_manifest(
+            preflight=_preflight(),
+            receipt=receipt,
+            manifest=manifest,
+            validation_id="operator-run-1",
+        ).to_public_dict()
+        checks = {check["name"]: check for check in tampered["checks"]}
+        self.assertFalse(tampered["ok"])
+        self.assertEqual(checks["receipt_hash"]["status"], "mismatch")
+
+        secret = verify_funding_validation_manifest(
+            preflight=_preflight(),
+            receipt={"card_number": "4242424242424242"},
+            manifest=manifest,
+            validation_id="operator-run-1",
+        ).to_public_dict()
+        self.assertFalse(secret["ok"])
+        self.assertEqual(secret["checks"][0]["name"], "secret_material")
+
+    def test_cli_verifies_manifest_packet_from_json_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            preflight_path = Path(tmpdir) / "preflight.json"
+            receipt_path = Path(tmpdir) / "receipt.json"
+            manifest_path = Path(tmpdir) / "manifest.json"
+            output_path = Path(tmpdir) / "verification.json"
+            manifest = build_funding_validation_manifest(
+                preflight=_preflight(),
+                receipt=_receipt(),
+                validation_id="operator-run-1",
+                attestation_policy={
+                    "compose_hash": "c" * 64,
+                    "app_id": "",
+                    "os_image_hash": "",
+                },
+            ).to_public_dict()
+            preflight_path.write_text(json.dumps(_preflight()), encoding="utf-8")
+            receipt_path.write_text(json.dumps(_receipt()), encoding="utf-8")
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "verify-funding-manifest",
+                    "--preflight-json",
+                    str(preflight_path),
+                    "--receipt-json",
+                    str(receipt_path),
+                    "--manifest-json",
+                    str(manifest_path),
+                    "--validation-id",
+                    "operator-run-1",
+                    "--compose-hash",
+                    "c" * 64,
+                    "--require-ready",
+                    "--output",
+                    str(output_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            verification = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(verification["ok"])
+            self.assertEqual(verification["manifest_hash"], manifest["manifest_hash"])
 
 
 if __name__ == "__main__":

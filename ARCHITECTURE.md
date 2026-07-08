@@ -627,6 +627,10 @@ Implementation status:
             manifest stores hashes, bands, outcome, TDX quote hash, and
             card-destruction/no-raw-egress booleans; it rejects raw card,
             API-key, and secret-shaped inputs and does not store card material.
+[real]      Saved funding manifests can be replay-verified with
+            `verify-funding-manifest`, which recomputes preflight, receipt,
+            validation-ID, attestation-policy, and manifest hashes and returns
+            named bounded pass/fail checks without echoing packet contents.
 [real]      Billing receipt-producing CLIs can write bounded attempt records
             with `--receipt-output` for later manifest binding. CLI rendering
             fails closed before printing or writing JSON when output contains

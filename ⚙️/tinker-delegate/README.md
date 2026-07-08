@@ -35,8 +35,10 @@ operator CLIs can write bounded validation artifacts directly:
 commands can save bounded attempt records with `--receipt-output`. The
 `funding-manifest` CLI turns a saved funding preflight plus bounded receipt into
 a public audit envelope of hashes, bands, outcome, TDX quote hash, and
-card-destruction/no-raw-egress booleans without card material. CLI output fails
-closed if a delegate response tries to echo submitted card material. The
+card-destruction/no-raw-egress booleans without card material.
+`verify-funding-manifest` replay-verifies saved packets by recomputing hashes
+and emitting named bounded checks. CLI output fails closed if a delegate
+response tries to echo submitted card material. The
 plaintext card API endpoint is disabled by default and unavailable in dstack
 mode; it can only be enabled as a local-development test hook with
 `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. The add-balance HTTP mutation
@@ -198,6 +200,16 @@ build a public manifest:
   --app-id 0xEXPECTED_APP_ID \
   --os-image-hash 0xEXPECTED_OS_IMAGE_HASH \
   --output ./funding-manifest.json
+
+.venv/bin/python -m tinker_delegate.main verify-funding-manifest \
+  --preflight-json ./preflight.json \
+  --receipt-json ./payment-method-receipt.json \
+  --manifest-json ./funding-manifest.json \
+  --validation-id operator-run-1 \
+  --compose-hash 0xEXPECTED_COMPOSE_HASH \
+  --app-id 0xEXPECTED_APP_ID \
+  --os-image-hash 0xEXPECTED_OS_IMAGE_HASH \
+  --require-ready
 ```
 
 The manifest builder rejects raw card, API-key, and secret-shaped inputs.
@@ -445,6 +457,11 @@ contracts/
   receipt JSON. It stores only hashes, bands, outcome, TDX quote hash,
   card-destruction/no-raw-egress booleans, and optional attestation-policy hash;
   raw card/API-key/secret-shaped inputs are rejected.
+- **Funding manifest verification**: `python -m tinker_delegate.main
+  verify-funding-manifest` recomputes the packet hashes and reports named
+  bounded checks for version, manifest hash, preflight hash, receipt hash,
+  validation ID hash, attestation policy hash, readiness, and
+  no-raw-card-retained status without echoing packet bodies.
 - **Run metadata storage**: deal lifecycle events are persisted in a separate
   encrypted delegate store under `/data/run_metadata.enc` in compose profiles.
   Records contain only bounded metadata such as hashed deal/account/run handles,

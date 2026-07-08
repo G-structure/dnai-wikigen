@@ -462,6 +462,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             receipt records so a capped operator validation attempt can publish
             hashes, bands, outcome, TDX quote hash, and card-destruction /
             no-raw-egress booleans without card material.
+      - [x] Add a bounded funding manifest verifier that replays saved
+            preflight/receipt/policy hashes, checks manifest integrity, and
+            reports named pass/fail checks without echoing packet contents.
       - [x] Add CLI `--receipt-output` support for bounded billing attempt
             records so validation receipts can be saved without console
             scraping.

@@ -106,12 +106,24 @@ python -m tinker_delegate.main funding-manifest \
   --app-id EXPECTED_APP_ID \
   --os-image-hash EXPECTED_OS_IMAGE_HASH \
   --output ./funding-manifest.json
+
+python -m tinker_delegate.main verify-funding-manifest \
+  --preflight-json ./preflight.json \
+  --receipt-json ./payment-method-receipt.json \
+  --manifest-json ./funding-manifest.json \
+  --validation-id operator-run-1 \
+  --compose-hash EXPECTED_COMPOSE_HASH \
+  --app-id EXPECTED_APP_ID \
+  --os-image-hash EXPECTED_OS_IMAGE_HASH \
+  --require-ready
 ```
 
 The manifest publishes only hashes, bands, outcome, TDX quote hash,
 card-destruction/no-raw-egress booleans, and the attestation-policy hash. It
 rejects raw card, API-key, and secret-shaped inputs and does not prove funding
-by itself; it is the audit envelope around the preflight/receipt pair.
+by itself; it is the audit envelope around the preflight/receipt pair. The
+verifier recomputes the saved packet hashes and returns named bounded checks
+without echoing the packet bodies.
 
 ## Validation Boundary
 
@@ -129,6 +141,8 @@ What is real:
   artifacts for later manifest binding.
 - Funding validation manifests can be built from already-bounded preflight and
   receipt JSON.
+- Funding validation manifests can be replay-verified against saved preflight,
+  receipt, validation ID, and attestation policy inputs.
 
 What remains partial:
 
