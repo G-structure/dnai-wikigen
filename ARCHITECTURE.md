@@ -918,11 +918,11 @@ Implementation status:
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning `ok` with sealed mailbox readiness/hash only, and live delegate
             attestation verification passing against local raw compose hash
-            `02d7d15a519ba16687828ca0d6f295ac33206cacca5f5392c9837095f68c3aaa`
+            `665a4fe15f99cf5aa837583ff57c1d15bc1bbe87e74b3f9ba5a7ddfc27d47f8f`
             and live Phala attested compose hash
-            `47fed5cf1b082cb38275d95dca3542244c5b6aa69a0862cc51c0edaae955cf1d`.
+            `4494c06b2df4f48722b8c274444db093447ce8001a845bd51a68b026554054a1`.
             The live delegate image is built from commit
-            `74ad4b6d7359d418507d131a5f30ad7e541987af`, so it includes the
+            `8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e`, so it includes the
             bounded signup/signin egress fix and bounded early-stage
             startup-bootstrap attempt records. Tinker bootstrap is disabled in
             the current normal compose.
@@ -958,17 +958,16 @@ Implementation status:
             `outcome=unknown_failure`, `furthest_stage=not_started`, and
             `raw_secret_egress=false`; the outer runtime
             `bootstrap_error_kind` still flattened to generic
-            `bootstrap_error`. That preservation issue is now fixed in
-            source/tests: the serve catch keeps the bounded attempt `outcome`
-            before falling back to `AuthAccessBlockedError` or generic
-            `bootstrap_error`, but the fix is not yet Phala-proven. In all live
-            attempts the oracle mailbox stayed ready, no API key was configured
-            or stored, endpoint gates stayed closed, and the CVM was redeployed
-            back to the normal compose. Completing deployed Tinker signup now
-            requires rebuilding/redeploying this preservation fix and then
-            either a supportable headed-browser posture inside Phala or an
-            official/support-approved Tinker API-key/service-account route;
-            stealth/evasion remains out of scope.
+            `bootstrap_error`. A fourth retry using GitHub-attested `8fb6e3a`
+            images proved the preservation fix in Phala:
+            `bootstrap_error_kind=unknown_failure` now matches the bounded
+            nested receipt. In all live attempts the oracle mailbox stayed
+            ready, no API key was configured or stored, endpoint gates stayed
+            closed, and the CVM was redeployed back to the normal compose.
+            Completing deployed Tinker signup now requires either a supportable
+            headed-browser posture inside Phala or an official/support-approved
+            Tinker API-key/service-account route; stealth/evasion remains out
+            of scope.
 [partial]   Production OS posture is not solved. The main CVM still reports
             `dstack-dev-0.5.9` / `is_dev=true`; earlier attempts to update the
             existing CVM to `dstack-0.5.10*` with `--no-dev-os` failed in the
@@ -1873,9 +1872,8 @@ bounded aggregate results
 3. Tinker browser automation works locally through Neko/CDP. The deployed
    headed-Neko packaging is Phala-proven, but deployed signup still fails
    closed before API-key sealing. Bounded early-stage bootstrap receipts are
-   now Phala-proven. The outer runtime error-kind preservation fix is
-   implemented in source/tests and still needs the next image/deploy retry
-   before it becomes deployed evidence.
+   now Phala-proven, and the top-level runtime error kind now preserves the
+   bounded nested outcome in Phala evidence.
 4. Reliable Tinker account funding through Stripe browser automation is in progress:
    the test-card path reaches Stripe and declines as expected, the plaintext
    card API is disabled by default, `manual_prefund` is the default production

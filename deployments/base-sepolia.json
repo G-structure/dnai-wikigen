@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-08T15:06:00Z",
+  "lastReviewedAt": "2026-07-08T15:29:00Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -42,12 +42,12 @@
     }
   },
   "phala": {
-    "status": "running_bounded_oracle_delegate_mailbox_ready_tinker_bootstrap_failed_closed_with_bounded_receipt_pinned_compose_private_logs_revalidated_by_deployment_bundle",
+    "status": "running_bounded_oracle_delegate_mailbox_ready_tinker_bootstrap_failed_closed_with_preserved_bounded_error_kind_pinned_compose_private_logs_revalidated_by_deployment_bundle",
     "cvmId": "670b3b21-4338-4d4e-ae72-7c8922579f59",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "47fed5cf1b082cb38275d95dca3542244c5b6aa69a0862cc51c0edaae955cf1d",
-    "localRawComposeImagePolicyHash": "02d7d15a519ba16687828ca0d6f295ac33206cacca5f5392c9837095f68c3aaa",
-    "renderedComposeSha256": "69c0dfda25bb127c553f8621a1e147c1a6e13ae5eb213faa851d4f280560bcac",
+    "composeHash": "4494c06b2df4f48722b8c274444db093447ce8001a845bd51a68b026554054a1",
+    "localRawComposeImagePolicyHash": "665a4fe15f99cf5aa837583ff57c1d15bc1bbe87e74b3f9ba5a7ddfc27d47f8f",
+    "renderedComposeSha256": "d29d934f505aa2c8bf5e6113b7a86ed7ffe9c13c95e99651436d5eb30649214c",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -88,10 +88,10 @@
         "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "74ad4b6d7359d418507d131a5f30ad7e541987af",
+    "sourceDigest": "8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 28952111920,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28952111920",
+    "githubActionsRunId": 28954112809,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28954112809",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -101,13 +101,13 @@
     "imageDigests": [
       {
         "service": "oracle",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:3a31f425d51bdc982212c5980ce39205bed7f3287bc74af02675cf7f2b0dc4c4",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:b1251b071e981c4f6cba40c61b0806eb4523642e2857bdd0f14c27609ca19ed1",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:dd4f517d3281581063d6fa5c13430557a01d79cb029770dc11e96f9701e17998",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b2bf8627c96945e976cd348cd29845a7440ef43d4b7d7cc4d727d81442950fe1",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
@@ -128,8 +128,8 @@
       "mode": "tdx",
       "context": "artifact",
       "quoteSize": 5010,
-      "reportData": "bd129ec48a2fa49fcd7de7e948182df5e796a3d8bc7a9769d9203f3beda19486",
-      "encryptionPublicKey": "9bbc5c4a6ac6fa60e64b5a571f1df0d3cf8b125fb25fd0632bdefca62801435b",
+      "reportData": "670328b0232c9ed5c7d5dea1b64d4f34a4fcc9c15d3f732466331c31f1a94240",
+      "encryptionPublicKey": "44faa46a2b7e25c60899d9f59a7b1e5eb202a5f98653a1e8f31caf0d0f676500",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -140,10 +140,10 @@
       "oneShotAttestedComposeHash": "0541c599acc399f943c6b1804cbf0e8b15aedbf2efeea98d9b2ac856b826f101",
       "oneShotDeploymentBundle": "verified",
       "steadyStateCompose": "⚙️/tinker-delegate/docker-compose.all.phala.yaml",
-      "steadyStateAttestedComposeHash": "47fed5cf1b082cb38275d95dca3542244c5b6aa69a0862cc51c0edaae955cf1d",
-      "currentOneShotProfileLocalRawComposeImagePolicyHash": "4b8c79dd7111b32594da3432e0b34e9c7591416759c556d2f2a7c94f9ea88c01",
-      "currentOneShotProfileRenderedComposeSha256": "1d55d558942c88f76b3bf37629645dbe2298fc78dddf2b9cd1f23961154944f0",
-      "currentOneShotProfileLiveProof": "not_re_run_after_74ad4b6_image_refresh_existing_mailbox_ready",
+      "steadyStateAttestedComposeHash": "4494c06b2df4f48722b8c274444db093447ce8001a845bd51a68b026554054a1",
+      "currentOneShotProfileLocalRawComposeImagePolicyHash": "ba9678034fbb4a88610c1a8af08d065f82d8cd68153d3203c169fb038aa4dcda",
+      "currentOneShotProfileRenderedComposeSha256": "bb0c1240381149afd77c523e6c4c1f4ed25d18ceb727e1a1b4312d5af0815ef9",
+      "currentOneShotProfileLiveProof": "not_re_run_after_8fb6e3a_image_refresh_existing_mailbox_ready",
       "publicHealthEvidence": {
         "status": "ok",
         "oracleEmail": "",
@@ -177,12 +177,12 @@
       "rawSecretEgress": false
     },
     "tinkerBootstrapEvidence": {
-      "status": "instrumented_headed_neko_failed_closed_unknown_failure_with_bounded_receipt_then_reverted_to_normal_compose",
+      "status": "instrumented_headed_neko_failed_closed_unknown_failure_with_preserved_bounded_error_kind_then_reverted_to_normal_compose",
       "oneShotCompose": "⚙️/tinker-delegate/docker-compose.tinker-bootstrap.phala.yaml",
-      "sourceDigest": "74ad4b6d7359d418507d131a5f30ad7e541987af",
-      "githubActionsRunId": 28952111920,
-      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:3a31f425d51bdc982212c5980ce39205bed7f3287bc74af02675cf7f2b0dc4c4",
-      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:dd4f517d3281581063d6fa5c13430557a01d79cb029770dc11e96f9701e17998",
+      "sourceDigest": "8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e",
+      "githubActionsRunId": 28954112809,
+      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:b1251b071e981c4f6cba40c61b0806eb4523642e2857bdd0f14c27609ca19ed1",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b2bf8627c96945e976cd348cd29845a7440ef43d4b7d7cc4d727d81442950fe1",
       "attempts": [
         {
           "browserPath": "headless_playwright_sidecar",
@@ -261,6 +261,42 @@
               "issuedAt": 1783522698
             }
           }
+        },
+        {
+          "browserPath": "headed_neko_cdp",
+          "status": "failed_closed_unknown_failure_with_preserved_bounded_error_kind",
+          "delegateBrowserService": "absent",
+          "oneShotLocalRawComposeImagePolicyHash": "7773f9be4bfcc5da7eea12f98f49361729879c2aef0c2ba345b6a8cd515215e7",
+          "oneShotRenderedComposeSha256": "a71def49759337daf47ed9cb5467614bdfa8970611f4761a9d6494e613eea5aa",
+          "oneShotAttestedComposeHash": "a1d5b65bd12a1a7842cf0999cffea0d3ce665be3e419aeb87e6f9110b4431d34",
+          "oneShotDeploymentBundle": "verified",
+          "reportData": "36b01399a92bd71337c0dbc28f1ac85d49744cd4eb5db9c7fd8feccaa1c3e547",
+          "encryptionPublicKey": "d2f9268033ee94fa48078a5e344666cee8bc96c6981dbdeca0c31a374dd1f72b",
+          "runtimeEvidence": {
+            "browserWsEndpoint": "",
+            "cdpUrl": "http://172.20.0.3:9223",
+            "apiKeyConfigured": false,
+            "apiKeyAvailable": false,
+            "apiKeySource": "bootstrap",
+            "bootstrapAttempted": true,
+            "bootstrapSuccess": false,
+            "bootstrapError": "signup bootstrap did not store an API key",
+            "bootstrapErrorKind": "unknown_failure",
+            "lastBootstrapAttemptRecord": {
+              "surface": "tinker_auth",
+              "outcome": "unknown_failure",
+              "furthestStage": "not_started",
+              "boundedMessage": "unknown_failure",
+              "evidenceHash": "3dd89f6596c7a5c9d64ce90337e1fc3b6b542b725a4a38c7d5b859c8fb95e561",
+              "accountHash": "535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
+              "amountBand": "",
+              "balanceBand": "",
+              "tdxQuoteHash": "",
+              "cardPayloadDestroyed": false,
+              "rawSecretEgress": false,
+              "issuedAt": 1783524382
+            }
+          }
         }
       ],
       "oracleHealthEvidence": {
@@ -276,7 +312,7 @@
         "addBalanceEndpoint": "403_disabled"
       },
       "steadyStateCompose": "⚙️/tinker-delegate/docker-compose.all.phala.yaml",
-      "steadyStateAttestedComposeHashAfterRevert": "47fed5cf1b082cb38275d95dca3542244c5b6aa69a0862cc51c0edaae955cf1d",
+      "steadyStateAttestedComposeHashAfterRevert": "4494c06b2df4f48722b8c274444db093447ce8001a845bd51a68b026554054a1",
       "steadyStateRuntimeAfterRevert": {
         "ORACLE_AUTO_GENESIS": "false",
         "TINKER_BOOTSTRAP_SIGNUP": "false",
@@ -386,12 +422,12 @@
       "verification": "bounded-health image was built, GitHub-attestation verified, pinned into oracle-genesis debug compose, and Phala-proven with public health/attestation containing no raw mailbox"
     },
     "credentialProvisioningEvidence": {
-      "status": "endpoint_deployed_disabled_by_default_mailbox_ready_revalidated_after_74ad4b6_restore",
+      "status": "endpoint_deployed_disabled_by_default_mailbox_ready_revalidated_after_8fb6e3a_restore",
       "context": "oracle-credentials",
       "mode": "tdx",
       "quoteSize": 5010,
-      "reportData": "b83bccc9b0a37be3607cce311ad25d53c86df8b263d1d806814be1a30c63a1c8",
-      "encryptionPublicKey": "db91c041e4092a849b42c2c9b363d47882c59be4f706bb363495a68a86823030",
+      "reportData": "561e8fd43159ed838406827fb19531880c82e795ddb636dd0fec08f99b91203e",
+      "encryptionPublicKey": "6b56f04928d2fe1a6150d3fa48d2591a87a92ebb8d614ef79508ff21dabf5215",
       "oracleEmail": "",
       "oracleEmailHash": "535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
       "oracleReady": true,

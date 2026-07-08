@@ -624,15 +624,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [x] `P0` Preserve the bounded deployed-bootstrap attempt outcome in
       `/health.runtime.bootstrap_error_kind` instead of flattening the
       serve-level catch to generic `bootstrap_error`.
-      Done in source/tests 2026-07-08: the instrumented Phala retry recorded
+      Done in source/tests and Phala-proven 2026-07-08: the instrumented Phala retry recorded
       `last_bootstrap_attempt_record.outcome=unknown_failure`, but the outer
       runtime field still reported `bootstrap_error`. The serve catch now
       preserves the bounded attempt record's `outcome` before falling back to
       `AuthAccessBlockedError` or generic `bootstrap_error`, and
       `test_bootstrap_runtime_state` covers the bubbled failure path without
       leaking raw mailbox, OTP, browser URL, page text, or API-key-shaped
-      values. This source/test fix still needs a GHCR build and Phala retry
-      before the deployed evidence is updated.
+      values. A follow-up one-shot Phala retry using GitHub-attested `8fb6e3a`
+      images proved `/health.runtime.bootstrap_error_kind=unknown_failure`
+      alongside the bounded nested receipt; the CVM was redeployed back to
+      normal compose afterward.
 - [ ] `P0` Capture a selector/frame/auth-flow map for:
       email input, magic-code page, OTP boxes, onboarding, keys page, billing,
       Stripe iframe, balance page, and auto-reload settings.
@@ -685,8 +687,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `74ad4b6` images captured a bounded `tinker_auth`
             `unknown_failure` receipt at `not_started`, with no raw secret
             egress and no API-key capture. The outer runtime
-            `bootstrap_error_kind` preservation fix is now implemented in
-            source/tests and needs the next GHCR build plus Phala retry.
+            `bootstrap_error_kind` preservation fix is now implemented and
+            Phala-proven with GitHub-attested `8fb6e3a` images:
+            `/health.runtime.bootstrap_error_kind=unknown_failure`.
             Local Neko still works, so next work should either repair the
             supportable headed-browser posture or obtain an official/support-
             approved Tinker service-account/API-key route.
@@ -1383,15 +1386,18 @@ vision Wiki is reaching for.
             Refreshed again 2026-07-08 for bounded early-stage bootstrap
             receipts commit `74ad4b6d7359d418507d131a5f30ad7e541987af` with
             GitHub Actions run `28952111920`.
+            Refreshed again 2026-07-08 for preserved bounded bootstrap error
+            kind commit `8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e` with
+            GitHub Actions run `28954112809`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:3a31f425d51bdc982212c5980ce39205bed7f3287bc74af02675cf7f2b0dc4c4`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:b1251b071e981c4f6cba40c61b0806eb4523642e2857bdd0f14c27609ca19ed1`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:dd4f517d3281581063d6fa5c13430557a01d79cb029770dc11e96f9701e17998`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b2bf8627c96945e976cd348cd29845a7440ef43d4b7d7cc4d727d81442950fe1`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
@@ -1416,16 +1422,16 @@ vision Wiki is reaching for.
       - [x] `verify-deployment-bundle` passes against the live log-hardened
             Phala deployment with GitHub image provenance/SBOM checks, required
             sidecar digests, local raw compose hash
-            `02d7d15a519ba16687828ca0d6f295ac33206cacca5f5392c9837095f68c3aaa`,
+            `665a4fe15f99cf5aa837583ff57c1d15bc1bbe87e74b3f9ba5a7ddfc27d47f8f`,
             and live attested compose hash
-            `47fed5cf1b082cb38275d95dca3542244c5b6aa69a0862cc51c0edaae955cf1d`.
+            `4494c06b2df4f48722b8c274444db093447ce8001a845bd51a68b026554054a1`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.
             Done 2026-07-08: live delegate image
-            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:dd4f517d3281581063d6fa5c13430557a01d79cb029770dc11e96f9701e17998`
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b2bf8627c96945e976cd348cd29845a7440ef43d4b7d7cc4d727d81442950fe1`
             is GitHub-attested from commit
-            `74ad4b6d7359d418507d131a5f30ad7e541987af`; `/pin` rejects
+            `8fb6e3a7dac3ef58f1e4c1e902a36ebd612b910e`; `/pin` rejects
             unauthenticated requests with `401`, `/credentials/encrypted`
             rejects while disabled with `403`, and `/billing/add-balance`
             rejects while disabled with `403`.
