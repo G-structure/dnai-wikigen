@@ -598,6 +598,13 @@ Implementation status:
             delegate storage with a separate `tinker/funding_receipts` dstack
             key path and can be read through `GET /billing/funding-receipts`.
             The store rejects unknown fields and `raw_secret_egress=true`.
+[real]      Bounded deal/run lifecycle metadata is persisted in a separate
+            encrypted/sealed delegate store at `/data/run_metadata.enc` in
+            compose profiles, with its own `tinker/run_metadata` dstack key
+            path. Control-plane events store hashed deal/account/run handles,
+            artifact hashes and size bands, score/offer/cost bands, and
+            cleanup counts; raw artifacts, API keys, card fields, checkpoint
+            IDs, and raw Tinker run IDs are not allowed in the schema.
 [real]      Add-balance automation enforces `TINKER_MAX_ADD_BALANCE_USD`
             before launching browser automation. Non-finite, non-positive, and
             over-cap requests return bounded `policy_denied` `add_balance`
@@ -1386,6 +1393,7 @@ Runtime service layout for the Tinker path:
 |  service: delegate                                            |
 |    - tinker-delegate                                          |
 |    - Tinker API key sealed at /data                           |
+|    - funding receipts + bounded run metadata sealed at /data  |
 |    - dstack socket mounted                                    |
 |    - RLIMIT_CORE=0 plus compose core ulimit                   |
 |                                                               |
@@ -1506,16 +1514,17 @@ Flow:
 4. Tinker API key is sealed inside the delegate.
 5. Seller creates DiligenceRoom deal with artifactHash and teeIdentity.
 6. Buyer funds deal with budget cap.
-7. Seller uploads private bio artifact to TEE.
-8. Gate checks purpose and dual-use risk.
-9. Tinker delegate starts an isolated evaluation session.
-10. Target future evaluator runs TTT/RL bio-validation.
-11. Control plane converts raw metric to score band.
-12. TEE submits resultHash, scoreBand, and computeCost.
-13. Buyer accepts or rejects.
-14. Contract accrues seller payment, developer compute+fee, and buyer refund.
-15. Parties withdraw.
-16. TEE cleans up artifact and Tinker checkpoints.
+7. Control-plane lifecycle metadata is sealed as bounded event records.
+8. Seller uploads private bio artifact to TEE.
+9. Gate checks purpose and dual-use risk.
+10. Tinker delegate starts an isolated evaluation session.
+11. Target future evaluator runs TTT/RL bio-validation.
+12. Control plane converts raw metric to score band.
+13. TEE submits resultHash, scoreBand, and computeCost.
+14. Buyer accepts or rejects.
+15. Contract accrues seller payment, developer compute+fee, and buyer refund.
+16. Parties withdraw.
+17. TEE cleans up artifact and Tinker checkpoints.
 ```
 
 ASCII sequence:

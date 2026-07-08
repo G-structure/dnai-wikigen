@@ -266,6 +266,9 @@ All settings use the `TINKER_` env prefix:
 | `TINKER_FUNDING_RECEIPT_STORE_PATH` | `./data/funding_receipts.enc` | Encrypted bounded funding receipt store |
 | `TINKER_FUNDING_RECEIPT_STORE_KEY` | *(empty)* | Local-dev hex key override; dstack should derive the key instead |
 | `TINKER_FUNDING_RECEIPT_KEY_PATH` | `tinker/funding_receipts` | dstack key path for funding receipt storage |
+| `TINKER_RUN_METADATA_STORE_PATH` | `./data/run_metadata.enc` | Encrypted bounded deal/run lifecycle metadata store |
+| `TINKER_RUN_METADATA_STORE_KEY` | *(empty)* | Local-dev hex key override; dstack should derive the key instead |
+| `TINKER_RUN_METADATA_KEY_PATH` | `tinker/run_metadata` | dstack key path for run metadata storage |
 | `TINKER_MAX_ADD_BALANCE_USD` | `5.0` | Maximum add-balance amount allowed before browser automation starts |
 | `TINKER_ALLOW_ADD_BALANCE_ENDPOINT` | `false` | Enables `POST /billing/add-balance`; leave false unless running a deliberate capped operator validation |
 | `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT` | `false` | Local-dev only flag for `POST /billing/card`; production uses `/billing/card/encrypted` |
@@ -356,6 +359,11 @@ contracts/
 - **Receipt storage**: bounded funding attempt records are persisted in the
   encrypted delegate store and can be read through `/billing/funding-receipts`.
   The store rejects unknown fields and any receipt claiming raw secret egress.
+- **Run metadata storage**: deal lifecycle events are persisted in a separate
+  encrypted delegate store under `/data/run_metadata.enc` in compose profiles.
+  Records contain only bounded metadata such as hashed deal/account/run handles,
+  artifact hashes and size bands, score/offer/cost bands, and cleanup counts.
+  The store rejects unknown fields and any record claiming raw secret egress.
 - **Debug screenshots**: payment-method screenshots after card entry/submission
   are suppressed even when `TINKER_DEBUG_SCREENSHOTS=true`; only non-secret
   billing screenshots may be written. If `TINKER_DEBUG_ARTIFACT_DIR` is set,

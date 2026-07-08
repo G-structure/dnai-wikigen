@@ -47,6 +47,28 @@ class ComposeHardeningTest(unittest.TestCase):
             block,
         )
 
+    def test_delegate_run_metadata_store_is_under_data_volume(self):
+        for compose_name in (
+            "docker-compose.yaml",
+            "docker-compose.dstack.yaml",
+            "docker-compose.all.yaml",
+            "docker-compose.all.dstack.yaml",
+            "docker-compose.all.phala.yaml",
+        ):
+            with self.subTest(compose_name=compose_name):
+                block = _service_block((ROOT / compose_name).read_text(), "delegate")
+                self.assertIn("TINKER_RUN_METADATA_STORE_PATH: /data/run_metadata.enc", block)
+
+        for compose_name in (
+            "docker-compose.dstack.yaml",
+            "docker-compose.all.dstack.yaml",
+            "docker-compose.all.phala.yaml",
+        ):
+            with self.subTest(compose_name=compose_name):
+                block = _service_block((ROOT / compose_name).read_text(), "delegate")
+                self.assertIn("TINKER_RUN_METADATA_KEY_PATH", block)
+                self.assertIn("tinker/run_metadata", block)
+
 
 if __name__ == "__main__":
     unittest.main()

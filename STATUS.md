@@ -62,6 +62,17 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   dstack is detected.
 - Local Stripe test-card automation reaches the bounded card-decline result.
 - Add-balance fails closed when no funded payment method is available.
+- Bounded funding receipts are stored encrypted under the delegate data volume
+  and reject unknown fields or `raw_secret_egress=true`.
+
+[real] `tinker-delegate` bounded run metadata:
+
+- Control-plane deal lifecycle events persist to an encrypted
+  `run_metadata.enc` store under the delegate data volume.
+- Stored records use hashed deal/account/Tinker-run handles, artifact hashes
+  and size bands, score/offer/cost bands, and cleanup counts.
+- Raw artifacts, API keys, card fields, checkpoint IDs, raw Tinker run IDs, and
+  arbitrary extra fields are rejected by the store schema/tests.
 
 [real] Artifact ingress:
 
@@ -180,6 +191,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   `dnai-tinker-delegate-agent-extra:local` returned
   `/health.agent_stack_available=true`.
 - The same flow still needs fresh validation inside a deployed Phala CVM.
+- Reusable payment-method token/reference capture is not implemented; if an
+  official or tokenized funding path becomes available, that state still needs
+  sealed-store integration and live validation.
 - `⚙️/tinker-delegate/docs/TINKER-AUTOMATION-ROUTE.md` records the acceptable
   automation route: prefer official/support-approved Tinker workflows; allow
   browser automation only as bounded TEE custody for this project's own account.

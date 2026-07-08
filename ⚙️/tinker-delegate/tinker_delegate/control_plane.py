@@ -17,12 +17,18 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 import tinker
 
 from tinker_delegate.artifacts import verify_artifact_hash, zero_buffer
 from tinker_delegate.dstack_utils import get_attestation, is_dstack_enabled
+from tinker_delegate.run_metadata_store import (
+    make_run_metadata_event,
+    size_band,
+    stable_hash,
+    value_band,
+)
 from tinker_delegate.session import CleanupAttestation, IsolatedTinkerSession
 
 
@@ -132,9 +138,10 @@ class DealContext:
 class ControlPlane:
     """Orchestrates deal lifecycle inside the TEE."""
 
-    def __init__(self, tinker_api_key: str):
+    def __init__(self, tinker_api_key: str, run_metadata_store=None):
         self._api_key = tinker_api_key
         self._deals: dict[str, DealContext] = {}
+        self._run_metadata_store = run_metadata_store
 
     def _create_service_client(self) -> tinker.ServiceClient:
         """Create a Tinker ServiceClient with the sealed API key."""
@@ -163,6 +170,16 @@ class ControlPlane:
             session=session,
         )
         self._deals[deal_id] = ctx
+        self._append_run_metadata(
+            make_run_metadata_event(
+                "deal_funded",
+                deal_id,
+                buyer_hash=stable_hash(buyer, prefix="buyer"),
+                seller_hash=stable_hash(seller, prefix="seller"),
+                budget_cap_band=value_band(budget_cap),
+                reserve_price_band=value_band(reserve_price),
+            )
+        )
         return ctx
 
     def receive_artifact(
@@ -176,6 +193,14 @@ class ControlPlane:
         assert ctx.state == DealState.PENDING_ARTIFACT
         ctx.artifact_hash = verify_artifact_hash(artifact, artifact_hash)
         ctx.artifact = bytearray(artifact)
+        self._append_run_metadata(
+            make_run_metadata_event(
+                "artifact_received",
+                deal_id,
+                artifact_hash=ctx.artifact_hash,
+                artifact_size_band=size_band(len(artifact)),
+            )
+        )
         # Ready for evaluation — but don't auto-start.
         # The watcher or API triggers evaluate().
 
@@ -233,6 +258,23 @@ class ControlPlane:
 
             ctx.result = result
             ctx.state = DealState.EVALUATED
+            self._append_run_metadata(
+                make_run_metadata_event(
+                    "evaluation_completed",
+                    deal_id,
+                    score_band=result.score_band.value,
+                    offer_price_band=value_band(result.offer_price),
+                    recommendation=result.recommendation,
+                    confidence=result.confidence,
+                    compute_cost_band=value_band(result.compute_cost_wei),
+                    fee_band=value_band(result.fee_wei),
+                    tdx_quote_hash=stable_hash(result.tdx_quote, prefix="tdx_quote"),
+                    training_run_id_hash=stable_hash(
+                        getattr(ctx.session, "training_run_id", None),
+                        prefix="training_run_id",
+                    ),
+                )
+            )
             return result
 
         except Exception:
@@ -240,6 +282,13 @@ class ControlPlane:
             if ctx.session:
                 ctx.cleanup_attestation = ctx.session.cleanup()
             ctx.state = DealState.RESOLVED
+            self._append_run_metadata(
+                make_run_metadata_event(
+                    "evaluation_failed",
+                    deal_id,
+                    **self._cleanup_metadata_fields(ctx.cleanup_attestation),
+                )
+            )
             raise
 
     def on_deal_resolved(self, deal_id: str) -> None:
@@ -260,6 +309,13 @@ class ControlPlane:
             ctx.artifact = None
 
         ctx.state = DealState.RESOLVED
+        self._append_run_metadata(
+            make_run_metadata_event(
+                "deal_resolved",
+                deal_id,
+                **self._cleanup_metadata_fields(ctx.cleanup_attestation),
+            )
+        )
 
     def get_result(self, deal_id: str) -> EvaluationResult | None:
         """Get bounded evaluation result for a deal."""
@@ -316,6 +372,31 @@ class ControlPlane:
             ScoreBand.NEGLIGIBLE: "<1%",
         }
         return f"+{ranges[band]} on {benchmark}"
+
+    def _append_run_metadata(self, record: dict[str, Any]) -> None:
+        store = getattr(self, "_run_metadata_store", None)
+        if store is None:
+            return
+        store.append(record)
+
+    @staticmethod
+    def _cleanup_metadata_fields(attestation: CleanupAttestation | None) -> dict[str, Any]:
+        if attestation is None:
+            return {}
+        if not hasattr(attestation, "success"):
+            return {}
+        return {
+            "cleanup_success": bool(attestation.success),
+            "listed_checkpoint_count": attestation.listed_checkpoint_count,
+            "deleted_checkpoint_count": attestation.deleted_checkpoint_count,
+            "failed_checkpoint_count": attestation.failed_checkpoint_count,
+            "delete_attempts": attestation.delete_attempts,
+            "checkpoint_ids_hash": attestation.checkpoint_ids_hash,
+            "training_run_id_hash": stable_hash(
+                attestation.training_run_id,
+                prefix="training_run_id",
+            ),
+        }
 
     @staticmethod
     def _get_tdx_quote(deal_id: str, result: EvaluationResult) -> bytes:

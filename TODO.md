@@ -225,8 +225,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             so OTP one-time-use survives service restart without storing OTPs.
       - [x] Store captured Tinker API keys in the encrypted key store and return
             only bounded hash/status metadata from signup/bootstrap.
-      - [ ] Confirm funding token state and run metadata are
-            sealed/persisted only under the CVM data volume.
+      - [x] Confirm currently implemented funding state and run metadata are
+            sealed/persisted only under the CVM data volume: bounded funding
+            receipts use `/data/funding_receipts.enc`, and control-plane deal
+            lifecycle metadata now uses `/data/run_metadata.enc` with a
+            separate dstack key path and hashed/banded fields only.
+      - [ ] Blocked until official/tokenized funding is available: if a future
+            Tinker/Stripe payment-method token or reusable funding reference is
+            captured, persist only opaque/token hashes or bounded status under
+            sealed delegate storage and never expose raw card material.
 - [ ] `P0` Add log scrubbing for OTPs, API keys, card data, bearer tokens, and
       raw artifacts.
       - [x] Stop logging extracted OTP values in the email oracle and Tinker

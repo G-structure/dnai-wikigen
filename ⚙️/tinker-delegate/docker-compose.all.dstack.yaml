@@ -49,5 +49,7 @@ services:
       TINKER_API_KEY_STORE_PATH: /data/tinker_api_key.enc
       TINKER_FUNDING_RECEIPT_STORE_PATH: /data/funding_receipts.enc
       TINKER_FUNDING_RECEIPT_KEY_PATH: tinker/funding_receipts
+      TINKER_RUN_METADATA_STORE_PATH: /data/run_metadata.enc
+      TINKER_RUN_METADATA_KEY_PATH: tinker/run_metadata
       TINKER_MAX_ADD_BALANCE_USD: ${TINKER_MAX_ADD_BALANCE_USD:-5.0}
       TINKER_ALLOW_ADD_BALANCE_ENDPOINT: ${TINKER_ALLOW_ADD_BALANCE_ENDPOINT:-false}

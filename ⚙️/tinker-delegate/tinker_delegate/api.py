@@ -35,6 +35,7 @@ from tinker_delegate.dstack_utils import is_dstack_enabled
 from tinker_delegate.funding_receipt_store import build_funding_receipt_store
 from tinker_delegate.oracle_client import OracleClient
 from tinker_delegate.redaction import redact_text
+from tinker_delegate.run_metadata_store import build_run_metadata_store
 from tinker_delegate.runtime_hardening import disable_core_dumps
 from tinker_delegate.runtime_state import get_runtime_state, update_runtime_state
 from tinker_delegate.card_channel import (
@@ -97,7 +98,7 @@ def _get_control_plane():
                     "Tinker agent stack is not installed in this deployment",
                 ) from exc
             raise
-        _control_plane = ControlPlane(api_key)
+        _control_plane = ControlPlane(api_key, run_metadata_store=build_run_metadata_store(settings))
     return _control_plane
 
 
