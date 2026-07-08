@@ -253,7 +253,7 @@ The IsolatedTinkerSession defends against a **malicious evaluator agent** (or co
 | Unbounded cost | `CostMeter` tracks all operations | PARTIAL | **Generation tokens not metered** |
 | Unbounded training | One training run per deal | IMPLEMENTED | |
 | Checkpoint persistence | Mandatory TTL on all saves (1h-24h) | IMPLEMENTED | |
-| Checkpoint persistence | `cleanup()` deletes all checkpoints on deal resolution | IMPLEMENTED | |
+| Checkpoint persistence | `cleanup()` deletes all checkpoints on deal resolution | IMPLEMENTED | Retry-backed; emits bounded cleanup attestation |
 | Exact quality leakage | `bound_output()` maps to coarse score bands | IMPLEMENTED | In control_plane.py |
 | TTL extension | `set_checkpoint_ttl` blocked | IMPLEMENTED | Cannot call RestClient |
 
@@ -266,6 +266,12 @@ calls `save_weights_and_get_sampling_client()` directly. It uses explicit
 `save_for_sampling()` with clamped TTL, then path-checked `create_sampler()`.
 Mocked-SDK tests verify that the convenience path uses the same TTL policy as
 named sampler checkpoints.
+
+**RESOLVED: cleanup retry and attestation.** `cleanup()` retries checkpoint
+deletions, closes the session idempotently, and returns a bounded
+`CleanupAttestation` containing counts, attempts, success/error status, and a
+hash of checkpoint IDs rather than raw IDs. `ControlPlane.on_deal_resolved()`
+stores that attestation on the deal context.
 
 **GAP 2: `forward_backward_custom()` security.** This method executes a user-provided Python callable locally (in the TEE), receiving logprob tensors from the server. The callable itself never leaves the TEE, but it has access to the `TrainingClient` internals through the closure. If exposed, it should be wrapped to prevent the callable from accessing `self._training_client` or `self._sc` directly.
 
@@ -538,6 +544,9 @@ Larger RL evaluation on Qwen3-235B:
 | `test_cost_calculation` | Set known token counts | `total_cost_usd` matches manual calculation |
 | `test_deal_id_in_metadata` | Mock `create_lora_training_client` | `user_metadata["deal_id"]` is set |
 | `test_cleanup_idempotent` | Mock `RestClient` | Double `cleanup()` does not raise |
+| `test_cleanup_retries_transient_delete_failures` | Mock transient delete failures | Retries and succeeds |
+| `test_cleanup_attests_permanent_delete_failures` | Mock persistent delete failure | Returns bounded failed cleanup attestation |
+| `test_cleanup_attests_checkpoint_listing_failure` | Mock list failure | Returns bounded failed cleanup attestation |
 | `test_kwargs_whitelist` | N/A | Unexpected kwargs rejected |
 | `test_budget_cap_enforcement` | Set low budget, meter tokens | Operation raises `BudgetExceededError` |
 

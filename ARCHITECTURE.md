@@ -572,7 +572,11 @@ Implementation status:
 [real]      IsolatedTinkerSession has mocked-SDK tests for explicit one training
             run per deal enforcement, TTL clamping on every checkpoint save
             path including save-and-sample, path-checked sampling, state
-            checkpoints not being sampleable, cleanup deletion, and metering.
+            checkpoints not being sampleable, cleanup deletion, retry-backed
+            cleanup attestations, and metering.
+[real]      Deal resolution stores a bounded cleanup attestation with counts,
+            success flag, attempts, error type, and checkpoint-ID hash; raw
+            checkpoint IDs are not included in the public record.
 [real]      Real Tinker SDK smoke-test harness exists but is disabled by
             default. It requires `TINKER_RUN_REAL_SDK_TESTS=1`,
             `TINKER_API_KEY`, and `TINKER_REAL_SDK_MAX_USD <= 0.50` before it
@@ -583,6 +587,8 @@ Implementation status:
 [partial]   Optional Tinker SDK dependency must be installed and the real SDK
             harness must be run inside the deployed CVM before claiming real
             evaluator execution.
+[partial]   Cleanup attestations are generated locally, but deployed Tinker
+            deletion and TTL-expiry behavior still need real SDK/CVM evidence.
 [partial]   Artifact upload still needs full cryptographic Intel TDX quote
             parsing/freshness validation, downstream evaluator/Tinker/browser
             no-disk audit, sealed-retention key hierarchy if retention is added,

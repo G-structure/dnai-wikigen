@@ -386,7 +386,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [x] `P0` Enforce path-checked sampling:
       no arbitrary model path, no cross-deal checkpoint access.
 - [ ] `P0` Block download/publish/list-all operations from evaluator agents.
-- [ ] `P0` Implement cleanup with retries and a cleanup attestation.
+- [x] `P0` Implement cleanup with retries and a cleanup attestation.
 - [ ] `P1` Add cost metering that reconciles:
       Tinker reported cost, estimated tokens/steps, chain computeCost, and buyer
       budget remaining.

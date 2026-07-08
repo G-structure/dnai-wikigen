@@ -139,9 +139,16 @@ class ArtifactIngressTest(unittest.TestCase):
         sys.modules.setdefault("tinker", types.SimpleNamespace())
         from tinker_delegate.control_plane import ControlPlane, DealContext
 
+        cleanup_record = object()
+
+        class FakeSession:
+            def cleanup(self):
+                return cleanup_record
+
         cp = ControlPlane.__new__(ControlPlane)
         ctx = DealContext("deal-1", "buyer", "seller", 100, 10)
         ctx.artifact = bytearray(b"test-artifact")
+        ctx.session = FakeSession()
         cp._deals = {"deal-1": ctx}
         stored = ctx.artifact
 
@@ -149,6 +156,7 @@ class ArtifactIngressTest(unittest.TestCase):
 
         self.assertEqual(stored, bytearray(len(b"test-artifact")))
         self.assertIsNone(ctx.artifact)
+        self.assertIs(ctx.cleanup_attestation, cleanup_record)
 
     def test_plaintext_artifact_endpoint_disabled_by_default(self):
         api.settings = Settings(allow_plaintext_artifact_endpoint=False)

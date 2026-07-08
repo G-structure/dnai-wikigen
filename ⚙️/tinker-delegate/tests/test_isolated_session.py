@@ -105,11 +105,19 @@ class FakeRestClient:
     def __init__(self):
         self.checkpoints_by_run = {}
         self.deleted = []
+        self.delete_failures = {}
+        self.list_error = None
 
     def list_checkpoints(self, run_id):
+        if self.list_error:
+            raise self.list_error
         return Future(self.checkpoints_by_run.get(run_id, []))
 
     def delete_checkpoint(self, run_id, checkpoint_id):
+        remaining_failures = self.delete_failures.get(checkpoint_id, 0)
+        if remaining_failures:
+            self.delete_failures[checkpoint_id] = remaining_failures - 1
+            raise RuntimeError("delete failed")
         self.deleted.append((run_id, checkpoint_id))
         return Future({"deleted": True})
 
@@ -202,15 +210,65 @@ class IsolatedTinkerSessionTest(unittest.TestCase):
             Checkpoint("cp-2"),
         ]
 
-        session.cleanup()
-        session.cleanup()
+        attestation = session.cleanup()
+        second_attestation = session.cleanup()
 
         self.assertEqual(
             service_client.rest_client.deleted,
             [("run-1", "cp-1"), ("run-1", "cp-2")],
         )
+        self.assertIs(attestation, second_attestation)
+        self.assertTrue(attestation.success)
+        self.assertEqual(attestation.deal_id, "deal-123")
+        self.assertEqual(attestation.training_run_id, "run-1")
+        self.assertEqual(attestation.listed_checkpoint_count, 2)
+        self.assertEqual(attestation.deleted_checkpoint_count, 2)
+        self.assertEqual(attestation.failed_checkpoint_count, 0)
+        self.assertEqual(attestation.delete_attempts, 2)
+        self.assertEqual(len(attestation.checkpoint_ids_hash), 64)
+        public = attestation.to_public_dict()
+        self.assertNotIn("cp-1", str(public))
+        self.assertNotIn("cp-2", str(public))
         with self.assertRaisesRegex(RuntimeError, "Session closed"):
             session.save_for_sampling("after-close")
+
+    def test_cleanup_retries_transient_delete_failures(self):
+        session, service_client, _training_client = self.make_session()
+        service_client.rest_client.checkpoints_by_run["run-1"] = [Checkpoint("cp-retry")]
+        service_client.rest_client.delete_failures["cp-retry"] = 2
+
+        attestation = session.cleanup(delete_retries=3)
+
+        self.assertTrue(attestation.success)
+        self.assertEqual(attestation.deleted_checkpoint_count, 1)
+        self.assertEqual(attestation.failed_checkpoint_count, 0)
+        self.assertEqual(attestation.delete_attempts, 3)
+        self.assertEqual(service_client.rest_client.deleted, [("run-1", "cp-retry")])
+
+    def test_cleanup_attests_permanent_delete_failures(self):
+        session, service_client, _training_client = self.make_session()
+        service_client.rest_client.checkpoints_by_run["run-1"] = [Checkpoint("cp-fail")]
+        service_client.rest_client.delete_failures["cp-fail"] = 10
+
+        attestation = session.cleanup(delete_retries=3)
+
+        self.assertFalse(attestation.success)
+        self.assertEqual(attestation.deleted_checkpoint_count, 0)
+        self.assertEqual(attestation.failed_checkpoint_count, 1)
+        self.assertEqual(attestation.delete_attempts, 3)
+        self.assertEqual(service_client.rest_client.deleted, [])
+        self.assertNotIn("cp-fail", str(attestation.to_public_dict()))
+
+    def test_cleanup_attests_checkpoint_listing_failure(self):
+        session, service_client, _training_client = self.make_session()
+        service_client.rest_client.list_error = RuntimeError("list failed")
+
+        attestation = session.cleanup()
+
+        self.assertFalse(attestation.success)
+        self.assertEqual(attestation.error_type, "RuntimeError")
+        self.assertEqual(attestation.listed_checkpoint_count, 0)
+        self.assertEqual(attestation.delete_attempts, 0)
 
     def test_training_and_sampling_are_metered(self):
         session, _service_client, _training_client = self.make_session()

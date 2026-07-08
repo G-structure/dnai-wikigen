@@ -832,9 +832,12 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] Path-checked sampling (only models from this session's training run)
 - [x] Mandatory TTL on all checkpoint saves (MIN_TTL=1h, MAX_TTL=24h)
 - [x] Cost metering: per-token tracking with model-specific pricing
-- [x] Cleanup: deletes all checkpoints from this deal's training run
+- [x] Cleanup: retries deletes for all checkpoints from this deal's training run
+      and returns a bounded cleanup attestation
 - [x] Unit tests: session isolation (cannot access other paths)
 - [x] Unit tests: mandatory cleanup (all checkpoints deleted)
+- [x] Unit tests: cleanup retries and bounded cleanup attestation without raw
+      checkpoint IDs
 - [x] Mocked-SDK integration tests: create run, enforce one-run guard, clamp TTL
       on every save path, sample only approved paths, meter calls, cleanup
       checkpoints
@@ -859,6 +862,7 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] Artifact ingress (encrypted, memory-only, zeroed on resolution)
 - [x] Output bounding (raw delta → score band → offer price)
 - [x] Cleanup enforcement on deal resolution
+- [x] Cleanup attestation stored on deal resolution
 - [x] Orphan cleanup on boot (scans training runs with deal_id metadata)
 - [x] Control plane API endpoints in FastAPI — `tinker_delegate/api.py`
   - POST /deal/notify-funded, POST /deal/{id}/artifact, POST /deal/{id}/evaluate

@@ -14,6 +14,7 @@ Trust enforcement:
 """
 from __future__ import annotations
 
+import hashlib
 import time
 from dataclasses import dataclass, field
 
@@ -98,6 +99,39 @@ class CostMeter:
 MIN_TTL = 3600       # 1 hour floor
 MAX_TTL = 86400      # 24 hour cap
 DEFAULT_TTL = 3600   # 1 hour default
+CLEANUP_DELETE_RETRIES = 3
+CLEANUP_RETRY_DELAY_SECONDS = 0.0
+
+
+@dataclass(frozen=True)
+class CleanupAttestation:
+    """Bounded cleanup record for a single isolated Tinker session."""
+    deal_id: str
+    training_run_id: str | None
+    started_at: float
+    completed_at: float
+    listed_checkpoint_count: int
+    deleted_checkpoint_count: int
+    failed_checkpoint_count: int
+    delete_attempts: int
+    success: bool
+    checkpoint_ids_hash: str
+    error_type: str = ""
+
+    def to_public_dict(self) -> dict:
+        return {
+            "deal_id": self.deal_id,
+            "training_run_id": self.training_run_id,
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
+            "listed_checkpoint_count": self.listed_checkpoint_count,
+            "deleted_checkpoint_count": self.deleted_checkpoint_count,
+            "failed_checkpoint_count": self.failed_checkpoint_count,
+            "delete_attempts": self.delete_attempts,
+            "success": self.success,
+            "checkpoint_ids_hash": self.checkpoint_ids_hash,
+            "error_type": self.error_type,
+        }
 
 
 class IsolatedTinkerSession:
@@ -116,6 +150,7 @@ class IsolatedTinkerSession:
         self._allowed_paths: set[str] = set()
         self._closed = False
         self._meter = CostMeter()
+        self._cleanup_attestation: CleanupAttestation | None = None
 
     @property
     def deal_id(self) -> str:
@@ -136,6 +171,10 @@ class IsolatedTinkerSession:
     @property
     def training_run_id(self) -> str | None:
         return self._training_run_id
+
+    @property
+    def cleanup_attestation(self) -> CleanupAttestation | None:
+        return self._cleanup_attestation
 
     def _ensure_open(self) -> None:
         if self._closed:
@@ -313,35 +352,84 @@ class IsolatedTinkerSession:
 
     # --- Cleanup ---
 
-    def cleanup(self) -> None:
+    def cleanup(
+        self,
+        delete_retries: int = CLEANUP_DELETE_RETRIES,
+        retry_delay_seconds: float = CLEANUP_RETRY_DELAY_SECONDS,
+    ) -> CleanupAttestation:
         """Delete ALL checkpoints from this deal's training run.
 
         Called by the control plane when the deal resolves.
         Idempotent — safe to call multiple times.
         """
         if self._closed:
-            return
+            if self._cleanup_attestation is not None:
+                return self._cleanup_attestation
+            return self._build_cleanup_attestation(
+                started_at=time.time(),
+                completed_at=time.time(),
+                checkpoint_ids=[],
+                deleted_count=0,
+                failed_count=0,
+                delete_attempts=0,
+                success=True,
+            )
         if self._training_run_id is None:
             self._closed = True
-            return
+            self._cleanup_attestation = self._build_cleanup_attestation(
+                started_at=time.time(),
+                completed_at=time.time(),
+                checkpoint_ids=[],
+                deleted_count=0,
+                failed_count=0,
+                delete_attempts=0,
+                success=True,
+            )
+            return self._cleanup_attestation
 
+        started_at = time.time()
+        checkpoint_ids: list[str] = []
+        deleted_count = 0
+        failed_count = 0
+        delete_attempts = 0
+        success = True
+        error_type = ""
         rc = self._sc.create_rest_client()
         try:
             checkpoints = rc.list_checkpoints(self._training_run_id).result()
             for cp in checkpoints:
-                try:
-                    rc.delete_checkpoint(
-                        self._training_run_id,
-                        cp.checkpoint_id,
-                    ).result()
-                except Exception:
-                    pass  # TTL backstop handles stragglers
-        except Exception:
-            pass  # TTL backstop
+                checkpoint_id = str(cp.checkpoint_id)
+                checkpoint_ids.append(checkpoint_id)
+                deleted, attempts = self._delete_checkpoint_with_retries(
+                    rc,
+                    checkpoint_id,
+                    max(1, delete_retries),
+                    max(0.0, retry_delay_seconds),
+                )
+                delete_attempts += attempts
+                if deleted:
+                    deleted_count += 1
+                else:
+                    failed_count += 1
+                    success = False
+        except Exception as exc:
+            success = False
+            error_type = exc.__class__.__name__
 
         self._allowed_paths.clear()
         self._training_client = None
         self._closed = True
+        self._cleanup_attestation = self._build_cleanup_attestation(
+            started_at=started_at,
+            completed_at=time.time(),
+            checkpoint_ids=checkpoint_ids,
+            deleted_count=deleted_count,
+            failed_count=failed_count,
+            delete_attempts=delete_attempts,
+            success=success,
+            error_type=error_type,
+        )
+        return self._cleanup_attestation
 
     # --- Tokenizer access (safe — no secrets) ---
 
@@ -369,6 +457,56 @@ class IsolatedTinkerSession:
                     if isinstance(v, (list, tuple)):
                         total += len(v)
         return total
+
+    def _delete_checkpoint_with_retries(
+        self,
+        rest_client,
+        checkpoint_id: str,
+        retries: int,
+        retry_delay_seconds: float,
+    ) -> tuple[bool, int]:
+        attempts = 0
+        for attempt in range(retries):
+            attempts += 1
+            try:
+                rest_client.delete_checkpoint(
+                    self._training_run_id,
+                    checkpoint_id,
+                ).result()
+                return True, attempts
+            except Exception:
+                if attempt + 1 < retries and retry_delay_seconds:
+                    time.sleep(retry_delay_seconds)
+        return False, attempts
+
+    def _build_cleanup_attestation(
+        self,
+        *,
+        started_at: float,
+        completed_at: float,
+        checkpoint_ids: list[str],
+        deleted_count: int,
+        failed_count: int,
+        delete_attempts: int,
+        success: bool,
+        error_type: str = "",
+    ) -> CleanupAttestation:
+        checkpoint_ids_hash = hashlib.sha256(
+            "\n".join(sorted(checkpoint_ids)).encode("utf-8")
+        ).hexdigest()
+        return CleanupAttestation(
+            deal_id=self._deal_id,
+            training_run_id=self._training_run_id,
+            started_at=started_at,
+            completed_at=completed_at,
+            listed_checkpoint_count=len(checkpoint_ids),
+            deleted_checkpoint_count=deleted_count,
+            failed_checkpoint_count=failed_count,
+            delete_attempts=delete_attempts,
+            success=success,
+            checkpoint_ids_hash=checkpoint_ids_hash,
+            error_type=error_type,
+        )
 
     # --- Explicitly NOT exposed ---
     #

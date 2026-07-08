@@ -23,7 +23,7 @@ import tinker
 
 from tinker_delegate.artifacts import verify_artifact_hash, zero_buffer
 from tinker_delegate.dstack_utils import get_attestation, is_dstack_enabled
-from tinker_delegate.session import IsolatedTinkerSession
+from tinker_delegate.session import CleanupAttestation, IsolatedTinkerSession
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +121,7 @@ class DealContext:
     artifact: Optional[bytearray] = None
     artifact_hash: str = ""
     result: Optional[EvaluationResult] = None
+    cleanup_attestation: Optional[CleanupAttestation] = None
     created_at: float = field(default_factory=time.time)
 
 
@@ -237,7 +238,7 @@ class ControlPlane:
         except Exception:
             # Cleanup on failure
             if ctx.session:
-                ctx.session.cleanup()
+                ctx.cleanup_attestation = ctx.session.cleanup()
             ctx.state = DealState.RESOLVED
             raise
 
@@ -251,7 +252,7 @@ class ControlPlane:
             return
 
         if ctx.session:
-            ctx.session.cleanup()
+            ctx.cleanup_attestation = ctx.session.cleanup()
 
         # Zero artifact from memory
         if ctx.artifact:

@@ -84,6 +84,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Mocked-SDK `IsolatedTinkerSession` tests cover one training run per deal,
   TTL on checkpoint save paths, path-checked sampling, cleanup deletion, and
   cost metering without calling real Tinker.
+- Cleanup now returns a bounded attestation with deletion counts, retry
+  attempts, success/error status, and a hash of checkpoint IDs instead of raw
+  IDs; the control plane stores it on deal resolution.
 - Skip-by-default real Tinker SDK smoke harness exists for tiny
   training/sampling/cleanup, gated by `TINKER_RUN_REAL_SDK_TESTS=1`,
   `TINKER_API_KEY`, and `TINKER_REAL_SDK_MAX_USD <= 0.50`.
@@ -99,6 +102,8 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   image are not yet proven.
 - Real Tinker SDK training/sampling/cleanup tests have not been run here; they
   remain gated on credentials, budget cap, and deployed CVM validation.
+- Cleanup attestations are local wrapper/control-plane evidence; deployed
+  Tinker deletion and TTL expiry are still unproven.
 
 [partial] Account funding:
 
