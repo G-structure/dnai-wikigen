@@ -27,6 +27,9 @@ encrypted artifact upload -> TEE-bound attestation report_data -> hash-checked i
 
 Production deployment, real account funding, full TDX quote verification, live
 CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
+Phala auth is configured for profile `wikigen` in workspace `wiki`, but
+`phala cvms list` currently reports no CVMs, so CVM attestation can be verified
+only locally until a deployment exists.
 
 ## Built
 
@@ -356,8 +359,14 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   `report_data`.
 - The verifier checks the attestation envelope, public-key binding, and
   exposed `quote_report_data` equality when the endpoint provides it.
-- Full cryptographic Intel TDX quote parsing, freshness, compose-hash policy,
-  image-digest policy, signer allowlists, and anti-replay are not implemented.
+- `verify-cvm-attestation` and `scripts/verify-cvm-attestation.sh` now combine
+  local Phala compose-hash verification with live `/attestation?context=...`
+  checks, including required digest-pinned image references or sha256 image
+  digests, app ID, OS image hash, report data, public key, and client fetch
+  freshness. This is ready to run once a Phala CVM exists.
+- Full cryptographic Intel TDX quote parsing, quote-internal freshness,
+  signer allowlists, anti-replay, and live deployed CVM evidence are not
+  implemented or recorded yet.
 
 [partial] Contracts and settlement:
 
@@ -615,6 +624,8 @@ cd "⚙️/tinker-delegate" && docker run --rm -d --name dnai-tinker-delegate-ag
 cd "⚙️/tinker-delegate" && curl --retry 12 --retry-delay 1 --retry-connrefused --silent --show-error http://127.0.0.1:18080/health
 cd "⚙️/tinker-delegate" && docker stop dnai-tinker-delegate-agent-extra-check
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-attestation --help
+cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-cvm-attestation --help
+cd "⚙️/tinker-delegate" && scripts/verify-cvm-attestation.sh --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-compose-hash --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main upload-artifact --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main funding-preflight --help

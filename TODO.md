@@ -359,8 +359,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Reject exposed `quote_report_data` unless it is a 32-byte hex value
             exactly matching the context/key-bound `report_data`; this tightens
             the public quote envelope without claiming full quote parsing.
+      - [x] Add `verify-cvm-attestation` and
+            `scripts/verify-cvm-attestation.sh` so an operator can tie a live
+            CVM attestation to the locally rendered Phala compose hash and
+            required digest-pinned images from a laptop.
       - [ ] Add cryptographic Intel TDX quote parsing and freshness checks;
             current `dstack_sdk` helpers do not expose a complete verifier.
+      - [ ] Run `verify-cvm-attestation` against a real Phala CVM and record
+            app ID, compose hash, image digest, report data, public key,
+            fetched-at time, and command evidence in `STATUS.md`.
 - [ ] `P0` Deploy the combined email-oracle + tinker-delegate stack to Phala
       from registry images only, no local `build:` contexts.
 - [ ] `P0` Persist only sealed data under the CVM data volume:

@@ -831,6 +831,15 @@ Implementation status:
             manifest, and computes the Phala Cloud-style compose hash over the
             rendered app-compose object. The Phala Playwright sidecar image is
             pinned by amd64 digest in `docker-compose.all.phala.yaml`.
+[real]      Standalone `verify-cvm-attestation` CLI and
+            `scripts/verify-cvm-attestation.sh` combine those two checks for
+            operators: render the Phala compose file, enforce required
+            digest-pinned image references or sha256 image digests, fetch
+            `/attestation?context=...`, and accept only a live attestation whose
+            compose hash, app ID, OS image hash, report-data key binding,
+            public key, and client freshness match policy. The emitted bundle is
+            bounded public evidence and labels Intel TDX quote internals as
+            not yet cryptographically parsed.
 [real]      In dstack mode `/attestation` includes public dstack evidence fields
             when available: event log, VM config, instance/device IDs,
             aggregated measurement, OS image hash, compose hash, and TCB info.
