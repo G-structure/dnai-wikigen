@@ -11,6 +11,8 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     shm_size: 2gb
+    ulimits:
+      core: 0
     cap_add:
       - SYS_ADMIN
     networks:
@@ -122,6 +124,8 @@ services:
     image: ${TINKER_ORACLE_IMAGE:?TINKER_ORACLE_IMAGE is required}
     platform: linux/amd64
     restart: unless-stopped
+    ulimits:
+      core: 0
     depends_on:
       neko:
         condition: service_healthy
@@ -156,6 +160,8 @@ services:
     image: ${TINKER_DELEGATE_IMAGE:?TINKER_DELEGATE_IMAGE is required}
     platform: linux/amd64
     restart: unless-stopped
+    ulimits:
+      core: 0
     depends_on:
       delegate-browser:
         condition: service_started
@@ -198,6 +204,8 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     init: true
+    ulimits:
+      core: 0
     ipc: host
     working_dir: /home/pwuser
     user: pwuser

@@ -341,6 +341,9 @@ contracts/
   billing screenshots may be written. If `TINKER_DEBUG_ARTIFACT_DIR` is set,
   card submission attempts also purge known secret-bearing trace archives, HARs,
   videos, and card/Stripe screenshots from that directory.
+- **Core dumps**: delegate Python entrypoints set `RLIMIT_CORE=0`, and the
+  local/Phala compose files set `ulimits.core: 0` for the delegate and browser
+  path so crash dumps do not persist card/API-key/browser memory.
 - **Encrypted client**: `add-card-encrypted` and
   `tinker_delegate.billing_uploader` fetch `/attestation?context=billing`,
   verify policy, encrypt card JSON, wipe the local plaintext buffer, and post

@@ -585,6 +585,9 @@ Implementation status:
 [real]      Card submission attempts purge known secret-bearing browser debug
             artifacts (`trace*.zip`, HAR, video, card/Stripe screenshots) from
             an explicitly configured debug artifact directory.
+[real]      Tinker delegate Python entrypoints set `RLIMIT_CORE=0`, and local /
+            Phala compose services for the delegate and browser path set
+            `ulimits.core: 0` to prevent core dumps from persisting secrets.
 [real]      Bounded funding attempt records are persisted in encrypted/sealed
             delegate storage with a separate `tinker/funding_receipts` dstack
             key path and can be read through `GET /billing/funding-receipts`.
@@ -1338,16 +1341,19 @@ Runtime service layout for the Tinker path:
 |                                                               |
 |  service: neko / delegate-browser                             |
 |    - headful browser / Playwright server / CDP                |
+|    - core dumps disabled by compose ulimits                   |
 |                                                               |
 |  service: oracle                                              |
 |    - tee-email-oracle                                         |
 |    - IMAP credentials sealed at /data                         |
 |    - dstack socket mounted                                    |
+|    - core dumps disabled by compose ulimits                   |
 |                                                               |
 |  service: delegate                                            |
 |    - tinker-delegate                                          |
 |    - Tinker API key sealed at /data                           |
 |    - dstack socket mounted                                    |
+|    - RLIMIT_CORE=0 plus compose core ulimit                   |
 |                                                               |
 |  volumes: oracle-data, delegate-data                          |
 +---------------------------------------------------------------+

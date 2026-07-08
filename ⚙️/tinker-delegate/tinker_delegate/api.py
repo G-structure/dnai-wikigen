@@ -35,6 +35,7 @@ from tinker_delegate.dstack_utils import is_dstack_enabled
 from tinker_delegate.funding_receipt_store import build_funding_receipt_store
 from tinker_delegate.oracle_client import OracleClient
 from tinker_delegate.redaction import redact_text
+from tinker_delegate.runtime_hardening import disable_core_dumps
 from tinker_delegate.runtime_state import get_runtime_state, update_runtime_state
 from tinker_delegate.card_channel import (
     CardPayload,
@@ -55,6 +56,7 @@ app = FastAPI(
 )
 
 settings = Settings()
+disable_core_dumps()
 
 # ---------------------------------------------------------------------------
 # Control plane (lazy init — only when Tinker API key is available)

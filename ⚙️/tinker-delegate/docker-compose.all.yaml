@@ -34,6 +34,8 @@ services:
     profiles: ["browser"]
     restart: unless-stopped
     shm_size: 2gb
+    ulimits:
+      core: 0
     cap_add:
       - SYS_ADMIN
     networks:
@@ -60,6 +62,8 @@ services:
       context: ../tee-email-oracle
       dockerfile: Dockerfile
     restart: unless-stopped
+    ulimits:
+      core: 0
     networks:
       tee-net:
         ipv4_address: 172.20.0.4
@@ -91,6 +95,8 @@ services:
       dockerfile: Dockerfile
     platform: linux/amd64
     restart: unless-stopped
+    ulimits:
+      core: 0
     depends_on:
       oracle:
         condition: service_started

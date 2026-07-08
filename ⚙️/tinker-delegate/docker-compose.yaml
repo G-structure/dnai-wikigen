@@ -19,6 +19,8 @@ services:
       dockerfile: Dockerfile
     platform: linux/amd64
     restart: unless-stopped
+    ulimits:
+      core: 0
     ports:
       - "8080:8080"
     volumes:

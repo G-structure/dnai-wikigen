@@ -205,6 +205,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Card submission attempts purge known secret-bearing browser debug artifacts
   such as trace archives, HARs, videos, and card/Stripe screenshots when an
   explicit debug artifact directory is configured.
+- Tinker delegate Python entrypoints disable core dumps with `RLIMIT_CORE=0`,
+  and local/Phala compose services set `ulimits.core: 0` for the delegate and
+  browser path.
 - Real card funding is intentionally not attempted until real payment details
   are provided out of band.
 - Payment-method token/reference handling and the sealed long-lived funding

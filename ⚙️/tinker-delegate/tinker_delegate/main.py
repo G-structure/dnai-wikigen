@@ -10,6 +10,7 @@ from tinker_delegate.api_key_store import build_api_key_store
 from tinker_delegate.config import Settings
 from tinker_delegate.oracle_client import OracleClient
 from tinker_delegate.redaction import redact_text
+from tinker_delegate.runtime_hardening import disable_core_dumps
 from tinker_delegate.runtime_state import reset_runtime_state, update_runtime_state
 from tinker_delegate.signup import AuthAccessBlockedError
 
@@ -109,6 +110,7 @@ async def _ensure_api_key(settings: Settings) -> None:
 
 
 def cli():
+    disable_core_dumps()
     parser = argparse.ArgumentParser(description="Tinker delegate — automated account management")
     sub = parser.add_subparsers(dest="command", required=True)
 

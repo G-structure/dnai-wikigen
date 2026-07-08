@@ -385,7 +385,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             debug artifact directories after card submission attempts.
       - [ ] Add deployed log/Phala-console verification for the encrypted
             card path once the CVM endpoint is available.
-      - [ ] Add crash-dump/core-dump policy for browser and delegate processes.
+      - [x] Add crash-dump/core-dump policy for browser and delegate processes:
+            Python entrypoints set `RLIMIT_CORE=0`, and Tinker local/Phala
+            compose services set `ulimits.core: 0`.
 - [ ] `P1` Add funding receipt records:
       amount band, timestamp, payment method token/reference, Tinker balance band,
       CVM quote, and card payload destruction proof.
