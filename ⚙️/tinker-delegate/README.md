@@ -183,6 +183,20 @@ separate verifier task.
   --context artifact
 ```
 
+Use `verify-compose-hash` before registering or comparing a compose hash. It
+renders the selected compose file with explicit image env values, rejects local
+`build:` services and mutable tag-only images, emits the digest-pinned image
+manifest, and computes the Phala Cloud-style compose hash over the rendered
+app-compose object.
+
+```bash
+TINKER_ORACLE_IMAGE=registry.example/oracle@sha256:... \
+TINKER_DELEGATE_IMAGE=registry.example/delegate@sha256:... \
+.venv/bin/python -m tinker_delegate.main verify-compose-hash \
+  --compose docker-compose.all.phala.yaml \
+  --expected-hash EXPECTED_PHALA_COMPOSE_HASH
+```
+
 ### API Server
 
 The `serve` command starts a FastAPI server for programmatic access:

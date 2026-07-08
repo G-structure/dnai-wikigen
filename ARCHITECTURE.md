@@ -634,6 +634,12 @@ Implementation status:
             `/attestation?context=...` and checks the public evidence envelope:
             mode, quote presence, compose hash, app ID, OS image hash,
             report-data key binding, and client fetch freshness.
+[real]      Standalone `verify-compose-hash` CLI renders a registry-image
+            Docker Compose file with explicit env, rejects local `build:`
+            services and mutable tag-only images, emits the digest-pinned image
+            manifest, and computes the Phala Cloud-style compose hash over the
+            rendered app-compose object. The Phala Playwright sidecar image is
+            pinned by amd64 digest in `docker-compose.all.phala.yaml`.
 [real]      In dstack mode `/attestation` includes public dstack evidence fields
             when available: event log, VM config, instance/device IDs,
             aggregated measurement, OS image hash, compose hash, and TCB info.

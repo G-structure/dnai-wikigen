@@ -116,7 +116,7 @@ The oracle contract is still mutable. Before production freeze:
 
 - Oracle image: `ttl.sh/therealwiki-tinker-oracle-20260313-8b76c1d@sha256:6d521ae4da405250adbab51a8597ac83fdff4addfe930921293ccadad6d12352`
 - Delegate image: `ttl.sh/therealwiki-tinker-delegate-20260313-8b76c1d-r6@sha256:6563c94382f82dc43dfe4de1f615189c8c3a6806061bb366c0efd0403017e115`
-- Delegate browser sidecar: `mcr.microsoft.com/playwright:v1.58.0-noble`
+- Delegate browser sidecar: `mcr.microsoft.com/playwright:v1.58.0-noble@sha256:e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f`
 
 ### Current live state
 
@@ -160,6 +160,17 @@ cd "⚙️/tinker-delegate/contracts"
 set -a; . ../../../.env; set +a
 forge build
 forge test --gas-report
+```
+
+### Compose hash verification
+
+```bash
+cd "⚙️/tinker-delegate"
+TINKER_ORACLE_IMAGE='ttl.sh/...@sha256:...' \
+TINKER_DELEGATE_IMAGE='ttl.sh/...@sha256:...' \
+uv run python -m tinker_delegate.main verify-compose-hash \
+  --compose docker-compose.all.phala.yaml \
+  --expected-hash EXPECTED_PHALA_COMPOSE_HASH
 ```
 
 ### Deploy DiligenceRoom

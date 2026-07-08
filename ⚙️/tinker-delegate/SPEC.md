@@ -897,6 +897,10 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] TDX quote stubs (local) / real generation (dstack) in attestation endpoints
 - [x] Client-side attestation envelope verifier: mode, quote presence, compose
       hash, app ID, OS image hash, report-data key binding, and fetch freshness
+- [x] Compose-hash verifier CLI renders registry-image Phala compose files,
+      rejects local `build:` services and mutable tag-only images, emits the
+      digest-pinned image manifest, and computes the Phala Cloud-style compose
+      hash over the rendered app-compose object
 - [x] Key-store code path uses `dstack_sdk.TappdClient.derive_key()` in dstack mode
 - [ ] Full cryptographic Intel TDX quote parsing/freshness verification
 - [ ] Validate dstack-derived key sealing in a deployed CVM

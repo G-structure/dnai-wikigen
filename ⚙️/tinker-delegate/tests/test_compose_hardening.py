@@ -36,6 +36,17 @@ class ComposeHardeningTest(unittest.TestCase):
         for service in ("neko", "oracle", "delegate", "delegate-browser"):
             self.assert_service_disables_core_dumps("docker-compose.all.phala.yaml", service)
 
+    def test_phala_playwright_sidecar_is_digest_pinned(self):
+        block = _service_block(
+            (ROOT / "docker-compose.all.phala.yaml").read_text(),
+            "delegate-browser",
+        )
+
+        self.assertIn(
+            "mcr.microsoft.com/playwright:v1.58.0-noble@sha256:",
+            block,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

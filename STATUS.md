@@ -298,10 +298,14 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 
 ## Planned
 
-[planned] Deployment and verification:
+[partial] Deployment and verification:
 
-- Reproducible container images pinned by digest.
-- SBOMs and build provenance.
+- `verify-compose-hash` renders registry-image compose files, rejects local
+  `build:` services and mutable tag-only images, emits the digest-pinned image
+  manifest, and computes the Phala Cloud-style compose hash over the rendered
+  app-compose object.
+- The Phala Playwright sidecar image is pinned by amd64 digest.
+- Full reproducible container images, SBOMs, and build provenance remain open.
 - Phala CVM deployment with recorded CVM ID, app ID, compose hash, image digest,
   gateway endpoint, and quote evidence.
 - Base Sepolia or mainnet deployments with BaseScan verification links.
@@ -366,6 +370,7 @@ cd "⚙️/tinker-delegate" && docker run --rm -d --name dnai-tinker-delegate-ag
 cd "⚙️/tinker-delegate" && curl --retry 12 --retry-delay 1 --retry-connrefused --silent --show-error http://127.0.0.1:18080/health
 cd "⚙️/tinker-delegate" && docker stop dnai-tinker-delegate-agent-extra-check
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-attestation --help
+cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-compose-hash --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main upload-artifact --help
 
 cd "⚙️/tee-email-oracle" && uv run python -m unittest discover -s tests -v

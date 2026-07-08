@@ -222,6 +222,29 @@ def cli():
         help="Allow local-mode attestation for development only",
     )
 
+    verify_compose_p = sub.add_parser(
+        "verify-compose-hash",
+        help="Render a registry-image compose file and compute its Phala compose hash",
+    )
+    verify_compose_p.add_argument("--compose", required=True, help="Docker Compose file to render")
+    verify_compose_p.add_argument(
+        "--env-file",
+        action="append",
+        default=[],
+        help="Environment file used by docker compose config; repeatable",
+    )
+    verify_compose_p.add_argument(
+        "--allowed-env-file",
+        default="",
+        help="Runtime env file whose keys should be included as allowed_envs",
+    )
+    verify_compose_p.add_argument("--expected-hash", default="", help="Expected Phala compose hash")
+    verify_compose_p.add_argument(
+        "--allow-tags",
+        action="store_true",
+        help="Allow mutable tag images; development only",
+    )
+
     # API server
     serve_p = sub.add_parser("serve", help="Start the FastAPI server")
     serve_p.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
@@ -397,6 +420,25 @@ def cli():
             "os_image_hash": result.os_image_hash,
             "fetched_at": result.fetched_at,
         }, indent=2))
+
+    elif args.command == "verify-compose-hash":
+        from pathlib import Path
+
+        from tinker_delegate.compose_hash import ComposeHashError, verify_compose_hash
+
+        try:
+            result = verify_compose_hash(
+                Path(args.compose),
+                env_files=[Path(path) for path in args.env_file],
+                allowed_env_file=Path(args.allowed_env_file) if args.allowed_env_file else None,
+                expected_hash=args.expected_hash,
+                allow_tags=args.allow_tags,
+            )
+        except ComposeHashError as exc:
+            print(f"[verify-compose-hash] rejected: {redact_text(exc)}")
+            sys.exit(1)
+
+        print(json.dumps(result.to_public_dict(), indent=2))
 
     elif args.command == "serve":
         import uvicorn

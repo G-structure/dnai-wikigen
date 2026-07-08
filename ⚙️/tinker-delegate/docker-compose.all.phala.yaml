@@ -201,7 +201,7 @@ services:
       start_period: 300s
 
   delegate-browser:
-    image: mcr.microsoft.com/playwright:v1.58.0-noble
+    image: mcr.microsoft.com/playwright:v1.58.0-noble@sha256:e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f
     platform: linux/amd64
     restart: unless-stopped
     init: true
