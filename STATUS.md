@@ -107,13 +107,20 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   `GET /browser/readiness` now provide a bounded way to diagnose that deployed
   browser-control failure without logs, SSH, screenshots, page text, cookies,
   or raw browser/CDP URLs. Output is limited to endpoint classes/hashes, CDP
-  metadata reachability, Playwright/CDP handshake status, context-count bands,
-  and bounded error kinds. Normal Phala compose keeps
+  metadata reachability, raw WebSocket upgrade stage bands, Playwright/CDP
+  handshake status, context-count bands, and bounded error kinds. The raw
+  WebSocket diagnostic keeps the advertised debugger URL in memory only, sends
+  a single HTTP Upgrade request, and emits only URL class/hash, TCP/TLS/upgrade
+  stage booleans, HTTP status band, and bounded error kind. It does not
+  navigate, send browser commands, read page data, or return raw URLs/headers.
+  Normal Phala compose keeps
   `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`; the one-shot bootstrap
   measurement compose enables it alongside the selector probe. This diagnostic
   is now Phala-proven with GitHub-attested `a2e14b5` images: the one-shot
   endpoint returned bounded `cdp_timeout` after successful CDP metadata
-  discovery, and the restored normal compose returns 403.
+  discovery, and the restored normal compose returns 403. The newer raw
+  WebSocket stage is real in source/tests and pending a fresh GitHub image plus
+  Phala one-shot evidence.
 - `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps
@@ -978,8 +985,9 @@ explicitly legacy.
   metadata and confirmed Chromium WebSocket metadata exists, but
   `connect_over_cdp` timed out; the selector probe then returned bounded
   `browser_unavailable`. Actual deployed selector/frame match evidence is
-  still open until the CDP WebSocket handshake is fixed or an approved bounded
-  browser-control path replaces it.
+  still open until the new raw WebSocket upgrade diagnostic is deployed to
+  classify the handshake failure and the CDP WebSocket path is fixed or an
+  approved bounded browser-control path replaces it.
 - Full Intel TDX quote-internal parsing and quote freshness checking need
   implementation; current verifier checks the public dstack envelope and
   report-data binding only.

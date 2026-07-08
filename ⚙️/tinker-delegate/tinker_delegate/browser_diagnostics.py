@@ -8,8 +8,12 @@ coarse readiness stages and endpoint hashes/classes.
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import json
+import os
+import socket
+import ssl
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
@@ -20,7 +24,7 @@ from playwright.async_api import async_playwright
 from tinker_delegate.browser_ready import _cdp_probe_url
 from tinker_delegate.config import Settings
 
-BROWSER_READINESS_VERSION = "2026-07-08.1"
+BROWSER_READINESS_VERSION = "2026-07-08.2"
 SURFACE = "browser_control_path"
 
 
@@ -115,6 +119,170 @@ def _http_probe_cdp(settings: Settings) -> dict[str, Any]:
     return result
 
 
+def _http_status_band(status_code: int) -> str:
+    if status_code == 101:
+        return "101"
+    if 100 <= status_code <= 599:
+        return f"{status_code // 100}xx"
+    return "unknown"
+
+
+def _read_http_headers(sock: socket.socket) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    while total < 4096:
+        chunk = sock.recv(512)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+        joined = b"".join(chunks)
+        if b"\r\n\r\n" in joined:
+            return joined.split(b"\r\n\r\n", 1)[0]
+    return b"".join(chunks)
+
+
+def _probe_websocket_upgrade(websocket_url: str, timeout: float) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "attempted": bool(websocket_url),
+        "success": False,
+        "url_class": _url_class(websocket_url),
+        "url_hash": _sha256(websocket_url) if websocket_url else "",
+        "tcp_connect": False,
+        "tls": False,
+        "upgrade_request_sent": False,
+        "http_status_band": "",
+        "error_kind": "not_configured" if not websocket_url else "",
+    }
+    if not websocket_url:
+        return result
+
+    parsed = urlparse(websocket_url)
+    if parsed.scheme not in {"ws", "wss"} or not parsed.hostname:
+        result["error_kind"] = "unsupported_websocket_url"
+        return result
+
+    port = parsed.port or (443 if parsed.scheme == "wss" else 80)
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+    timeout_seconds = max(0.1, min(float(timeout or 5.0), 10.0))
+    host_header = parsed.hostname if parsed.port is None else f"{parsed.hostname}:{port}"
+
+    raw_sock: socket.socket | None = None
+    wrapped_sock: socket.socket | None = None
+    try:
+        raw_sock = socket.create_connection((parsed.hostname, port), timeout=timeout_seconds)
+        raw_sock.settimeout(timeout_seconds)
+        result["tcp_connect"] = True
+        if parsed.scheme == "wss":
+            wrapped_sock = ssl.create_default_context().wrap_socket(
+                raw_sock,
+                server_hostname=parsed.hostname,
+            )
+            sock: socket.socket = wrapped_sock
+            result["tls"] = True
+        else:
+            sock = raw_sock
+
+        nonce = base64.b64encode(os.urandom(16)).decode("ascii")
+        request = (
+            f"GET {path} HTTP/1.1\r\n"
+            f"Host: {host_header}\r\n"
+            "Upgrade: websocket\r\n"
+            "Connection: Upgrade\r\n"
+            f"Sec-WebSocket-Key: {nonce}\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "\r\n"
+        )
+        sock.sendall(request.encode("ascii"))
+        result["upgrade_request_sent"] = True
+        headers = _read_http_headers(sock).decode("iso-8859-1", errors="replace")
+    except socket.timeout:
+        result["error_kind"] = "timeout"
+        return result
+    except ConnectionRefusedError:
+        result["error_kind"] = "connection_refused"
+        return result
+    except ssl.SSLError:
+        result["error_kind"] = "tls_failed"
+        return result
+    except OSError:
+        result["error_kind"] = "network_error"
+        return result
+    finally:
+        if wrapped_sock is not None:
+            try:
+                wrapped_sock.close()
+            except OSError:
+                pass
+        elif raw_sock is not None:
+            try:
+                raw_sock.close()
+            except OSError:
+                pass
+
+    status_code = 0
+    first_line = headers.splitlines()[0] if headers.splitlines() else ""
+    parts = first_line.split()
+    if len(parts) >= 2 and parts[1].isdigit():
+        status_code = int(parts[1])
+    result["http_status_band"] = _http_status_band(status_code)
+    result["success"] = status_code == 101
+    result["error_kind"] = "" if status_code == 101 else "upgrade_rejected"
+    if not status_code:
+        result["error_kind"] = "invalid_upgrade_response"
+    return result
+
+
+def _probe_cdp_websocket_handshake(settings: Settings) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "attempted": bool(settings.cdp_url),
+        "success": False,
+        "metadata_success": False,
+        "url_class": "empty",
+        "url_hash": "",
+        "tcp_connect": False,
+        "tls": False,
+        "upgrade_request_sent": False,
+        "http_status_band": "",
+        "error_kind": "not_configured" if not settings.cdp_url else "",
+    }
+    if not settings.cdp_url:
+        return result
+
+    probe_url = _cdp_probe_url(settings.cdp_url)
+    try:
+        with urlopen(probe_url, timeout=5) as response:
+            payload = response.read().decode("utf-8", errors="replace")
+        data = json.loads(payload)
+    except HTTPError as exc:
+        result["error_kind"] = f"metadata_http_{exc.code}"
+        return result
+    except URLError:
+        result["error_kind"] = "metadata_connection_unreachable"
+        return result
+    except TimeoutError:
+        result["error_kind"] = "metadata_timeout"
+        return result
+    except json.JSONDecodeError:
+        result["error_kind"] = "metadata_invalid_json"
+        return result
+    except Exception:
+        result["error_kind"] = "metadata_unknown_failure"
+        return result
+
+    result["metadata_success"] = True
+    websocket = str(data.get("webSocketDebuggerUrl") or "")
+    if not websocket:
+        result["error_kind"] = "missing_websocket_debugger_url"
+        return result
+
+    result.update(_probe_websocket_upgrade(websocket, settings.cdp_connect_timeout))
+    result["metadata_success"] = True
+    return result
+
+
 async def _try_playwright_server(settings: Settings) -> dict[str, Any]:
     result: dict[str, Any] = {
         "attempted": bool(settings.browser_ws_endpoint),
@@ -179,6 +347,7 @@ async def browser_readiness(settings: Settings | None = None) -> dict[str, Any]:
     if settings is None:
         settings = Settings()
     cdp_http = await asyncio.to_thread(_http_probe_cdp, settings)
+    cdp_websocket = await asyncio.to_thread(_probe_cdp_websocket_handshake, settings)
     playwright_server = await _try_playwright_server(settings)
     cdp_connect = await _try_cdp_connect(settings)
     success = bool(playwright_server.get("success") or cdp_connect.get("success"))
@@ -208,6 +377,7 @@ async def browser_readiness(settings: Settings | None = None) -> dict[str, Any]:
         "local_browser_fallback_enabled": bool(settings.local_browser_fallback),
         "playwright_server_connect": playwright_server,
         "cdp_http_metadata": cdp_http,
+        "cdp_websocket_handshake": cdp_websocket,
         "cdp_connect": cdp_connect,
     }
 

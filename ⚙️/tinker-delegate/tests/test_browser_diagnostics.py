@@ -5,7 +5,11 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from tinker_delegate import api
-from tinker_delegate.browser_diagnostics import _http_probe_cdp, browser_readiness
+from tinker_delegate.browser_diagnostics import (
+    _http_probe_cdp,
+    _probe_cdp_websocket_handshake,
+    browser_readiness,
+)
 from tinker_delegate.config import Settings
 from tinker_delegate.main import _render_bounded_json
 
@@ -22,6 +26,30 @@ class FakeResponse:
 
     def read(self):
         return self.payload
+
+
+class FakeSocket:
+    def __init__(self, response: bytes):
+        self.response = response
+        self.sent = b""
+        self.timeout = None
+        self.closed = False
+
+    def settimeout(self, timeout):
+        self.timeout = timeout
+
+    def sendall(self, payload: bytes):
+        self.sent += payload
+
+    def recv(self, size: int) -> bytes:
+        if not self.response:
+            return b""
+        chunk = self.response[:size]
+        self.response = self.response[size:]
+        return chunk
+
+    def close(self):
+        self.closed = True
 
 
 class BrowserDiagnosticsTest(unittest.IsolatedAsyncioTestCase):
@@ -63,6 +91,50 @@ class BrowserDiagnosticsTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(raw_cdp_url, rendered)
         self.assertNotIn(raw_ws_url, rendered)
         self.assertIn("websocket_url_hash", result)
+
+    def test_cdp_websocket_handshake_is_bounded(self):
+        raw_cdp_url = "http://172.20.0.3:9223"
+        raw_ws_url = "ws://172.20.0.3:9223/devtools/browser/raw-session-id"
+        response = FakeResponse({"webSocketDebuggerUrl": raw_ws_url})
+        fake_socket = FakeSocket(
+            b"HTTP/1.1 101 Switching Protocols\r\n"
+            b"Upgrade: websocket\r\n"
+            b"Connection: Upgrade\r\n\r\n"
+        )
+
+        with (
+            patch("tinker_delegate.browser_diagnostics.urlopen", return_value=response),
+            patch("tinker_delegate.browser_diagnostics.socket.create_connection", return_value=fake_socket),
+        ):
+            result = _probe_cdp_websocket_handshake(Settings(cdp_url=raw_cdp_url))
+
+        self.assertTrue(result["success"])
+        self.assertTrue(result["metadata_success"])
+        self.assertTrue(result["tcp_connect"])
+        self.assertTrue(result["upgrade_request_sent"])
+        self.assertEqual(result["http_status_band"], "101")
+        self.assertEqual(result["url_class"], "private_network")
+        rendered = _render_bounded_json(result)
+        self.assertNotIn(raw_cdp_url, rendered)
+        self.assertNotIn(raw_ws_url, rendered)
+        self.assertIn("url_hash", result)
+
+    def test_cdp_websocket_handshake_rejects_are_bounded(self):
+        raw_ws_url = "ws://172.20.0.3:9223/devtools/browser/raw-session-id"
+        response = FakeResponse({"webSocketDebuggerUrl": raw_ws_url})
+        fake_socket = FakeSocket(b"HTTP/1.1 403 Forbidden\r\n\r\n")
+
+        with (
+            patch("tinker_delegate.browser_diagnostics.urlopen", return_value=response),
+            patch("tinker_delegate.browser_diagnostics.socket.create_connection", return_value=fake_socket),
+        ):
+            result = _probe_cdp_websocket_handshake(Settings(cdp_url="http://172.20.0.3:9223"))
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error_kind"], "upgrade_rejected")
+        self.assertEqual(result["http_status_band"], "4xx")
+        rendered = _render_bounded_json(result)
+        self.assertNotIn(raw_ws_url, rendered)
 
     def test_browser_readiness_endpoint_disabled_by_default(self):
         api.settings = Settings(allow_browser_readiness_endpoint=False)

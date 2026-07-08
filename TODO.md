@@ -690,6 +690,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`; the one-shot
             bootstrap measurement profile sets it true alongside
             `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`.
+      - [x] Add a bounded raw CDP WebSocket upgrade diagnostic.
+            Done 2026-07-08: `browser-readiness` now includes
+            `cdp_websocket_handshake`, which fetches the CDP metadata URL,
+            keeps the advertised WebSocket URL in memory only, sends a raw HTTP
+            Upgrade request, and emits only endpoint class/hash, TCP/TLS/upgrade
+            stage booleans, HTTP status band, and bounded error kind. It does
+            not navigate, send browser commands, read page data, or return raw
+            URLs/headers. Unit tests cover accepted and rejected upgrades and
+            rendered-output redaction.
       - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
             Attempted 2026-07-08 with GitHub-attested
             `a2e14b542314a16e07f20a17694e9da1a67b1f1c` oracle/delegate
@@ -704,7 +713,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             compose where both diagnostic endpoints return 403. This proves the
             deployed endpoint gates/fail-closed paths and narrows the blocker to
             the CDP WebSocket handshake, but does not yet capture selector/frame
-            match evidence.
+            match evidence. Next step: build and deploy the
+            `cdp_websocket_handshake` diagnostic in another one-shot profile to
+            classify the timeout as TCP, TLS, HTTP Upgrade rejection, invalid
+            upgrade response, or post-upgrade Playwright protocol timeout.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to

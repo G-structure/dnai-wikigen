@@ -725,15 +725,21 @@ Implementation status:
 [real]      `tinker-delegate browser-readiness` and `GET /browser/readiness`
             provide bounded browser-control diagnostics for the deployed
             selector-probe failure path. They report endpoint classes/hashes,
-            CDP metadata reachability, Playwright/CDP handshake success bands,
-            and bounded error kinds only. They do not navigate, click, type,
-            screenshot, inspect pages, return page text, or expose raw CDP /
-            browser URLs. The HTTP endpoint is disabled by default and normal
-            Phala compose binds `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`;
-            the one-shot measurement profile enables it temporarily. This is
-            now Phala-proven: the one-shot endpoint returned bounded
+            CDP metadata reachability, raw WebSocket upgrade stage bands,
+            Playwright/CDP handshake success bands, and bounded error kinds
+            only. They do not navigate, click, type, screenshot, inspect pages,
+            return page text, send browser commands, or expose raw CDP/browser
+            URLs. The raw WebSocket diagnostic keeps the advertised debugger
+            URL in memory only and emits URL class/hash, TCP/TLS/upgrade stage
+            booleans, HTTP status band, and bounded error kind. The HTTP
+            endpoint is disabled by default and normal Phala compose binds
+            `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`; the one-shot
+            measurement profile enables it temporarily. The pre-WebSocket-stage
+            version is Phala-proven: the one-shot endpoint returned bounded
             `cdp_timeout` after CDP metadata succeeded, and the restored normal
-            compose returns 403.
+            compose returns 403. The raw WebSocket stage is currently real in
+            source/tests and awaits a fresh GitHub image plus Phala one-shot
+            evidence.
 [partial]   The selector-probe endpoint has been Phala-proven as an endpoint
             gate and fail-closed path using GitHub-attested `a2e14b5` images:
             one-shot bootstrap compose enabled the endpoint, live response was
