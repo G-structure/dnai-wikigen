@@ -79,6 +79,45 @@ API_KEY_CLOSE_SELECTORS = (
     '[data-testid="done"]',
 )
 
+AUTH_EMAIL_SELECTORS = (
+    'input[name="email"]',
+)
+
+AUTH_SUBMIT_SELECTORS = (
+    'button[type="submit"]',
+)
+
+AUTH_SIGNUP_LINK_SELECTORS = (
+    'a:has-text("Sign up")',
+)
+
+AUTH_FIRST_NAME_SELECTORS = (
+    'input[name="first_name"]',
+)
+
+AUTH_LAST_NAME_SELECTORS = (
+    'input[name="last_name"]',
+)
+
+OTP_INPUT_SELECTORS = (
+    'input[inputmode="numeric"]',
+    'input[data-input-otp="true"]',
+    'input[autocomplete="one-time-code"]',
+    'input[maxlength="1"]',
+)
+
+ONBOARDING_FULL_NAME_SELECTORS = (
+    'input[name="fullName"]',
+)
+
+ONBOARDING_TOS_SELECTORS = (
+    'text=I have read and agree',
+)
+
+ONBOARDING_CONTINUE_SELECTORS = (
+    'button:has-text("Continue")',
+)
+
 
 def _hash_text(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
@@ -127,12 +166,7 @@ async def wait_for_otp(oracle: OracleClient, settings: Settings) -> str:
 
 async def enter_otp(page: Page, code: str) -> None:
     """Enter the 6-digit OTP into the verification page."""
-    for selector in [
-        'input[inputmode="numeric"]',
-        'input[data-input-otp="true"]',
-        'input[autocomplete="one-time-code"]',
-        'input[maxlength="1"]',
-    ]:
+    for selector in OTP_INPUT_SELECTORS:
         inputs = page.locator(selector)
         count = await inputs.count()
         if count >= 6:
@@ -400,13 +434,13 @@ async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: 
     # Enter email on sign-in page
     if state["hasEmailInput"]:
         print("[auth] entering email...")
-        email_input = page.locator('input[name="email"]')
+        email_input = page.locator(AUTH_EMAIL_SELECTORS[0])
         await email_input.fill("")
         await email_input.click()
         await email_input.type(email, delay=30)
         await asyncio.sleep(0.5)
 
-        await page.click('button[type="submit"]')
+        await page.click(AUTH_SUBMIT_SELECTORS[0])
         await asyncio.sleep(4)
 
         state = await _page_state(page)
@@ -415,34 +449,34 @@ async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: 
         # If landed on sign-up form (new account via sign-in flow)
         if state["hasFirstNameInput"]:
             print("[auth] redirected to sign-up form, filling...")
-            await page.fill('input[name="first_name"]', settings.first_name)
+            await page.fill(AUTH_FIRST_NAME_SELECTORS[0], settings.first_name)
             await asyncio.sleep(0.2)
-            await page.fill('input[name="last_name"]', settings.last_name)
+            await page.fill(AUTH_LAST_NAME_SELECTORS[0], settings.last_name)
             await asyncio.sleep(0.2)
-            await page.locator('input[name="email"]').click()
-            await page.locator('input[name="email"]').type(email, delay=30)
+            await page.locator(AUTH_EMAIL_SELECTORS[0]).click()
+            await page.locator(AUTH_EMAIL_SELECTORS[0]).type(email, delay=30)
             await asyncio.sleep(0.5)
-            await page.click('button[type="submit"]')
+            await page.click(AUTH_SUBMIT_SELECTORS[0])
             await asyncio.sleep(4)
             state = await _page_state(page)
 
         # Should be on magic-code page now
         if "magic-code" not in state["url"] and "Check your email" not in state["text"]:
             # Try clicking Sign up link and filling the form
-            signup_link = page.locator('a:has-text("Sign up")')
+            signup_link = page.locator(AUTH_SIGNUP_LINK_SELECTORS[0])
             if await signup_link.count() > 0:
                 print("[auth] trying sign-up flow...")
                 await signup_link.click()
-                await page.locator('input[name="first_name"]').wait_for(state="visible", timeout=10000)
+                await page.locator(AUTH_FIRST_NAME_SELECTORS[0]).wait_for(state="visible", timeout=10000)
                 await asyncio.sleep(1)
-                await page.fill('input[name="first_name"]', settings.first_name)
+                await page.fill(AUTH_FIRST_NAME_SELECTORS[0], settings.first_name)
                 await asyncio.sleep(0.2)
-                await page.fill('input[name="last_name"]', settings.last_name)
+                await page.fill(AUTH_LAST_NAME_SELECTORS[0], settings.last_name)
                 await asyncio.sleep(0.2)
-                await page.locator('input[name="email"]').click()
-                await page.locator('input[name="email"]').type(email, delay=30)
+                await page.locator(AUTH_EMAIL_SELECTORS[0]).click()
+                await page.locator(AUTH_EMAIL_SELECTORS[0]).type(email, delay=30)
                 await asyncio.sleep(0.5)
-                await page.click('button[type="submit"]')
+                await page.click(AUTH_SUBMIT_SELECTORS[0])
                 await asyncio.sleep(4)
                 state = await _page_state(page)
 
@@ -477,16 +511,16 @@ async def _handle_onboarding(page: Page, settings: Settings) -> None:
         return
 
     print("[onboarding] completing form...")
-    await page.fill('input[name="fullName"]', f"{settings.first_name} {settings.last_name}")
+    await page.fill(ONBOARDING_FULL_NAME_SELECTORS[0], f"{settings.first_name} {settings.last_name}")
     await asyncio.sleep(0.3)
 
     # TOS checkbox — click the label (input is hidden/styled)
-    tos_label = page.locator('text=I have read and agree')
+    tos_label = page.locator(ONBOARDING_TOS_SELECTORS[0])
     if await tos_label.count() > 0:
         await tos_label.click()
         await asyncio.sleep(0.5)
 
-    await page.click('button:has-text("Continue")')
+    await page.click(ONBOARDING_CONTINUE_SELECTORS[0])
     await asyncio.sleep(5)
     print(f"[onboarding] done url_hash={_hash_text(page.url)}")
 

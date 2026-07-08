@@ -288,6 +288,16 @@ def cli():
     sub.add_parser("signup", help="Full signup: auth → onboarding → API key")
     sub.add_parser("signin", help="Sign in to existing account")
     sub.add_parser("reauth", help="Refresh Tinker auth through OTP and return bounded receipt")
+    selector_map_p = sub.add_parser(
+        "selector-map",
+        help="Print the bounded Tinker selector/frame/auth-flow map",
+    )
+    selector_map_p.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Omit concrete selectors and print only family names/counts/evidence",
+    )
+    selector_map_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     synthetic_reward_p = sub.add_parser(
         "synthetic-private-reward-demo",
         help="Run a bounded synthetic hidden-dataset private reward demo",
@@ -1014,6 +1024,12 @@ def cli():
         result = asyncio.run(reauth(settings))
         print(json.dumps(result, indent=2, default=str))
         sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "selector-map":
+        from tinker_delegate.selector_map import build_selector_map
+
+        result = build_selector_map(include_selectors=not args.summary_only)
+        _emit_bounded_json(result, output_path=args.output)
 
     elif args.command == "synthetic-private-reward-demo":
         from tinker_delegate.private_reward_envs.synthetic_demo import (

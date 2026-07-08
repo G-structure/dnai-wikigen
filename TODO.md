@@ -653,6 +653,14 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `/health.runtime.last_bootstrap_attempt_record` on success or
             selector/API-key-capture failure, without raw mailbox, OTP, URL,
             page text, or API-key egress.
+      - [x] Add a bounded machine-readable selector/frame/auth-flow map for the
+            local contract.
+            Done 2026-07-08: `tinker-delegate selector-map` emits the declared
+            email auth, OTP, onboarding, API-key, billing, Stripe iframe,
+            balance top-up, and auto-reload selector families with evidence
+            status, selector counts, and a recomputable map hash. The output is
+            guarded by the bounded CLI renderer and regression-tested to avoid
+            secret-shaped material; `--summary-only` omits concrete selectors.
       - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.

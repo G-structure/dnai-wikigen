@@ -85,6 +85,12 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   `/health.runtime.bootstrap_error_kind` now preserves that bounded
   `unknown_failure` outcome when the serve-level catch handles the bubbled
   startup failure.
+- `tinker-delegate selector-map` now emits the bounded machine-readable
+  selector/frame/auth-flow contract for email auth, OTP, onboarding, API-key
+  creation, billing, Stripe iframe, balance top-up, and auto-reload surfaces.
+  It includes selector-family counts, evidence labels, and a recomputable map
+  hash, with optional `--summary-only` output that omits concrete selectors.
+  The deployed-CVM selector/frame capture remains open.
 - `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps

@@ -698,6 +698,14 @@ Implementation status:
             including `selector_missing` when no key can be captured, and has
             replayable mock-page tests for successful extraction and selector
             drift failure paths.
+[real]      `tinker-delegate selector-map` emits a bounded, machine-readable
+            selector/frame/auth-flow contract for email auth, magic-code OTP,
+            onboarding, API-key creation, billing payment method, Stripe iframe,
+            balance top-up, and auto-reload surfaces. The map exposes declared
+            selector families, counts, evidence labels, and a recomputable map
+            hash only; it contains no account identifiers, OTPs, API keys, card
+            details, cookies, raw page text, or browser session URLs. A summary
+            mode omits concrete selectors for compact deployment evidence.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
@@ -1027,7 +1035,8 @@ Implementation status:
 [real]      `scripts/verify-agent-image.sh` rebuilds the delegate image and
             verifies `import tinker` plus the `agent_stack_available` probe
             inside the image, emitting bounded JSON only.
-[partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
+[partial]   Deployed Phala/CVM browser posture has not been revalidated with
+            selector-map capture evidence from the running headed browser path.
 [partial]   Funding is in progress: card data can be encrypted to the TEE and
             bounded attempt receipts are returned/persisted, but payment-method
             token/reference capture and a capped real-card funding attempt still

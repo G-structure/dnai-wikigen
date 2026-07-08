@@ -99,6 +99,42 @@ ADD_BALANCE_CONFIRM_SELECTORS = (
     '[data-testid="confirm-add-balance"]',
 )
 
+AUTO_RELOAD_TOGGLE_SELECTORS = (
+    'text=Enable auto-reload',
+)
+
+AUTO_RELOAD_THRESHOLD_SELECTORS = (
+    'input[name*="threshold"], input[placeholder*="threshold"]',
+)
+
+AUTO_RELOAD_AMOUNT_SELECTORS = (
+    'input[name*="amount"], input[placeholder*="amount"]',
+)
+
+AUTO_RELOAD_SAVE_SELECTORS = (
+    'button:has-text("Save")',
+)
+
+STRIPE_CARD_NUMBER_SELECTORS = (
+    'input[name="cardnumber"]',
+    'input[data-elements-stable-field-name="cardNumber"]',
+)
+
+STRIPE_CARD_EXPIRY_SELECTORS = (
+    'input[name="exp-date"]',
+    'input[data-elements-stable-field-name="cardExpiry"]',
+)
+
+STRIPE_CARD_CVC_SELECTORS = (
+    'input[name="cvc"]',
+    'input[data-elements-stable-field-name="cardCvc"]',
+)
+
+STRIPE_FRAME_MATCHERS = (
+    'frame.url contains "elements-inner-card"',
+    'frame.name contains "StripeFrame"',
+)
+
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -161,21 +197,21 @@ async def _fill_stripe_card(frame: Frame, card: CardDetails) -> None:
     """
     # The Stripe card element is a single input that handles all fields
     # Type card number, then tab to exp, then tab to CVC
-    card_input = frame.locator('input[name="cardnumber"], input[data-elements-stable-field-name="cardNumber"]')
+    card_input = frame.locator(", ".join(STRIPE_CARD_NUMBER_SELECTORS))
     if await card_input.count() > 0:
         await card_input.click()
         await card_input.type(card.number, delay=30)
         await asyncio.sleep(0.5)
 
     # Exp date
-    exp_input = frame.locator('input[name="exp-date"], input[data-elements-stable-field-name="cardExpiry"]')
+    exp_input = frame.locator(", ".join(STRIPE_CARD_EXPIRY_SELECTORS))
     if await exp_input.count() > 0:
         await exp_input.click()
         await exp_input.type(_format_expiry(card), delay=30)
         await asyncio.sleep(0.3)
 
     # CVC
-    cvc_input = frame.locator('input[name="cvc"], input[data-elements-stable-field-name="cardCvc"]')
+    cvc_input = frame.locator(", ".join(STRIPE_CARD_CVC_SELECTORS))
     if await cvc_input.count() > 0:
         await cvc_input.click()
         await cvc_input.type(card.cvc, delay=30)
@@ -472,23 +508,23 @@ async def configure_auto_reload(
             return {"success": False, "error": "Auto-reload section not found"}
 
         # Toggle checkbox
-        checkbox = page.locator('text=Enable auto-reload')
+        checkbox = page.locator(AUTO_RELOAD_TOGGLE_SELECTORS[0])
         if await checkbox.count() > 0:
             await checkbox.click()
             await asyncio.sleep(1)
 
         # Fill threshold and amount if inputs appear
         # (depends on UI — inputs may only show when enabled)
-        threshold_input = page.locator('input[name*="threshold"], input[placeholder*="threshold"]')
+        threshold_input = page.locator(", ".join(AUTO_RELOAD_THRESHOLD_SELECTORS))
         if await threshold_input.count() > 0:
             await threshold_input.fill(str(threshold))
 
-        amount_input = page.locator('input[name*="amount"], input[placeholder*="amount"]')
+        amount_input = page.locator(", ".join(AUTO_RELOAD_AMOUNT_SELECTORS))
         if await amount_input.count() > 0:
             await amount_input.fill(str(amount))
 
         # Save
-        save_btn = page.locator('button:has-text("Save")')
+        save_btn = page.locator(AUTO_RELOAD_SAVE_SELECTORS[0])
         if await save_btn.count() > 0:
             await save_btn.click()
             await asyncio.sleep(3)
