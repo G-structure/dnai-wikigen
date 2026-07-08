@@ -775,12 +775,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             selector counting remain open.
       - [ ] Preserve bounded page-target inventory when raw-CDP frame-tree
             probing times out.
-            Next step: catch per-page `Page.getFrameTree` failures inside the
-            raw-CDP fallback so deployed evidence can keep page URL
-            classes/hashes, target/page count bands, and per-page bounded
-            error kinds even when frame traversal times out. This still must
-            avoid DOM text, raw URLs, cookies, account identifiers, OTPs, API
-            keys, and card material.
+            Done in source/tests 2026-07-08: per-page attach/frame-tree errors
+            now stay inside the page observation, preserving page URL
+            classes/hashes, target/page count bands, `attached`,
+            `attach_error_kind`, `frame_tree_error_kind`, `partial_error_kind`,
+            and zero frame observations when frame traversal times out. It
+            still avoids DOM text, raw URLs, cookies, account identifiers, OTPs,
+            API keys, and card material. Next step: build GitHub-attested images
+            and measure the new timeout-preserving receipt on Phala before
+            checking this item off.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to

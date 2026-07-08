@@ -1,5 +1,6 @@
 import asyncio
 import json
+import socket
 import unittest
 from unittest.mock import patch
 
@@ -85,6 +86,13 @@ class ChunkedFakeSocket:
 
     def close(self):
         self.closed = True
+
+
+class TimeoutAfterChunksSocket(ChunkedFakeSocket):
+    def recv(self, size: int) -> bytes:
+        if not self.chunks:
+            raise socket.timeout("timed out")
+        return super().recv(size)
 
 
 def server_text_frame(payload: dict) -> bytes:
@@ -295,6 +303,54 @@ class SelectorMapTest(unittest.TestCase):
         self.assertNotIn(raw_ws_url, rendered)
         self.assertNotIn("session=secret", rendered)
         self.assertNotIn("elements-inner-card.html#private", rendered)
+        self.assertEqual(redact_text(rendered), rendered)
+
+    def test_raw_cdp_preserves_page_inventory_when_frame_tree_times_out(self):
+        raw_cdp_url = "http://172.20.0.3:9223"
+        raw_ws_url = "ws://172.20.0.3:9223/devtools/browser/raw-session-id"
+        raw_page_url = "https://tinker-console.thinkingmachines.ai/keys?session=secret"
+        response = FakeResponse({"webSocketDebuggerUrl": raw_ws_url})
+        fake_socket = TimeoutAfterChunksSocket(
+            [
+                b"HTTP/1.1 101 Switching Protocols\r\n\r\n",
+                server_text_frame(
+                    {
+                        "id": 1,
+                        "result": {
+                            "targetInfos": [
+                                {"targetId": "page-1", "type": "page", "url": raw_page_url},
+                                {"targetId": "worker-1", "type": "worker", "url": ""},
+                            ]
+                        },
+                    }
+                ),
+                server_text_frame({"id": 2, "result": {"sessionId": "session-1"}}),
+            ]
+        )
+
+        with (
+            patch("tinker_delegate.selector_map.urlopen", return_value=response),
+            patch("tinker_delegate.selector_map.socket.create_connection", return_value=fake_socket),
+        ):
+            result = _probe_raw_cdp_targets(Settings(cdp_url=raw_cdp_url))
+
+        self.assertTrue(result["success"])
+        self.assertTrue(result["target_command_success"])
+        self.assertFalse(result["frame_tree_command_success"])
+        self.assertEqual(result["partial_error_kind"], "frame_tree_timeout")
+        self.assertEqual(result["target_count_band"], "2+")
+        self.assertEqual(result["page_count_band"], "1")
+        self.assertEqual(result["pages_observed"], 1)
+        self.assertEqual(result["pages"][0]["url_class"], "tinker_console_keys")
+        self.assertTrue(result["pages"][0]["attached"])
+        self.assertFalse(result["pages"][0]["frame_tree_success"])
+        self.assertEqual(result["pages"][0]["frame_tree_error_kind"], "timeout")
+        self.assertEqual(result["pages"][0]["frame_count_band"], "0")
+        self.assertEqual(result["pages"][0]["frame_observations"], [])
+        rendered = _render_bounded_json(result)
+        self.assertNotIn(raw_cdp_url, rendered)
+        self.assertNotIn(raw_ws_url, rendered)
+        self.assertNotIn("session=secret", rendered)
         self.assertEqual(redact_text(rendered), rendered)
 
     def test_live_selector_probe_falls_back_to_raw_cdp(self):

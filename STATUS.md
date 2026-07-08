@@ -105,8 +105,11 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   `f63dd18` deployment reached CDP metadata, WebSocket status `101`, and
   `Target.getTargets`, returning bounded target count `2+` and page count `1`.
   It does not yet run DOM selector counting, and `Page.getFrameTree` still
-  times out before frame inventory. The matching `GET /browser/selector-probe`
-  endpoint
+  times out before frame inventory. Source/tests now preserve page URL
+  classes/hashes, target/page count bands, attach status, and per-page
+  frame-tree timeout kinds instead of dropping `pages[]` when frame traversal
+  times out; that timeout-preserving refinement still needs a GitHub-attested
+  Phala measurement. The matching `GET /browser/selector-probe` endpoint
   is now Phala-proven as a
   deployed gate/fail-closed path: one-shot compose with GitHub-attested
   `7973b27` images enabled it on top of the bounded bootstrap profile, the live

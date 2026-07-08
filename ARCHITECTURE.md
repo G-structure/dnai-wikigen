@@ -722,9 +722,13 @@ Implementation status:
             `probe_backend=raw_cdp`, stage booleans, HTTP status band,
             target/page/frame count bands, URL classes/hashes, frame kinds, and
             bounded error kinds, even when the fallback cannot complete target
-            inventory. It performs no navigation, clicking, typing,
-            screenshots, page-text capture, cookie reads, DOM text extraction,
-            or raw URL egress. It does not yet run DOM selector counting.
+            inventory. Source/tests preserve page-level inventory when
+            per-page attach or frame-tree commands fail by emitting only
+            `attach_error_kind`, `frame_tree_error_kind`, `partial_error_kind`,
+            and empty frame observations for the affected page. It performs no
+            navigation, clicking, typing, screenshots, page-text capture,
+            cookie reads, DOM text extraction, or raw URL egress. It does not
+            yet run DOM selector counting.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed
             one-shot evidence capture. It is disabled by default and returns
             403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
@@ -777,9 +781,9 @@ Implementation status:
             `Target.getTargets` succeeded, and the bounded receipt reported
             target count `2+` and page count `1` with no raw URL/page text
             egress. `Page.getFrameTree` still timed out, so actual frame
-            inventory and DOM selector match evidence remain open until the
-            fallback handles frame-tree timeouts more granularly, grows bounded
-            Runtime evaluation, or Playwright attachment is repaired.
+            inventory and DOM selector match evidence remain open. Source/tests
+            now preserve page target observations through per-page frame-tree
+            timeout receipts, but that refinement is not yet Phala-proven.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,

@@ -462,6 +462,30 @@ def _frame_tree_items(frame_tree: dict[str, Any]) -> list[dict[str, Any]]:
     return items
 
 
+def _raw_cdp_error_kind(exc: Exception) -> str:
+    if isinstance(exc, (socket.timeout, TimeoutError)):
+        return "timeout"
+    if isinstance(exc, ConnectionError):
+        return "connection_closed"
+    if isinstance(exc, RuntimeError):
+        value = str(exc)
+        allowed = {
+            "response_too_large",
+            "websocket_closed",
+            "unexpected_websocket_frame",
+            "invalid_json",
+            "missing_cdp_response",
+            "unsupported_websocket_url",
+            "upgrade_rejected",
+            "invalid_upgrade_response",
+        }
+        if value in allowed:
+            return value
+        if value:
+            return "cdp_protocol_error"
+    return "raw_cdp_probe_failed"
+
+
 def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
     result: dict[str, Any] = {
         "version": RAW_CDP_PROBE_VERSION,
@@ -482,6 +506,7 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
         "page_count_band": "0",
         "pages_observed": 0,
         "pages": [],
+        "partial_error_kind": "",
         "error_kind": "not_configured" if not settings.cdp_url else "",
     }
     if not settings.cdp_url:
@@ -516,6 +541,7 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
             ]
             result["page_count_band"] = _count_band(len(page_targets))
             pages: list[dict[str, Any]] = []
+            partial_errors: list[str] = []
             for page_index, target in enumerate(page_targets[:5]):
                 target_url = str(target.get("url") or "")
                 page_result: dict[str, Any] = {
@@ -523,28 +549,55 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                     **_url_summary(target_url),
                     "target_type": "page",
                     "attached": False,
+                    "attach_error_kind": "",
                     "frame_tree_success": False,
+                    "frame_tree_error_kind": "",
                     "frame_count_band": "0",
                     "frame_observations": [],
                 }
+                stop_after_page = False
                 target_id = str(target.get("targetId") or "")
                 if target_id:
-                    attach = client.command(
-                        "Target.attachToTarget",
-                        {"targetId": target_id, "flatten": True},
-                    )
-                    session_id = str(attach.get("result", {}).get("sessionId") or "")
+                    try:
+                        attach = client.command(
+                            "Target.attachToTarget",
+                            {"targetId": target_id, "flatten": True},
+                        )
+                        session_id = str(attach.get("result", {}).get("sessionId") or "")
+                    except Exception as exc:
+                        error_kind = _raw_cdp_error_kind(exc)
+                        page_result["attach_error_kind"] = error_kind
+                        partial_errors.append(f"attach_{error_kind}")
+                        stop_after_page = True
+                        session_id = ""
                     page_result["attached"] = bool(session_id)
                     if session_id:
-                        frame_tree = client.command("Page.getFrameTree", session_id=session_id)
-                        tree = frame_tree.get("result", {}).get("frameTree")
-                        if isinstance(tree, dict):
-                            observations = _frame_tree_items(tree)[:10]
-                            page_result["frame_tree_success"] = True
-                            page_result["frame_count_band"] = _count_band(len(observations))
-                            page_result["frame_observations"] = observations
-                            result["frame_tree_command_success"] = True
+                        try:
+                            frame_tree = client.command("Page.getFrameTree", session_id=session_id)
+                            tree = frame_tree.get("result", {}).get("frameTree")
+                        except Exception as exc:
+                            error_kind = _raw_cdp_error_kind(exc)
+                            page_result["frame_tree_error_kind"] = error_kind
+                            partial_errors.append(f"frame_tree_{error_kind}")
+                            stop_after_page = True
+                        else:
+                            if isinstance(tree, dict):
+                                observations = _frame_tree_items(tree)[:10]
+                                page_result["frame_tree_success"] = True
+                                page_result["frame_count_band"] = _count_band(len(observations))
+                                page_result["frame_observations"] = observations
+                                result["frame_tree_command_success"] = True
+                            else:
+                                page_result["frame_tree_error_kind"] = "missing_frame_tree"
+                                partial_errors.append("frame_tree_missing_frame_tree")
+                else:
+                    page_result["attach_error_kind"] = "missing_target_id"
+                    partial_errors.append("attach_missing_target_id")
                 pages.append(page_result)
+                if stop_after_page:
+                    break
+            if partial_errors:
+                result["partial_error_kind"] = partial_errors[0]
             result["pages"] = pages
             result["pages_observed"] = len(pages)
     except socket.timeout:
