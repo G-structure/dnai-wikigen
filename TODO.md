@@ -677,8 +677,8 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             the same read-only bounded probe and converts browser failures to a
             bounded `browser_unavailable` response without leaking browser URLs,
             account identifiers, page text, cookies, OTPs, API keys, or card
-            material. The steady-state Phala compose remains disabled until a
-            new GitHub-built image is pinned and deployed for capture.
+            material. This endpoint is Phala-proven in a one-shot measurement
+            profile and remains disabled in the restored steady-state compose.
       - [x] Add bounded browser-control readiness diagnostics for deployed
             selector-probe failures.
             Done 2026-07-08: `tinker-delegate browser-readiness` and
@@ -691,15 +691,20 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             bootstrap measurement profile sets it true alongside
             `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`.
       - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
-            Attempted 2026-07-08 with GitHub-attested `ca877db` oracle/delegate
+            Attempted 2026-07-08 with GitHub-attested
+            `a2e14b542314a16e07f20a17694e9da1a67b1f1c` oracle/delegate
             images and a one-shot Phala profile enabling only
+            `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=true` and
             `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true` on top of the existing
-            bounded bootstrap profile. The live endpoint returned bounded
-            `browser_unavailable` JSON with `raw_secret_egress=false`, then the
-            CVM was restored to normal compose where the endpoint returns 403.
-            This proves the deployed endpoint gate/fail-closed path, but does
-            not yet capture selector/frame match evidence because the browser
-            connection was unavailable.
+            bounded bootstrap profile. The readiness endpoint proved that Neko
+            CDP `/json/version` is reachable and advertises Chromium WebSocket
+            metadata, but Playwright `connect_over_cdp` times out. The selector
+            probe still returned bounded `browser_unavailable` JSON with
+            `raw_secret_egress=false`, then the CVM was restored to normal
+            compose where both diagnostic endpoints return 403. This proves the
+            deployed endpoint gates/fail-closed paths and narrows the blocker to
+            the CDP WebSocket handshake, but does not yet capture selector/frame
+            match evidence.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to
@@ -1438,15 +1443,18 @@ vision Wiki is reaching for.
             Refreshed again 2026-07-08 for bounded selector-probe endpoint
             commit `ca877db2d02ee4498d30560f19d4d394cf165676` with GitHub
             Actions run `28957360340`.
+            Refreshed again 2026-07-08 for bounded browser-readiness diagnostics
+            commit `a2e14b542314a16e07f20a17694e9da1a67b1f1c` with GitHub
+            Actions build run `28958905325`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:19359e6df891cb48ecf1b051d499d39f2f8a7be2dfe5c62e3c568402cb372f79`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:5db7fbbce413f1b0d351984e7c05934aceb9e58a82123a31777449f44b7c7ba5`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:16b2dfa8428a8a2f234b5a2ad1dbb57db7cd67ca1e1e655d02633f4201a8506b`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:50e09833e5ef46b9b6c526823be08949ef6db10f65e8c296d8e19e82dfe086b0`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
@@ -1471,16 +1479,16 @@ vision Wiki is reaching for.
       - [x] `verify-deployment-bundle` passes against the live log-hardened
             Phala deployment with GitHub image provenance/SBOM checks, required
             sidecar digests, local raw compose hash
-            `313d34a589316197740b1f81e43b2d1b5bc4ee98985e078bc551e61c96b7c728`,
+            `36cb67f0b81d4c2b73127d36615db6bbe8392805c2a24a6ce42f170118a19946`,
             and live attested compose hash
-            `d8dbb33db7ec175838c3aca1c4bc2226bf745925b38105c1807789003f594009`.
+            `6f94411ca22c044d68590cdb777b56d98cdc65758a04d9427038805bb858ff91`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.
             Done 2026-07-08: live delegate image
-            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:16b2dfa8428a8a2f234b5a2ad1dbb57db7cd67ca1e1e655d02633f4201a8506b`
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:50e09833e5ef46b9b6c526823be08949ef6db10f65e8c296d8e19e82dfe086b0`
             is GitHub-attested from commit
-            `ca877db2d02ee4498d30560f19d4d394cf165676`; `/pin` rejects
+            `a2e14b542314a16e07f20a17694e9da1a67b1f1c`; `/pin` rejects
             unauthenticated requests with `401`, `/credentials/encrypted`
             rejects while disabled with `403`, and `/billing/add-balance`
             rejects while disabled with `403`.

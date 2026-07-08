@@ -730,14 +730,20 @@ Implementation status:
             screenshot, inspect pages, return page text, or expose raw CDP /
             browser URLs. The HTTP endpoint is disabled by default and normal
             Phala compose binds `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`;
-            the one-shot measurement profile enables it temporarily.
+            the one-shot measurement profile enables it temporarily. This is
+            now Phala-proven: the one-shot endpoint returned bounded
+            `cdp_timeout` after CDP metadata succeeded, and the restored normal
+            compose returns 403.
 [partial]   The selector-probe endpoint has been Phala-proven as an endpoint
-            gate and fail-closed path using GitHub-attested `ca877db` images:
+            gate and fail-closed path using GitHub-attested `a2e14b5` images:
             one-shot bootstrap compose enabled the endpoint, live response was
             bounded `browser_unavailable` with `raw_secret_egress=false`, and
-            the restored normal compose returns 403. Actual selector/frame match
-            evidence from the deployed browser remains open because the browser
-            connection was unavailable during the probe.
+            the restored normal compose returns 403. The paired readiness
+            endpoint showed CDP metadata reachable with Chromium WebSocket
+            metadata advertised, then `connect_over_cdp` timed out. Actual
+            selector/frame match evidence from the deployed browser remains
+            open until that CDP WebSocket handshake path is repaired or replaced
+            by another bounded browser-control path.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
@@ -959,15 +965,16 @@ Implementation status:
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning `ok` with sealed mailbox readiness/hash only, and live delegate
             attestation verification passing against local raw compose hash
-            `313d34a589316197740b1f81e43b2d1b5bc4ee98985e078bc551e61c96b7c728`
+            `36cb67f0b81d4c2b73127d36615db6bbe8392805c2a24a6ce42f170118a19946`
             and live Phala attested compose hash
-            `d8dbb33db7ec175838c3aca1c4bc2226bf745925b38105c1807789003f594009`.
+            `6f94411ca22c044d68590cdb777b56d98cdc65758a04d9427038805bb858ff91`.
             The live delegate image is built from commit
-            `ca877db2d02ee4498d30560f19d4d394cf165676`, so it includes the
+            `a2e14b542314a16e07f20a17694e9da1a67b1f1c`, so it includes the
             bounded signup/signin egress fix, bounded early-stage
             startup-bootstrap attempt records, and the disabled-by-default
-            selector-probe endpoint. Tinker bootstrap and selector-probe are
-            disabled in the current normal compose.
+            selector-probe and browser-readiness endpoints. Tinker bootstrap,
+            selector-probe, and browser-readiness are disabled in the current
+            normal compose.
 [real]      The temporary public-log debug exception has been reverted on the
             current main Phala CVM. Public logs and public sysinfo are disabled
             while runtime guards keep `ORACLE_AUTO_GENESIS=false`,
