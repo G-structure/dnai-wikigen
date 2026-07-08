@@ -526,6 +526,7 @@ Diagram:
 |  sealed email creds     /pin response                |
 |                                                      |
 |  endpoints: /health /pin /inbox /attestation         |
+|             /credentials/encrypted                   |
 +------------------------------------------------------+
 ```
 
@@ -538,6 +539,16 @@ Implementation status:
             caller identity, and reason; released OTP hashes are persisted for
             one-time-use across oracle restarts when the replay ledger decrypts.
 [real]      OTP replay ledger is persisted under encrypted/sealed oracle storage.
+[real]      Attestation-bound encrypted credential provisioning exists for an
+            operator-held mailbox: `GET /attestation?context=oracle-credentials`
+            exposes a context-bound public key and report-data hash, while
+            `POST /credentials/encrypted` is disabled by default, requires an
+            explicit provisioning bearer token, stores only through the sealed
+            credential store, and returns hashes/status rather than raw mailbox
+            credentials.
+[partial]   The running Phala oracle has not yet been provisioned with real
+            mailbox credentials through that path, so live Tinker OTP receipt in
+            the CVM is still unproven.
 [partial]   App-auth contract is not yet enforced on every OTP API request.
 [planned]   Reviewer notification, consent confirmation, outbound bounded-result delivery.
 ```
@@ -1435,7 +1446,9 @@ Endpoints:
 GET  /health
 POST /pin        runtime bearer required when auth is enabled
 GET  /inbox      runtime bearer required when auth is enabled
-GET  /attestation
+GET  /attestation?context=attestation|oracle-credentials|pin
+POST /credentials/encrypted
+     disabled by default; explicit provisioning bearer required
 ```
 
 Flow:
@@ -1469,6 +1482,28 @@ one-time OTP-use hash, timestamp, optional quote over hashes
   v
 Encrypted OTP replay ledger persists released OTP-use hashes across restarts
 ```
+
+Encrypted mailbox provisioning:
+
+```
+operator client
+  |
+  | fetch /attestation?context=oracle-credentials
+  | verify mode, compose hash, app id, OS image hash, report_data/key binding
+  v
+encrypt username/domain/password to attested X25519 key
+  |
+  | POST /credentials/encrypted with provisioning bearer
+  v
+oracle decrypts inside CVM -> sealed CredentialStore -> hash/status response
+```
+
+The provisioning endpoint is active only when
+`ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=true` and
+`ORACLE_CREDENTIAL_PROVISIONING_TOKEN` is set in the runtime environment. The
+credential-ingress attestation context intentionally omits the raw oracle email,
+and the response returns credential hashes, IMAP connectivity status,
+`raw_secret_egress=false`, and an optional TDX quote hash.
 
 ### tinker-delegate
 

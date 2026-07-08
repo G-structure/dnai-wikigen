@@ -89,6 +89,21 @@ class ComposeHardeningTest(unittest.TestCase):
 
         self.assertIn("TINKER_BOOTSTRAP_SIGNUP: ${TINKER_BOOTSTRAP_SIGNUP:-false}", block)
 
+    def test_phala_oracle_credential_provisioning_is_disabled_by_default(self):
+        block = _service_block(
+            (ROOT / "docker-compose.all.phala.yaml").read_text(),
+            "oracle",
+        )
+
+        self.assertIn(
+            "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: ${ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT:-false}",
+            block,
+        )
+        self.assertIn(
+            "ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ${ORACLE_CREDENTIAL_PROVISIONING_TOKEN:-}",
+            block,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

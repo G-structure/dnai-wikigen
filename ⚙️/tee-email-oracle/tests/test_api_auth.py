@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from email_oracle.api import app, state
 from email_oracle.config import Settings
+from email_oracle.credential_uploader import encrypt_credentials_payload
 from email_oracle.cred_store import EmailCredentials
 from email_oracle.imap_client import ExtractedPin
 
@@ -17,6 +18,7 @@ def _reset_state(settings: Settings) -> None:
     state.otp_replay_store = None
     state.otp_replay_store_ready = True
     state.used_otp_hashes = set()
+    state.tee_keypair = None
 
 
 def _scoped_pin_payload(**overrides):
@@ -65,6 +67,27 @@ class FakeReplayStore:
         if self.fail_save:
             raise RuntimeError("disk failed")
         self.saved_hashes = set(used_otp_hashes)
+
+
+class FakeCredentialStore:
+    def __init__(self):
+        self.saved = None
+
+    def save(self, creds: EmailCredentials) -> None:
+        self.saved = creds
+
+
+class ConnectableIMAP:
+    def __init__(self, creds, settings):
+        self.creds = creds
+        self.settings = settings
+        self.connected = False
+
+    def connect(self):
+        self.connected = True
+
+    def disconnect(self):
+        self.connected = False
 
 
 class ApiAuthTest(unittest.TestCase):
@@ -259,6 +282,71 @@ class ApiAuthTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 503)
         self.assertIn("IMAP not connected", response.json()["detail"])
+
+    def test_attestation_exposes_context_bound_credential_ingress_key(self):
+        _reset_state(Settings())
+
+        response = self.client.get("/attestation?context=oracle-credentials")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["mode"], "local")
+        self.assertEqual(body["report_context"], "oracle-credentials")
+        self.assertEqual(len(body["encryption_public_key"]), 64)
+        self.assertEqual(len(body["report_data"]), 64)
+        self.assertEqual(body["oracle_email"], "")
+        self.assertNotIn("password", body)
+
+    def test_encrypted_credential_provisioning_is_disabled_by_default(self):
+        _reset_state(Settings())
+        state.store = FakeCredentialStore()
+        attestation = self.client.get("/attestation?context=oracle-credentials").json()
+        encrypted = encrypt_credentials_payload(
+            {"username": "oracle", "domain": "example.com", "password": "secret-password"},
+            attestation["encryption_public_key"],
+        )
+
+        response = self.client.post("/credentials/encrypted", json=encrypted)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIsNone(state.store.saved)
+
+    def test_encrypted_credential_provisioning_stores_and_returns_hashes_only(self):
+        _reset_state(
+            Settings(
+                allow_credential_provisioning_endpoint=True,
+                credential_provisioning_token="provision-token",
+            )
+        )
+        state.store = FakeCredentialStore()
+        attestation = self.client.get("/attestation?context=oracle-credentials").json()
+        credentials = {
+            "username": "oracle",
+            "domain": "example.com",
+            "password": "secret-password",
+        }
+        encrypted = encrypt_credentials_payload(credentials, attestation["encryption_public_key"])
+
+        with patch("email_oracle.api.IMAPClient", ConnectableIMAP):
+            response = self.client.post(
+                "/credentials/encrypted",
+                headers={"Authorization": "Bearer provision-token"},
+                json=encrypted,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["status"], "stored")
+        self.assertTrue(body["imap_connected"])
+        self.assertEqual(len(body["credential_email_hash"]), 64)
+        self.assertEqual(len(body["credential_domain_hash"]), 64)
+        self.assertFalse(body["raw_secret_egress"])
+        rendered = response.text
+        self.assertNotIn("oracle@example.com", rendered)
+        self.assertNotIn("oracle", rendered)
+        self.assertNotIn("example.com", rendered)
+        self.assertNotIn("secret-password", rendered)
+        self.assertEqual(state.store.saved.email, "oracle@example.com")
 
     def test_inbox_requires_consumer_registry_before_imap(self):
         _reset_state(

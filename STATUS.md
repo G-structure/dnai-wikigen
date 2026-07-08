@@ -56,6 +56,10 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   sensitive routes fail closed before IMAP access unless the configured
   consumer app and compose hash are authorized by the contract.
 - Sealed credential store abstraction.
+- Attestation-bound encrypted credential provisioning for an existing mailbox:
+  `GET /attestation?context=oracle-credentials` exposes a context-bound key,
+  `POST /credentials/encrypted` is disabled by default behind a provisioning
+  bearer token, and successful writes return only hashes/status.
 - Scoped OTP request path so callers receive only the OTP they requested.
 - Encrypted OTP replay ledger.
 - Redacted diagnostics for secret-like values.
@@ -668,8 +672,10 @@ explicitly legacy.
 - Production or repeated card funding needs legal/compliance approval; raw-card
   encrypted delivery remains limited to an operator-owned capped validation
   path.
-- Deployed Phala/CVM credential provisioning remains pending: the oracle has no
-  sealed email credentials, and the delegate has no Tinker API key configured.
+- Deployed Phala/CVM credential provisioning remains pending: an encrypted
+  provisioning path exists, but it has not been run against the live CVM with
+  real mailbox credentials; the oracle has no sealed email credentials, and the
+  delegate has no Tinker API key configured.
 - Deployed headed Neko and Playwright sidecar containers are running, but
   Tinker login/API-key capture inside the deployed CVM is not yet proven.
 - Full Intel TDX quote-internal parsing and quote freshness checking need
@@ -754,6 +760,7 @@ cd "⚙️/tinker-delegate" && \
 
 cd "⚙️/tee-email-oracle" && uv run python -m unittest discover -s tests -v
 cd "⚙️/tee-email-oracle" && uv run python -m compileall email_oracle
+cd "⚙️/tee-email-oracle" && uv run python -m email_oracle.main provision-credentials-encrypted-prompt --help
 
 cd "⚙️/tinker-delegate/contracts" && forge test
 

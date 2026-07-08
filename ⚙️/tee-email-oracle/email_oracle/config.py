@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     runtime_auth_required: bool = False
     runtime_auth_token: str = ""
     runtime_auth_key_path: str = "oracle/runtime-auth"
+    allow_credential_provisioning_endpoint: bool = False
+    credential_provisioning_token: str = ""
     auth_required: bool = False
     auth_contract_address: str = ""
     auth_rpc_url: str = ""

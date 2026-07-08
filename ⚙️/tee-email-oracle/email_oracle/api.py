@@ -19,8 +19,14 @@ from pydantic import BaseModel, Field, field_validator
 
 from email_oracle.chain_auth import EmailOracleAuthError, check_consumer_authorization
 from email_oracle.config import Settings
+from email_oracle.crypto import (
+    ORACLE_CREDENTIALS_HKDF_INFO,
+    EncryptedPayload,
+    TEEKeyPair,
+    attestation_report_data,
+)
 from email_oracle.cred_store import CredentialStore, EmailCredentials
-from email_oracle.dstack_utils import derive_storage_key, get_attestation
+from email_oracle.dstack_utils import derive_storage_key, get_attestation, get_attestation_details
 from email_oracle.imap_client import IMAPClient
 from email_oracle.replay_store import OtpReplayStore
 from email_oracle.redaction import redact_text
@@ -112,6 +118,38 @@ class AttestationResponse(BaseModel):
     compose_hash: str
     oracle_email: str
     timestamp: str
+    mode: str = "local"
+    encryption_public_key: str = ""
+    report_context: str = "attestation"
+    report_data: str = ""
+    quote_report_data: str = ""
+    os_image_hash: str = ""
+    verified: bool = False
+
+
+class EncryptedCredentialPayload(BaseModel):
+    ephemeral_public_key: str = Field(..., min_length=64, max_length=64)
+    nonce: str = Field(..., min_length=24, max_length=24)
+    ciphertext: str = Field(..., min_length=32, max_length=8192)
+
+    @field_validator("ephemeral_public_key", "nonce", "ciphertext")
+    @classmethod
+    def validate_hex(cls, value: str) -> str:
+        try:
+            bytes.fromhex(value)
+        except ValueError as exc:
+            raise ValueError("must be lowercase hex") from exc
+        return value
+
+
+class CredentialProvisionResponse(BaseModel):
+    status: str
+    credential_email_hash: str
+    credential_domain_hash: str
+    imap_connected: bool
+    tdx_quote_hash: str
+    raw_secret_egress: bool = False
+    timestamp: str
 
 
 # --- App state ---
@@ -125,9 +163,17 @@ class OracleState:
         self.otp_replay_store: OtpReplayStore | None = None
         self.otp_replay_store_ready: bool = True
         self.used_otp_hashes: set[str] = set()
+        self.tee_keypair: TEEKeyPair | None = None
 
 
 state = OracleState()
+
+
+def get_tee_keypair() -> TEEKeyPair:
+    """Get or create the oracle's in-memory ingress keypair."""
+    if state.tee_keypair is None:
+        state.tee_keypair = TEEKeyPair()
+    return state.tee_keypair
 
 
 def _runtime_auth_enabled() -> bool:
@@ -175,6 +221,34 @@ def require_runtime_auth(authorization: str = Header(default="")) -> None:
         )
 
 
+def require_credential_provisioning_auth(authorization: str = Header(default="")) -> None:
+    """Protect the credential mutation path with an explicit operator token."""
+    settings = state.settings
+    if not settings or not settings.allow_credential_provisioning_endpoint:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Credential provisioning endpoint is disabled",
+        )
+    expected = settings.credential_provisioning_token
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Credential provisioning token is not configured",
+        )
+    scheme, _, supplied = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not supplied:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bearer token required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not hmac.compare_digest(supplied, expected):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid bearer token",
+        )
+
+
 def require_consumer_registry_authorization(*, caller_identity: str = "") -> None:
     """Fail closed unless configured EmailOracleAuth consumer policy allows egress."""
     settings = state.settings
@@ -203,6 +277,97 @@ def require_consumer_registry_authorization(*, caller_identity: str = "") -> Non
 def _hash_json(data: dict) -> str:
     canonical = json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(canonical).hexdigest()
+
+
+def _hash_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _attestation_payload(context: str) -> dict:
+    keypair = get_tee_keypair()
+    report_data = attestation_report_data(
+        "tee-email-oracle",
+        context,
+        keypair.public_key_bytes,
+    )
+    oracle_email = ""
+    if context != "oracle-credentials" and state.creds:
+        oracle_email = state.creds.email
+    base = {
+        "encryption_public_key": keypair.public_key_bytes.hex(),
+        "report_context": context,
+        "report_data": report_data.hex(),
+        "oracle_email": oracle_email,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    if not state.settings or not state.settings.dstack_enabled:
+        return {
+            **base,
+            "tdx_quote": "local-mode-no-attestation",
+            "app_id": "local-dev",
+            "compose_hash": "local-dev",
+            "mode": "local",
+            "verified": False,
+        }
+
+    try:
+        details = get_attestation_details(report_data)
+        return {
+            **base,
+            "tdx_quote": details["quote"],
+            "app_id": details["app_id"],
+            "compose_hash": details["compose_hash"],
+            "mode": "tdx",
+            "quote_report_data": str(details.get("quote_report_data") or ""),
+            "os_image_hash": str(details.get("os_image_hash") or ""),
+            "verified": True,
+        }
+    except Exception as exc:
+        return {
+            **base,
+            "tdx_quote": "",
+            "app_id": "",
+            "compose_hash": "",
+            "mode": "tdx",
+            "verified": False,
+            "error": redact_text(exc),
+        }
+
+
+def _connect_imap(creds: EmailCredentials) -> bool:
+    settings = state.settings
+    if not settings:
+        return False
+    if state.imap:
+        state.imap.disconnect()
+    state.imap = IMAPClient(creds, settings)
+    try:
+        state.imap.connect()
+        return True
+    except Exception as exc:
+        print(f"[api] IMAP connection failed after credential provisioning: {redact_text(exc)}")
+        return False
+
+
+def _decrypt_credential_payload(payload: EncryptedCredentialPayload) -> EmailCredentials:
+    encrypted = EncryptedPayload.from_hex(payload.model_dump())
+    plaintext = bytearray()
+    try:
+        plaintext.extend(
+            get_tee_keypair().decrypt(
+                encrypted,
+                info=ORACLE_CREDENTIALS_HKDF_INFO,
+                associated_data=b"tee-email-oracle:credentials:v1",
+            )
+        )
+        data = json.loads(bytes(plaintext))
+        creds = EmailCredentials.from_dict(data)
+        if not creds.username or not creds.domain or not creds.password:
+            raise ValueError("username, domain, and password are required")
+        return creds
+    finally:
+        for index in range(len(plaintext)):
+            plaintext[index] = 0
 
 
 def _pin_request_hash(req: PinRequest) -> str:
@@ -283,12 +448,13 @@ async def lifespan(app: FastAPI):
         print(f"[api] failed to decrypt OTP replay ledger: {redact_text(e)}")
         state.used_otp_hashes = set()
         state.otp_replay_store_ready = False
+    state.tee_keypair = TEEKeyPair()
 
     # Load existing credentials
     if state.store.exists():
         try:
             state.creds = state.store.load()
-            print(f"[api] loaded credentials for {state.creds.email}")
+            print(f"[api] loaded credentials email_hash={_hash_text(state.creds.email)}")
         except Exception as e:
             print(f"[api] failed to decrypt credentials (wrong key?): {redact_text(e)}")
             print("[api] delete the credential file or use the same dstack key path / ORACLE_CRED_STORE_KEY")
@@ -397,22 +563,41 @@ async def list_inbox(max_age: int = 3600, limit: int = 20):
 
 
 @app.get("/attestation", response_model=AttestationResponse)
-async def attestation():
+async def attestation(context: str = "attestation"):
     """Get TDX attestation quote (no-op locally)."""
-    if not state.settings.dstack_enabled:
-        return AttestationResponse(
-            tdx_quote="local-mode-no-attestation",
-            app_id="local-dev",
-            compose_hash="local-dev",
-            oracle_email=state.creds.email if state.creds else "",
-            timestamp=datetime.now(timezone.utc).isoformat(),
-        )
+    if context not in {"attestation", "oracle-credentials", "pin"}:
+        raise HTTPException(400, "unsupported attestation context")
+    return AttestationResponse(**_attestation_payload(context))
 
-    quote, app_id, compose_hash = get_attestation("attestation")
-    return AttestationResponse(
-        tdx_quote=quote,
-        app_id=app_id,
-        compose_hash=compose_hash,
-        oracle_email=state.creds.email if state.creds else "",
+
+@app.post(
+    "/credentials/encrypted",
+    response_model=CredentialProvisionResponse,
+    dependencies=[Depends(require_credential_provisioning_auth)],
+)
+async def provision_credentials_encrypted(payload: EncryptedCredentialPayload):
+    """Provision existing mailbox credentials encrypted to the attested oracle key."""
+    if not state.store:
+        raise HTTPException(503, "Credential store is not initialized")
+    try:
+        creds = _decrypt_credential_payload(payload)
+        state.store.save(creds)
+        state.creds = creds
+        imap_connected = _connect_imap(creds)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"encrypted credentials could not be decrypted or stored: {redact_text(exc)}",
+        ) from exc
+
+    quote = ""
+    if state.settings and state.settings.dstack_enabled:
+        quote = _attestation_payload("oracle-credentials").get("tdx_quote", "")
+    return CredentialProvisionResponse(
+        status="stored",
+        credential_email_hash=_hash_text(creds.email),
+        credential_domain_hash=_hash_text(creds.domain),
+        imap_connected=imap_connected,
+        tdx_quote_hash=_hash_text(quote) if quote else "",
         timestamp=datetime.now(timezone.utc).isoformat(),
     )

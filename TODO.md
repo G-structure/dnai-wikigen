@@ -402,6 +402,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       email creds, Tinker API key, funding token state, and run metadata.
       - [x] Persist email-oracle OTP replay hashes in an encrypted/sealed ledger
             so OTP one-time-use survives service restart without storing OTPs.
+      - [x] Add attestation-bound encrypted ingress for existing email
+            credentials: `GET /attestation?context=oracle-credentials` exposes
+            a quote-bound public key, `POST /credentials/encrypted` is disabled
+            by default behind an explicit provisioning token, stores credentials
+            through the sealed credential store, and returns only hashes/status.
       - [x] Store captured Tinker API keys in the encrypted key store and return
             only bounded hash/status metadata from signup/bootstrap.
       - [x] Confirm currently implemented funding state and run metadata are
@@ -455,6 +460,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 - [ ] `P0` Create a production email account whose credentials are generated or
       sealed inside the TEE and never held by a human.
+      - [x] Add the encrypted operator-provisioning path for an existing mailbox
+            so credentials can enter the oracle only after the client verifies
+            attestation and encrypts to the oracle's context-bound key.
+      - [ ] Run the encrypted provisioning path against the deployed Phala CVM
+            with real mailbox credentials and record only bounded hashes/status.
 - [ ] `P0` Prove the email TEE can receive Tinker magic-code OTPs in the running
       CVM.
 - [ ] `P0` Add outbound email support for:
