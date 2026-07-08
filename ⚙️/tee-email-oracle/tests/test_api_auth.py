@@ -13,6 +13,8 @@ def _reset_state(settings: Settings) -> None:
     state.store = None
     state.creds = None
     state.imap = None
+    state.otp_replay_store = None
+    state.otp_replay_store_ready = True
     state.used_otp_hashes = set()
 
 
@@ -51,6 +53,17 @@ class FakeIMAP:
 
     def delete_email(self, email_id: str) -> None:
         self.deleted.append(email_id)
+
+
+class FakeReplayStore:
+    def __init__(self, fail_save: bool = False):
+        self.fail_save = fail_save
+        self.saved_hashes = None
+
+    def save(self, used_otp_hashes: set[str]) -> None:
+        if self.fail_save:
+            raise RuntimeError("disk failed")
+        self.saved_hashes = set(used_otp_hashes)
 
 
 class ApiAuthTest(unittest.TestCase):
@@ -140,6 +153,54 @@ class ApiAuthTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("length cap", response.json()["detail"])
+
+    def test_pin_persists_replay_hash_before_release(self):
+        _reset_state(Settings(runtime_auth_required=True, runtime_auth_token="shared-secret"))
+        state.creds = EmailCredentials("oracle", "example.com", "pw")
+        state.imap = FakeIMAP()
+        state.otp_replay_store = FakeReplayStore()
+
+        response = self.client.post(
+            "/pin",
+            headers={"Authorization": "Bearer shared-secret"},
+            json=_scoped_pin_payload(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        otp_use_hash = response.json()["otp_use_hash"]
+        self.assertIn(otp_use_hash, state.used_otp_hashes)
+        self.assertIn(otp_use_hash, state.otp_replay_store.saved_hashes)
+
+    def test_pin_fails_closed_when_replay_store_cannot_persist(self):
+        _reset_state(Settings(runtime_auth_required=True, runtime_auth_token="shared-secret"))
+        state.creds = EmailCredentials("oracle", "example.com", "pw")
+        state.imap = FakeIMAP()
+        state.otp_replay_store = FakeReplayStore(fail_save=True)
+
+        response = self.client.post(
+            "/pin",
+            headers={"Authorization": "Bearer shared-secret"},
+            json=_scoped_pin_payload(),
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("Could not persist OTP replay ledger", response.json()["detail"])
+        self.assertEqual(state.used_otp_hashes, set())
+
+    def test_pin_fails_closed_when_replay_store_is_unavailable(self):
+        _reset_state(Settings(runtime_auth_required=True, runtime_auth_token="shared-secret"))
+        state.creds = EmailCredentials("oracle", "example.com", "pw")
+        state.imap = FakeIMAP()
+        state.otp_replay_store_ready = False
+
+        response = self.client.post(
+            "/pin",
+            headers={"Authorization": "Bearer shared-secret"},
+            json=_scoped_pin_payload(),
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("OTP replay ledger is unavailable", response.json()["detail"])
 
     def test_inbox_requires_bearer_token_when_runtime_auth_is_enabled(self):
         _reset_state(Settings(runtime_auth_required=True, runtime_auth_token="shared-secret"))

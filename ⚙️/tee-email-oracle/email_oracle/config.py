@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     runtime_auth_token: str = ""
     runtime_auth_key_path: str = "oracle/runtime-auth"
     pin_max_length: int = 16
+    otp_replay_store_path: str = "/data/otp_replay.enc"
+    otp_replay_store_key: str = ""
+    otp_replay_key_path: str = "email/otp_replay"
 
     # --- dstack (no-op locally, used in TEE) ---
     dstack_socket: str = "/var/run/dstack.sock"

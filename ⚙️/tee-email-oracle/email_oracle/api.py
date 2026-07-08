@@ -21,6 +21,7 @@ from email_oracle.config import Settings
 from email_oracle.cred_store import CredentialStore, EmailCredentials
 from email_oracle.dstack_utils import derive_storage_key, get_attestation
 from email_oracle.imap_client import IMAPClient
+from email_oracle.replay_store import OtpReplayStore
 
 
 # --- Request / Response models ---
@@ -119,6 +120,8 @@ class OracleState:
         self.store: CredentialStore | None = None
         self.creds: EmailCredentials | None = None
         self.imap: IMAPClient | None = None
+        self.otp_replay_store: OtpReplayStore | None = None
+        self.otp_replay_store_ready: bool = True
         self.used_otp_hashes: set[str] = set()
 
 
@@ -203,6 +206,31 @@ def _otp_use_hash(req: PinRequest, result, oracle_email: str) -> str:
     )
 
 
+def _mark_otp_released(otp_use_hash: str) -> None:
+    if otp_use_hash in state.used_otp_hashes:
+        raise HTTPException(409, "OTP has already been released")
+
+    if not state.otp_replay_store_ready:
+        raise HTTPException(
+            503,
+            "OTP replay ledger is unavailable; refusing to release OTP",
+        )
+
+    updated_hashes = set(state.used_otp_hashes)
+    updated_hashes.add(otp_use_hash)
+
+    if state.otp_replay_store:
+        try:
+            state.otp_replay_store.save(updated_hashes)
+        except Exception as exc:
+            raise HTTPException(
+                503,
+                "Could not persist OTP replay ledger; refusing to release OTP",
+            ) from exc
+
+    state.used_otp_hashes = updated_hashes
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize oracle on startup."""
@@ -214,6 +242,20 @@ async def lifespan(app: FastAPI):
         dstack_enabled=settings.dstack_enabled,
         dstack_key_path=settings.dstack_key_path,
     )
+    state.otp_replay_store = OtpReplayStore(
+        settings.otp_replay_store_path,
+        settings.otp_replay_store_key,
+        dstack_enabled=settings.dstack_enabled,
+        dstack_key_path=settings.otp_replay_key_path,
+    )
+    try:
+        state.used_otp_hashes = state.otp_replay_store.load()
+        state.otp_replay_store_ready = True
+        print(f"[api] loaded {len(state.used_otp_hashes)} OTP replay entries")
+    except Exception as e:
+        print(f"[api] failed to decrypt OTP replay ledger: {e}")
+        state.used_otp_hashes = set()
+        state.otp_replay_store_ready = False
 
     # Load existing credentials
     if state.store.exists():
@@ -271,9 +313,7 @@ async def extract_pin(req: PinRequest):
 
     request_hash = _pin_request_hash(req)
     otp_use_hash = _otp_use_hash(req, result, state.creds.email)
-    if otp_use_hash in state.used_otp_hashes:
-        raise HTTPException(409, "OTP has already been released")
-    state.used_otp_hashes.add(otp_use_hash)
+    _mark_otp_released(otp_use_hash)
 
     if req.delete_after:
         try:

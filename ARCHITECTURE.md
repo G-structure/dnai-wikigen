@@ -445,10 +445,10 @@ Implementation status:
 [real]      EmailOracleAuth.sol and tests.
 [real]      email_oracle API, credential store, IMAP client.
 [real]      Scoped `/pin` requests require target service, sender scope, nonce,
-            caller identity, and reason; released OTP hashes are one-time per
-            oracle runtime.
+            caller identity, and reason; released OTP hashes are persisted for
+            one-time-use across oracle restarts when the replay ledger decrypts.
+[real]      OTP replay ledger is persisted under encrypted/sealed oracle storage.
 [partial]   App-auth contract is not yet enforced on every OTP API request.
-[partial]   OTP replay state is in memory only and does not survive CVM restart.
 [planned]   Reviewer notification, consent confirmation, outbound bounded-result delivery.
 ```
 
@@ -954,6 +954,9 @@ caller identity, nonce, reason, max age, and bounded extraction regex
   v
 PinResponse with OTP, oracle email, sender, subject, request hash,
 one-time OTP-use hash, timestamp, optional quote over hashes
+  |
+  v
+Encrypted OTP replay ledger persists released OTP-use hashes across restarts
 ```
 
 ### tinker-delegate

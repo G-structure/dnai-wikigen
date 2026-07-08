@@ -207,6 +207,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       from registry images only, no local `build:` contexts.
 - [ ] `P0` Persist only sealed data under the CVM data volume:
       email creds, Tinker API key, funding token state, and run metadata.
+      - [x] Persist email-oracle OTP replay hashes in an encrypted/sealed ledger
+            so OTP one-time-use survives service restart without storing OTPs.
+      - [ ] Confirm Tinker API key, funding token state, and run metadata are
+            sealed/persisted only under the CVM data volume.
 - [ ] `P0` Add log scrubbing for OTPs, API keys, card data, bearer tokens, and
       raw artifacts.
       - [x] Stop logging extracted OTP values in the email oracle and Tinker
@@ -250,8 +254,8 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       target service, expected sender, expected subject pattern, max age, nonce,
       caller identity, and reason.
 - [x] `P0` Add OTP one-time-use semantics so the same code cannot be replayed.
-      Current implementation is runtime-scoped/in-memory; add durable replay
-      state before production restart/redeploy claims.
+      Released OTP-use hashes are persisted in an encrypted/sealed replay ledger;
+      raw OTPs are not stored.
 - [ ] `P1` Add mailbox retention policy:
       delete or redact messages after OTP extraction unless retention is
       explicitly required for audit.
