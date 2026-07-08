@@ -308,7 +308,7 @@ contracts/
 
 - **Onboarding** (`/onboarding`): `fullName` (text), `affiliation` (text, optional), `whatWillYouCreate` (text, optional), `tos` (checkbox, hidden input — click label)
 - **Welcome** (`/welcome`): Quick tips page, "Get started" button
-- **API keys** (`/keys`): Table of keys, "New key" button → modal dialog → "Generate key"
+- **API keys** (`/keys`): Table of keys, "New key" button → modal dialog → "Generate key"; automation also accepts aria-label and `data-testid` variants for create/confirm/close controls, with replayable mock-page tests for selector drift
 - **Key format**: `tml-[A-Za-z0-9_-]{60+}` (prefix `tml-`, shown once)
 - **Key modal**: "This key will ONLY appear once" warning, Copy button, Close button
 - **Initial load bug**: Keys page shows "Loading..." on first visit, requires `page.reload()` to render properly

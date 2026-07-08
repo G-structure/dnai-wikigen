@@ -168,8 +168,10 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - The selector/UI repair, OTP login, onboarding, API-key provisioning, and
   test-card decline are validated locally with Neko/CDP.
 - API-key provisioning now has fallback selector families for current key
-  creation labels and emits bounded `api_key_provisioning` attempt records,
-  including `selector_missing` instead of raw page state.
+  creation labels plus aria-label/data-testid variants, emits bounded
+  `api_key_provisioning` attempt records including `selector_missing` instead
+  of raw page state, and has replayable mock-page tests for successful key
+  extraction and selector-drift failures.
 - The same flow still needs fresh validation inside a deployed Phala CVM.
 - The optional Tinker SDK dependency and runtime behavior inside the final CVM
   image are not yet proven.

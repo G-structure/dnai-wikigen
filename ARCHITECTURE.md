@@ -564,9 +564,11 @@ Implementation status:
 [real]      Signup/bootstrap stores captured Tinker API keys in encrypted
             storage and returns only bounded hash/status metadata.
 [real]      API-key provisioning uses a small selector fallback family for
-            current Tinker key-creation copy and returns bounded
-            `api_key_provisioning` attempt records, including
-            `selector_missing` when no key can be captured.
+            current Tinker key-creation copy plus aria-label/data-testid
+            variants, returns bounded `api_key_provisioning` attempt records,
+            including `selector_missing` when no key can be captured, and has
+            replayable mock-page tests for successful extraction and selector
+            drift failure paths.
 [real]      Local Stripe test-card billing path reaches submission and returns a bounded decline.
 [real]      Billing automation returns bounded payment-method and add-balance
             attempt records: outcome class, furthest stage, issued timestamp,

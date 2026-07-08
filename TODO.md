@@ -308,6 +308,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             Add payment method modal, and Stripe card iframe.
       - [x] Add selector-repair fallback families and bounded
             `selector_missing` attempt records for API-key provisioning.
+      - [x] Add replayable mock-page tests for API-key creation selectors,
+            including aria-label/data-testid fallback variants, successful key
+            extraction, missing-create-selector, and extraction-failure paths.
       - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
 - [ ] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
@@ -329,6 +332,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       billing probes.
 - [ ] `P1` Add replayable browser tests against mock pages for auth, onboarding,
       key creation, and billing.
+      - [x] API-key creation mock-page tests cover selector fallback variants,
+            one-time `tml-...` extraction, and bounded missing-selector /
+            extraction-failure behavior without a live Tinker account.
+      - [ ] Auth and OTP mock-page tests.
+      - [ ] Onboarding mock-page tests.
+      - [ ] Billing and Stripe-frame mock-page tests.
 
 ### Tinker Funding
 

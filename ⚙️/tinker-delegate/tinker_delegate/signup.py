@@ -40,6 +40,14 @@ API_KEY_CREATE_SELECTORS = (
     'button:has-text("New API key")',
     'button:has-text("Create key")',
     'button:has-text("Create API key")',
+    'button[aria-label="New key"]',
+    'button[aria-label="New API key"]',
+    'button[aria-label="Create key"]',
+    'button[aria-label="Create API key"]',
+    '[data-testid="new-key"]',
+    '[data-testid="new-api-key"]',
+    '[data-testid="create-key"]',
+    '[data-testid="create-api-key"]',
     'a:has-text("New key")',
     'a:has-text("Create API key")',
 )
@@ -50,12 +58,24 @@ API_KEY_CONFIRM_SELECTORS = (
     'button:has-text("Create key")',
     'button:has-text("Create API key")',
     'button:has-text("Confirm")',
+    'button[aria-label="Generate key"]',
+    'button[aria-label="Generate API key"]',
+    'button[aria-label="Create key"]',
+    'button[aria-label="Create API key"]',
+    'button[aria-label="Confirm"]',
+    '[data-testid="generate-key"]',
+    '[data-testid="generate-api-key"]',
+    '[data-testid="confirm-key"]',
+    '[data-testid="confirm-api-key"]',
 )
 
 API_KEY_CLOSE_SELECTORS = (
     'button:has-text("Close")',
     'button:has-text("Done")',
     'button[aria-label="Close"]',
+    'button[aria-label="Done"]',
+    '[data-testid="close"]',
+    '[data-testid="done"]',
 )
 
 
