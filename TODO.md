@@ -412,6 +412,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `check-funding-validation-packet` verifies required files,
             replays payment/top-up manifests, catches tampering, and can require
             add-balance evidence or deployed TDX attestation evidence.
+      - [x] Add payment-method and add-balance selector-repair fallback
+            families for the Tinker billing UI, with mock-page tests covering
+            data-testid/aria-style drift and bounded `selector_missing`
+            receipts when top-up controls cannot be found.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test

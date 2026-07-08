@@ -219,6 +219,11 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Payment-method and add-balance operations return bounded attempt records with
   outcome class, furthest stage, issued timestamp, evidence hash, amount/balance
   bands, TDX quote hash when present, and card-payload destruction status.
+- Billing automation has selector fallback families for balance/payment
+  controls, payment-method submission, cardholder/address fields, add-balance
+  amount input, and top-up confirmation. Mock-page tests cover current selectors
+  plus data-testid/aria-style drift, and missing top-up controls return bounded
+  `selector_missing` receipts without exposing page text.
 - Bounded funding receipts are persisted in encrypted/sealed delegate storage
   under a separate funding-receipt key path and exposed through
   `GET /billing/funding-receipts`.

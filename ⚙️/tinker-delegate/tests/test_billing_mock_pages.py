@@ -2,6 +2,11 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 from tinker_delegate.billing import (
+    ADD_BALANCE_AMOUNT_SELECTORS,
+    ADD_BALANCE_CONFIRM_SELECTORS,
+    ADD_PAYMENT_METHOD_SELECTORS,
+    ADD_TO_BALANCE_SELECTORS,
+    CARDHOLDER_NAME_SELECTORS,
     CardDetails,
     _do_add_payment_method,
     _fill_stripe_card,
@@ -94,6 +99,7 @@ class FakeBillingPage:
         dialog_present: bool = True,
         amount_input_present: bool = True,
         confirm_present: bool = True,
+        available_overrides: dict[str, int] | None = None,
     ):
         self.frames = frames or []
         self.initial_text = initial_text
@@ -124,6 +130,8 @@ class FakeBillingPage:
                 1 if confirm_present else 0
             ),
         }
+        if available_overrides:
+            self.available_counts.update(available_overrides)
 
     async def goto(self, url: str, **_kwargs):
         self.goto_urls.append(url)
@@ -235,6 +243,35 @@ class BillingMockPagesTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn(("fill", "#service-postal-code", "94105"), page.actions)
         self.assertIn(("click", 'button:has-text("Add payment method")', "1"), page.actions)
 
+    async def test_add_payment_method_uses_selector_fallbacks_for_changed_billing_ui(self):
+        stripe_frame = FakeStripeFrame(url="https://js.stripe.com/elements-inner-card.html")
+        page = FakeBillingPage(
+            frames=[stripe_frame],
+            available_overrides={
+                ADD_TO_BALANCE_SELECTORS[0]: 0,
+                ADD_TO_BALANCE_SELECTORS[-1]: 1,
+                ADD_PAYMENT_METHOD_SELECTORS[0]: 0,
+                ADD_PAYMENT_METHOD_SELECTORS[-1]: 2,
+                CARDHOLDER_NAME_SELECTORS[0]: 0,
+                CARDHOLDER_NAME_SELECTORS[1]: 1,
+            },
+        )
+        card = CardDetails("4242424242424242", "12", "2030", "123", "Test User")
+
+        with (
+            patch("tinker_delegate.billing.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.billing.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.billing.get_browser_context", new=AsyncMock(return_value=FakeContext(page))),
+            patch("tinker_delegate.billing.asyncio.sleep", new=AsyncMock()),
+        ):
+            result = await _do_add_payment_method(card, Settings())
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["attempt_record"]["outcome"], "card_declined")
+        self.assertIn(("click", ADD_TO_BALANCE_SELECTORS[-1], "0"), page.actions)
+        self.assertIn(("fill", CARDHOLDER_NAME_SELECTORS[1], "Test User"), page.actions)
+        self.assertIn(("click", ADD_PAYMENT_METHOD_SELECTORS[-1], "1"), page.actions)
+
     async def test_add_balance_mock_page_detects_missing_payment_method(self):
         page = FakeBillingPage(initial_text="Add payment method\nName on card")
 
@@ -252,6 +289,26 @@ class BillingMockPagesTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["attempt_record"]["outcome"], "payment_method_required")
         self.assertEqual(result["attempt_record"]["furthest_stage"], "add_balance_modal_opened")
         self.assertEqual(result["attempt_record"]["amount_band"], "lt_5_usd")
+
+    async def test_add_balance_reports_missing_open_selector_before_amount_entry(self):
+        page = FakeBillingPage(
+            initial_text="Current balance $0",
+            available_overrides={selector: 0 for selector in ADD_TO_BALANCE_SELECTORS},
+        )
+
+        with (
+            patch("tinker_delegate.billing.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.billing.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.billing.get_browser_context", new=AsyncMock(return_value=FakeContext(page))),
+            patch("tinker_delegate.billing.asyncio.sleep", new=AsyncMock()),
+        ):
+            result = await add_balance(3.0, Settings(max_add_balance_usd=5.0))
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Add-balance open selector not found")
+        self.assertEqual(result["attempt_record"]["outcome"], "selector_missing")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "billing_page_loaded")
+        self.assertNotIn("Current balance", repr(result))
 
     async def test_add_balance_mock_page_fills_amount_and_submits(self):
         page = FakeBillingPage(
@@ -285,6 +342,31 @@ class BillingMockPagesTest(unittest.IsolatedAsyncioTestCase):
             ),
             page.actions,
         )
+
+    async def test_add_balance_uses_amount_and_confirm_selector_fallbacks(self):
+        page = FakeBillingPage(
+            initial_text="Current balance $0",
+            result_text="Balance ending in card accepted",
+            available_overrides={
+                ADD_BALANCE_AMOUNT_SELECTORS[0]: 0,
+                ADD_BALANCE_AMOUNT_SELECTORS[-1]: 1,
+                ADD_BALANCE_CONFIRM_SELECTORS[0]: 0,
+                ADD_BALANCE_CONFIRM_SELECTORS[-1]: 1,
+            },
+        )
+
+        with (
+            patch("tinker_delegate.billing.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.billing.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.billing.get_browser_context", new=AsyncMock(return_value=FakeContext(page))),
+            patch("tinker_delegate.billing.asyncio.sleep", new=AsyncMock()),
+        ):
+            result = await add_balance(5.0, Settings(max_add_balance_usd=5.0))
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "add_balance_submitted")
+        self.assertIn(("fill", ADD_BALANCE_AMOUNT_SELECTORS[-1], "5.0"), page.actions)
+        self.assertIn(("click", ADD_BALANCE_CONFIRM_SELECTORS[-1], "0"), page.actions)
 
 
 if __name__ == "__main__":

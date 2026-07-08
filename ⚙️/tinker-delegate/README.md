@@ -458,6 +458,12 @@ contracts/
 - **Payment**: Stripe Elements (cross-origin iframe for PCI compliance)
 - **Card iframe**: `input[name="cardnumber"]`, `input[name="exp-date"]`, `input[name="cvc"]`
 - **Parent fields**: `#cardholder-name`, `#service-line1`, `#service-city`, `#service-state`, `#service-postal-code`, `#service-country`
+- **Selector drift handling**: payment-method and add-balance automation use
+  explicit fallback families for balance/payment controls, submit buttons,
+  cardholder/address fields, add-balance amount inputs, and top-up confirmation.
+  Mock-page tests cover current selectors plus data-testid/aria-style variants;
+  missing top-up controls return bounded `selector_missing` receipts without
+  returning page text.
 - **hCaptcha**: Invisible on form (no manual solve needed in neko)
 - **Model**: Prepaid balance (add credit, spend on API usage)
 - **Local test-card result**: Stripe test card reaches submission and returns `Your card was declined.`

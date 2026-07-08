@@ -161,6 +161,9 @@ What is real:
 - The local test-card path reaches Stripe/Tinker submission and returns bounded
   `card_declined`.
 - Add-balance fails closed without a payment method.
+- Payment-method and add-balance browser automation use selector fallback
+  families for Tinker billing controls and return bounded `selector_missing`
+  receipts when top-up controls cannot be found.
 - Funding attempts persist bounded encrypted receipts.
 - Policy-denied card and add-balance requests persist bounded receipts without
   launching browser automation.

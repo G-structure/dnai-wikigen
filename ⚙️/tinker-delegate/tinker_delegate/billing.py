@@ -28,6 +28,77 @@ from tinker_delegate.browser_ready import connect_chromium, get_browser_context
 from tinker_delegate.config import Settings
 from tinker_delegate.debug_artifacts import purge_secret_debug_artifacts
 
+BILLING_BALANCE_URL = "https://tinker-console.thinkingmachines.ai/billing/balance"
+
+ADD_TO_BALANCE_SELECTORS = (
+    'button:has-text("Add to balance")',
+    'button:has-text("Add balance")',
+    'button:has-text("Add funds")',
+    'button[aria-label="Add to balance"]',
+    'button[aria-label="Add balance"]',
+    '[data-testid="add-to-balance"]',
+    '[data-testid="add-balance"]',
+)
+
+PAYMENT_METHODS_SELECTORS = (
+    'button:has-text("Payment methods")',
+    'a:has-text("Payment methods")',
+    'button[aria-label="Payment methods"]',
+    '[data-testid="payment-methods"]',
+)
+
+ADD_PAYMENT_METHOD_SELECTORS = (
+    'button:has-text("Add payment method")',
+    'button:has-text("Add card")',
+    'button:has-text("Save payment method")',
+    'button:has-text("Save card")',
+    'button[aria-label="Add payment method"]',
+    'button[aria-label="Add card"]',
+    '[data-testid="add-payment-method"]',
+    '[data-testid="save-payment-method"]',
+)
+
+CARDHOLDER_NAME_SELECTORS = (
+    "#cardholder-name",
+    'input[name="cardholderName"]',
+    'input[autocomplete="cc-name"]',
+    'input[placeholder*="Name"]',
+)
+
+ADDRESS_FIELD_SELECTORS = (
+    ("address_line1", ("#service-line1", 'input[name="line1"]', 'input[autocomplete="billing address-line1"]')),
+    ("address_city", ("#service-city", 'input[name="city"]', 'input[autocomplete="billing address-level2"]')),
+    ("address_state", ("#service-state", 'input[name="state"]', 'input[autocomplete="billing address-level1"]')),
+    (
+        "address_postal",
+        ("#service-postal-code", 'input[name="postalCode"]', 'input[autocomplete="billing postal-code"]'),
+    ),
+    ("address_country", ("#service-country", 'select[name="country"]', 'input[name="country"]')),
+)
+
+ADD_BALANCE_DIALOG_SELECTORS = (
+    '[role="dialog"], dialog',
+    '[role="dialog"]',
+    "dialog",
+    '[data-testid="add-balance-dialog"]',
+)
+
+ADD_BALANCE_AMOUNT_SELECTORS = (
+    'input[type="number"], input[placeholder*="amount"], input[name*="amount"]',
+    'input[name="amount"]',
+    'input[placeholder*="Amount"]',
+    '[data-testid="add-balance-amount"]',
+)
+
+ADD_BALANCE_CONFIRM_SELECTORS = (
+    'button:has-text("Confirm"), button:has-text("Add balance"), button:has-text("Pay")',
+    'button:has-text("Confirm")',
+    'button:has-text("Add balance")',
+    'button:has-text("Pay")',
+    'button[aria-label="Confirm"]',
+    '[data-testid="confirm-add-balance"]',
+)
+
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -151,6 +222,39 @@ async def _debug_screenshot(page: Page, settings: Settings, path: str, *, contai
     return True
 
 
+async def _click_first_available(scope, selectors: tuple[str, ...], *, prefer_last: bool = False) -> str | None:
+    """Click the first matching selector in a bounded fallback family."""
+    for selector in selectors:
+        locator = scope.locator(selector)
+        count = await locator.count()
+        if count <= 0:
+            continue
+        target = locator.nth(count - 1) if prefer_last else locator.first
+        await target.click()
+        return selector
+    return None
+
+
+async def _fill_first_available(scope, selectors: tuple[str, ...], value: str) -> str | None:
+    """Fill the first matching selector in a bounded fallback family."""
+    for selector in selectors:
+        locator = scope.locator(selector)
+        if await locator.count() <= 0:
+            continue
+        await locator.first.fill(value)
+        return selector
+    return None
+
+
+async def _first_available_scope(scope, selectors: tuple[str, ...]):
+    """Return the first matching locator scope, or the original scope."""
+    for selector in selectors:
+        locator = scope.locator(selector)
+        if await locator.count() > 0:
+            return locator.last
+    return scope
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -184,18 +288,13 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
 
         # Navigate to billing page
         print("[billing] navigating to billing page...")
-        await page.goto(
-            "https://tinker-console.thinkingmachines.ai/billing/balance",
-            wait_until="domcontentloaded", timeout=15000,
-        )
+        await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
         await asyncio.sleep(3)
         furthest_stage = AutomationStage.BILLING_PAGE_LOADED
 
         # Click "Add to balance" to trigger the payment modal
         # (which includes "Add payment method" if no card exists)
-        add_btn = page.locator('button:has-text("Add to balance")')
-        if await add_btn.count() > 0:
-            await add_btn.click()
+        if await _click_first_available(page, ADD_TO_BALANCE_SELECTORS):
             await asyncio.sleep(3)
             furthest_stage = AutomationStage.PAYMENT_MODAL_OPENED
 
@@ -203,13 +302,9 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
         text = await page.evaluate("() => document.body?.innerText || ''")
         if "Add payment method" not in text:
             # Try payment methods tab directly
-            pm_btn = page.locator('button:has-text("Payment methods")')
-            if await pm_btn.count() > 0:
-                await pm_btn.click()
+            if await _click_first_available(page, PAYMENT_METHODS_SELECTORS):
                 await asyncio.sleep(2)
-            add_pm = page.locator('button:has-text("Add payment method")')
-            if await add_pm.count() > 0:
-                await add_pm.click()
+            if await _click_first_available(page, ADD_PAYMENT_METHOD_SELECTORS, prefer_last=True):
                 await asyncio.sleep(3)
                 furthest_stage = AutomationStage.PAYMENT_MODAL_OPENED
 
@@ -234,23 +329,14 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
 
         # Fill parent page fields
         print("[billing] filling name and address...")
-        name_input = page.locator('#cardholder-name')
-        if await name_input.count() > 0:
-            await name_input.fill(card.name)
+        if await _fill_first_available(page, CARDHOLDER_NAME_SELECTORS, card.name):
             await asyncio.sleep(0.2)
 
         # Address fields
-        for field_id, value in [
-            ("service-line1", card.address_line1),
-            ("service-city", card.address_city),
-            ("service-state", card.address_state),
-            ("service-postal-code", card.address_postal),
-            ("service-country", card.address_country),
-        ]:
+        for attr, selectors in ADDRESS_FIELD_SELECTORS:
+            value = getattr(card, attr)
             if value:
-                field = page.locator(f"#{field_id}")
-                if await field.count() > 0:
-                    await field.fill(value)
+                if await _fill_first_available(page, selectors, value):
                     await asyncio.sleep(0.1)
         furthest_stage = AutomationStage.PAYMENT_FORM_FILLED
 
@@ -264,14 +350,10 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
 
         # Submit
         print("[billing] submitting payment method...")
-        submit = page.locator('button:has-text("Add payment method")')
-        # There may be multiple — pick the one in the modal (last one)
-        count = await submit.count()
-        if count > 0:
-            await submit.nth(count - 1).click()
+        if await _click_first_available(page, ADD_PAYMENT_METHOD_SELECTORS, prefer_last=True):
             furthest_stage = AutomationStage.PAYMENT_SUBMITTED
         else:
-            error = "Submit button not found"
+            error = "Add payment method submit selector not found"
             return _payment_method_result(False, error, furthest_stage, text)
 
         await asyncio.sleep(5)
@@ -319,19 +401,16 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
         context = await get_browser_context(browser)
         page = context.pages[0] if context.pages else await context.new_page()
 
-        await page.goto(
-            "https://tinker-console.thinkingmachines.ai/billing/balance",
-            wait_until="domcontentloaded", timeout=15000,
-        )
+        await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
         await asyncio.sleep(3)
         furthest_stage = AutomationStage.BILLING_PAGE_LOADED
 
         # Click "Add to balance"
-        add_btn = page.locator('button:has-text("Add to balance")')
-        if await add_btn.count() > 0:
-            await add_btn.click()
-            await asyncio.sleep(3)
-            furthest_stage = AutomationStage.ADD_BALANCE_MODAL_OPENED
+        if not await _click_first_available(page, ADD_TO_BALANCE_SELECTORS):
+            error = "Add-balance open selector not found"
+            return _add_balance_result(False, error, amount_dollars, furthest_stage, error)
+        await asyncio.sleep(3)
+        furthest_stage = AutomationStage.ADD_BALANCE_MODAL_OPENED
 
         text = await page.evaluate("() => document.body?.innerText || ''")
         if "Add payment method" in text and "Name on card" in text:
@@ -339,11 +418,8 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
             return _add_balance_result(False, error, amount_dollars, furthest_stage, text)
 
         # Look for amount input
-        dialog = page.locator('[role="dialog"], dialog')
-        scope = dialog.last if await dialog.count() > 0 else page
-        amount_input = scope.locator('input[type="number"], input[placeholder*="amount"], input[name*="amount"]')
-        if await amount_input.count() > 0:
-            await amount_input.fill(str(amount_dollars))
+        scope = await _first_available_scope(page, ADD_BALANCE_DIALOG_SELECTORS)
+        if await _fill_first_available(scope, ADD_BALANCE_AMOUNT_SELECTORS, str(amount_dollars)):
             await asyncio.sleep(0.5)
             furthest_stage = AutomationStage.ADD_BALANCE_AMOUNT_FILLED
         else:
@@ -351,9 +427,7 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
             return _add_balance_result(False, error, amount_dollars, furthest_stage, text)
 
         # Submit
-        confirm = scope.locator('button:has-text("Confirm"), button:has-text("Add balance"), button:has-text("Pay")')
-        if await confirm.count() > 0:
-            await confirm.first.click()
+        if await _click_first_available(scope, ADD_BALANCE_CONFIRM_SELECTORS):
             await asyncio.sleep(5)
             furthest_stage = AutomationStage.ADD_BALANCE_SUBMITTED
         else:
