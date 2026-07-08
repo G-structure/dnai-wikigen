@@ -4,17 +4,22 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
+from cryptography.exceptions import InvalidTag
 
 from tinker_delegate import api
 from tinker_delegate.artifacts import (
+    artifact_associated_data,
+    artifact_hkdf_info,
     artifact_keccak256,
     decode_artifact_hex,
+    decrypt_artifact_payload,
     encrypt_artifact_payload,
     normalize_artifact_hash,
     verify_artifact_hash,
     zero_buffer,
 )
 from tinker_delegate.config import Settings
+from tinker_delegate.crypto import EncryptedPayload
 
 
 EXPECTED_TEST_ARTIFACT_HASH = (
@@ -44,6 +49,53 @@ class ArtifactHelperTest(unittest.TestCase):
         payload = bytearray(b"secret-artifact")
         zero_buffer(payload)
         self.assertEqual(payload, bytearray(len(b"secret-artifact")))
+
+    def test_artifact_key_context_is_per_deal_and_hash(self):
+        other_hash = "0x" + "11" * 32
+
+        self.assertEqual(
+            artifact_hkdf_info("deal-1", EXPECTED_TEST_ARTIFACT_HASH),
+            artifact_hkdf_info("deal-1", EXPECTED_TEST_ARTIFACT_HASH.upper()),
+        )
+        self.assertNotEqual(
+            artifact_hkdf_info("deal-1", EXPECTED_TEST_ARTIFACT_HASH),
+            artifact_hkdf_info("deal-2", EXPECTED_TEST_ARTIFACT_HASH),
+        )
+        self.assertNotEqual(
+            artifact_hkdf_info("deal-1", EXPECTED_TEST_ARTIFACT_HASH),
+            artifact_hkdf_info("deal-1", other_hash),
+        )
+        self.assertNotEqual(
+            artifact_hkdf_info("deal-1", EXPECTED_TEST_ARTIFACT_HASH),
+            artifact_associated_data("deal-1", EXPECTED_TEST_ARTIFACT_HASH),
+        )
+
+    def test_encrypted_artifact_keys_are_deal_bound(self):
+        keypair = api.get_tee_keypair()
+        encrypted = encrypt_artifact_payload(
+            b"test-artifact",
+            keypair.public_key_bytes.hex(),
+            deal_id="deal-1",
+            artifact_hash=EXPECTED_TEST_ARTIFACT_HASH,
+        )
+        payload = EncryptedPayload.from_hex(encrypted)
+
+        self.assertEqual(
+            decrypt_artifact_payload(
+                payload,
+                keypair,
+                deal_id="deal-1",
+                artifact_hash=EXPECTED_TEST_ARTIFACT_HASH,
+            ),
+            bytearray(b"test-artifact"),
+        )
+        with self.assertRaises(InvalidTag):
+            decrypt_artifact_payload(
+                payload,
+                keypair,
+                deal_id="deal-2",
+                artifact_hash=EXPECTED_TEST_ARTIFACT_HASH,
+            )
 
 
 class ArtifactIngressTest(unittest.TestCase):

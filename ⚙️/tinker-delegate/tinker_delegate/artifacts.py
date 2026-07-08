@@ -61,6 +61,12 @@ def artifact_associated_data(deal_id: str, artifact_hash: str) -> bytes:
     return b"|".join((ARTIFACT_AAD_PREFIX, deal_id.encode(), normalized_hash.encode()))
 
 
+def artifact_hkdf_info(deal_id: str, artifact_hash: str) -> bytes:
+    """Build per-deal/per-artifact HKDF context for artifact payload keys."""
+    normalized_hash = normalize_artifact_hash(artifact_hash)
+    return b"|".join((ARTIFACT_HKDF_INFO, deal_id.encode(), normalized_hash.encode()))
+
+
 def encrypt_artifact_payload(
     artifact: bytes | bytearray,
     tee_public_key_hex: str,
@@ -74,7 +80,7 @@ def encrypt_artifact_payload(
     payload = encrypt_for_tee(
         bytes(artifact),
         tee_public_key,
-        info=ARTIFACT_HKDF_INFO,
+        info=artifact_hkdf_info(deal_id, expected_hash),
         associated_data=artifact_associated_data(deal_id, expected_hash),
     )
     result = payload.to_hex()
@@ -92,7 +98,7 @@ def decrypt_artifact_payload(
     """Decrypt an artifact ciphertext inside the TEE into a mutable buffer."""
     plaintext = tee_keypair.decrypt(
         encrypted,
-        info=ARTIFACT_HKDF_INFO,
+        info=artifact_hkdf_info(deal_id, artifact_hash),
         associated_data=artifact_associated_data(deal_id, artifact_hash),
     )
     return bytearray(plaintext)

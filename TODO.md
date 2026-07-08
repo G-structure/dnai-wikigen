@@ -539,6 +539,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       a deal can proceed.
 - [ ] `P0` Add per-corpus/per-deal key derivation:
       no single static artifact key for all rooms.
+      - [x] Derive artifact upload AES keys with per-deal/per-artifact HKDF
+            context so ciphertexts cannot decrypt under another deal or
+            artifact hash even under the same TEE public key.
+      - [ ] Add a sealed-storage key hierarchy for retained corpora/rooms if
+            post-settlement encrypted artifact retention is implemented.
 - [ ] `P0` Ensure artifacts never touch disk unencrypted.
       - [x] Add no-disk-write regression tests around encrypted FastAPI ingress
             and control-plane evaluation dispatch so raw artifact buffers in

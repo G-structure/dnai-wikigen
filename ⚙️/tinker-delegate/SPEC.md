@@ -853,6 +853,8 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] Encryption channel: X25519 + AES-256-GCM for card delivery — `tinker_delegate/crypto.py`
 - [x] Encrypted artifact ingress: quote-key channel, deal/hash-bound AES-GCM,
       disabled plaintext production path, client-side attestation envelope gate
+- [x] Per-deal/per-artifact HKDF context for artifact upload keys under the
+      attestation-exposed TEE public key
 - [x] No-disk-write regression tests for encrypted FastAPI artifact ingress and
       control-plane evaluation dispatch while raw artifact buffers are in scope
 - [x] TDX quote stubs (local) / real generation (dstack) in attestation endpoints

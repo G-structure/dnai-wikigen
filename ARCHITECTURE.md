@@ -549,6 +549,9 @@ Implementation status:
 [real]      Encrypted artifact upload uses the attestation-exposed TEE public
             key, artifact-specific HKDF context, and deal/hash-bound AES-GCM
             associated data; plaintext artifact upload is disabled by default.
+[real]      Artifact upload AES keys are derived with per-deal/per-artifact
+            HKDF info, so ciphertexts cannot decrypt under another deal ID or
+            artifact hash even with the same TEE public key.
 [real]      Attestation report data binds operation context plus the TEE
             encryption public key so verifiers can detect key substitution.
 [real]      Client-side artifact uploader fetches `/attestation` and refuses to
@@ -569,7 +572,8 @@ Implementation status:
 [partial]   Optional Tinker SDK dependency must be installed for real evaluator execution.
 [partial]   Artifact upload still needs full cryptographic Intel TDX quote
             parsing/freshness validation, downstream evaluator/Tinker/browser
-            no-disk audit, and evaluator-side raw-byte lifetime audit.
+            no-disk audit, sealed-retention key hierarchy if retention is added,
+            and evaluator-side raw-byte lifetime audit.
 [planned]   Dedicated Tinker account encumbrance contract / funding-rail policy contract.
 ```
 
