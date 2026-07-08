@@ -16,6 +16,13 @@ import re
 
 from playwright.async_api import async_playwright, Page, Frame
 
+from tinker_delegate.automation_receipts import (
+    AutomationOutcome,
+    AutomationStage,
+    AutomationSurface,
+    classify_automation_error,
+    make_receipt,
+)
 from tinker_delegate.browser_ready import connect_chromium, get_browser_context
 from tinker_delegate.config import Settings
 
@@ -157,6 +164,7 @@ async def add_payment_method(card: CardDetails, settings: Settings | None = None
 
 async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
     """Internal: fill and submit the payment method form."""
+    furthest_stage = AutomationStage.NOT_STARTED
     async with async_playwright() as p:
         browser = await connect_chromium(p, settings)
         context = await get_browser_context(browser)
@@ -169,6 +177,7 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
             wait_until="domcontentloaded", timeout=15000,
         )
         await asyncio.sleep(3)
+        furthest_stage = AutomationStage.BILLING_PAGE_LOADED
 
         # Click "Add to balance" to trigger the payment modal
         # (which includes "Add payment method" if no card exists)
@@ -176,6 +185,7 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
         if await add_btn.count() > 0:
             await add_btn.click()
             await asyncio.sleep(3)
+            furthest_stage = AutomationStage.PAYMENT_MODAL_OPENED
 
         # Check if we got the add payment method form
         text = await page.evaluate("() => document.body?.innerText || ''")
@@ -189,6 +199,7 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
             if await add_pm.count() > 0:
                 await add_pm.click()
                 await asyncio.sleep(3)
+                furthest_stage = AutomationStage.PAYMENT_MODAL_OPENED
 
         # Wait for Stripe iframe to load
         print("[billing] waiting for Stripe card element...")
@@ -202,7 +213,9 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
         if not stripe_frame:
             if settings.debug_screenshots:
                 await page.screenshot(path="screenshot_no_stripe.png")
-            return {"success": False, "error": "Stripe card iframe not found"}
+            error = "Stripe card iframe not found"
+            return _payment_method_result(False, error, furthest_stage, text)
+        furthest_stage = AutomationStage.STRIPE_IFRAME_FOUND
 
         # Fill Stripe card fields
         print("[billing] filling card details in Stripe iframe...")
@@ -228,6 +241,7 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
                 if await field.count() > 0:
                     await field.fill(value)
                     await asyncio.sleep(0.1)
+        furthest_stage = AutomationStage.PAYMENT_FORM_FILLED
 
         await asyncio.sleep(1)
         if settings.debug_screenshots:
@@ -240,8 +254,10 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
         count = await submit.count()
         if count > 0:
             await submit.nth(count - 1).click()
+            furthest_stage = AutomationStage.PAYMENT_SUBMITTED
         else:
-            return {"success": False, "error": "Submit button not found"}
+            error = "Submit button not found"
+            return _payment_method_result(False, error, furthest_stage, text)
 
         await asyncio.sleep(5)
 
@@ -252,15 +268,15 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
 
         error_msg = _billing_error_message(text)
         if error_msg:
-            return {"success": False, "error": error_msg}
+            return _payment_method_result(False, error_msg, furthest_stage, text)
 
         # Check if payment method now shows up
         success = "ending in" in text.lower() or "visa" in text.lower() or "mastercard" in text.lower()
         print(f"[billing] payment method added: {success}")
 
         if not success:
-            return {"success": False, "error": "Payment method was not added"}
-        return {"success": True}
+            return _payment_method_result(False, "Payment method was not added", furthest_stage, text)
+        return _payment_method_result(True, None, furthest_stage, text)
 
 
 async def add_balance(amount_dollars: float, settings: Settings | None = None) -> dict:
@@ -271,6 +287,7 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
     if settings is None:
         settings = Settings()
 
+    furthest_stage = AutomationStage.NOT_STARTED
     async with async_playwright() as p:
         browser = await connect_chromium(p, settings)
         context = await get_browser_context(browser)
@@ -281,19 +298,19 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
             wait_until="domcontentloaded", timeout=15000,
         )
         await asyncio.sleep(3)
+        furthest_stage = AutomationStage.BILLING_PAGE_LOADED
 
         # Click "Add to balance"
         add_btn = page.locator('button:has-text("Add to balance")')
         if await add_btn.count() > 0:
             await add_btn.click()
             await asyncio.sleep(3)
+            furthest_stage = AutomationStage.ADD_BALANCE_MODAL_OPENED
 
         text = await page.evaluate("() => document.body?.innerText || ''")
         if "Add payment method" in text and "Name on card" in text:
-            return {
-                "success": False,
-                "error": "Payment method required before adding balance",
-            }
+            error = "Payment method required before adding balance"
+            return _add_balance_result(False, error, amount_dollars, furthest_stage, text)
 
         # Look for amount input
         dialog = page.locator('[role="dialog"], dialog')
@@ -302,16 +319,20 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
         if await amount_input.count() > 0:
             await amount_input.fill(str(amount_dollars))
             await asyncio.sleep(0.5)
+            furthest_stage = AutomationStage.ADD_BALANCE_AMOUNT_FILLED
         else:
-            return {"success": False, "error": "Add-balance amount input not found"}
+            error = "Add-balance amount input not found"
+            return _add_balance_result(False, error, amount_dollars, furthest_stage, text)
 
         # Submit
         confirm = scope.locator('button:has-text("Confirm"), button:has-text("Add balance"), button:has-text("Pay")')
         if await confirm.count() > 0:
             await confirm.first.click()
             await asyncio.sleep(5)
+            furthest_stage = AutomationStage.ADD_BALANCE_SUBMITTED
         else:
-            return {"success": False, "error": "Add-balance submit button not found"}
+            error = "Add-balance submit button not found"
+            return _add_balance_result(False, error, amount_dollars, furthest_stage, text)
 
         text = await page.evaluate("() => document.body?.innerText || ''")
         if settings.debug_screenshots:
@@ -319,8 +340,8 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
 
         error_msg = _billing_error_message(text)
         if error_msg:
-            return {"success": False, "error": error_msg}
-        return {"success": True}
+            return _add_balance_result(False, error_msg, amount_dollars, furthest_stage, text)
+        return _add_balance_result(True, None, amount_dollars, furthest_stage, text)
 
 
 async def configure_auto_reload(
@@ -403,3 +424,40 @@ async def get_balance(settings: Settings | None = None) -> dict:
         }""")
 
         return {"balance": f"${balance}" if balance else "unknown"}
+
+
+def _payment_method_result(
+    success: bool,
+    error: str | None,
+    furthest_stage: AutomationStage,
+    evidence: object,
+) -> dict:
+    outcome = AutomationOutcome.SUCCESS if success else classify_automation_error(error)
+    receipt = make_receipt(
+        surface=AutomationSurface.PAYMENT_METHOD,
+        outcome=outcome,
+        furthest_stage=furthest_stage,
+        evidence=evidence if success else error,
+        bounded_message="payment_method_added" if success else (error or "payment_method_failed"),
+        card_payload_destroyed=True,
+    )
+    return {"success": success, "error": error, "attempt_record": receipt.to_public_dict()}
+
+
+def _add_balance_result(
+    success: bool,
+    error: str | None,
+    amount_dollars: float,
+    furthest_stage: AutomationStage,
+    evidence: object,
+) -> dict:
+    outcome = AutomationOutcome.SUCCESS if success else classify_automation_error(error)
+    receipt = make_receipt(
+        surface=AutomationSurface.ADD_BALANCE,
+        outcome=outcome,
+        furthest_stage=furthest_stage,
+        evidence=evidence if success else error,
+        bounded_message="balance_added" if success else (error or "add_balance_failed"),
+        amount_dollars=amount_dollars,
+    )
+    return {"success": success, "error": error, "attempt_record": receipt.to_public_dict()}

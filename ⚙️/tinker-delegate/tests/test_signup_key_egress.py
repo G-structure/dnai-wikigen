@@ -60,6 +60,10 @@ class SignupKeyEgressTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("api_key", result)
         self.assertEqual(result["api_key_hash"], hashlib.sha256(api_key.encode()).hexdigest())
         self.assertEqual(store.saved_key, api_key)
+        self.assertEqual(result["attempt_record"]["surface"], "api_key_provisioning")
+        self.assertEqual(result["attempt_record"]["outcome"], "success")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "api_key_stored")
+        self.assertNotIn(api_key, repr(result["attempt_record"]))
 
     async def test_signup_fails_closed_when_api_key_store_fails(self):
         api_key = "tml-secret-key-material"
@@ -81,6 +85,26 @@ class SignupKeyEgressTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result["api_key_created"])
         self.assertNotIn("api_key", result)
         self.assertIn("store_error", result)
+        self.assertEqual(result["attempt_record"]["outcome"], "store_failed")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "api_key_captured")
+
+    async def test_signup_reports_selector_missing_when_key_not_captured(self):
+        with (
+            patch("tinker_delegate.signup.OracleClient", FakeOracle),
+            patch("tinker_delegate.signup.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.signup.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.signup.get_browser_context", new=AsyncMock(return_value=FakeContext())),
+            patch("tinker_delegate.signup._authenticate", new=AsyncMock()),
+            patch("tinker_delegate.signup._handle_onboarding", new=AsyncMock()),
+            patch("tinker_delegate.signup._create_api_key", new=AsyncMock(return_value=None)),
+        ):
+            result = await signup(Settings())
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["stored"])
+        self.assertFalse(result["api_key_created"])
+        self.assertEqual(result["attempt_record"]["outcome"], "selector_missing")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "api_keys_page_loaded")
 
 
 if __name__ == "__main__":

@@ -41,6 +41,14 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from tinker_delegate.automation_receipts import (
+    AutomationOutcome,
+    AutomationStage,
+    AutomationSurface,
+    classify_automation_error,
+    make_receipt,
+    quote_hash,
+)
 from tinker_delegate.billing import CardDetails, add_payment_method, add_balance, get_balance
 from tinker_delegate.config import Settings
 from tinker_delegate.crypto import TEEKeyPair, EncryptedPayload
@@ -99,6 +107,7 @@ class BillingResponse(BaseModel):
     error: Optional[str] = None
     balance: Optional[str] = None
     tdx_quote: Optional[str] = None  # hex-encoded TDX quote in production
+    attempt_record: Optional[dict] = None
 
 
 # ---------------------------------------------------------------------------
@@ -210,9 +219,26 @@ async def handle_card_update(payload: CardPayload, settings: Settings) -> Billin
             success=result.get("success", False),
             error=result.get("error"),
             tdx_quote=attestation.get("quote"),
+            attempt_record=_with_quote_hash(
+                _attempt_record_or_fallback(
+                    result,
+                    AutomationSurface.PAYMENT_METHOD,
+                    card_payload_destroyed=True,
+                ),
+                attestation.get("quote"),
+            ),
         )
     except Exception as e:
-        return BillingResponse(success=False, error=redact_text(e))
+        error = redact_text(e)
+        return BillingResponse(
+            success=False,
+            error=error,
+            attempt_record=_exception_receipt(
+                AutomationSurface.PAYMENT_METHOD,
+                error,
+                card_payload_destroyed=True,
+            ),
+        )
     finally:
         card.zero()
         payload.zero()
@@ -263,9 +289,26 @@ async def handle_encrypted_card_update(
             success=result.get("success", False),
             error=result.get("error"),
             tdx_quote=attestation.get("quote"),
+            attempt_record=_with_quote_hash(
+                _attempt_record_or_fallback(
+                    result,
+                    AutomationSurface.PAYMENT_METHOD,
+                    card_payload_destroyed=True,
+                ),
+                attestation.get("quote"),
+            ),
         )
     except Exception as e:
-        return BillingResponse(success=False, error=redact_text(e))
+        error = redact_text(e)
+        return BillingResponse(
+            success=False,
+            error=error,
+            attempt_record=_exception_receipt(
+                AutomationSurface.PAYMENT_METHOD,
+                error,
+                card_payload_destroyed=True,
+            ),
+        )
     finally:
         if plaintext_bytes is not None:
             for i in range(len(plaintext_bytes)):
@@ -281,9 +324,15 @@ async def handle_add_balance(payload: BalancePayload, settings: Settings) -> Bil
         return BillingResponse(
             success=result.get("success", False),
             error=result.get("error"),
+            attempt_record=_attempt_record_or_fallback(result, AutomationSurface.ADD_BALANCE),
         )
     except Exception as e:
-        return BillingResponse(success=False, error=redact_text(e))
+        error = redact_text(e)
+        return BillingResponse(
+            success=False,
+            error=error,
+            attempt_record=_exception_receipt(AutomationSurface.ADD_BALANCE, error),
+        )
 
 
 async def handle_get_balance(settings: Settings) -> BillingResponse:
@@ -296,3 +345,49 @@ async def handle_get_balance(settings: Settings) -> BillingResponse:
         )
     except Exception as e:
         return BillingResponse(success=False, error=redact_text(e))
+
+
+def _with_quote_hash(attempt_record: Optional[dict], quote: Optional[str]) -> Optional[dict]:
+    if not attempt_record:
+        return None
+    bounded = dict(attempt_record)
+    bounded["tdx_quote_hash"] = quote_hash(quote)
+    return bounded
+
+
+def _attempt_record_or_fallback(
+    result: dict,
+    surface: AutomationSurface,
+    *,
+    card_payload_destroyed: bool = False,
+) -> dict:
+    attempt_record = result.get("attempt_record")
+    if attempt_record:
+        return attempt_record
+    success = bool(result.get("success"))
+    error = result.get("error")
+    outcome = AutomationOutcome.SUCCESS if success else classify_automation_error(error)
+    return make_receipt(
+        surface=surface,
+        outcome=outcome,
+        furthest_stage=AutomationStage.NOT_STARTED,
+        evidence=error or success,
+        bounded_message="success" if success else (error or "automation_failed"),
+        card_payload_destroyed=card_payload_destroyed,
+    ).to_public_dict()
+
+
+def _exception_receipt(
+    surface: AutomationSurface,
+    error: str,
+    *,
+    card_payload_destroyed: bool = False,
+) -> dict:
+    return make_receipt(
+        surface=surface,
+        outcome=AutomationOutcome.TRANSIENT_BROWSER_FAILURE,
+        furthest_stage=AutomationStage.NOT_STARTED,
+        evidence=error,
+        bounded_message=error,
+        card_payload_destroyed=card_payload_destroyed,
+    ).to_public_dict()

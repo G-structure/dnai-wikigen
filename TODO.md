@@ -305,6 +305,8 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Capture current local selectors for email auth, OTP boxes,
             onboarding, keys page, New key -> Generate key, balance page,
             Add payment method modal, and Stripe card iframe.
+      - [x] Add selector-repair fallback families and bounded
+            `selector_missing` attempt records for API-key provisioning.
       - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
 - [ ] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
@@ -361,6 +363,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P1` Add funding receipt records:
       amount band, timestamp, payment method token/reference, Tinker balance band,
       CVM quote, and card payload destruction proof.
+      - [x] Return bounded payment-method and add-balance attempt records from
+            billing automation/API responses: surface, outcome, furthest stage,
+            issued timestamp, evidence hash, amount band, balance band, TDX
+            quote hash when present, and card-payload destruction status.
+      - [ ] Persist funding receipts in sealed storage with timestamp and
+            payment-method token/reference once the live funding path is
+            approved.
 - [ ] `P1` Add budget enforcement:
       Tinker spend cannot exceed buyer cap, room cap, daily cap, or operator cap.
 - [ ] `P1` Add top-up policy:

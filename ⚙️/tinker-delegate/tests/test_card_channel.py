@@ -87,6 +87,9 @@ class CardChannelTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(result.success)
         self.assertEqual(result.error, "stubbed")
+        self.assertEqual(result.attempt_record["surface"], "payment_method")
+        self.assertEqual(result.attempt_record["outcome"], "unknown_failure")
+        self.assertTrue(result.attempt_record["card_payload_destroyed"])
         self.assertEqual(payload.card_number, "")
         self.assertEqual(payload.exp_month, "")
         self.assertEqual(payload.exp_year, "")
@@ -105,6 +108,8 @@ class CardChannelTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(result.success)
         self.assertEqual(result.error, "browser failed")
+        self.assertEqual(result.attempt_record["surface"], "payment_method")
+        self.assertTrue(result.attempt_record["card_payload_destroyed"])
         self.assertEqual(payload.card_number, "")
         self.assertEqual(payload.exp_month, "")
         self.assertEqual(payload.exp_year, "")

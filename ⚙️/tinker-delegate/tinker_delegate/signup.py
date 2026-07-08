@@ -20,6 +20,12 @@ from playwright.async_api import async_playwright, Page
 
 from tinker_delegate.browser_ready import connect_chromium, get_browser_context
 from tinker_delegate.api_key_store import build_api_key_store
+from tinker_delegate.automation_receipts import (
+    AutomationOutcome,
+    AutomationStage,
+    AutomationSurface,
+    make_receipt,
+)
 from tinker_delegate.config import Settings
 from tinker_delegate.oracle_client import OracleClient
 from tinker_delegate.redaction import redact_text
@@ -27,6 +33,40 @@ from tinker_delegate.redaction import redact_text
 
 class AuthAccessBlockedError(RuntimeError):
     """Raised when the Tinker auth flow rejects the browser session."""
+
+
+API_KEY_CREATE_SELECTORS = (
+    'button:has-text("New key")',
+    'button:has-text("New API key")',
+    'button:has-text("Create key")',
+    'button:has-text("Create API key")',
+    'a:has-text("New key")',
+    'a:has-text("Create API key")',
+)
+
+API_KEY_CONFIRM_SELECTORS = (
+    'button:has-text("Generate key")',
+    'button:has-text("Generate API key")',
+    'button:has-text("Create key")',
+    'button:has-text("Create API key")',
+    'button:has-text("Confirm")',
+)
+
+API_KEY_CLOSE_SELECTORS = (
+    'button:has-text("Close")',
+    'button:has-text("Done")',
+    'button[aria-label="Close"]',
+)
+
+
+async def _click_first_available(page: Page, selectors: tuple[str, ...]) -> str | None:
+    """Click the first available selector and return the selector family hit."""
+    for selector in selectors:
+        locator = page.locator(selector)
+        if await locator.count() > 0:
+            await locator.first.click()
+            return selector
+    return None
 
 
 async def wait_for_otp(oracle: OracleClient, settings: Settings) -> str:
@@ -134,12 +174,20 @@ async def signup(settings: Settings | None = None) -> dict:
         # Step 3: Create API key
         api_key = await _create_api_key(page, settings)
 
+        receipt = _api_key_receipt(
+            email=email,
+            api_key_hash=hashlib.sha256(api_key.encode()).hexdigest() if api_key else "",
+            stored=False,
+            store_error="",
+            selector_error=None if api_key else "API key was not captured from the keys page",
+        )
         result = {
             "email": email,
             "api_key_created": bool(api_key),
             "api_key_hash": hashlib.sha256(api_key.encode()).hexdigest() if api_key else "",
             "stored": False,
             "success": False,
+            "attempt_record": receipt.to_public_dict(),
         }
         if api_key:
             try:
@@ -147,8 +195,22 @@ async def signup(settings: Settings | None = None) -> dict:
                 store.save(api_key)
                 result["stored"] = True
                 result["success"] = True
+                result["attempt_record"] = _api_key_receipt(
+                    email=email,
+                    api_key_hash=result["api_key_hash"],
+                    stored=True,
+                    store_error="",
+                    selector_error=None,
+                ).to_public_dict()
             except Exception as e:
                 result["store_error"] = redact_text(e)
+                result["attempt_record"] = _api_key_receipt(
+                    email=email,
+                    api_key_hash=result["api_key_hash"],
+                    stored=False,
+                    store_error=result["store_error"],
+                    selector_error=None,
+                ).to_public_dict()
             print("[done] API key captured and sealed" if result["stored"] else "[done] API key captured but not stored")
         print(f"\n[done] success={result['success']}")
         return result
@@ -308,22 +370,21 @@ async def _create_api_key(page: Page, settings: Settings | None = None) -> str |
     await page.reload(wait_until="domcontentloaded", timeout=15000)
     await asyncio.sleep(3)
 
-    # Click "New key"
-    new_key = page.locator('button:has-text("New key")')
-    if await new_key.count() == 0:
-        print("[apikey] no 'New key' button found")
+    # Click "New key" / "Create API key". Tinker has changed this copy before,
+    # so keep the selector family explicit and bounded.
+    create_selector = await _click_first_available(page, API_KEY_CREATE_SELECTORS)
+    if not create_selector:
+        print("[apikey] no create-key selector found")
         if settings.debug_screenshots:
             await page.screenshot(path="screenshot_no_new_key.png")
         return None
 
     print("[apikey] creating new key...")
-    await new_key.click()
     await asyncio.sleep(1)
 
-    generate_key = page.locator('button:has-text("Generate key")')
-    if await generate_key.count() > 0:
+    confirm_selector = await _click_first_available(page, API_KEY_CONFIRM_SELECTORS)
+    if confirm_selector:
         print("[apikey] confirming key generation...")
-        await generate_key.first.click()
         await asyncio.sleep(3)
     else:
         await asyncio.sleep(2)
@@ -349,9 +410,43 @@ async def _create_api_key(page: Page, settings: Settings | None = None) -> str |
             await page.screenshot(path="screenshot_key_extraction_fail.png")
 
     # Close dialog
-    close_btn = page.locator('button:has-text("Close")')
-    if await close_btn.count() > 0:
-        await close_btn.first.click()
+    if await _click_first_available(page, API_KEY_CLOSE_SELECTORS):
         await asyncio.sleep(1)
 
     return api_key
+
+
+def _api_key_receipt(
+    *,
+    email: str,
+    api_key_hash: str,
+    stored: bool,
+    store_error: str,
+    selector_error: str | None,
+):
+    if stored:
+        return make_receipt(
+            surface=AutomationSurface.API_KEY_PROVISIONING,
+            outcome=AutomationOutcome.SUCCESS,
+            furthest_stage=AutomationStage.API_KEY_STORED,
+            evidence={"api_key_hash": api_key_hash, "stored": True},
+            bounded_message="api_key_captured_and_stored",
+            account_identifier=email,
+        )
+    if store_error:
+        return make_receipt(
+            surface=AutomationSurface.API_KEY_PROVISIONING,
+            outcome=AutomationOutcome.STORE_FAILED,
+            furthest_stage=AutomationStage.API_KEY_CAPTURED,
+            evidence={"api_key_hash": api_key_hash, "store_error": store_error},
+            bounded_message="api_key_captured_but_store_failed",
+            account_identifier=email,
+        )
+    return make_receipt(
+        surface=AutomationSurface.API_KEY_PROVISIONING,
+        outcome=AutomationOutcome.SELECTOR_MISSING,
+        furthest_stage=AutomationStage.API_KEYS_PAGE_LOADED,
+        evidence=selector_error or "api_key_not_captured",
+        bounded_message="api_key_not_captured",
+        account_identifier=email,
+    )

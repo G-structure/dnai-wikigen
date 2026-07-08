@@ -563,7 +563,16 @@ Implementation status:
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
 [real]      Signup/bootstrap stores captured Tinker API keys in encrypted
             storage and returns only bounded hash/status metadata.
+[real]      API-key provisioning uses a small selector fallback family for
+            current Tinker key-creation copy and returns bounded
+            `api_key_provisioning` attempt records, including
+            `selector_missing` when no key can be captured.
 [real]      Local Stripe test-card billing path reaches submission and returns a bounded decline.
+[real]      Billing automation returns bounded payment-method and add-balance
+            attempt records: outcome class, furthest stage, issued timestamp,
+            evidence hash, amount/balance bands, TDX quote hash when present,
+            and card-payload destruction status. Raw card values and page text
+            are not returned.
 [real]      Plaintext card API is disabled by default and unavailable in dstack mode.
 [real]      Central redaction helpers scrub bearer, OTP/password, card, API-key,
             and artifact-shaped values from bounded errors and high-risk logs.
@@ -610,7 +619,9 @@ Implementation status:
             will create a tiny training run, save a TTL checkpoint, sample, and
             cleanup.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
-[partial]   Funding is in progress: card data can be encrypted to the TEE, but a capped real-card funding attempt still needs to be proven.
+[partial]   Funding is in progress: card data can be encrypted to the TEE and
+            bounded attempt receipts are returned, but receipt persistence and
+            a capped real-card funding attempt still need to be proven.
 [partial]   Optional Tinker SDK dependency must be installed and the real SDK
             harness must be run inside the deployed CVM before claiming real
             evaluator execution.

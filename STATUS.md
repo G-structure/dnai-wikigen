@@ -167,6 +167,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 
 - The selector/UI repair, OTP login, onboarding, API-key provisioning, and
   test-card decline are validated locally with Neko/CDP.
+- API-key provisioning now has fallback selector families for current key
+  creation labels and emits bounded `api_key_provisioning` attempt records,
+  including `selector_missing` instead of raw page state.
 - The same flow still needs fresh validation inside a deployed Phala CVM.
 - The optional Tinker SDK dependency and runtime behavior inside the final CVM
   image are not yet proven.
@@ -181,10 +184,14 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 [partial] Account funding:
 
 - Test-card billing reaches a clear declined-card outcome.
+- Payment-method and add-balance operations return bounded attempt records with
+  outcome class, furthest stage, issued timestamp, evidence hash, amount/balance
+  bands, TDX quote hash when present, and card-payload destruction status.
 - Real card funding is intentionally not attempted until real payment details
   are provided out of band.
-- The sealed long-lived funding token/session state still needs production
-  retention and rotation policy.
+- Funding receipt persistence, payment-method token/reference handling, and the
+  sealed long-lived funding token/session state still need production retention
+  and rotation policy.
 
 [partial] TEE attestation:
 
