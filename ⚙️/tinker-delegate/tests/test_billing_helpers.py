@@ -1,9 +1,11 @@
 import asyncio
 import unittest
+from unittest.mock import AsyncMock, patch
 
 from tinker_delegate.automation_receipts import AutomationStage
 from tinker_delegate.billing import (
     CardDetails,
+    add_payment_method,
     _debug_screenshot,
     _add_balance_result,
     _billing_error_message,
@@ -107,6 +109,24 @@ class BillingHelpersTest(unittest.TestCase):
 
         self.assertFalse(wrote)
         self.assertEqual(page.paths, [])
+
+    def test_add_payment_method_purges_configured_secret_debug_artifacts(self):
+        card = CardDetails("4242424242424242", "12", "2030", "123", "Test User")
+        settings = Settings(debug_artifact_dir="/tmp/tinker-debug-artifacts")
+
+        with (
+            patch(
+                "tinker_delegate.billing._do_add_payment_method",
+                new=AsyncMock(return_value={"success": False, "error": "stubbed"}),
+            ),
+            patch("tinker_delegate.billing.purge_secret_debug_artifacts", return_value=2) as purge,
+        ):
+            result = asyncio.run(add_payment_method(card, settings))
+
+        self.assertEqual(result["error"], "stubbed")
+        purge.assert_called_once_with("/tmp/tinker-debug-artifacts")
+        self.assertEqual(card.number, "")
+        self.assertEqual(card.cvc, "")
 
 
 if __name__ == "__main__":

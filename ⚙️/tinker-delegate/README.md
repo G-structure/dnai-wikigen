@@ -249,6 +249,8 @@ All settings use the `TINKER_` env prefix:
 | `TINKER_FUNDING_RECEIPT_STORE_KEY` | *(empty)* | Local-dev hex key override; dstack should derive the key instead |
 | `TINKER_FUNDING_RECEIPT_KEY_PATH` | `tinker/funding_receipts` | dstack key path for funding receipt storage |
 | `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT` | `false` | Local-dev only flag for `POST /billing/card`; production uses `/billing/card/encrypted` |
+| `TINKER_DEBUG_ARTIFACT_DIR` | *(empty)* | Optional browser debug artifact directory; card submissions purge known secret-bearing trace/HAR/video/card screenshot files here |
+| `TINKER_PURGE_SECRET_DEBUG_ARTIFACTS` | `true` | Delete known secret-bearing browser debug artifacts after card submission attempts |
 
 ## Architecture
 
@@ -336,7 +338,9 @@ contracts/
   The store rejects unknown fields and any receipt claiming raw secret egress.
 - **Debug screenshots**: payment-method screenshots after card entry/submission
   are suppressed even when `TINKER_DEBUG_SCREENSHOTS=true`; only non-secret
-  billing screenshots may be written.
+  billing screenshots may be written. If `TINKER_DEBUG_ARTIFACT_DIR` is set,
+  card submission attempts also purge known secret-bearing trace archives, HARs,
+  videos, and card/Stripe screenshots from that directory.
 - **Encrypted client**: `add-card-encrypted` and
   `tinker_delegate.billing_uploader` fetch `/attestation?context=billing`,
   verify policy, encrypt card JSON, wipe the local plaintext buffer, and post

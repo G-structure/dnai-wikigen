@@ -25,6 +25,7 @@ from tinker_delegate.automation_receipts import (
 )
 from tinker_delegate.browser_ready import connect_chromium, get_browser_context
 from tinker_delegate.config import Settings
+from tinker_delegate.debug_artifacts import purge_secret_debug_artifacts
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +169,8 @@ async def add_payment_method(card: CardDetails, settings: Settings | None = None
         return await _do_add_payment_method(card, settings)
     finally:
         card.zero()
+        if settings.purge_secret_debug_artifacts:
+            purge_secret_debug_artifacts(settings.debug_artifact_dir)
 
 
 async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:

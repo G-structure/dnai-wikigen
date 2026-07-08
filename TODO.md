@@ -233,8 +233,8 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             wire them into API errors and high-risk automation logs.
       - [x] Keep secret-bearing screenshots disabled by default and behind
             explicit debug flags.
-      - [ ] Add trace-file redaction/deletion if Playwright/browser tracing is
-            enabled in a future deployed debugging mode.
+      - [x] Add trace/HAR/video/card-screenshot deletion for configured browser
+            debug artifact directories after card submission attempts.
 - [ ] `P0` Add a deployment runbook section for rollback:
       what is safe to redeploy, what must be frozen, what requires user notice.
 - [ ] `P1` Add health endpoints that separate:
@@ -381,8 +381,8 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Suppress payment-method screenshots after card entry/submission even
             when debug screenshots are enabled; only non-secret billing debug
             screenshots may be written.
-      - [ ] Add trace-file redaction/deletion if Playwright/browser tracing is
-            enabled in a future deployed debugging mode.
+      - [x] Add trace/HAR/video/card-screenshot deletion for configured browser
+            debug artifact directories after card submission attempts.
       - [ ] Add deployed log/Phala-console verification for the encrypted
             card path once the CVM endpoint is available.
       - [ ] Add crash-dump/core-dump policy for browser and delegate processes.

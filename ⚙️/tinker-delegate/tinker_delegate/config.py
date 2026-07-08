@@ -51,5 +51,7 @@ class Settings(BaseSettings):
     bootstrap_oracle_poll_interval: float = 5.0
     allow_auth_automation_endpoint: bool = False
     debug_screenshots: bool = False
+    debug_artifact_dir: str = ""
+    purge_secret_debug_artifacts: bool = True
     allow_plaintext_card_endpoint: bool = False
     allow_plaintext_artifact_endpoint: bool = False

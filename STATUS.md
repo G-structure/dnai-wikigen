@@ -202,6 +202,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Payment-method screenshots after card entry/submission are suppressed even
   when debug screenshots are enabled; non-secret billing screenshots remain
   explicit debug artifacts only.
+- Card submission attempts purge known secret-bearing browser debug artifacts
+  such as trace archives, HARs, videos, and card/Stripe screenshots when an
+  explicit debug artifact directory is configured.
 - Real card funding is intentionally not attempted until real payment details
   are provided out of band.
 - Payment-method token/reference handling and the sealed long-lived funding
