@@ -643,7 +643,8 @@ Implementation status:
 [real]      Standalone `verify-attestation` CLI live-fetches
             `/attestation?context=...` and checks the public evidence envelope:
             mode, quote presence, compose hash, app ID, OS image hash,
-            report-data key binding, and client fetch freshness.
+            report-data key binding, exposed quote-report-data equality when
+            present, and client fetch freshness.
 [real]      Standalone `verify-compose-hash` CLI renders a registry-image
             Docker Compose file with explicit env, rejects local `build:`
             services and mutable tag-only images, emits the digest-pinned image

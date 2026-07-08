@@ -239,7 +239,8 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 
 - The artifact ingress binds a dstack report to the upload key through
   `report_data`.
-- The verifier checks the attestation envelope and public-key binding.
+- The verifier checks the attestation envelope, public-key binding, and
+  exposed `quote_report_data` equality when the endpoint provides it.
 - Full cryptographic Intel TDX quote parsing, freshness, compose-hash policy,
   image-digest policy, signer allowlists, and anti-replay are not implemented.
 

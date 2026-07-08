@@ -212,6 +212,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             compose hash, app ID, OS image hash, public-key shape, report-data
             key binding, and client fetch freshness before accepting the
             evidence envelope.
+      - [x] Reject exposed `quote_report_data` unless it is a 32-byte hex value
+            exactly matching the context/key-bound `report_data`; this tightens
+            the public quote envelope without claiming full quote parsing.
       - [ ] Add cryptographic Intel TDX quote parsing and freshness checks;
             current `dstack_sdk` helpers do not expose a complete verifier.
 - [ ] `P0` Deploy the combined email-oracle + tinker-delegate stack to Phala

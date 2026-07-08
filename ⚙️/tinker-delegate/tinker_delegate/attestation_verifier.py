@@ -77,9 +77,9 @@ def verify_attestation_envelope(
     """Verify the attestation fields exposed by `/attestation`.
 
     This verifies dstack mode, quote presence, expected compose/app/image
-    identity, operation context, public-key shape, report-data key binding, and
-    optional client fetch freshness. It does not cryptographically parse Intel
-    TDX quote internals.
+    identity, operation context, public-key shape, report-data key binding,
+    exposed quote report-data binding, and optional client fetch freshness. It
+    does not cryptographically parse Intel TDX quote internals.
     """
     checked_at = time.time() if now is None else now
     evidence_time = checked_at if fetched_at is None else fetched_at
@@ -121,6 +121,16 @@ def verify_attestation_envelope(
     expected_report_data = attestation_report_data(policy.context, public_key)
     if report_data != expected_report_data:
         raise AttestationVerificationError("report data does not bind the encryption key")
+
+    quote_report_data_value = attestation.get("quote_report_data")
+    if quote_report_data_value:
+        quote_report_data = _hex_bytes(
+            quote_report_data_value,
+            "quote_report_data",
+            expected_len=32,
+        )
+        if quote_report_data != report_data:
+            raise AttestationVerificationError("quote report data mismatch")
 
     return AttestationVerificationResult(
         mode=str(mode),

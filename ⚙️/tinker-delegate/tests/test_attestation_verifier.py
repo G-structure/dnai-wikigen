@@ -49,6 +49,37 @@ class AttestationVerifierTest(unittest.TestCase):
                 now=106,
             )
 
+    def test_accepts_matching_quote_report_data_when_exposed(self):
+        attestation = _tdx_attestation()
+        attestation["quote_report_data"] = attestation["report_data"]
+
+        result = verify_attestation_envelope(
+            attestation,
+            AttestationPolicy(expected_compose_hash="compose-ok"),
+        )
+
+        self.assertEqual(result.report_data, attestation["report_data"])
+
+    def test_rejects_quote_report_data_mismatch_when_exposed(self):
+        attestation = _tdx_attestation()
+        attestation["quote_report_data"] = "00" * 32
+
+        with self.assertRaisesRegex(AttestationVerificationError, "quote report data mismatch"):
+            verify_attestation_envelope(
+                attestation,
+                AttestationPolicy(expected_compose_hash="compose-ok"),
+            )
+
+    def test_rejects_malformed_quote_report_data_when_exposed(self):
+        attestation = _tdx_attestation()
+        attestation["quote_report_data"] = "aa"
+
+        with self.assertRaisesRegex(AttestationVerificationError, "quote_report_data must be 32 bytes"):
+            verify_attestation_envelope(
+                attestation,
+                AttestationPolicy(expected_compose_hash="compose-ok"),
+            )
+
     def test_fetch_and_verify_returns_bounded_evidence(self):
         def handler(request: httpx.Request) -> httpx.Response:
             self.assertEqual(request.method, "GET")
