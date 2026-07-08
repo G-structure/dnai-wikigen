@@ -272,9 +272,12 @@ stripped environment, deterministic seed, capped stdout/stderr, timing bands,
 public failure-code buckets, and file, network, process, and import guards.
 `tinker_delegate.private_reward_holdout` adds a hidden-holdout split and
 accounting contract with public split commitments, partition counts,
-reward-query tracking, and one-shot final-validation gating. Real RLVR, TTT,
-bio-validation, domain-specific anti-overfitting rules, and hardened production
-candidate-sandbox environments are still separate implementation work.
+reward-query tracking, and one-shot final-validation gating.
+`tinker_delegate.private_reward_envs.synthetic` wires those contracts into a
+toy hidden-keyword environment with bounded reward bands and final validation
+over sealed synthetic records. Real RLVR, TTT, bio-validation, domain-specific
+anti-overfitting rules, and hardened production candidate-sandbox environments
+are still separate implementation work.
 
 ## Security Goal
 

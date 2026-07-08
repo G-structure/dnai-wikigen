@@ -63,6 +63,9 @@ Important current status:
             datasets. It creates train/reward/final-validation partitions,
             exposes public counts and split commitments, tracks reward-query
             counts, and gates final validation to bounded use.
+[real]      SyntheticHiddenKeywordEnvironment toy private-reward environment.
+            It wires HiddenHoldoutSet into bounded reward feedback and
+            one-shot final validation over sealed synthetic records.
 [partial]   Candidate sandboxing for arbitrary third-party code. The local
             Python sandbox is not OS/container isolation and is not sufficient
             for untrusted production candidate execution inside a CVM.
@@ -759,6 +762,9 @@ Implementation status:
 [real]      HiddenHoldoutSet with deterministic private split, public split
             commitment, reward-query accounting, and one-shot final-validation
             gating.
+[real]      SyntheticHiddenKeywordEnvironment with bounded reward bands,
+            hidden reward partition queries, final-validation gating, and
+            public manifests that omit record IDs and payloads.
 [modeled]   TTT/RL bio-validation concept.
 [partial]   SFT evaluator scaffold.
 [real]      Output banding and offer computation.

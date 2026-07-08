@@ -466,6 +466,8 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
   - [x] `P0` Add a hidden-holdout split/accounting contract with train,
         reward, and final-validation partitions, public commitments, bounded
         reward-query tracking, and one-shot final-validation gating.
+  - [x] `P0` Wire hidden-holdout checks into a synthetic private-reward
+        environment with bounded reward feedback and final-validation gating.
   - [ ] `P0` Wire hidden-holdout checks into concrete private-reward
         environments and add domain-specific anti-overfitting rules.
 - [ ] `P1` Implement a toy `private_reward_envs/` package with:

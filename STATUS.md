@@ -146,6 +146,18 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   validation is gated to one-shot use by default; once final validation starts,
   additional reward queries fail closed.
 
+[real] Synthetic private reward environment:
+
+- `tinker_delegate.private_reward_envs.synthetic.SyntheticHiddenKeywordEnvironment`
+  extends `PrivateRewardEnvironment` and uses `HiddenHoldoutSet` for reward and
+  final-validation partitions over sealed synthetic records.
+- Candidate payloads are bounded UTF-8 keywords; invalid keywords fail policy
+  before any holdout query is recorded.
+- Public feedback exposes only bounded reward bands and transcript hashes, not
+  exact scores, candidate text, match counts, record IDs, or payloads.
+- Finalization uses the final-validation holdout once, caches the bounded final
+  result, and closes later reward queries.
+
 ## Partial
 
 [partial] Deployed Tinker automation:
@@ -196,8 +208,8 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 
 [partial] Private reward environments:
 
-- The base interface and leakage accounting are real, but only a toy test
-  environment exists.
+- The base interface, leakage accounting, and one synthetic toy environment are
+  real.
 - Real RLVR, TTT, computational-bio, code-audit, or model-evaluation
   environments are not implemented.
 - Candidate sandboxing has a local Python runner for toy candidates, but
@@ -205,9 +217,8 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   implemented.
 - Local sandbox side-channel controls exist, but deployed reward side-channel
   hardening for real evaluator/Tinker/browser paths remains open.
-- Hidden-holdout split/accounting exists, but concrete private-reward
-  environments still need to wire it into their reward and final-validation
-  paths with domain-specific anti-overfitting checks.
+- Hidden-holdout split/accounting is wired into the synthetic environment, but
+  real environments still need domain-specific anti-overfitting checks.
 - Integration of optimizer policy with real Tinker/browser execution remains
   open P0 work.
 
