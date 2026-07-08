@@ -742,23 +742,28 @@ Implementation status:
             measurement profile enables it temporarily. The pre-WebSocket-stage
             version is Phala-proven: the one-shot endpoint returned bounded
             `cdp_timeout` after CDP metadata succeeded, and the restored normal
-            compose returns 403. The raw WebSocket stage is now Phala-proven
-            with GitHub-attested `7973b27` images: CDP metadata succeeded, the
-            raw WebSocket TCP connect and HTTP Upgrade succeeded with status
-            band `101`, and Playwright `connect_over_cdp` still timed out. The
-            post-upgrade protocol probe still needs a GitHub-image Phala
-            measurement before it can be used as deployed evidence.
+            compose returns 403. The raw WebSocket stage is Phala-proven with
+            GitHub-attested `7973b27` images: CDP metadata succeeded, the raw
+            WebSocket TCP connect and HTTP Upgrade succeeded with status band
+            `101`, and Playwright `connect_over_cdp` still timed out. The
+            post-upgrade protocol probe is Phala-proven with GitHub-attested
+            `59a9eac` images: after HTTP `101`, one browser-scoped
+            `Browser.getVersion` command returned a bounded `result` response
+            and Chromium browser-family band, while Playwright
+            `connect_over_cdp` still timed out. This narrows the remaining
+            deployed browser-control blocker to the Playwright CDP client path.
 [partial]   The selector-probe endpoint has been Phala-proven as an endpoint
             gate and fail-closed path using GitHub-attested `7973b27` images:
             one-shot bootstrap compose enabled the endpoint, live response was
             bounded `browser_unavailable` with `raw_secret_egress=false`, and
             the restored normal compose returns 403. The paired readiness
             endpoint showed CDP metadata reachable with Chromium WebSocket
-            metadata advertised, raw WebSocket upgrade status `101`, then
+            metadata advertised, raw WebSocket upgrade status `101`, a
+            successful bounded one-command CDP protocol response, then
             `connect_over_cdp` timeout. Actual selector/frame match evidence
-            from the deployed browser remains open until the new post-upgrade
-            CDP protocol probe is measured on Phala and the CDP client path is
-            repaired or replaced by another bounded browser-control path.
+            from the deployed browser remains open until the Playwright CDP
+            client path is repaired or replaced by another bounded
+            browser-control path.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
@@ -980,16 +985,16 @@ Implementation status:
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning `ok` with sealed mailbox readiness/hash only, and live delegate
             attestation verification passing against local raw compose hash
-            `baa1089dea56828379130c407d5ce95a2044c2ca6ac56e57073022f55a5b834a`
+            `e7145375b721ed8c0e2629fce1c9ecdf61a42fa28f1151a2d8f7f5d27fce7f3d`
             and live Phala attested compose hash
-            `96391ca054421b1521fa56777ea1ec7ea0a5b8c6ef89d2c774a8b561ace050a1`.
+            `76537ab3ff5efa672a31690ccd03ff77bf991e47fe064e79bb8cceefd589d309`.
             The live delegate image is built from commit
-            `7973b27d27a3d3fba3a24efcc23c89498e8a04bf`, so it includes the
+            `59a9eac5d22f9834d74e3f263de2f46130a0a898`, so it includes the
             bounded signup/signin egress fix, bounded early-stage
             startup-bootstrap attempt records, and the disabled-by-default
-            selector-probe and browser-readiness endpoints. Tinker bootstrap,
-            selector-probe, and browser-readiness are disabled in the current
-            normal compose.
+            selector-probe and browser-readiness endpoints plus the bounded
+            post-upgrade CDP protocol probe. Tinker bootstrap, selector-probe,
+            and browser-readiness are disabled in the current normal compose.
 [real]      The temporary public-log debug exception has been reverted on the
             current main Phala CVM. Public logs and public sysinfo are disabled
             while runtime guards keep `ORACLE_AUTO_GENESIS=false`,

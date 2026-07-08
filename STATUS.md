@@ -124,11 +124,14 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   measurement compose enables it alongside the selector probe. This diagnostic
   is now Phala-proven with GitHub-attested `7973b27` images: the one-shot
   endpoint returned bounded `cdp_timeout` after successful CDP metadata
-  discovery, raw WebSocket TCP connect, and HTTP Upgrade status band `101`; the
-  restored normal compose returns 403. The new post-upgrade protocol probe still
-  needs GitHub-image Phala measurement before it can be used as deployed
-  evidence. The remaining browser-control blocker is post-upgrade Playwright/CDP
-  protocol timeout.
+  discovery, raw WebSocket TCP connect, and HTTP Upgrade status band `101`.
+  The post-upgrade protocol probe is now Phala-proven with GitHub-attested
+  `59a9eac` images: one browser-scoped `Browser.getVersion` command returned a
+  bounded `result` response with Chromium browser family, while Playwright
+  `connect_over_cdp` still timed out. The restored normal compose returns 403
+  for readiness and selector-probe endpoints. The remaining browser-control
+  blocker is Playwright's CDP client path, not the raw CDP WebSocket or basic
+  DevTools command path.
 - `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps
@@ -612,19 +615,19 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   current deployment as one bounded certificate by combining the GitHub image
   attestation gate, digest-pinned compose policy, sidecar digest requirements,
   and live Phala CVM attestation envelope.
-- GitHub Actions run `28960362186` built the current deploy-critical images on
+- GitHub Actions run `28961851866` built the current deploy-critical images on
   GitHub-hosted workers from source commit
-  `7973b27d27a3d3fba3a24efcc23c89498e8a04bf` and attached
+  `59a9eac5d22f9834d74e3f263de2f46130a0a898` and attached
   GitHub-signed SLSA provenance plus SPDX SBOM attestations. The local deploy
   gate verified both image digests with
   `⚙️/tinker-delegate/scripts/verify-ghcr-image-attestation.sh`.
 - Current deploy-critical image digests:
   - Oracle:
-    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a96371264da361c51a2478ba1563f9752a0e170eabf0a0cecf9692fc5a21b59d`.
+    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a23063c8d6cd892be4cd82ea69a927455b41451e7e6a3f54fb3c34edad2c6673`.
   - Delegate:
-    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:9ee40b9526ad518e99ce0edede42878bbc54e7f2b4793f2154fd80821009228c`.
+    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ff8fbb18ea96b83f8c119d2b5692f2c9e61931e91067c38e4fe59ef1cfba2d1d`.
 - Local `verify-ghcr-image-attestation` checks passed for both current image
-  indexes with source commit `7973b27d27a3d3fba3a24efcc23c89498e8a04bf`,
+  indexes with source commit `59a9eac5d22f9834d74e3f263de2f46130a0a898`,
   source ref `refs/heads/codex/wikigen-private-reward-pitch`, verified
   provenance attestation, verified SBOM attestation, and
   `raw_secret_egress=false`.
@@ -664,11 +667,11 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   - OS image hash:
     `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`
   - Attested compose hash:
-    `96391ca054421b1521fa56777ea1ec7ea0a5b8c6ef89d2c774a8b561ace050a1`
+    `76537ab3ff5efa672a31690ccd03ff77bf991e47fe064e79bb8cceefd589d309`
   - Local raw-compose/image-policy hash:
-    `baa1089dea56828379130c407d5ce95a2044c2ca6ac56e57073022f55a5b834a`
+    `e7145375b721ed8c0e2629fce1c9ecdf61a42fa28f1151a2d8f7f5d27fce7f3d`
   - Rendered compose SHA-256:
-    `b43fa62c1af841bd57b03c56526c3cbec2af066964e7864db993d9875ebbdf29`
+    `9e331b4e42f3474278fe6e1b9465e2ba2e8091af13b9af1073983b6c82f0c916`
   - Delegate endpoint:
     `https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network`
   - Oracle endpoint:
@@ -1052,15 +1055,15 @@ cd "⚙️/tee-email-oracle" && uv run python -m compileall email_oracle
 
 cd "⚙️/tinker-delegate" && \
   scripts/verify-ghcr-image-attestation.sh \
-    ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a96371264da361c51a2478ba1563f9752a0e170eabf0a0cecf9692fc5a21b59d \
-    --source-digest 7973b27d27a3d3fba3a24efcc23c89498e8a04bf \
+    ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a23063c8d6cd892be4cd82ea69a927455b41451e7e6a3f54fb3c34edad2c6673 \
+    --source-digest 59a9eac5d22f9834d74e3f263de2f46130a0a898 \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch \
     --repo G-structure/dnai-wikigen
 
 cd "⚙️/tinker-delegate" && \
   scripts/verify-ghcr-image-attestation.sh \
-    ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:9ee40b9526ad518e99ce0edede42878bbc54e7f2b4793f2154fd80821009228c \
-    --source-digest 7973b27d27a3d3fba3a24efcc23c89498e8a04bf \
+    ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ff8fbb18ea96b83f8c119d2b5692f2c9e61931e91067c38e4fe59ef1cfba2d1d \
+    --source-digest 59a9eac5d22f9834d74e3f263de2f46130a0a898 \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch \
     --repo G-structure/dnai-wikigen
 
@@ -1069,12 +1072,12 @@ cd "⚙️/tinker-delegate" && \
     https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network \
     --compose docker-compose.all.phala.yaml \
     --phala-raw-compose \
-    --expected-compose-hash baa1089dea56828379130c407d5ce95a2044c2ca6ac56e57073022f55a5b834a \
-    --attested-compose-hash 96391ca054421b1521fa56777ea1ec7ea0a5b8c6ef89d2c774a8b561ace050a1 \
+    --expected-compose-hash e7145375b721ed8c0e2629fce1c9ecdf61a42fa28f1151a2d8f7f5d27fce7f3d \
+    --attested-compose-hash 76537ab3ff5efa672a31690ccd03ff77bf991e47fe064e79bb8cceefd589d309 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
-    --require-image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a96371264da361c51a2478ba1563f9752a0e170eabf0a0cecf9692fc5a21b59d \
-    --require-image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:9ee40b9526ad518e99ce0edede42878bbc54e7f2b4793f2154fd80821009228c \
+    --require-image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a23063c8d6cd892be4cd82ea69a927455b41451e7e6a3f54fb3c34edad2c6673 \
+    --require-image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ff8fbb18ea96b83f8c119d2b5692f2c9e61931e91067c38e4fe59ef1cfba2d1d \
     --require-image-digest 320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \
     --require-image-digest e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f
 
@@ -1082,14 +1085,14 @@ cd "⚙️/tinker-delegate" && \
   uv run python -m tinker_delegate.main verify-deployment-bundle \
     https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network \
     --compose docker-compose.all.phala.yaml \
-    --image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a96371264da361c51a2478ba1563f9752a0e170eabf0a0cecf9692fc5a21b59d \
-    --image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:9ee40b9526ad518e99ce0edede42878bbc54e7f2b4793f2154fd80821009228c \
-    --source-digest 7973b27d27a3d3fba3a24efcc23c89498e8a04bf \
+    --image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a23063c8d6cd892be4cd82ea69a927455b41451e7e6a3f54fb3c34edad2c6673 \
+    --image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ff8fbb18ea96b83f8c119d2b5692f2c9e61931e91067c38e4fe59ef1cfba2d1d \
+    --source-digest 59a9eac5d22f9834d74e3f263de2f46130a0a898 \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch \
     --repo G-structure/dnai-wikigen \
     --phala-raw-compose \
-    --expected-compose-hash baa1089dea56828379130c407d5ce95a2044c2ca6ac56e57073022f55a5b834a \
-    --attested-compose-hash 96391ca054421b1521fa56777ea1ec7ea0a5b8c6ef89d2c774a8b561ace050a1 \
+    --expected-compose-hash e7145375b721ed8c0e2629fce1c9ecdf61a42fa28f1151a2d8f7f5d27fce7f3d \
+    --attested-compose-hash 76537ab3ff5efa672a31690ccd03ff77bf991e47fe064e79bb8cceefd589d309 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
     --require-image-digest 320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \

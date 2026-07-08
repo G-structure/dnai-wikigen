@@ -725,11 +725,22 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             Playwright `connect_over_cdp` still timing out. The selector probe
             still returned bounded `browser_unavailable`, and the CVM was
             restored to normal compose where both diagnostic endpoints return
-            403. Next step: add a bounded post-upgrade DevTools-protocol probe
-            or replace the Playwright CDP client path before selector/frame
-            matches can be captured.
+            403.
+            Re-attempted 2026-07-08 with GitHub-attested
+            `59a9eac5d22f9834d74e3f263de2f46130a0a898` oracle/delegate
+            images and the new `cdp_protocol_probe`. The readiness endpoint
+            showed CDP metadata reachable, raw WebSocket TCP connect true,
+            HTTP Upgrade status band `101`, one browser-scoped
+            `Browser.getVersion` command sent, bounded CDP `result` response
+            received with Chromium browser-family band, and Playwright
+            `connect_over_cdp` still timing out. The selector probe still
+            returned bounded `browser_unavailable`, and the CVM was restored to
+            normal compose where the readiness and selector endpoints return
+            403. Next step: replace or repair the Playwright CDP client path
+            before selector/frame matches can be captured.
       - [x] Add a bounded post-upgrade DevTools-protocol probe.
-            Done in source/tests 2026-07-08: `browser-readiness` now includes
+            Done in source/tests and Phala-proven 2026-07-08:
+            `browser-readiness` now includes
             `cdp_protocol_probe`. It reuses the CDP metadata URL, keeps the
             advertised WebSocket URL in memory only, performs the HTTP Upgrade,
             sends one browser-scoped `Browser.getVersion` CDP command, and
@@ -739,9 +750,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             screenshot, inspect frames/pages, return page text, expose raw
             browser/CDP URLs, or return the CDP response body. Unit tests cover
             accepted result and CDP error responses and prove rendered output
-            omits raw CDP URLs and returned browser strings. Phala measurement
-            with GitHub-built images remains pending before selector/frame
-            capture can be retried.
+            omits raw CDP URLs and returned browser strings. A Phala one-shot
+            measurement with GitHub-attested `59a9eac` images proved this basic
+            DevTools protocol command path succeeds after HTTP `101`, even
+            though Playwright `connect_over_cdp` still times out.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to
@@ -1486,15 +1498,18 @@ vision Wiki is reaching for.
             Refreshed again 2026-07-08 for bounded raw CDP WebSocket diagnostic
             commit `7973b27d27a3d3fba3a24efcc23c89498e8a04bf` with GitHub
             Actions build run `28960362186`.
+            Refreshed again 2026-07-08 for bounded post-upgrade CDP protocol
+            probe commit `59a9eac5d22f9834d74e3f263de2f46130a0a898` with
+            GitHub Actions build run `28961851866`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a96371264da361c51a2478ba1563f9752a0e170eabf0a0cecf9692fc5a21b59d`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a23063c8d6cd892be4cd82ea69a927455b41451e7e6a3f54fb3c34edad2c6673`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:9ee40b9526ad518e99ce0edede42878bbc54e7f2b4793f2154fd80821009228c`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ff8fbb18ea96b83f8c119d2b5692f2c9e61931e91067c38e4fe59ef1cfba2d1d`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
@@ -1519,19 +1534,20 @@ vision Wiki is reaching for.
       - [x] `verify-deployment-bundle` passes against the live log-hardened
             Phala deployment with GitHub image provenance/SBOM checks, required
             sidecar digests, local raw compose hash
-            `baa1089dea56828379130c407d5ce95a2044c2ca6ac56e57073022f55a5b834a`,
+            `e7145375b721ed8c0e2629fce1c9ecdf61a42fa28f1151a2d8f7f5d27fce7f3d`,
             and live attested compose hash
-            `96391ca054421b1521fa56777ea1ec7ea0a5b8c6ef89d2c774a8b561ace050a1`.
+            `76537ab3ff5efa672a31690ccd03ff77bf991e47fe064e79bb8cceefd589d309`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.
             Done 2026-07-08: live delegate image
-            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:9ee40b9526ad518e99ce0edede42878bbc54e7f2b4793f2154fd80821009228c`
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ff8fbb18ea96b83f8c119d2b5692f2c9e61931e91067c38e4fe59ef1cfba2d1d`
             is GitHub-attested from commit
-            `7973b27d27a3d3fba3a24efcc23c89498e8a04bf`; `/pin` rejects
-            unauthenticated requests with `401`, `/credentials/encrypted`
-            rejects while disabled with `403`, and `/billing/add-balance`
-            rejects while disabled with `403`.
+            `59a9eac5d22f9834d74e3f263de2f46130a0a898`; `/pin` rejects
+            unauthenticated requests with `401`, `/browser/readiness` and
+            `/browser/selector-probe` reject while disabled with `403`,
+            `/credentials/encrypted` is closed on the delegate port with `404`,
+            and `/billing/add-balance` rejects while disabled with `403`.
       - [x] Revert temporary Phala public-log debug posture on the main CVM
             before any real mailbox, OTP, Tinker API-key, or card material is
             handled.
