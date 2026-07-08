@@ -1304,15 +1304,18 @@ vision Wiki is reaching for.
             Refreshed again 2026-07-08 for bounded oracle/delegate commit
             `81e3188591aadba26ab124217624e6341d2def74` with GitHub Actions run
             `28945611577`.
+            Refreshed again 2026-07-08 for main-CVM mailbox-genesis evidence
+            commit `1acdebd0c1e07c03b57533852985ac174d4f1261` with GitHub
+            Actions run `28947685641`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:8aeae979242de7377b51dc2bc33f5527457c5255584ce9b77d101ca37796f4a4`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:4debf5642a50ece6315c5d9693d2a048e6ad02b1f26c18d9522d2489e9a9a136`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3a9987a7a821307f0979c66a33ed0b102547a5756a433dfd285c5fd4bfacf4c1`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ad678080b874e402c05265d02a141a855a3c947b616425159ba5acc62d60ca21`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
@@ -1323,8 +1326,8 @@ vision Wiki is reaching for.
       `/health`, `/attestation`, oracle `/pin` auth rejection, delegate status,
       browser CDP internal-only or protected.
       - [x] Delegate `/health` returns `status=ok`, oracle `/health` returns
-            `status=degraded` with no email credentials, and containers are
-            healthy/running.
+            `status=ok` with `oracle_ready=true`, `imap_connected=true`, and
+            only the sealed mailbox hash, and containers are healthy/running.
       - [x] Delegate `/attestation?context=artifact` verifies with
             `verify-cvm-attestation`.
       - [x] Oracle `/pin` rejects unauthenticated requests with `401 Bearer
@@ -1337,9 +1340,19 @@ vision Wiki is reaching for.
       - [x] `verify-deployment-bundle` passes against the live log-hardened
             Phala deployment with GitHub image provenance/SBOM checks, required
             sidecar digests, local raw compose hash
-            `03285bc9c80307cf1c0f4012fa38fbd11d2fcbf6bcf462081bad325c666eeaa8`,
+            `6a414b9b65764e01104d53643dd854ca6af26fc11eac4fe338d8186da46ef75d`,
             and live attested compose hash
-            `f941a2f9b0f00446be0c90859a3acee7d45c88d82ba40be4db0124168e454ff3`.
+            `538cc2cd5072944d132946b4632bed7a5731e481c33d72a5ecf31d93c7b00971`.
+      - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
+            main CVM and re-run live health, attestation, credential endpoint,
+            and add-balance endpoint gates.
+            Done 2026-07-08: live delegate image
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ad678080b874e402c05265d02a141a855a3c947b616425159ba5acc62d60ca21`
+            is GitHub-attested from commit
+            `1acdebd0c1e07c03b57533852985ac174d4f1261`; `/pin` rejects
+            unauthenticated requests with `401`, `/credentials/encrypted`
+            rejects while disabled with `403`, and `/billing/add-balance`
+            rejects while disabled with `403`.
       - [x] Revert temporary Phala public-log debug posture on the main CVM
             before any real mailbox, OTP, Tinker API-key, or card material is
             handled.

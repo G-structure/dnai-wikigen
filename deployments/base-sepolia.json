@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-08T13:44:30Z",
+  "lastReviewedAt": "2026-07-08T13:58:59Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -45,9 +45,9 @@
     "status": "running_bounded_oracle_delegate_mailbox_ready_pinned_compose_private_logs_revalidated_by_deployment_bundle",
     "cvmId": "670b3b21-4338-4d4e-ae72-7c8922579f59",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "f941a2f9b0f00446be0c90859a3acee7d45c88d82ba40be4db0124168e454ff3",
-    "localRawComposeImagePolicyHash": "03285bc9c80307cf1c0f4012fa38fbd11d2fcbf6bcf462081bad325c666eeaa8",
-    "renderedComposeSha256": "7fbe678e1e85055b5fc3af34c5ca6b37778a8d87ab610bdfb1e9e5791ec4d327",
+    "composeHash": "538cc2cd5072944d132946b4632bed7a5731e481c33d72a5ecf31d93c7b00971",
+    "localRawComposeImagePolicyHash": "6a414b9b65764e01104d53643dd854ca6af26fc11eac4fe338d8186da46ef75d",
+    "renderedComposeSha256": "c61d0e9811cea2cc68ffa6c96b48e909cd8b1653b44cbac3ba8b125d1c556ce3",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -88,10 +88,10 @@
         "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "81e3188591aadba26ab124217624e6341d2def74",
+    "sourceDigest": "1acdebd0c1e07c03b57533852985ac174d4f1261",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 28945611577,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28945611577",
+    "githubActionsRunId": 28947685641,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28947685641",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -101,13 +101,13 @@
     "imageDigests": [
       {
         "service": "oracle",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:8aeae979242de7377b51dc2bc33f5527457c5255584ce9b77d101ca37796f4a4",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:4debf5642a50ece6315c5d9693d2a048e6ad02b1f26c18d9522d2489e9a9a136",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3a9987a7a821307f0979c66a33ed0b102547a5756a433dfd285c5fd4bfacf4c1",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ad678080b874e402c05265d02a141a855a3c947b616425159ba5acc62d60ca21",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
@@ -128,8 +128,8 @@
       "mode": "tdx",
       "context": "artifact",
       "quoteSize": 5010,
-      "reportData": "b8baa3fd56d0cac54420eac267b592a8c67111463a2c3c6a2ed8c21ff404f614",
-      "encryptionPublicKey": "d8397a429f71e5c70f424788eafeda0734e32e1888baf9d7bca33183685f8366",
+      "reportData": "76d31c0cf71515a51edca9bc600dbac1faa398502e1a1b1a73827d2b9d2b5568",
+      "encryptionPublicKey": "3c3f31bc8c6ed6d935e7813fc27258ddf9d099da3ec38497e85a5f149b6df438",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -140,7 +140,10 @@
       "oneShotAttestedComposeHash": "0541c599acc399f943c6b1804cbf0e8b15aedbf2efeea98d9b2ac856b826f101",
       "oneShotDeploymentBundle": "verified",
       "steadyStateCompose": "⚙️/tinker-delegate/docker-compose.all.phala.yaml",
-      "steadyStateAttestedComposeHash": "f941a2f9b0f00446be0c90859a3acee7d45c88d82ba40be4db0124168e454ff3",
+      "steadyStateAttestedComposeHash": "538cc2cd5072944d132946b4632bed7a5731e481c33d72a5ecf31d93c7b00971",
+      "currentOneShotProfileLocalRawComposeImagePolicyHash": "ea7b335b1e6f9c1113f28b35a86bfcba450baabe01376e2914bccce753eedf3a",
+      "currentOneShotProfileRenderedComposeSha256": "08b2bc032d48b8c323adced4fc364c82f7bfce5070cb6e7bc6193ff7e7925d7c",
+      "currentOneShotProfileLiveProof": "not_re_run_after_image_refresh_existing_mailbox_ready",
       "publicHealthEvidence": {
         "status": "ok",
         "oracleEmail": "",
@@ -157,7 +160,9 @@
       },
       "publicEndpointGates": {
         "unauthenticatedEmailEndpoint": "401 Bearer token required",
+        "unauthenticatedPinEndpoint": "401 Bearer token required",
         "credentialProvisioningEndpoint": "disabled_by_default",
+        "addBalanceEndpoint": "disabled_by_default",
         "tinkerBootstrapSignup": false,
         "tinkerAllowAddBalanceEndpoint": false
       },
@@ -263,12 +268,14 @@
       "context": "oracle-credentials",
       "mode": "tdx",
       "quoteSize": 5010,
-      "reportData": "aca0499b93a09fefe3520e21bafc2cf14b3017b745dd49d56c7059562aa9bc66",
-      "encryptionPublicKey": "725a6b3958ee238e70b2dfd163c2328312666ea1992273b51c98e33d74dd6d16",
+      "reportData": "532d92a7e9d14a5163de98715df2e6011db7c2b759bd9d2a1c3fb802a526d304",
+      "encryptionPublicKey": "04c63aa9de4e649e82eaa0c7c18774f5eab5af9d38e10e717842f8e73baef620",
       "oracleEmail": "",
       "oracleEmailHash": "535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
       "oracleReady": true,
       "postWithoutProvisioningToken": "403_disabled",
+      "pinWithoutBearer": "401_bearer_required",
+      "addBalancePostWhileDisabled": "403_disabled",
       "rawSecretEgress": false
     }
   },

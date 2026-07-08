@@ -910,9 +910,13 @@ Implementation status:
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning `ok` with sealed mailbox readiness/hash only, and live delegate
             attestation verification passing against local raw compose hash
-            `03285bc9c80307cf1c0f4012fa38fbd11d2fcbf6bcf462081bad325c666eeaa8`
+            `6a414b9b65764e01104d53643dd854ca6af26fc11eac4fe338d8186da46ef75d`
             and live Phala attested compose hash
-            `f941a2f9b0f00446be0c90859a3acee7d45c88d82ba40be4db0124168e454ff3`.
+            `538cc2cd5072944d132946b4632bed7a5731e481c33d72a5ecf31d93c7b00971`.
+            The live delegate image is built from commit
+            `1acdebd0c1e07c03b57533852985ac174d4f1261`, so it includes the
+            bounded signup/signin egress fix, but Tinker bootstrap remains
+            disabled and unattempted in the main CVM.
 [real]      The temporary public-log debug exception has been reverted on the
             current main Phala CVM. Public logs and public sysinfo are disabled
             while runtime guards keep `ORACLE_AUTO_GENESIS=false`,
