@@ -255,6 +255,10 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   `--add-balance-receipt-json` binds an existing bounded top-up receipt, and
   `--run-add-balance-attempt` posts only the amount to `/billing/add-balance`
   before writing add-balance manifest and verification JSON.
+- `python -m tinker_delegate.main check-funding-validation-packet` replay-checks
+  packet directories and returns bounded pass/fail checks. It can require
+  add-balance evidence and can require live deployed TDX attestation evidence;
+  local packets remain internally checkable but are not production proof.
 - The HTTP `POST /billing/add-balance` mutation endpoint is disabled by default
   behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; the capped CLI/internal path also
   requires `TINKER_FUNDING_MODE=operator_capped_validation` for deliberate

@@ -647,6 +647,11 @@ Implementation status:
             receipt, or POST only the amount to `/billing/add-balance` when
             `--run-add-balance-attempt` is explicitly set and `--amount` is
             provided.
+[real]      `check-funding-validation-packet` replay-checks packet directories:
+            required files, payment manifest replay, optional add-balance
+            manifest replay, summary hash consistency, and optional deployed
+            TDX attestation evidence. It returns only bounded pass/fail checks
+            and does not echo packet bodies.
 [real]      The FastAPI `POST /billing/add-balance` mutation endpoint is
             disabled by default behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`.
             The lower-level CLI/internal handler still requires

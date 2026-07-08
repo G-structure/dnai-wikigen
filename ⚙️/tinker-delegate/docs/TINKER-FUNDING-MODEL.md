@@ -127,6 +127,15 @@ python -m tinker_delegate.main funding-validation-packet \
   --validation-id operator-run-1 \
   --receipt-json ./payment-method-receipt.json \
   --add-balance-receipt-json ./add-balance-receipt.json
+
+python -m tinker_delegate.main check-funding-validation-packet \
+  --packet-dir ./funding-validation-packet \
+  --validation-id operator-run-1 \
+  --compose-hash EXPECTED_COMPOSE_HASH \
+  --app-id EXPECTED_APP_ID \
+  --os-image-hash EXPECTED_OS_IMAGE_HASH \
+  --require-add-balance \
+  --require-deployed-attestation
 ```
 
 The manifest publishes only hashes, bands, outcome, TDX quote hash,
@@ -140,7 +149,10 @@ directory. It can also write a separate add-balance receipt, manifest, and
 verification. To include an encrypted card submission, the operator must pass
 `--run-card-attempt`; card fields without that flag are rejected. To include a
 live top-up attempt, the operator must pass `--run-add-balance-attempt` and
-`--amount`; the command posts only the amount to `/billing/add-balance`.
+`--amount`; the command posts only the amount to `/billing/add-balance`. The
+packet checker distinguishes an internally consistent local packet from a
+packet with live deployed TDX evidence; pass `--require-deployed-attestation`
+before treating packet evidence as deployed proof.
 
 ## Validation Boundary
 
@@ -166,6 +178,8 @@ What is real:
 - Funding validation packets can include a separate add-balance evidence lane
   for low-value top-up attempts without merging it into the payment-method
   receipt.
+- Funding validation packets can be replay-checked as directories, including
+  optional add-balance and deployed-attestation requirements.
 
 What remains partial:
 

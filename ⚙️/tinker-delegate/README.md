@@ -42,8 +42,10 @@ preflight, receipt, manifest, verification, and summary JSON artifacts in one
 bounded packet directory; it can also include a separate add-balance receipt,
 manifest, and verification. It requires explicit `--run-card-attempt` before
 card fields are accepted, and explicit `--run-add-balance-attempt` before
-posting an amount to `/billing/add-balance`. CLI output fails closed if a
-delegate response tries to echo submitted card material. The
+posting an amount to `/billing/add-balance`. `check-funding-validation-packet`
+replay-checks the packet directory and can require add-balance evidence or live
+deployed TDX attestation evidence. CLI output fails closed if a delegate
+response tries to echo submitted card material. The
 plaintext card API endpoint is disabled by default and unavailable in dstack
 mode; it can only be enabled as a local-development test hook with
 `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. The add-balance HTTP mutation
@@ -226,6 +228,15 @@ build a public manifest:
   --validation-id operator-run-1 \
   --receipt-json ./payment-method-receipt.json \
   --add-balance-receipt-json ./add-balance-receipt.json
+
+.venv/bin/python -m tinker_delegate.main check-funding-validation-packet \
+  --packet-dir ./funding-validation-packet \
+  --validation-id operator-run-1 \
+  --compose-hash 0xEXPECTED_COMPOSE_HASH \
+  --app-id 0xEXPECTED_APP_ID \
+  --os-image-hash 0xEXPECTED_OS_IMAGE_HASH \
+  --require-add-balance \
+  --require-deployed-attestation
 ```
 
 The manifest builder and packet runner reject raw card, API-key, and
@@ -491,6 +502,11 @@ contracts/
   `--run-card-attempt`. It can also bind `--add-balance-receipt-json` or run an
   explicit `--run-add-balance-attempt` to produce separate top-up manifest and
   verification JSON.
+- **Funding packet checker**: `python -m tinker_delegate.main
+  check-funding-validation-packet` checks required files, replays payment and
+  optional top-up manifest hashes, compares saved verification/summary hashes,
+  and can fail closed unless add-balance files or live deployed TDX attestation
+  evidence are present.
 - **Run metadata storage**: deal lifecycle events are persisted in a separate
   encrypted delegate store under `/data/run_metadata.enc` in compose profiles.
   Records contain only bounded metadata such as hashed deal/account/run handles,

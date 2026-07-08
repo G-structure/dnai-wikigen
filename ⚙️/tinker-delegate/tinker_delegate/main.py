@@ -293,6 +293,27 @@ def cli():
     validation_packet_p.add_argument("--address-postal", default="", help="Postal code")
     validation_packet_p.add_argument("--address-country", default="US", help="Country (default: US)")
 
+    packet_check_p = sub.add_parser(
+        "check-funding-validation-packet",
+        help="Replay-check a bounded funding validation packet directory",
+    )
+    packet_check_p.add_argument("--packet-dir", required=True, help="Funding validation packet directory")
+    packet_check_p.add_argument("--validation-id", default="", help="Operator-local validation run ID to hash")
+    packet_check_p.add_argument("--compose-hash", default="", help="Expected compose hash bound by hash")
+    packet_check_p.add_argument("--app-id", default="", help="Expected app ID bound by hash")
+    packet_check_p.add_argument("--os-image-hash", default="", help="Expected OS image hash bound by hash")
+    packet_check_p.add_argument(
+        "--require-add-balance",
+        action="store_true",
+        help="Require add-balance receipt, manifest, and verification files",
+    )
+    packet_check_p.add_argument(
+        "--require-deployed-attestation",
+        action="store_true",
+        help="Require preflight evidence that billing attestation was live-verified as TDX",
+    )
+    packet_check_p.add_argument("--output", default="", help="Optional output path for checker JSON")
+
     add_card_p = sub.add_parser("add-card", help="Add payment method (card) to Tinker account")
     add_card_p.add_argument("--number", required=True, help="Card number")
     add_card_p.add_argument("--exp-month", required=True, help="Expiration month (01-12)")
@@ -572,6 +593,21 @@ def cli():
             card_data=card_fields if args.run_card_attempt else None,
         )
         _emit_bounded_json(result.to_public_dict())
+        sys.exit(0 if result.ok else 1)
+
+    elif args.command == "check-funding-validation-packet":
+        from tinker_delegate.funding_validation_packet import check_funding_validation_packet
+
+        result = check_funding_validation_packet(
+            packet_dir=Path(args.packet_dir),
+            validation_id=args.validation_id,
+            expected_compose_hash=args.compose_hash,
+            expected_app_id=args.app_id,
+            expected_os_image_hash=args.os_image_hash,
+            require_add_balance=args.require_add_balance,
+            require_deployed_attestation=args.require_deployed_attestation,
+        )
+        _emit_bounded_json(result.to_public_dict(), output_path=args.output)
         sys.exit(0 if result.ok else 1)
 
     elif args.command == "add-card":

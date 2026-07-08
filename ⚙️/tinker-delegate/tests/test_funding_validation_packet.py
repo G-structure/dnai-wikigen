@@ -8,7 +8,10 @@ from pathlib import Path
 
 from tinker_delegate.billing_uploader import BillingCardUploadResult
 from tinker_delegate.config import Settings
-from tinker_delegate.funding_validation_packet import run_funding_validation_packet
+from tinker_delegate.funding_validation_packet import (
+    check_funding_validation_packet,
+    run_funding_validation_packet,
+)
 
 
 def _receipt() -> dict:
@@ -295,6 +298,151 @@ class FundingValidationPacketTest(unittest.TestCase):
                 (output_dir / "add-balance-verification.json").read_text(encoding="utf-8")
             )
             self.assertTrue(add_balance_verification["ok"])
+
+    def test_checker_accepts_complete_local_packet_and_marks_no_deployed_evidence(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "receipt.json"
+            add_balance_receipt_path = Path(tmpdir) / "add-balance-receipt.json"
+            output_dir = Path(tmpdir) / "packet"
+            receipt_path.write_text(json.dumps(_receipt()), encoding="utf-8")
+            add_balance_receipt_path.write_text(json.dumps(_add_balance_receipt()), encoding="utf-8")
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="bb" * 32,
+            )
+            run_funding_validation_packet(
+                settings,
+                output_dir=output_dir,
+                api_url="http://localhost:8080",
+                amount_dollars=5.0,
+                expected_compose_hash="c" * 64,
+                allow_local_attestation=True,
+                validation_id="operator-run-1",
+                receipt_json=receipt_path,
+                add_balance_receipt_json=add_balance_receipt_path,
+            )
+
+            check = check_funding_validation_packet(
+                packet_dir=output_dir,
+                validation_id="operator-run-1",
+                expected_compose_hash="c" * 64,
+                require_add_balance=True,
+            ).to_public_dict()
+
+            self.assertTrue(check["ok"])
+            self.assertFalse(check["deployed_evidence"])
+            checks = {item["name"]: item for item in check["checks"]}
+            self.assertEqual(checks["deployed_attestation"]["status"], "not_required")
+            self.assertEqual(checks["add_balance_manifest_replay"]["status"], "ok")
+
+    def test_checker_rejects_deployed_claim_without_tdx_attestation_fetch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "receipt.json"
+            output_dir = Path(tmpdir) / "packet"
+            receipt_path.write_text(json.dumps(_receipt()), encoding="utf-8")
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="cc" * 32,
+            )
+            run_funding_validation_packet(
+                settings,
+                output_dir=output_dir,
+                api_url="http://localhost:8080",
+                amount_dollars=5.0,
+                allow_local_attestation=True,
+                validation_id="operator-run-1",
+                receipt_json=receipt_path,
+            )
+
+            check = check_funding_validation_packet(
+                packet_dir=output_dir,
+                validation_id="operator-run-1",
+                require_deployed_attestation=True,
+            ).to_public_dict()
+
+            self.assertFalse(check["ok"])
+            checks = {item["name"]: item for item in check["checks"]}
+            self.assertEqual(checks["deployed_attestation"]["status"], "missing")
+
+    def test_checker_rejects_tampered_packet(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "receipt.json"
+            output_dir = Path(tmpdir) / "packet"
+            receipt_path.write_text(json.dumps(_receipt()), encoding="utf-8")
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="dd" * 32,
+            )
+            run_funding_validation_packet(
+                settings,
+                output_dir=output_dir,
+                api_url="http://localhost:8080",
+                amount_dollars=5.0,
+                allow_local_attestation=True,
+                validation_id="operator-run-1",
+                receipt_json=receipt_path,
+            )
+            receipt = json.loads((output_dir / "payment-method-receipt.json").read_text(encoding="utf-8"))
+            receipt["outcome"] = "success"
+            (output_dir / "payment-method-receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+
+            check = check_funding_validation_packet(
+                packet_dir=output_dir,
+                validation_id="operator-run-1",
+            ).to_public_dict()
+
+            self.assertFalse(check["ok"])
+            checks = {item["name"]: item for item in check["checks"]}
+            self.assertEqual(checks["payment_manifest_replay"]["status"], "failed")
+
+    def test_cli_checker_writes_bounded_check_result(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "receipt.json"
+            output_dir = Path(tmpdir) / "packet"
+            check_path = Path(tmpdir) / "packet-check.json"
+            receipt_path.write_text(json.dumps(_receipt()), encoding="utf-8")
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="ee" * 32,
+            )
+            run_funding_validation_packet(
+                settings,
+                output_dir=output_dir,
+                api_url="http://localhost:8080",
+                amount_dollars=5.0,
+                allow_local_attestation=True,
+                validation_id="operator-run-1",
+                receipt_json=receipt_path,
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "check-funding-validation-packet",
+                    "--packet-dir",
+                    str(output_dir),
+                    "--validation-id",
+                    "operator-run-1",
+                    "--output",
+                    str(check_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=_env(tmpdir),
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
+            body = json.loads(check_path.read_text(encoding="utf-8"))
+            self.assertTrue(body["ok"])
 
 
 if __name__ == "__main__":

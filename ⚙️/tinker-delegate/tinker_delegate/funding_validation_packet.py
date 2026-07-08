@@ -83,6 +83,32 @@ class FundingValidationPacketResult:
         }
 
 
+@dataclass(frozen=True)
+class FundingValidationPacketCheck:
+    """Bounded checker result for a generated packet directory."""
+
+    ok: bool
+    packet_dir: str
+    checks: list[dict[str, Any]]
+    payment_manifest_hash: str = ""
+    add_balance_manifest_hash: str = ""
+    summary_ok: bool = False
+    deployed_evidence: bool = False
+    issued_at: int = 0
+
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "packet_dir": self.packet_dir,
+            "checks": self.checks,
+            "payment_manifest_hash": self.payment_manifest_hash,
+            "add_balance_manifest_hash": self.add_balance_manifest_hash,
+            "summary_ok": self.summary_ok,
+            "deployed_evidence": self.deployed_evidence,
+            "issued_at": self.issued_at,
+        }
+
+
 def run_funding_validation_packet(
     settings: Any,
     *,
@@ -367,3 +393,179 @@ def _assert_no_secret_output(payload: Any, *, forbidden_values: tuple[str, ...] 
 def packet_id_for_summary(summary: dict[str, Any]) -> str:
     """Stable helper for external packet catalogs."""
     return hash_bounded_object(summary)
+
+
+def check_funding_validation_packet(
+    *,
+    packet_dir: Path,
+    validation_id: str = "",
+    expected_compose_hash: str = "",
+    expected_app_id: str = "",
+    expected_os_image_hash: str = "",
+    require_add_balance: bool = False,
+    require_deployed_attestation: bool = False,
+) -> FundingValidationPacketCheck:
+    """Replay-check a packet directory without echoing packet bodies."""
+    issued_at = int(time.time())
+    checks: list[dict[str, Any]] = []
+    policy = {
+        "compose_hash": expected_compose_hash,
+        "app_id": expected_app_id,
+        "os_image_hash": expected_os_image_hash,
+    }
+    paths = {
+        "preflight": packet_dir / "preflight.json",
+        "receipt": packet_dir / "payment-method-receipt.json",
+        "manifest": packet_dir / "funding-manifest.json",
+        "verification": packet_dir / "funding-verification.json",
+        "summary": packet_dir / "funding-validation-summary.json",
+        "add_balance_receipt": packet_dir / "add-balance-receipt.json",
+        "add_balance_manifest": packet_dir / "add-balance-manifest.json",
+        "add_balance_verification": packet_dir / "add-balance-verification.json",
+    }
+
+    required_names = ("preflight", "receipt", "manifest", "verification", "summary")
+    missing_required = [name for name in required_names if not paths[name].exists()]
+    checks.append(_packet_check(
+        "required_files",
+        not missing_required,
+        "present" if not missing_required else "missing",
+    ))
+    if missing_required:
+        return FundingValidationPacketCheck(
+            ok=False,
+            packet_dir=str(packet_dir),
+            checks=checks,
+            issued_at=issued_at,
+        )
+
+    try:
+        preflight = _load_packet_json(paths["preflight"])
+        receipt = _load_packet_json(paths["receipt"])
+        manifest = _load_packet_json(paths["manifest"])
+        verification_file = _load_packet_json(paths["verification"])
+        summary = _load_packet_json(paths["summary"])
+    except ValueError as exc:
+        checks.append(_packet_check("bounded_json", False, str(exc)))
+        return FundingValidationPacketCheck(
+            ok=False,
+            packet_dir=str(packet_dir),
+            checks=checks,
+            issued_at=issued_at,
+        )
+
+    payment_verification = verify_funding_validation_manifest(
+        preflight=preflight,
+        receipt=receipt,
+        manifest=manifest,
+        validation_id=validation_id,
+        attestation_policy=policy,
+        require_ready=True,
+    ).to_public_dict()
+    checks.append(_packet_check(
+        "payment_manifest_replay",
+        bool(payment_verification["ok"]),
+        "ok" if payment_verification["ok"] else "failed",
+    ))
+    checks.append(_packet_check(
+        "payment_verification_file",
+        verification_file.get("ok") is True
+        and verification_file.get("manifest_hash") == payment_verification.get("manifest_hash"),
+        "matches" if verification_file.get("manifest_hash") == payment_verification.get("manifest_hash") else "mismatch",
+    ))
+    checks.append(_packet_check(
+        "summary_payment_hash",
+        summary.get("manifest_hash") == manifest.get("manifest_hash"),
+        "matches" if summary.get("manifest_hash") == manifest.get("manifest_hash") else "mismatch",
+    ))
+
+    deployed_evidence = _has_deployed_attestation(preflight)
+    checks.append(_packet_check(
+        "deployed_attestation",
+        deployed_evidence if require_deployed_attestation else True,
+        "tdx_verified" if deployed_evidence else "not_required" if not require_deployed_attestation else "missing",
+    ))
+
+    add_balance_present = all(
+        paths[name].exists()
+        for name in ("add_balance_receipt", "add_balance_manifest", "add_balance_verification")
+    )
+    checks.append(_packet_check(
+        "add_balance_files",
+        add_balance_present if require_add_balance else True,
+        "present" if add_balance_present else "not_required" if not require_add_balance else "missing",
+    ))
+    add_balance_manifest_hash = ""
+    add_balance_ok = True
+    if add_balance_present:
+        try:
+            add_balance_receipt = _load_packet_json(paths["add_balance_receipt"])
+            add_balance_manifest = _load_packet_json(paths["add_balance_manifest"])
+            add_balance_verification_file = _load_packet_json(paths["add_balance_verification"])
+        except ValueError as exc:
+            checks.append(_packet_check("add_balance_bounded_json", False, str(exc)))
+            add_balance_ok = False
+        else:
+            add_balance_replay = verify_funding_validation_manifest(
+                preflight=preflight,
+                receipt=add_balance_receipt,
+                manifest=add_balance_manifest,
+                validation_id=f"{validation_id}:add_balance" if validation_id else "add_balance",
+                attestation_policy=policy,
+                require_ready=True,
+                require_no_raw_card_retained=False,
+            ).to_public_dict()
+            add_balance_manifest_hash = str(add_balance_manifest.get("manifest_hash", ""))
+            add_balance_ok = bool(add_balance_replay["ok"])
+            checks.append(_packet_check(
+                "add_balance_manifest_replay",
+                add_balance_ok,
+                "ok" if add_balance_ok else "failed",
+            ))
+            checks.append(_packet_check(
+                "add_balance_verification_file",
+                add_balance_verification_file.get("ok") is True
+                and add_balance_verification_file.get("manifest_hash") == add_balance_replay.get("manifest_hash"),
+                "matches"
+                if add_balance_verification_file.get("manifest_hash") == add_balance_replay.get("manifest_hash")
+                else "mismatch",
+            ))
+            checks.append(_packet_check(
+                "summary_add_balance_hash",
+                summary.get("add_balance_manifest_hash") == add_balance_manifest.get("manifest_hash"),
+                "matches"
+                if summary.get("add_balance_manifest_hash") == add_balance_manifest.get("manifest_hash")
+                else "mismatch",
+            ))
+
+    return FundingValidationPacketCheck(
+        ok=all(check["ok"] for check in checks),
+        packet_dir=str(packet_dir),
+        checks=checks,
+        payment_manifest_hash=str(manifest.get("manifest_hash", "")),
+        add_balance_manifest_hash=add_balance_manifest_hash,
+        summary_ok=bool(summary.get("ok")),
+        deployed_evidence=deployed_evidence,
+        issued_at=issued_at,
+    )
+
+
+def _load_packet_json(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path.name} is not a JSON object")
+    _assert_no_secret_output(payload)
+    return payload
+
+
+def _has_deployed_attestation(preflight: dict[str, Any]) -> bool:
+    for check in preflight.get("checks", []):
+        if not isinstance(check, dict):
+            continue
+        if check.get("name") == "billing_attestation_fetch":
+            return bool(check.get("ok") is True and check.get("status") == "tdx")
+    return False
+
+
+def _packet_check(name: str, ok: bool, status: str) -> dict[str, Any]:
+    return {"name": name, "ok": bool(ok), "status": status}
