@@ -609,9 +609,10 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     `https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network`
   - Delegate `/health`: `status=ok`, `agent_stack_available=true`,
     `api_key_configured=false`, `bootstrap_attempted=false`.
-  - Oracle `/health`: `status=degraded`, `oracle_email=""`,
-    `oracle_email_hash=""`, `oracle_ready=false`, `imap_connected=false`,
-    `dstack_enabled=true`.
+  - Oracle `/health` after the main-CVM mailbox genesis proof:
+    `status=ok`, `oracle_email=""`,
+    `oracle_email_hash=535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132`,
+    `oracle_ready=true`, `imap_connected=true`, `dstack_enabled=true`.
   - Current captcha/genesis finding: an explicit temporary
     `dnai-wikigen-oracle-genesis-debug` Phala CVM was deployed with the
     log-hardened oracle image, `ORACLE_AUTO_GENESIS=true`, public logs, public
@@ -670,12 +671,26 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     login, API-key capture, or billing flow ran during that debug window.
   - Source-level email-oracle log hardening and bounded public email surfaces
     are now in the main Phala CVM's pinned oracle image. Public `/health` and
-    `/attestation?context=attestation` return `oracle_email=""`; because
-    `ORACLE_AUTO_GENESIS=false`, they also return empty `oracle_email_hash` and
-    `oracle_ready=false`. Public logs are disabled; real mailbox, OTP, Tinker
-    API-key, or card-bearing flows must still use only bounded interfaces and
-    the disabled endpoint gates must be intentionally reopened with fresh
-    evidence.
+    `/attestation?context=oracle-credentials` return `oracle_email=""` and
+    only hash/readiness fields for the sealed mailbox.
+  - Main-CVM mailbox genesis proof: a one-shot
+    `docker-compose.mailbox-genesis.phala.yaml` update enabled
+    `ORACLE_AUTO_GENESIS=true` while keeping `TINKER_BOOTSTRAP_SIGNUP=false`,
+    `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`, and credential provisioning
+    disabled. Its local raw-compose/image-policy hash was
+    `90f4f45c12b645b3b43f6e56c5d5708f2be4c488999a65cd6c391fd09209c027`,
+    rendered compose SHA-256 was
+    `88f39d901797c5839a8b9cbf11bfa2bb680b54e92fa84e794e79c5a717d0bad3`,
+    and live attested compose hash was
+    `0541c599acc399f943c6b1804cbf0e8b15aedbf2efeea98d9b2ac856b826f101`.
+    `verify-deployment-bundle` passed for that one-shot deployment. The CVM
+    was then redeployed back to `docker-compose.all.phala.yaml`; final
+    `phala cvms get` showed `auto_genesis=false`, `bootstrap_signup=false`,
+    public logs/sysinfo disabled, and the sealed mailbox still ready with the
+    same public email hash.
+  - Public logs are disabled; OTP, Tinker API-key, or card-bearing flows must
+    still use only bounded interfaces and disabled endpoint gates must be
+    intentionally reopened with fresh evidence.
   - Oracle `/pin` without bearer auth returns `401 Bearer token required`.
   - Public CDP gateway `/json/version` returns host-header rejection rather than
     a usable browser-control response.
@@ -694,10 +709,12 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     OS image hash, report data, public key, and quote size `5010`.
   - Oracle `/attestation?context=oracle-credentials` now returns a live TDX
     credential-ingress envelope with report data
-    `00bddaeffaeb8b0ba838c9f86694fce477e78eca4d0d193c7713f3e1620cbe3f`,
+    `aca0499b93a09fefe3520e21bafc2cf14b3017b745dd49d56c7059562aa9bc66`,
     encryption public key
-    `3339fecff787f0ad27d3c294bbb83df61874bf005648e811a847f167e2cef631`,
-    quote size `5010`, `oracle_email=""`, and no raw credential output.
+    `725a6b3958ee238e70b2dfd163c2328312666ea1992273b51c98e33d74dd6d16`,
+    quote size `5010`,
+    `oracle_email_hash=535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132`,
+    `oracle_ready=true`, `oracle_email=""`, and no raw credential output.
     `POST /credentials/encrypted` rejects while disabled by default.
 - `deployments/base-sepolia.json` is now the machine-readable deployment
   manifest. It records the funded current operator deployer, current

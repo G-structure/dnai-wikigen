@@ -119,9 +119,17 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   `/email`. A second Phala debug proof with the bounded-health image confirmed
   public `/health` and `/attestation` return `oracle_email=""` with hash-only
   readiness, while unauthenticated `/email` returns 401.
+  MAIN-CVM MAILBOX FINDING: a one-shot main Phala CVM deployment using
+  `docker-compose.mailbox-genesis.phala.yaml` generated and sealed the mailbox
+  while Tinker bootstrap, billing, add-balance, API-key provisioning, and
+  credential provisioning stayed disabled. The CVM was redeployed back to the
+  normal compose with `ORACLE_AUTO_GENESIS=false`; public health still reports
+  `oracle_ready=true`, `imap_connected=true`, `oracle_email=""`, and only
+  `oracle_email_hash`.
   CURRENT FINDING: the local Neko browser path works end to end through API-key
-  capture. The older Phala/headless blocker has not been revalidated in this
-  cycle, so deployed CVM browser posture remains pending.
+  capture. The main CVM now has a sealed mailbox ready for OTPs, but the Tinker
+  OTP/login/API-key bootstrap has not been revalidated in the deployed CVM, so
+  deployed browser posture remains pending.
 
 PHASE 2: READY
   Control plane starts listening for on-chain deal events

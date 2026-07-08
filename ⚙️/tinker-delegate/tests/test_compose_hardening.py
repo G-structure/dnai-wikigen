@@ -124,6 +124,20 @@ class ComposeHardeningTest(unittest.TestCase):
         self.assertIn('ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: "false"', oracle)
         self.assertIn('ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ""', oracle)
 
+    def test_mailbox_genesis_compose_keeps_tinker_and_billing_disabled(self):
+        compose = (ROOT / "docker-compose.mailbox-genesis.phala.yaml").read_text()
+        oracle = _service_block(compose, "oracle")
+        delegate = _service_block(compose, "delegate")
+
+        self.assertIn("Temporary Main-CVM Mailbox Genesis Compose", compose)
+        self.assertIn("tee-email-oracle@sha256:", oracle)
+        self.assertIn("tinker-delegate@sha256:", delegate)
+        self.assertIn('ORACLE_AUTO_GENESIS: "true"', oracle)
+        self.assertIn('ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: "false"', oracle)
+        self.assertIn('ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ""', oracle)
+        self.assertIn('TINKER_BOOTSTRAP_SIGNUP: "false"', delegate)
+        self.assertIn('TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "false"', delegate)
+
 
 if __name__ == "__main__":
     unittest.main()

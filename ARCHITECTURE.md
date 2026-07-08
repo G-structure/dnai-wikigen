@@ -546,9 +546,13 @@ Implementation status:
             explicit provisioning bearer token, stores only through the sealed
             credential store, and returns hashes/status rather than raw mailbox
             credentials.
-[partial]   The running Phala oracle has not yet been provisioned with real
-            mailbox credentials through that path, so live Tinker OTP receipt in
-            the CVM is still unproven.
+[real]      The main running Phala oracle has generated and sealed a mailbox in
+            the CVM through a one-shot mailbox-genesis compose, then been
+            redeployed back to the normal compose with `ORACLE_AUTO_GENESIS=false`.
+            Public health/attestation expose `oracle_email=""`, readiness, and
+            `oracle_email_hash`, while unauthenticated `/email` returns 401.
+[partial]   Live Tinker OTP receipt in the CVM is still unproven; the mailbox is
+            ready, but Tinker bootstrap remains disabled.
 [partial]   App-auth contract is not yet enforced on every OTP API request.
 [planned]   Reviewer notification, consent confirmation, outbound bounded-result delivery.
 ```
@@ -904,7 +908,7 @@ Implementation status:
             `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, digest-pinned GHCR
             images verified by GitHub
             attestations, delegate `/health` returning `ok`, oracle `/health`
-            returning degraded until credentials are sealed, and live delegate
+            returning `ok` with sealed mailbox readiness/hash only, and live delegate
             attestation verification passing against local raw compose hash
             `03285bc9c80307cf1c0f4012fa38fbd11d2fcbf6bcf462081bad325c666eeaa8`
             and live Phala attested compose hash
@@ -914,6 +918,13 @@ Implementation status:
             while runtime guards keep `ORACLE_AUTO_GENESIS=false`,
             `TINKER_BOOTSTRAP_SIGNUP=false`, `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`,
             and credential provisioning disabled.
+[real]      Main-CVM mailbox genesis has been Phala-proven without enabling
+            Tinker bootstrap or billing. A one-shot
+            `docker-compose.mailbox-genesis.phala.yaml` deployment reached
+            `oracle_ready=true`, `imap_connected=true`, `oracle_email=""`, and
+            a non-empty `oracle_email_hash`; unauthenticated `/email` returned
+            401. The CVM was then redeployed back to the normal compose with
+            `ORACLE_AUTO_GENESIS=false`, and the sealed mailbox remained ready.
 [partial]   Production OS posture is not solved. The main CVM still reports
             `dstack-dev-0.5.9` / `is_dev=true`; earlier attempts to update the
             existing CVM to `dstack-0.5.10*` with `--no-dev-os` failed in the

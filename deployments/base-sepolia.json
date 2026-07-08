@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-08T11:51:22Z",
+  "lastReviewedAt": "2026-07-08T13:44:30Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -42,7 +42,7 @@
     }
   },
   "phala": {
-    "status": "running_bounded_oracle_delegate_pinned_compose_private_logs_revalidated_by_deployment_bundle",
+    "status": "running_bounded_oracle_delegate_mailbox_ready_pinned_compose_private_logs_revalidated_by_deployment_bundle",
     "cvmId": "670b3b21-4338-4d4e-ae72-7c8922579f59",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
     "composeHash": "f941a2f9b0f00446be0c90859a3acee7d45c88d82ba40be4db0124168e454ff3",
@@ -128,9 +128,48 @@
       "mode": "tdx",
       "context": "artifact",
       "quoteSize": 5010,
-      "reportData": "862dc5bfb08061e35a8ea2da6a160e40f83ace0d0ba615f65c05aa5e9faf1901",
-      "encryptionPublicKey": "40c8257b4c589c180409ed18728bcf1b46687c657124c9a93504f857a433d823",
+      "reportData": "b8baa3fd56d0cac54420eac267b592a8c67111463a2c3c6a2ed8c21ff404f614",
+      "encryptionPublicKey": "d8397a429f71e5c70f424788eafeda0734e32e1888baf9d7bca33183685f8366",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
+    },
+    "mainMailboxGenesisEvidence": {
+      "status": "mailbox_generated_in_main_cvm_then_reverted_to_normal_compose",
+      "oneShotCompose": "⚙️/tinker-delegate/docker-compose.mailbox-genesis.phala.yaml",
+      "oneShotLocalRawComposeImagePolicyHash": "90f4f45c12b645b3b43f6e56c5d5708f2be4c488999a65cd6c391fd09209c027",
+      "oneShotRenderedComposeSha256": "88f39d901797c5839a8b9cbf11bfa2bb680b54e92fa84e794e79c5a717d0bad3",
+      "oneShotAttestedComposeHash": "0541c599acc399f943c6b1804cbf0e8b15aedbf2efeea98d9b2ac856b826f101",
+      "oneShotDeploymentBundle": "verified",
+      "steadyStateCompose": "⚙️/tinker-delegate/docker-compose.all.phala.yaml",
+      "steadyStateAttestedComposeHash": "f941a2f9b0f00446be0c90859a3acee7d45c88d82ba40be4db0124168e454ff3",
+      "publicHealthEvidence": {
+        "status": "ok",
+        "oracleEmail": "",
+        "oracleEmailHash": "535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
+        "oracleReady": true,
+        "imapConnected": true,
+        "dstackEnabled": true
+      },
+      "delegateHealthEvidence": {
+        "status": "ok",
+        "apiKeyConfigured": false,
+        "bootstrapAttempted": false,
+        "agentStackAvailable": true
+      },
+      "publicEndpointGates": {
+        "unauthenticatedEmailEndpoint": "401 Bearer token required",
+        "credentialProvisioningEndpoint": "disabled_by_default",
+        "tinkerBootstrapSignup": false,
+        "tinkerAllowAddBalanceEndpoint": false
+      },
+      "steadyStateRuntimeGuards": {
+        "ORACLE_AUTO_GENESIS": "false",
+        "TINKER_BOOTSTRAP_SIGNUP": "false",
+        "TINKER_ALLOW_ADD_BALANCE_ENDPOINT": "false",
+        "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT": "false"
+      },
+      "publicLogs": false,
+      "publicSysinfo": false,
+      "rawSecretEgress": false
     },
     "oracleGenesisDebugEvidence": {
       "status": "bounded_health_phala_proven",
@@ -220,15 +259,15 @@
       "verification": "bounded-health image was built, GitHub-attestation verified, pinned into oracle-genesis debug compose, and Phala-proven with public health/attestation containing no raw mailbox"
     },
     "credentialProvisioningEvidence": {
-      "status": "endpoint_deployed_disabled_by_default",
+      "status": "endpoint_deployed_disabled_by_default_mailbox_ready",
       "context": "oracle-credentials",
       "mode": "tdx",
       "quoteSize": 5010,
-      "reportData": "00bddaeffaeb8b0ba838c9f86694fce477e78eca4d0d193c7713f3e1620cbe3f",
-      "encryptionPublicKey": "3339fecff787f0ad27d3c294bbb83df61874bf005648e811a847f167e2cef631",
+      "reportData": "aca0499b93a09fefe3520e21bafc2cf14b3017b745dd49d56c7059562aa9bc66",
+      "encryptionPublicKey": "725a6b3958ee238e70b2dfd163c2328312666ea1992273b51c98e33d74dd6d16",
       "oracleEmail": "",
-      "oracleEmailHash": "",
-      "oracleReady": false,
+      "oracleEmailHash": "535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
+      "oracleReady": true,
       "postWithoutProvisioningToken": "403_disabled",
       "rawSecretEgress": false
     }

@@ -527,6 +527,24 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   email fields plus a verified TDX quote; unauthenticated
                   `/email` returned `401 Bearer token required`. The temporary
                   public-log/SSH/dev-OS debug CVM was deleted afterward.
+            - [x] Run bounded mailbox genesis in the main combined Phala CVM
+                  without enabling Tinker bootstrap, billing, API-key
+                  provisioning, or credential provisioning.
+                  Done 2026-07-08: added
+                  `docker-compose.mailbox-genesis.phala.yaml` as an explicit
+                  one-shot profile with `ORACLE_AUTO_GENESIS=true`,
+                  `TINKER_BOOTSTRAP_SIGNUP=false`, and
+                  `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`. Updating CVM
+                  `670b3b21-4338-4d4e-ae72-7c8922579f59` reached
+                  `oracle_ready=true`, `imap_connected=true`,
+                  `oracle_email=""`, and
+                  `oracle_email_hash=535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132`.
+                  Unauthenticated `/email` still returned `401 Bearer token
+                  required`. The CVM was then redeployed back to
+                  `docker-compose.all.phala.yaml`; steady-state compose now has
+                  `ORACLE_AUTO_GENESIS=false`, `TINKER_BOOTSTRAP_SIGNUP=false`,
+                  public logs/sysinfo disabled, and the sealed mailbox remains
+                  ready via hash-only public health.
             - [ ] If HTTP signup regresses, repair the Neko/CDP browser
                   fallback timeout separately.
       - [ ] Run the encrypted provisioning path against the deployed Phala CVM
