@@ -54,6 +54,13 @@ Important current status:
             budget, optimizer placement policy, reward precision policy,
             bounded feedback, transcript hash, leakage hash, and attestable
             environment metadata.
+[real]      Local PythonCandidateSandbox for toy private-reward environments.
+            It runs candidate source in a subprocess with scratch cwd,
+            stripped environment, deterministic seed, timeout, capped
+            stdout/stderr, static preflight, and runtime import/file guards.
+[partial]   Candidate sandboxing for arbitrary third-party code. The local
+            Python sandbox is not OS/container isolation and is not sufficient
+            for untrusted production candidate execution inside a CVM.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -650,6 +657,22 @@ PrivateRewardEnvironment.finalize()         bounded result and hashes
 PrivateRewardEnvironment.attest()           environment/transcript metadata
 ```
 
+The local candidate sandbox contract is:
+
+```
+PythonCandidateSandbox.run(candidate)
+  input:  UTF-8 Python source bytes
+  guard:  AST preflight blocks file, process, network, import, dunder escapes
+  runtime: subprocess, scratch cwd, stripped environment, deterministic seed
+  limits: timeout, CPU/memory best-effort, max source bytes, capped stdout/stderr
+  output: candidate hash, pass/reject/error/timeout, exit code, capped traces
+```
+
+This sandbox is a real local development guardrail, not the final production
+answer for hostile third-party code. Production CVM execution still needs
+OS/container isolation, no-network policy, mounted scratch-only filesystem,
+resource cgroups/ulimits, and egress auditing.
+
 Target architecture:
 
 ```
@@ -706,11 +729,14 @@ Implementation status:
             feedback/result dataclasses, OptimizerPolicy, external bounded
             default mode, internal dense-reward mode, attested remote policy
             guard, and toy unit tests.
+[real]      PythonCandidateSandbox for local toy candidates with preflight,
+            subprocess timeout, deterministic seed, capped stdout/stderr, and
+            no supported network/filesystem/process access.
 [modeled]   TTT/RL bio-validation concept.
 [partial]   SFT evaluator scaffold.
 [real]      Output banding and offer computation.
-[planned]   Candidate sandbox, domain-specific bio benchmark, risk classifier,
-            and validation report schema.
+[planned]   Hardened production sandbox, domain-specific bio benchmark, risk
+            classifier, and validation report schema.
 ```
 
 ### 4. DNAI

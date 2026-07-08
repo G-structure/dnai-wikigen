@@ -265,8 +265,12 @@ Implementation note: `tinker_delegate.private_reward` now contains the base
 bounded-feedback, transcript-hash, leakage-hash, and attestation dataclasses.
 The default optimizer mode is external and bounded; exact rewards are exposed
 only through an explicit internal or attested optimizer policy. This is the
-interface layer only; real RLVR, TTT, bio-validation, and candidate-sandbox
-environments are still separate implementation work.
+interface layer only. `tinker_delegate.private_reward_sandbox` adds a local
+Python sandbox for toy candidates with subprocess timeout, scratch cwd,
+stripped environment, deterministic seed, capped stdout/stderr, and file,
+network, process, and import guards. Real RLVR, TTT, bio-validation, and
+hardened production candidate-sandbox environments are still separate
+implementation work.
 
 ## Security Goal
 

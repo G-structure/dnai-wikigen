@@ -445,6 +445,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       no network, no arbitrary file reads, no write access outside scratch,
       fixed resource limits, bounded stdout/stderr, deterministic seeds where
       feasible, and redacted traces.
+  - [x] `P0` Add a local Python candidate sandbox for toy private-reward
+        environments: subprocess timeout, scratch cwd, stripped environment,
+        deterministic seed, bounded stdout/stderr, static preflight, and
+        runtime guards for file, network, process, and import escapes.
+  - [ ] `P0` Harden candidate sandboxing with OS/container isolation suitable
+        for untrusted third-party code in a deployed CVM.
 - [ ] `P0` Add side-channel controls for reward evaluation:
       timing bands, output-size caps, timeout normalization, memory limits, and
       failure-code bucketing.

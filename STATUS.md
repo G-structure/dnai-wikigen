@@ -119,6 +119,18 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   enforcement, internal dense-reward access, and final transcript/leakage
   hashes.
 
+[real] Local candidate sandbox:
+
+- `tinker_delegate.private_reward_sandbox.PythonCandidateSandbox` runs UTF-8
+  Python candidate source in a subprocess with a scratch working directory,
+  stripped environment, deterministic random seed, timeout, best-effort
+  CPU/memory limits, max source bytes, and capped stdout/stderr.
+- Static preflight rejects file, network, process, import, builtin-import,
+  dunder-attribute, and direct `open`/`eval`/`exec` style escape attempts.
+- Public sandbox results expose candidate hash, bounded outcome, exit code,
+  timeout flag, capped stdout/stderr, and truncation flags without echoing the
+  source.
+
 ## Partial
 
 [partial] Deployed Tinker automation:
@@ -173,9 +185,12 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   environment exists.
 - Real RLVR, TTT, computational-bio, code-audit, or model-evaluation
   environments are not implemented.
-- Candidate sandboxing, side-channel normalization beyond timing bands,
-  hidden-holdout separation, and integration of optimizer policy with real
-  Tinker/browser execution remain open P0 work.
+- Candidate sandboxing has a local Python runner for toy candidates, but
+  hardened OS/container isolation for arbitrary third-party code is not
+  implemented.
+- Side-channel normalization beyond timing/output caps, hidden-holdout
+  separation, and integration of optimizer policy with real Tinker/browser
+  execution remain open P0 work.
 
 [partial] Frontend and product surface:
 
