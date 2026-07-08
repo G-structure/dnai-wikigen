@@ -40,6 +40,9 @@ Important current status:
 [real]      EmailOracleAuth.sol app-auth contract and tests.
 [real]      tee-email-oracle FastAPI service, sealed credential store, IMAP OTP path.
 [partial]   tinker-delegate service, browser automation, billing channel, API key store.
+            Local Neko login, OTP, onboarding, API-key provisioning, and
+            test-card billing rejection are validated; deployed CVM validation
+            and real funding remain open.
 [partial]   IsolatedTinkerSession and bounded control plane.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
@@ -523,8 +526,10 @@ Implementation status:
 ```
 [real]      API routes, billing code, encrypted card channel, key store, control plane.
 [real]      DiligenceRoom.sol and tests.
-[partial]   Browser signup is blocked in deployed headless mode by Tinker bot/fingerprint checks.
-[partial]   Funding is in progress: card data can be encrypted to the TEE, but reliable Stripe/Tinker browser completion still needs to be proven.
+[real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
+[real]      Local Stripe test-card billing path reaches submission and returns a bounded decline.
+[partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
+[partial]   Funding is in progress: card data can be encrypted to the TEE, but a capped real-card funding attempt still needs to be proven.
 [partial]   Optional Tinker SDK dependency must be installed for real evaluator execution.
 [planned]   Dedicated Tinker account encumbrance contract / funding-rail policy contract.
 ```
@@ -753,8 +758,12 @@ freezing separates production oracle code from development consumer onboarding
 Current caveat:
 
 ```
-The contract exists and is tested, but the FastAPI /pin path does not yet
-cryptographically enforce consumer authorization on every request.
+The contract exists and is tested. The FastAPI /pin and /inbox paths now have
+[real] runtime bearer enforcement for same-CVM deployments: the oracle and
+delegate derive the same secret from the dstack key path
+oracle/runtime-auth, and local dev can use ORACLE_RUNTIME_AUTH_TOKEN /
+TINKER_ORACLE_AUTH_TOKEN. Full on-chain EmailOracleAuth consumer-registry
+checks are still [planned].
 ```
 
 ### DiligenceRoom.sol
@@ -912,8 +921,8 @@ Endpoints:
 
 ```
 GET  /health
-POST /pin
-GET  /inbox
+POST /pin        runtime bearer required when auth is enabled
+GET  /inbox      runtime bearer required when auth is enabled
 GET  /attestation
 ```
 
@@ -929,6 +938,9 @@ CredentialStore
   | local AES key or dstack-derived key
   v
 IMAPClient connects
+  |
+  v
+/pin and /inbox require the same-CVM runtime bearer token
   |
   v
 /pin request searches recent email and extracts regex-matched code
@@ -1166,9 +1178,13 @@ bounded aggregate results
 
 ```
 1. On-chain TDX quote verification is not implemented.
-2. EmailOracleAuth is not yet enforced by the FastAPI OTP endpoint.
-3. Tinker browser automation is blocked by upstream bot/fingerprint checks.
-4. Reliable Tinker account funding through Stripe browser automation is in progress.
+2. EmailOracleAuth's on-chain consumer registry is not yet checked by the
+   FastAPI OTP endpoint; same-CVM bearer auth is implemented.
+3. Tinker browser automation works locally through Neko/CDP but still needs a
+   fresh deployed Phala/CVM validation run.
+4. Reliable Tinker account funding through Stripe browser automation is in progress:
+   the test-card path reaches Stripe and declines as expected, but real funding
+   is not yet proven.
 5. Real TTT/RL bio-validation is not implemented.
 6. DLP/egress enforcement is not implemented.
 7. Corpus policy and consent/revocation are modeled but not enforced.

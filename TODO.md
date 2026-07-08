@@ -78,15 +78,16 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 ## Milestone 0: Repo Truth, Baseline, And Documentation
 
-- [ ] `P0` Commit or otherwise intentionally land `ARCHITECTURE.md`.
+- [x] `P0` Commit or otherwise intentionally land `ARCHITECTURE.md`.
       Done when the architecture doc is tracked and reviewers can diff it.
-- [ ] `P0` Fix stale docs that still say Tinker signup is fully solved by
+- [x] `P0` Fix stale docs that still say Tinker signup is fully solved by
       `cock.email`, no captcha, or disposable-domain choice.
       Done when `rg "fully working|no captcha|cock.email alone|RESOLVED"` has no
       misleading claims outside historical notes.
-- [ ] `P0` Update `⚙️/tinker-delegate/SPEC.md` to match the newer README:
-      Tinker auth/funding is in progress and blocked by browser posture /
-      bot-check behavior.
+- [x] `P0` Update `⚙️/tinker-delegate/SPEC.md` to match current evidence:
+      local Neko auth/API-key provisioning works, deployed CVM validation is
+      pending, and funding reaches test-card decline but not real account
+      funding.
 - [ ] `P0` Add a `STATUS.md` or status block in `README.md` with:
       built, partial, modeled, planned, deployed addresses, current blockers,
       and test commands.
@@ -167,11 +168,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Enforce `EmailOracleAuth` at the FastAPI `/pin` and `/inbox`
       endpoints.
       Done when unauthenticated callers cannot retrieve OTPs or inbox metadata.
+      - [x] Add runtime bearer guard for `/pin` and `/inbox` so unauthenticated
+            network callers cannot retrieve OTPs or inbox metadata.
+      - [ ] Check the caller identity against the on-chain `EmailOracleAuth`
+            consumer registry before releasing OTP or inbox data.
 - [ ] `P0` Register the final oracle compose hash and consumer compose hash on
       Base Sepolia.
 - [ ] `P0` Turn off `allowAnyDevice` for production or document why it remains
       allowed during a specific test phase.
-- [ ] `P0` Implement same-CVM derived-key bearer auth for the current combined
+- [x] `P0` Implement same-CVM derived-key bearer auth for the current combined
       deployment.
 - [ ] `P1` Implement split-CVM runtime auth with RA-TLS or attestation-backed
       signed requests.
@@ -260,17 +265,30 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Reproduce the current Tinker auth blocker in a controlled probe:
       local headed Chrome, local Neko, Phala headed Neko, headless Playwright
       sidecar, same email, same IP class where possible.
+      - [x] Local Neko/CDP probe against live Tinker UI succeeds: email OTP
+            arrives through the oracle, onboarding completes, and API-key
+            provisioning captures a one-time `tml-...` key.
+      - [ ] Re-test Phala/deployed browser posture with the current selector
+            flow before calling production bootstrap solved.
 - [ ] `P0` Replace the deployed headless Playwright sidecar with a headed browser
       path that survives Phala packaging if browser automation remains the route.
 - [ ] `P0` Capture a selector/frame/auth-flow map for:
       email input, magic-code page, OTP boxes, onboarding, keys page, billing,
       Stripe iframe, balance page, and auto-reload settings.
+      - [x] Capture current local selectors for email auth, OTP boxes,
+            onboarding, keys page, New key -> Generate key, balance page,
+            Add payment method modal, and Stripe card iframe.
+      - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
 - [ ] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to
       Tinker/Stripe if asked.
 - [ ] `P0` Complete Tinker signup inside the CVM:
       email OTP, onboarding, API key creation, encrypted key sealing.
+      - [x] Complete local Neko signup/sign-in path through OTP, onboarding, and
+            API-key creation.
+      - [ ] Complete the same flow inside the deployed CVM and seal the API key
+            with the dstack-derived key path.
 - [ ] `P0` Add a Tinker re-auth path for future OTP challenges.
 - [ ] `P1` Add browser session recovery:
       stale OTP page detection, cookie/session expiration, login loop detection,
@@ -288,8 +306,19 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Finish the encrypted card channel:
       verify TEE quote, encrypt card payload to TEE public key, decrypt in memory,
       fill billing form, zero memory, and return only bounded status.
+      - [x] Local plaintext development path fills the Stripe Elements card
+            iframe, zeroes card payload objects, and returns bounded failure
+            status without logging card details.
+      - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
+            deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
       account and a safe test card or approved real card.
+      - [x] Stripe test card reaches live Tinker/Stripe submission and returns
+            `Your card was declined.`
+      - [x] Add-balance fails closed with `Payment method required before adding
+            balance` when no real payment method is on file.
+      - [ ] Run a capped real-card add-payment-method and low-value add-balance
+            attempt after receiving approved card details.
 - [ ] `P0` Confirm PCI and Stripe obligations.
       Research whether the current encrypted-card-to-TEE flow is acceptable or
       whether the system must use Stripe-hosted tokenization / SetupIntent /
@@ -842,18 +871,22 @@ vision Wiki is reaching for.
 
 ## Suggested Immediate Next Build Order
 
-1. [ ] Track `PROJECT.md`, `ARCHITECTURE.md`, and this `TODO.md`.
-2. [ ] Fix stale Tinker status in `⚙️/tinker-delegate/SPEC.md`.
+1. [x] Track `PROJECT.md`, `ARCHITECTURE.md`, and this `TODO.md`.
+2. [x] Fix stale Tinker status in `⚙️/tinker-delegate/SPEC.md`.
 3. [ ] Define the `PrivateRewardEnvironment` interface and leakage model.
 4. [ ] Build a fake private-reward environment with a synthetic hidden dataset.
 5. [ ] Fix `tinker-delegate` Docker install so the Tinker SDK path is present in
        the deployed image.
 6. [ ] Enforce oracle auth on `/pin` and `/inbox`.
+       Runtime bearer auth is implemented; on-chain `EmailOracleAuth` consumer
+       registry enforcement remains.
 7. [ ] Add chain watcher + TEE chain signer for `DiligenceRoom`.
 8. [ ] Build a fake Tinker backend and full local synthetic room test.
 9. [ ] Rework deployed browser path to headed Neko inside Phala, or get an
        official Tinker service-account/API route.
 10. [ ] Prove safe Tinker account funding with a low-value test.
+       Test-card path reaches Stripe decline and add-balance fail-closed state;
+       real capped funding attempt needs approved card details.
 11. [ ] Run one real tiny Tinker training session through `IsolatedTinkerSession`.
 12. [ ] Merge the `gate-health-frontend` UI and wire it to real verifier/status
        APIs.

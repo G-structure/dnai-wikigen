@@ -4,13 +4,15 @@ Automated Thinking Machines Tinker account signup, sign-in, and API key provisio
 
 ## Current Status
 
-As of 2026-03-17, the Phala deployment is live, the email oracle is healthy, and the delegate API can now stay up even when bootstrap fails. The remaining blocker is Tinker auth automation: their auth flow now includes explicit bot-check and fingerprint components, and the currently deployed headless browser path is blocked with `Access blocked, please contact support.` even when tested with a `gmail.com` control.
+As of 2026-07-08, the local Neko/CDP path works against the live Tinker auth flow: the email oracle creates a mailbox, receives the Thinking Machines magic-code OTP over IMAP, Playwright enters the OTP, onboarding completes, and API-key provisioning reaches the `/keys` page and captures a one-time `tml-...` key.
 
-The old recon notes below that claim `cock.email` alone solves signup are stale. A headed real Chrome session still reaches the magic-code page, so the open problem is browser posture, not just email domain selection.
+The March 2026 deployed Phala/headless browser blocker should be treated as historical evidence until re-tested. Local success does not prove the packaged Phala CVM browser posture is production-safe; that still needs a fresh deployed probe.
 
 The email oracle is still required. It is not just a disposable inbox: it is the no-human-access OTP and confirmation channel for a TEE-owned Tinker account. Operators should not hold the Tinker account credentials or the email credentials; the TEE requests the magic-code email, reads it through the oracle, and completes auth inside the browser session.
 
-Tinker account funding remains in progress. The intended payment path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code exist, but the end-to-end funding rail is not production-complete until the Stripe/Tinker browser flow and bot-check posture are reliably handled.
+The oracle's `/pin` and `/inbox` endpoints are now protected by runtime bearer auth when enabled. In the combined dstack/Phala deployment, the oracle and delegate derive the bearer token from the same dstack key path (`oracle/runtime-auth`). Local development can use an explicit `ORACLE_RUNTIME_AUTH_TOKEN` / `TINKER_ORACLE_AUTH_TOKEN` pair instead.
+
+Tinker account funding remains in progress. The intended payment path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code now reach Stripe in the local Neko session: a Stripe test card filled the live payment form and was rejected with `Your card was declined.` Adding balance correctly fails closed with `Payment method required before adding balance` when no real card is on file. A capped real-card funding attempt is still required before funding can be called production-complete.
 
 ## How It Works
 
@@ -56,7 +58,7 @@ Earlier recon suggested Thinking Machines was mainly blocking known disposable d
 | `outlook.com` | previously observed as allowed |
 | `gmail.com` | currently reaches magic-code in headed local Chrome |
 
-Current March 17, 2026 finding: the auth flow now includes explicit bot-check and fingerprint components, and the deployed headless automation path is blocked even with a `gmail.com` control. That means browser posture matters now; email domain selection alone does not solve bootstrap.
+Current July 8, 2026 local finding: local Neko Chrome reaches magic-code auth, receives OTP through the oracle, completes onboarding, and provisions API keys. The older March 17, 2026 Phala/headless blocker still needs a fresh deployed probe; email domain selection alone should not be treated as the whole production answer.
 
 ## Prerequisites
 
@@ -167,6 +169,8 @@ All settings use the `TINKER_` env prefix:
 |----------|---------|-------------|
 | `TINKER_CDP_URL` | `http://localhost:9222` | Neko Chrome CDP endpoint |
 | `TINKER_ORACLE_URL` | `http://localhost:8000` | Email oracle API |
+| `TINKER_ORACLE_AUTH_TOKEN` | *(empty)* | Local-dev bearer token for protected oracle `/pin` and `/inbox` calls |
+| `TINKER_ORACLE_AUTH_KEY_PATH` | `oracle/runtime-auth` | dstack key path used to derive the same-CVM oracle bearer token |
 | `TINKER_TINKER_CONSOLE_URL` | `https://tinker-console.thinkingmachines.ai` | Tinker console URL |
 | `TINKER_EMAIL` | *(auto from oracle)* | Override email address |
 | `TINKER_FIRST_NAME` | `Tinker` | First name for signup |
@@ -217,8 +221,8 @@ contracts/
 |--------|----------|---------|
 | `health()` | `GET /health` | Check oracle status, get email address |
 | `get_email()` | `GET /health` | Extract oracle email from health response |
-| `get_pin()` | `POST /pin` | Poll inbox for OTP matching `\b\d{6}\b` pattern |
-| `list_inbox()` | `GET /inbox` | Debug: list recent emails |
+| `get_pin()` | `POST /pin` | Poll inbox for OTP matching `\b\d{6}\b` pattern; sends bearer auth when configured |
+| `list_inbox()` | `GET /inbox` | Debug: list recent emails; sends bearer auth when configured |
 
 ## Recon Findings
 
@@ -237,7 +241,7 @@ contracts/
 
 - **Onboarding** (`/onboarding`): `fullName` (text), `affiliation` (text, optional), `whatWillYouCreate` (text, optional), `tos` (checkbox, hidden input — click label)
 - **Welcome** (`/welcome`): Quick tips page, "Get started" button
-- **API keys** (`/keys`): Table of keys, "New key" button → modal dialog
+- **API keys** (`/keys`): Table of keys, "New key" button → modal dialog → "Generate key"
 - **Key format**: `tml-[A-Za-z0-9_-]{60+}` (prefix `tml-`, shown once)
 - **Key modal**: "This key will ONLY appear once" warning, Copy button, Close button
 - **Initial load bug**: Keys page shows "Loading..." on first visit, requires `page.reload()` to render properly
@@ -249,6 +253,8 @@ contracts/
 - **Parent fields**: `#cardholder-name`, `#service-line1`, `#service-city`, `#service-state`, `#service-postal-code`, `#service-country`
 - **hCaptcha**: Invisible on form (no manual solve needed in neko)
 - **Model**: Prepaid balance (add credit, spend on API usage)
+- **Local test-card result**: Stripe test card reaches submission and returns `Your card was declined.`
+- **No-card funding result**: add-balance fails closed with `Payment method required before adding balance`
 - **Auto-reload**: Configurable threshold + amount
 - **Pricing** (USD/million tokens): Llama-3.2-1B $0.03-$0.09, Llama-3.1-8B $0.13-$0.40, Qwen3-235B $0.68-$2.04
 - **Trust model**: Developer encrypts card to TEE's TDX key → TEE fills Stripe form → zeroes memory → card never persisted

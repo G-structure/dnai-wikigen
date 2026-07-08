@@ -26,9 +26,9 @@ We need:
 | **Fee structure** | 1% surcharge on top of raw Tinker API costs, paid to the developer account. |
 | **Evaluation protocol** | Up to the agent and its owner (the buyer). The agent decides base model, steps, benchmarks autonomously. |
 | **`ttl_seconds` on checkpoints** | Mandatory on every save. Dead man's switch — Tinker auto-deletes even if our cleanup never runs. |
-| **Tinker console automation** | **RESOLVED**: Chrome CDP via neko + Playwright. Passwordless magic-code auth (6-digit OTP via email). No captcha, no phone verification. `cock.email` domain passes blocklist. See `README.md` for full recon findings. |
+| **Tinker console automation** | **PARTIAL**: Local Neko/CDP + Playwright works for passwordless magic-code auth, onboarding, and API-key provisioning as of 2026-07-08. The packaged Phala/deployed browser posture still needs a fresh probe before production bootstrap is called solved. |
 | **Oracle boot authorization** | Governed on-chain by oracle compose hash policy. The oracle's own code authorization is frozen permanently after production sign-off; fresh TDX quotes continue to verify against that frozen policy. |
-| **OTP consumer authorization** | Managed separately from oracle code authorization. The deployer may update approved consumer app IDs / compose hashes directly or delegate that power to an approved operator during development. |
+| **OTP consumer authorization** | Managed separately from oracle code authorization. Current same-CVM runtime enforcement uses a bearer token derived from the shared dstack key path; full on-chain consumer-registry checks remain pending. |
 
 ## 3. Architecture Overview
 
@@ -93,18 +93,22 @@ PHASE 0: EMAIL
   → seals credentials via derive_key("email/creds")
   → emits TDX attestation binding email address
 
-PHASE 1: TINKER SIGNUP  ✅ IMPLEMENTED — see tinker_delegate/signup.py
+PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   Neko browser → tinker-console.thinkingmachines.ai → auth.thinkingmachines.ai
   → enter cock.email address → Continue → magic-code page (6-digit OTP)
-  → email oracle extracts OTP via IMAP (POST /pin, regex \b\d{6}\b)
+  → delegate calls authenticated email oracle POST /pin, regex \b\d{6}\b
   → enter code into 6x input[inputmode="numeric"] boxes → authenticated
   → complete onboarding form (name + TOS checkbox) → welcome page
-  → navigate to /keys → click "New key" → capture tml-... API key
+  → navigate to /keys → click "New key" → click "Generate key"
+  → capture one-time tml-... API key
   → seal via derive_key("tinker/api_key")
   → emit TDX attestation: {email, tinker_account_id, enclave_identity}
 
-  KEY FINDING: cock.li and firemail.cc domains are BLOCKED by Thinking Machines.
-  cock.email (also a cock.li domain) passes the blocklist. IMAP server is the same.
+  HISTORICAL FINDING: cock.li and firemail.cc domains were blocked by Thinking
+  Machines while cock.email was previously observed to pass the blocklist.
+  CURRENT FINDING: the local Neko browser path works end to end through API-key
+  capture. The older Phala/headless blocker has not been revalidated in this
+  cycle, so deployed CVM browser posture remains pending.
 
 PHASE 2: READY
   Control plane starts listening for on-chain deal events
@@ -116,15 +120,19 @@ PHASE 2: READY
   → consumer registry may remain mutable during development, then freeze separately
 ```
 
-**RESOLVED**: Recon complete. See `README.md` for full findings. Summary:
+**Current auth status**: Local recon and automation work. Production signup is
+not complete until the same flow is validated in the deployed CVM package. See
+`README.md` for current findings. Summary:
 - **Framework**: Next.js SPA at `auth.thinkingmachines.ai`
-- **Auth**: Passwordless magic-code (6-digit OTP via email, no password, no captcha, no phone verification)
-- **Email domain blocklist**: `cock.li`, `airmail.cc`, `firemail.cc` blocked; `cock.email` allowed
+- **Auth**: Passwordless magic-code (6-digit OTP via email)
+- **Email domain blocklist**: `cock.li`, `airmail.cc`, `firemail.cc` were historically blocked; `cock.email` was historically allowed
+- **Current local result**: local Neko/CDP reaches magic-code auth, receives OTP through the oracle, completes onboarding, and provisions API keys
+- **Current deployed gap**: Phala/deployed browser posture needs a fresh validation run
 - **Onboarding**: Name + TOS checkbox (custom styled — click label, not hidden input)
-- **API key**: "New key" button at `/keys` → modal shows `tml-...` key once
+- **API key**: "New key" button at `/keys` → "Generate key" → modal shows `tml-...` key once
 - **OTP sender**: `Thinking Machines Lab <no-reply@thinkingmachines.ai>`
 - **OTP format**: 6 digits, 6 individual `<input inputmode="numeric">` boxes
-- **Implementation**: `tinker_delegate/signup.py` — fully working, tested end-to-end
+- **Implementation**: `tinker_delegate/signup.py` — local path validated, deployed CVM validation pending
 
 ### 4.2 IsolatedTinkerSession (SDK Wrapper)
 
@@ -778,15 +786,17 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 
 ## 10. Implementation Plan
 
-### Phase 1: Tinker Console Recon ✅ COMPLETE
+### Phase 1: Tinker Console Recon PARTIAL
 
 - [x] Navigate to `tinker-console.thinkingmachines.ai` via neko/CDP
-- [x] Document: Next.js SPA, passwordless magic-code auth, no captcha
+- [x] Document: Next.js SPA and passwordless magic-code auth
 - [x] Test: no phone verification from datacenter IP (neko runs in Docker)
-- [x] Document: API key generation — 2 clicks (New key → copy from modal)
+- [x] Document: API key generation — New key → Generate key → copy from modal
 - [x] Test: API key can only be generated via console UI (no API endpoint found)
-- [x] Discover: `cock.li`/`firemail.cc` domains blocked, `cock.email` passes
+- [x] Historical discovery: `cock.li`/`firemail.cc` domains blocked, `cock.email` observed as allowed
 - [x] Implement: full automation in `tinker_delegate/signup.py`
+- [x] Validate local Neko/CDP auth, onboarding, and API-key provisioning against the live Tinker UI
+- [ ] Revalidate the deployed Phala/CVM browser posture against the live Tinker UI
 
 ### Phase 2: Core SDK Wrapper ✅ IMPLEMENTED
 
@@ -840,10 +850,10 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 ### Phase 7: Tinker Account Genesis ✅ LOCAL COMPLETE (TEE sealing pending)
 
 - [x] Signup automation — `tinker_delegate/signup.py`
-- [x] Email oracle integration — `tinker_delegate/oracle_client.py` (POST /pin for OTP)
-- [x] API key capture — extracted from console modal, `tml-...` format
+- [x] Email oracle integration — `tinker_delegate/oracle_client.py` (authenticated POST /pin for OTP)
+- [x] API key capture — New key → Generate key → extracted from console modal, `tml-...` format
 - [ ] API key sealing via `derive_key("tinker/api_key")` (requires dstack deployment)
-- [ ] End-to-end genesis test on Phala Cloud
+- [ ] End-to-end genesis test on Phala Cloud using the validated local selector flow
 
 ## 11. Decided Questions
 
@@ -857,13 +867,13 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 
 ## 12. Open Questions
 
-1. ~~**Tinker console signup flow**~~ — **RESOLVED**. Chrome CDP via neko + Playwright. Next.js SPA, passwordless magic-code auth (6-digit OTP), no captcha, no phone verification. `cock.email` domain passes blocklist. Full automation implemented in `tinker_delegate/signup.py`. See `README.md` for detailed recon findings.
+1. **Tinker console signup flow** — Local Neko/CDP automation works against the live Tinker UI as of 2026-07-08: OTP arrives through the email oracle, onboarding completes, and API-key provisioning captures a one-time `tml-...` key. Production signup is not complete until the same selector flow is validated in the deployed CVM package.
 
-2. ~~**Tinker billing settings page**~~ — **RESOLVED**. No billing API — console-only. Stripe Elements iframe for card input (PCI-compliant cross-origin iframe). Parent page has cardholder name + billing address fields. hCaptcha invisible on form. Auto-reload configurable. Prepaid balance model. Implementation: `tinker_delegate/billing.py` (browser automation) + `tinker_delegate/card_channel.py` (secure encrypted channel) + `tinker_delegate/api.py` (FastAPI endpoints).
+2. **Tinker billing settings page** — Browser automation and encrypted card-channel code exist. Local Neko reaches the Stripe Elements payment form, fills the test card, and receives the expected `Your card was declined.` response. Add-balance fails closed with `Payment method required before adding balance` when no real card is on file. Production funding still needs a capped real-card attempt after attestation verification.
 
 3. **TTL reliability** — Does Tinker actually purge expired checkpoints and make them inaccessible after `ttl_seconds`? Or are they just marked expired but still fetchable? Needs empirical testing.
 
-4. ~~**Cost metering precision**~~ — **RESOLVED**. Pricing is per-million-tokens, split into prefill/sample/train rates per model. See Section 5.5 for the full pricing table. Cost metering in `IsolatedTinkerSession` tracks tokens processed per API call and multiplies by the model-specific rate.
+4. ~~**Cost metering precision**~~ — Implemented for the current known pricing table. Pricing is per-million-tokens, split into prefill/sample/train rates per model. See Section 5.5 for the full pricing table. Cost metering in `IsolatedTinkerSession` tracks tokens processed per API call and multiplies by the model-specific rate.
 
 5. **Tinker trust gap** — Training data is sent to Tinker's servers in plaintext. For the hackathon, we accept and document this. Long-term, need encrypted compute or self-hosted training inside a GPU-TEE.
 
