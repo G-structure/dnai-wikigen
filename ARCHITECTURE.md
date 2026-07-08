@@ -921,12 +921,13 @@ Implementation status:
             image from that form-contract fix reached IMAP verification and
             loaded sealed oracle credentials. The temporary public-log/dev-OS
             CVM was deleted after bounded evidence collection.
-[partial]   Public successful-genesis surfaces needed further tightening: that
-            debug proof showed `/health` exposed a raw generated mailbox address.
-            Source now bounds public `/health` and `/attestation` to readiness
-            plus `oracle_email_hash`, and moves raw address retrieval to
-            runtime-authenticated `/email`; this bounded-health contract still
-            needs a rebuilt image and fresh Phala proof.
+[real]      Public successful-genesis surfaces are now bounded in source and
+            Phala-proven for the standalone oracle-genesis debug compose:
+            `/health` and `/attestation` expose `oracle_email=""`, readiness,
+            and `oracle_email_hash`; raw address retrieval is isolated to
+            runtime-authenticated `/email`, which returned 401 without a bearer
+            token in the fresh Phala proof. The temporary public-log/SSH/dev-OS
+            debug CVM was deleted after evidence collection.
 [partial]   Oracle credential-ingress attestation is live for
             `context=oracle-credentials`, but credential provisioning is
             disabled by default and no real mailbox credentials have been

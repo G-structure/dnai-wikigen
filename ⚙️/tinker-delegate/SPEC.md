@@ -116,7 +116,9 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   showed public `/health` exposed the generated mailbox address, so source now
   bounds public `/health` and `/attestation` to readiness plus
   `oracle_email_hash` and moves raw address retrieval to runtime-authenticated
-  `/email`; this bounded-health fix needs a rebuilt image and fresh Phala proof.
+  `/email`. A second Phala debug proof with the bounded-health image confirmed
+  public `/health` and `/attestation` return `oracle_email=""` with hash-only
+  readiness, while unauthenticated `/email` returns 401.
   CURRENT FINDING: the local Neko browser path works end to end through API-key
   capture. The older Phala/headless blocker has not been revalidated in this
   cycle, so deployed CVM browser posture remains pending.
@@ -846,7 +848,7 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
       HTTP signup reached IMAP verification in Phala.
 - [x] Bound public oracle health/attestation email fields in source after
       successful genesis showed raw mailbox egress on `/health`.
-- [ ] Rebuild/pin bounded-health oracle image and re-run Phala oracle-genesis
+- [x] Rebuild/pin bounded-health oracle image and re-run Phala oracle-genesis
       debug proof.
 - [x] Implement: full automation in `tinker_delegate/signup.py`
 - [x] Validate local Neko/CDP auth, onboarding, and API-key provisioning against the live Tinker UI

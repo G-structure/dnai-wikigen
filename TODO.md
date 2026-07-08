@@ -498,7 +498,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   generated oracle mailbox when credentials exist; expose
                   readiness plus `oracle_email_hash` publicly and move raw email
                   address retrieval to runtime-authenticated `/email`.
-            - [ ] Build/push the bounded-health oracle image and re-run the
+            - [x] Build/push the bounded-health oracle image and re-run the
                   explicit debug proof to confirm public health/attestation do
                   not expose raw mailbox identifiers after successful genesis.
                   Temporary Phala redeploys for this proof may use public logs,
@@ -506,6 +506,19 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   while Tinker bootstrap, billing, API-key provisioning, OTP
                   retrieval, and card handling remain disabled; record each use
                   here and delete/revert it before production wrap-up.
+                  Done 2026-07-08: image
+                  `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:99ce7765558a00699e265a8ca7cdcdc8f402dd93c50cf8ddb52a1ef175dffefe`
+                  from commit `64739e4` verified GitHub provenance/SBOM,
+                  Phala debug app `18ab03c040c9c327b9333230b6a405bbccd90bec`
+                  with compose hash
+                  `fe20b736b9db9b3b4b3e8d9ddbcdfffabecc4cdf3311ead6be1fb922a8892c41`
+                  reached IMAP verification. Public `/health` returned
+                  `oracle_email=""`, `oracle_ready=true`,
+                  `imap_connected=true`, and an email hash only; public
+                  `/attestation?context=attestation` returned the same bounded
+                  email fields plus a verified TDX quote; unauthenticated
+                  `/email` returned `401 Bearer token required`. The temporary
+                  public-log/SSH/dev-OS debug CVM was deleted afterward.
             - [ ] If HTTP signup regresses, repair the Neko/CDP browser
                   fallback timeout separately.
       - [ ] Run the encrypted provisioning path against the deployed Phala CVM

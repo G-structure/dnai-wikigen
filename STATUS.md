@@ -644,12 +644,23 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     `/health` expose a raw generated mailbox address. The debug CVM was deleted,
     and source now bounds public `/health` and `/attestation` to readiness plus
     `oracle_email_hash`; raw address retrieval has moved to runtime-authenticated
-    `/email`. This bounded-health fix still needs a rebuilt image and fresh
-    Phala proof. For that proof only, temporary public logs, SSH, public
-    sysinfo, and dev OS access may be used for observability while all Tinker
-    bootstrap, billing, API-key provisioning, OTP retrieval, and card handling
-    remain disabled; each debug CVM must be recorded here and deleted/reverted
-    before production wrap-up.
+    `/email`.
+  - Current bounded-health Phala proof: GitHub-built oracle image
+    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:99ce7765558a00699e265a8ca7cdcdc8f402dd93c50cf8ddb52a1ef175dffefe`
+    from commit `64739e48f1ac2af63a6f1c19053eaa281790fa6a` verified
+    provenance/SBOM locally, then an explicit temporary auto-genesis debug CVM
+    with app ID `18ab03c040c9c327b9333230b6a405bbccd90bec` and compose hash
+    `fe20b736b9db9b3b4b3e8d9ddbcdfffabecc4cdf3311ead6be1fb922a8892c41`
+    reached IMAP verification and loaded credentials with email hash
+    `ac5745b07e812ca450e7e16a51cea0cb3b6dcf5d6168cee96e7931312a68be81`.
+    Public `/health` returned `oracle_email=""`, `oracle_ready=true`,
+    `imap_connected=true`, and only that hash; public
+    `/attestation?context=attestation` returned `oracle_email=""`, the same
+    hash/readiness fields, compose hash, and a verified TDX quote;
+    unauthenticated `/email` returned `401 Bearer token required`. The temporary
+    public-log/SSH/dev-OS debug CVM was deleted after evidence collection.
+    This proof did not run Tinker bootstrap, billing, API-key provisioning, OTP
+    retrieval, or card handling.
   - Historical temporary-public-log evidence from before the 2026-07-08 revert
     confirmed the oracle derived the dstack storage key, found no credentials,
     started in degraded mode, and loaded zero OTP replay entries; delegate logs
@@ -771,11 +782,11 @@ explicitly legacy.
   intentionally disabled by default. It has not been run with real mailbox
   credentials; the oracle has no sealed email credentials, and the delegate has
   no Tinker API key configured.
-- Cock.li account genesis inside Phala is source-fixed and debug-proven, but
-  not yet safe to leave on any public debug surface: a successful proof exposed
-  a raw generated mailbox through public `/health`. Source now bounds
-  `/health` and `/attestation` and adds runtime-authenticated `/email`; rebuild
-  and re-run the debug proof before relying on generated TEE mailbox custody.
+- Cock.li account genesis inside Phala is source-fixed and debug-proven for the
+  standalone oracle-genesis compose, including bounded public `/health` and
+  `/attestation` plus runtime-authenticated `/email`. The main combined Phala
+  CVM still needs to consume the bounded oracle image before generated mailbox
+  custody is treated as live for Tinker OTP/login/billing.
 - The main Phala CVM still runs a dev OS image (`dstack-dev-0.5.9`,
   `is_dev=true`). Public logs and public sysinfo are off, but production wrap-up
   must move to a non-dev dstack OS image or record a Phala-side blocker; the
