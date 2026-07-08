@@ -251,6 +251,10 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   verification, and summary JSON. It can bind an existing bounded receipt, or
   run encrypted card submission only when `--run-card-attempt` is explicitly
   set.
+- Funding validation packets can include a separate add-balance evidence lane:
+  `--add-balance-receipt-json` binds an existing bounded top-up receipt, and
+  `--run-add-balance-attempt` posts only the amount to `/billing/add-balance`
+  before writing add-balance manifest and verification JSON.
 - The HTTP `POST /billing/add-balance` mutation endpoint is disabled by default
   behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; the capped CLI/internal path also
   requires `TINKER_FUNDING_MODE=operator_capped_validation` for deliberate

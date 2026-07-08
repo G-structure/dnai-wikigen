@@ -404,6 +404,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `funding-validation-packet` writes preflight, receipt, manifest,
             verification, and summary JSON, with explicit `--run-card-attempt`
             required before card fields are accepted.
+      - [x] Extend validation packets with optional add-balance evidence:
+            bind an existing bounded add-balance receipt or explicitly run
+            `POST /billing/add-balance` with `--run-add-balance-attempt`, and
+            write separate top-up manifest/verification JSON.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
@@ -475,6 +479,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Add a packet summary artifact for funding validation runs so
             reviewers can see preflight readiness, receipt outcome, manifest
             hash, and verification status without packet body disclosure.
+      - [x] Add optional add-balance receipt, manifest, verification, and
+            summary fields to funding validation packets so low-value top-up
+            evidence can be audited separately from payment-method evidence.
       - [ ] Add payment-method token/reference to funding receipts once the
             live funding path exposes a safe non-card reference.
 - [ ] `P1` Add budget enforcement:

@@ -7,7 +7,9 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urljoin
 
+import httpx
 from tinker_delegate.billing_uploader import (
     BillingCardUploadPolicy,
     BillingCardUploadResult,
@@ -24,6 +26,7 @@ from tinker_delegate.redaction import redact_text
 
 
 PacketUploadFn = Callable[[str, dict[str, Any], BillingCardUploadPolicy], BillingCardUploadResult]
+AddBalanceFn = Callable[[str, float], dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -36,12 +39,19 @@ class FundingValidationPacketResult:
     receipt_path: str = ""
     manifest_path: str = ""
     verification_path: str = ""
+    add_balance_receipt_path: str = ""
+    add_balance_manifest_path: str = ""
+    add_balance_verification_path: str = ""
     preflight_ready: bool = False
     card_attempt_run: bool = False
+    add_balance_attempt_run: bool = False
     receipt_surface: str = ""
     receipt_outcome: str = ""
+    add_balance_receipt_outcome: str = ""
     manifest_hash: str = ""
+    add_balance_manifest_hash: str = ""
     verification_ok: bool = False
+    add_balance_verification_ok: bool = False
     error_kind: str = ""
     error: str = ""
     issued_at: int = 0
@@ -54,12 +64,19 @@ class FundingValidationPacketResult:
             "receipt_path": self.receipt_path,
             "manifest_path": self.manifest_path,
             "verification_path": self.verification_path,
+            "add_balance_receipt_path": self.add_balance_receipt_path,
+            "add_balance_manifest_path": self.add_balance_manifest_path,
+            "add_balance_verification_path": self.add_balance_verification_path,
             "preflight_ready": self.preflight_ready,
             "card_attempt_run": self.card_attempt_run,
+            "add_balance_attempt_run": self.add_balance_attempt_run,
             "receipt_surface": self.receipt_surface,
             "receipt_outcome": self.receipt_outcome,
+            "add_balance_receipt_outcome": self.add_balance_receipt_outcome,
             "manifest_hash": self.manifest_hash,
+            "add_balance_manifest_hash": self.add_balance_manifest_hash,
             "verification_ok": self.verification_ok,
+            "add_balance_verification_ok": self.add_balance_verification_ok,
             "error_kind": self.error_kind,
             "error": self.error,
             "issued_at": self.issued_at,
@@ -80,9 +97,12 @@ def run_funding_validation_packet(
     require_add_balance_endpoint: bool = False,
     validation_id: str = "",
     receipt_json: Path | None = None,
+    add_balance_receipt_json: Path | None = None,
     run_card_attempt: bool = False,
+    run_add_balance_attempt: bool = False,
     card_data: dict[str, Any] | None = None,
     upload_fn: PacketUploadFn = upload_billing_card_payload,
+    add_balance_fn: AddBalanceFn | None = None,
 ) -> FundingValidationPacketResult:
     """Create a bounded validation packet from preflight through verification."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -91,6 +111,9 @@ def run_funding_validation_packet(
     receipt_path = output_dir / "payment-method-receipt.json"
     manifest_path = output_dir / "funding-manifest.json"
     verification_path = output_dir / "funding-verification.json"
+    add_balance_receipt_path = output_dir / "add-balance-receipt.json"
+    add_balance_manifest_path = output_dir / "add-balance-manifest.json"
+    add_balance_verification_path = output_dir / "add-balance-verification.json"
     summary_path = output_dir / "funding-validation-summary.json"
     policy = {
         "compose_hash": expected_compose_hash,
@@ -103,7 +126,7 @@ def run_funding_validation_packet(
         preflight = funding_validation_preflight(
             settings,
             amount_dollars=amount_dollars,
-            require_add_balance_endpoint=require_add_balance_endpoint,
+            require_add_balance_endpoint=bool(require_add_balance_endpoint or run_add_balance_attempt),
             api_url=api_url,
             expected_compose_hash=expected_compose_hash,
             expected_app_id=expected_app_id,
@@ -123,7 +146,7 @@ def run_funding_validation_packet(
                     preflight_path=str(preflight_path),
                     preflight_ready=False,
                     error_kind="preflight_not_ready",
-                    error="funding preflight did not pass; card attempt skipped",
+                    error="funding preflight did not pass; funding attempts skipped",
                     issued_at=issued_at,
                 ),
             )
@@ -161,21 +184,68 @@ def run_funding_validation_packet(
         ).to_public_dict()
         _write_bounded_json(verification_path, verification)
 
+        add_balance_receipt: dict[str, Any] | None = None
+        add_balance_manifest: dict[str, Any] | None = None
+        add_balance_verification: dict[str, Any] | None = None
+        if add_balance_receipt_json is not None or run_add_balance_attempt:
+            add_balance_receipt = _load_or_create_add_balance_receipt(
+                receipt_path=add_balance_receipt_path,
+                receipt_json=add_balance_receipt_json,
+                run_add_balance_attempt=run_add_balance_attempt,
+                amount_dollars=amount_dollars,
+                api_url=api_url,
+                add_balance_fn=add_balance_fn or _post_add_balance,
+            )
+            add_balance_manifest = build_funding_validation_manifest(
+                preflight=preflight,
+                receipt=add_balance_receipt,
+                validation_id=f"{validation_id}:add_balance" if validation_id else "add_balance",
+                attestation_policy=policy,
+            ).to_public_dict()
+            _write_bounded_json(add_balance_manifest_path, add_balance_manifest)
+            add_balance_verification = verify_funding_validation_manifest(
+                preflight=preflight,
+                receipt=add_balance_receipt,
+                manifest=add_balance_manifest,
+                validation_id=f"{validation_id}:add_balance" if validation_id else "add_balance",
+                attestation_policy=policy,
+                require_ready=True,
+                require_no_raw_card_retained=False,
+            ).to_public_dict()
+            _write_bounded_json(add_balance_verification_path, add_balance_verification)
+
         return _write_summary(
             summary_path,
             FundingValidationPacketResult(
-                ok=bool(verification["ok"]),
+                ok=bool(verification["ok"]) and (
+                    add_balance_verification is None or bool(add_balance_verification["ok"])
+                ),
                 output_dir=str(output_dir),
                 preflight_path=str(preflight_path),
                 receipt_path=str(receipt_path),
                 manifest_path=str(manifest_path),
                 verification_path=str(verification_path),
+                add_balance_receipt_path=str(add_balance_receipt_path) if add_balance_receipt else "",
+                add_balance_manifest_path=str(add_balance_manifest_path) if add_balance_manifest else "",
+                add_balance_verification_path=(
+                    str(add_balance_verification_path) if add_balance_verification else ""
+                ),
                 preflight_ready=True,
                 card_attempt_run=run_card_attempt,
+                add_balance_attempt_run=run_add_balance_attempt,
                 receipt_surface=str(receipt.get("surface", "")),
                 receipt_outcome=str(receipt.get("outcome", "")),
+                add_balance_receipt_outcome=(
+                    str(add_balance_receipt.get("outcome", "")) if add_balance_receipt else ""
+                ),
                 manifest_hash=str(manifest.get("manifest_hash", "")),
+                add_balance_manifest_hash=(
+                    str(add_balance_manifest.get("manifest_hash", "")) if add_balance_manifest else ""
+                ),
                 verification_ok=bool(verification["ok"]),
+                add_balance_verification_ok=(
+                    bool(add_balance_verification["ok"]) if add_balance_verification else False
+                ),
                 issued_at=issued_at,
             ),
         )
@@ -188,6 +258,7 @@ def run_funding_validation_packet(
                 preflight_path=str(preflight_path),
                 preflight_ready=preflight_ready,
                 card_attempt_run=run_card_attempt,
+                add_balance_attempt_run=run_add_balance_attempt,
                 error_kind=type(exc).__name__,
                 error=redact_text(exc),
                 issued_at=issued_at,
@@ -229,6 +300,43 @@ def _load_or_create_receipt(
         raise ValueError("encrypted card attempt response did not include bounded attempt_record")
     _write_bounded_json(receipt_path, receipt, forbidden_values=forbidden_values)
     return receipt
+
+
+def _load_or_create_add_balance_receipt(
+    *,
+    receipt_path: Path,
+    receipt_json: Path | None,
+    run_add_balance_attempt: bool,
+    amount_dollars: float | None,
+    api_url: str,
+    add_balance_fn: AddBalanceFn,
+) -> dict[str, Any]:
+    if receipt_json is not None and run_add_balance_attempt:
+        raise ValueError("provide either add_balance_receipt_json or run_add_balance_attempt, not both")
+    if receipt_json is not None:
+        receipt = json.loads(receipt_json.read_text(encoding="utf-8"))
+        _write_bounded_json(receipt_path, receipt)
+        return receipt
+    if not run_add_balance_attempt:
+        raise ValueError("no add_balance_receipt_json provided and run_add_balance_attempt is false")
+    if amount_dollars is None:
+        raise ValueError("run_add_balance_attempt requires amount_dollars")
+
+    response = add_balance_fn(api_url, float(amount_dollars))
+    _assert_no_secret_output(response)
+    receipt = response.get("attempt_record")
+    if not isinstance(receipt, dict):
+        raise ValueError("add-balance response did not include bounded attempt_record")
+    _write_bounded_json(receipt_path, receipt)
+    return receipt
+
+
+def _post_add_balance(api_url: str, amount_dollars: float) -> dict[str, Any]:
+    endpoint = urljoin(api_url.rstrip("/") + "/", "/billing/add-balance".lstrip("/"))
+    with httpx.Client(timeout=30.0) as client:
+        response = client.post(endpoint, json={"amount_dollars": amount_dollars})
+        response.raise_for_status()
+        return response.json()
 
 
 def _write_summary(path: Path, result: FundingValidationPacketResult) -> FundingValidationPacketResult:

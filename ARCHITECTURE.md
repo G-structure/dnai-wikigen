@@ -641,6 +641,12 @@ Implementation status:
             bounded receipt, or run encrypted card submission only when
             `--run-card-attempt` is explicitly set; card fields without that
             flag are rejected before any network or browser path.
+[real]      Funding validation packets can also include separate add-balance
+            evidence: an add-balance receipt, manifest, verification, and
+            summary fields. The runner can bind an existing bounded top-up
+            receipt, or POST only the amount to `/billing/add-balance` when
+            `--run-add-balance-attempt` is explicitly set and `--amount` is
+            provided.
 [real]      The FastAPI `POST /billing/add-balance` mutation endpoint is
             disabled by default behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`.
             The lower-level CLI/internal handler still requires

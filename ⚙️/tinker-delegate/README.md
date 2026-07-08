@@ -39,9 +39,11 @@ card-destruction/no-raw-egress booleans without card material.
 `verify-funding-manifest` replay-verifies saved packets by recomputing hashes
 and emitting named bounded checks. `funding-validation-packet` creates the
 preflight, receipt, manifest, verification, and summary JSON artifacts in one
-bounded packet directory; it requires explicit `--run-card-attempt` before card
-fields are accepted. CLI output fails closed if a delegate response tries to
-echo submitted card material. The
+bounded packet directory; it can also include a separate add-balance receipt,
+manifest, and verification. It requires explicit `--run-card-attempt` before
+card fields are accepted, and explicit `--run-add-balance-attempt` before
+posting an amount to `/billing/add-balance`. CLI output fails closed if a
+delegate response tries to echo submitted card material. The
 plaintext card API endpoint is disabled by default and unavailable in dstack
 mode; it can only be enabled as a local-development test hook with
 `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. The add-balance HTTP mutation
@@ -222,13 +224,17 @@ build a public manifest:
   --app-id 0xEXPECTED_APP_ID \
   --os-image-hash 0xEXPECTED_OS_IMAGE_HASH \
   --validation-id operator-run-1 \
-  --receipt-json ./payment-method-receipt.json
+  --receipt-json ./payment-method-receipt.json \
+  --add-balance-receipt-json ./add-balance-receipt.json
 ```
 
 The manifest builder and packet runner reject raw card, API-key, and
 secret-shaped inputs. To run an encrypted card attempt inside the packet
 command, pass `--run-card-attempt` plus the same card and policy flags used by
-`add-card-encrypted`; card fields without `--run-card-attempt` are rejected.
+`add-card-encrypted`; card fields without `--run-card-attempt` are rejected. To
+run top-up inside the packet command, pass `--run-add-balance-attempt` with
+`--amount`; this posts only the amount and still requires the delegate
+add-balance endpoint to be explicitly enabled.
 
 The CLI card flags are for local development only. Read
 `docs/STRIPE-PCI-FUNDING-SCOPE.md` before any real-card attempt. The encrypted
@@ -482,7 +488,9 @@ contracts/
   funding-validation-packet` writes preflight, receipt, manifest, verification,
   and summary JSON into one directory. It can bind an existing bounded receipt
   with `--receipt-json`, or run encrypted card submission only with explicit
-  `--run-card-attempt`.
+  `--run-card-attempt`. It can also bind `--add-balance-receipt-json` or run an
+  explicit `--run-add-balance-attempt` to produce separate top-up manifest and
+  verification JSON.
 - **Run metadata storage**: deal lifecycle events are persisted in a separate
   encrypted delegate store under `/data/run_metadata.enc` in compose profiles.
   Records contain only bounded metadata such as hashed deal/account/run handles,

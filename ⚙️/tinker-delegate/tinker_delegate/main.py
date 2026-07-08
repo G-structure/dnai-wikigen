@@ -253,6 +253,11 @@ def cli():
     validation_packet_p.add_argument("--validation-id", default="", help="Operator-local validation run ID to hash")
     validation_packet_p.add_argument("--receipt-json", default="", help="Existing bounded receipt JSON to bind")
     validation_packet_p.add_argument(
+        "--add-balance-receipt-json",
+        default="",
+        help="Existing bounded add-balance receipt JSON to bind",
+    )
+    validation_packet_p.add_argument(
         "--require-add-balance-endpoint",
         action="store_true",
         help="Require POST /billing/add-balance to be explicitly enabled",
@@ -271,6 +276,11 @@ def cli():
         "--run-card-attempt",
         action="store_true",
         help="Explicitly run encrypted card submission; requires card fields",
+    )
+    validation_packet_p.add_argument(
+        "--run-add-balance-attempt",
+        action="store_true",
+        help="Explicitly POST amount to /billing/add-balance and bind the bounded receipt",
     )
     validation_packet_p.add_argument("--number", default="", help="Card number; requires --run-card-attempt")
     validation_packet_p.add_argument("--exp-month", default="", help="Expiration month; requires --run-card-attempt")
@@ -537,6 +547,9 @@ def cli():
         if args.run_card_attempt and any(not card_fields[field] for field in required_card_fields):
             print("[funding-validation-packet] --run-card-attempt requires card number, expiration, CVC, and name")
             sys.exit(1)
+        if args.run_add_balance_attempt and args.amount is None:
+            print("[funding-validation-packet] --run-add-balance-attempt requires --amount")
+            sys.exit(1)
 
         result = run_funding_validation_packet(
             settings,
@@ -551,7 +564,11 @@ def cli():
             require_add_balance_endpoint=args.require_add_balance_endpoint,
             validation_id=args.validation_id,
             receipt_json=Path(args.receipt_json) if args.receipt_json else None,
+            add_balance_receipt_json=(
+                Path(args.add_balance_receipt_json) if args.add_balance_receipt_json else None
+            ),
             run_card_attempt=args.run_card_attempt,
+            run_add_balance_attempt=args.run_add_balance_attempt,
             card_data=card_fields if args.run_card_attempt else None,
         )
         _emit_bounded_json(result.to_public_dict())

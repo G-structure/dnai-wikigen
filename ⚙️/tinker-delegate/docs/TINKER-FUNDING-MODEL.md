@@ -125,7 +125,8 @@ python -m tinker_delegate.main funding-validation-packet \
   --app-id EXPECTED_APP_ID \
   --os-image-hash EXPECTED_OS_IMAGE_HASH \
   --validation-id operator-run-1 \
-  --receipt-json ./payment-method-receipt.json
+  --receipt-json ./payment-method-receipt.json \
+  --add-balance-receipt-json ./add-balance-receipt.json
 ```
 
 The manifest publishes only hashes, bands, outcome, TDX quote hash,
@@ -135,8 +136,11 @@ by itself; it is the audit envelope around the preflight/receipt pair. The
 verifier recomputes the saved packet hashes and returns named bounded checks
 without echoing the packet bodies. The packet runner writes the bounded
 preflight, receipt, manifest, verification, and summary JSON artifacts in one
-directory. To include an encrypted card submission, the operator must pass
-`--run-card-attempt`; card fields without that flag are rejected.
+directory. It can also write a separate add-balance receipt, manifest, and
+verification. To include an encrypted card submission, the operator must pass
+`--run-card-attempt`; card fields without that flag are rejected. To include a
+live top-up attempt, the operator must pass `--run-add-balance-attempt` and
+`--amount`; the command posts only the amount to `/billing/add-balance`.
 
 ## Validation Boundary
 
@@ -159,6 +163,9 @@ What is real:
 - Funding validation packet generation can produce the full bounded artifact
   directory from one command, either by binding an existing bounded receipt or
   by explicitly running encrypted card submission.
+- Funding validation packets can include a separate add-balance evidence lane
+  for low-value top-up attempts without merging it into the payment-method
+  receipt.
 
 What remains partial:
 

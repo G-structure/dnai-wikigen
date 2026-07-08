@@ -28,6 +28,23 @@ def _receipt() -> dict:
     }
 
 
+def _add_balance_receipt() -> dict:
+    return {
+        "surface": "add_balance",
+        "outcome": "payment_method_required",
+        "furthest_stage": "not_started",
+        "bounded_message": "Payment method required before adding balance",
+        "evidence_hash": "d" * 64,
+        "account_hash": "",
+        "amount_band": "5_25_usd",
+        "balance_band": "unknown",
+        "tdx_quote_hash": "",
+        "card_payload_destroyed": False,
+        "raw_secret_egress": False,
+        "issued_at": 124,
+    }
+
+
 def _env(tmpdir: str) -> dict[str, str]:
     env = os.environ.copy()
     env.update(
@@ -44,8 +61,10 @@ class FundingValidationPacketTest(unittest.TestCase):
     def test_runner_builds_and_verifies_packet_from_existing_bounded_receipt(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             receipt_path = Path(tmpdir) / "existing-receipt.json"
+            add_balance_receipt_path = Path(tmpdir) / "existing-add-balance-receipt.json"
             output_dir = Path(tmpdir) / "packet"
             receipt_path.write_text(json.dumps(_receipt()), encoding="utf-8")
+            add_balance_receipt_path.write_text(json.dumps(_add_balance_receipt()), encoding="utf-8")
             settings = Settings(
                 funding_mode="operator_capped_validation",
                 funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
@@ -61,17 +80,23 @@ class FundingValidationPacketTest(unittest.TestCase):
                 allow_local_attestation=True,
                 validation_id="operator-run-1",
                 receipt_json=receipt_path,
+                add_balance_receipt_json=add_balance_receipt_path,
             ).to_public_dict()
 
             self.assertTrue(result["ok"])
             self.assertTrue(result["preflight_ready"])
             self.assertFalse(result["card_attempt_run"])
             self.assertEqual(result["receipt_outcome"], "card_declined")
+            self.assertEqual(result["add_balance_receipt_outcome"], "payment_method_required")
+            self.assertTrue(result["add_balance_verification_ok"])
             for name in (
                 "preflight.json",
                 "payment-method-receipt.json",
                 "funding-manifest.json",
                 "funding-verification.json",
+                "add-balance-receipt.json",
+                "add-balance-manifest.json",
+                "add-balance-verification.json",
                 "funding-validation-summary.json",
             ):
                 self.assertTrue((output_dir / name).exists(), name)
@@ -158,11 +183,77 @@ class FundingValidationPacketTest(unittest.TestCase):
             self.assertNotIn("4242424242424242", rendered_packet)
             self.assertNotIn("Stripe Test User", rendered_packet)
 
+    def test_runner_add_balance_attempt_uses_fake_poster(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "existing-receipt.json"
+            output_dir = Path(tmpdir) / "packet"
+            receipt_path.write_text(json.dumps(_receipt()), encoding="utf-8")
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                allow_add_balance_endpoint=True,
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="aa" * 32,
+            )
+
+            def fake_add_balance(api_url, amount_dollars):
+                self.assertEqual(api_url, "http://localhost:8080")
+                self.assertEqual(amount_dollars, 5.0)
+                return {
+                    "success": False,
+                    "error": "Payment method required before adding balance",
+                    "attempt_record": _add_balance_receipt(),
+                }
+
+            result = run_funding_validation_packet(
+                settings,
+                output_dir=output_dir,
+                api_url="http://localhost:8080",
+                amount_dollars=5.0,
+                allow_local_attestation=True,
+                validation_id="operator-run-1",
+                receipt_json=receipt_path,
+                run_add_balance_attempt=True,
+                add_balance_fn=fake_add_balance,
+            ).to_public_dict()
+
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["add_balance_attempt_run"])
+            self.assertEqual(result["add_balance_receipt_outcome"], "payment_method_required")
+            verification = json.loads((output_dir / "add-balance-verification.json").read_text(encoding="utf-8"))
+            self.assertTrue(verification["ok"])
+
+    def test_cli_packet_rejects_add_balance_attempt_without_amount(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "funding-validation-packet",
+                    "--output-dir",
+                    str(Path(tmpdir) / "packet"),
+                    "--api-url",
+                    "http://localhost:8080",
+                    "--allow-local-attestation",
+                    "--run-add-balance-attempt",
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=_env(tmpdir),
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("--amount", result.stdout)
+
     def test_cli_packet_writes_bounded_packet_from_existing_receipt(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             receipt_path = Path(tmpdir) / "receipt.json"
+            add_balance_receipt_path = Path(tmpdir) / "add-balance-receipt.json"
             output_dir = Path(tmpdir) / "packet"
             receipt_path.write_text(json.dumps(_receipt()), encoding="utf-8")
+            add_balance_receipt_path.write_text(json.dumps(_add_balance_receipt()), encoding="utf-8")
 
             result = subprocess.run(
                 [
@@ -183,6 +274,8 @@ class FundingValidationPacketTest(unittest.TestCase):
                     "operator-run-1",
                     "--receipt-json",
                     str(receipt_path),
+                    "--add-balance-receipt-json",
+                    str(add_balance_receipt_path),
                 ],
                 check=False,
                 cwd=Path(__file__).resolve().parents[1],
@@ -195,8 +288,13 @@ class FundingValidationPacketTest(unittest.TestCase):
             body = json.loads(result.stdout)
             self.assertTrue(body["ok"])
             self.assertEqual(body["receipt_outcome"], "card_declined")
+            self.assertEqual(body["add_balance_receipt_outcome"], "payment_method_required")
             verification = json.loads((output_dir / "funding-verification.json").read_text(encoding="utf-8"))
             self.assertTrue(verification["ok"])
+            add_balance_verification = json.loads(
+                (output_dir / "add-balance-verification.json").read_text(encoding="utf-8")
+            )
+            self.assertTrue(add_balance_verification["ok"])
 
 
 if __name__ == "__main__":
