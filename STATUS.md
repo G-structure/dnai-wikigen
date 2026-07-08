@@ -101,8 +101,12 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   `Target.attachToTarget`, and `Page.getFrameTree` to emit only stage booleans,
   HTTP status band, target/page/frame count bands, URL classes/hashes, frame
   kinds, and bounded error kinds, including bounded raw-CDP fallback failure
-  receipts. It does not yet run DOM selector counting and is not yet
-  Phala-proven. The matching `GET /browser/selector-probe` endpoint
+  receipts. It is now Phala-proven through target inventory: a one-shot
+  `f63dd18` deployment reached CDP metadata, WebSocket status `101`, and
+  `Target.getTargets`, returning bounded target count `2+` and page count `1`.
+  It does not yet run DOM selector counting, and `Page.getFrameTree` still
+  times out before frame inventory. The matching `GET /browser/selector-probe`
+  endpoint
   is now Phala-proven as a
   deployed gate/fail-closed path: one-shot compose with GitHub-attested
   `7973b27` images enabled it on top of the bounded bootstrap profile, the live
@@ -881,6 +885,55 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     redeployed back to `docker-compose.all.phala.yaml`; final health showed
     `api_key_configured=false`, `api_key_source=none`,
     `bootstrap_attempted=false`, and both diagnostic endpoints returned 403.
+    The eighth live run used GitHub-attested oracle/delegate images from commit
+    `f63dd1825b625300940d7a01805de17f287fe729` and enabled the same two
+    one-shot diagnostic endpoints. Both images verified local GitHub SLSA
+    provenance and SPDX SBOM attestations before deployment:
+    oracle `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:8b175d8c7af344433c2c3880325292a80e135242e0c805443c9377f775fb7bc5`;
+    delegate `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:a038fdd9b5092b8d1be2c59d8b835180a8c41afdebe7d900c0ac643d98ef2793`.
+    Its local raw-compose/image-policy hash was
+    `597e1e12e0d9c07604eef61eb7af8869f3e66ea13f808d6e2154d6a90948e7ff`,
+    rendered compose SHA-256 was
+    `a6af14aa640c50f9bf6f55878fd48620e7730181dde5a3744ca6f781b96006d9`,
+    and live attested compose hash was
+    `6264dca2ae413e84e39500ca60ce70f5b97756d413d57be9050a30733ff56dd0`.
+    `GET /browser/readiness` again returned HTTP 200 with bounded
+    `error_kind=cdp_timeout` and a successful one-command CDP protocol probe:
+    metadata succeeded, WebSocket Upgrade status band was `101`,
+    `Browser.getVersion` returned bounded `result`, and browser family was
+    `chromium`. `GET /browser/selector-probe` returned HTTP 200 with
+    bounded raw-CDP fallback output: `probe_backend=raw_cdp`,
+    `metadata_success=true`, `upgrade_success=true`,
+    `target_command_success=true`, HTTP status band `101`,
+    `target_count_band=2+`, `page_count_band=1`,
+    `fallback_from_backend=playwright`, `fallback_reason_kind=timeout`,
+    `raw_secret_egress=false`, and no pages because `Page.getFrameTree` timed
+    out before frame inventory. The CVM was then redeployed back to
+    `docker-compose.all.phala.yaml` using the same verified images; the normal
+    local raw-compose/image-policy hash is
+    `80f6ac6dac895e06b6787d09ed7ecb4d412a51c27f3205bd39129be1b0d22894`,
+    rendered compose SHA-256 is
+    `8e95cd75efbe2154dc9d2f8da0fdecc08cd7e12a85eb1e608859e93a79fbd87b`,
+    and live restored compose hash is
+    `cdff9896cb67cf97127928348871e312d8d7a82e9c130f8e4c6160c3023f8c97`.
+    Final health showed `api_key_configured=false`, `api_key_source=none`,
+    `bootstrap_attempted=false`; `/browser/readiness` and
+    `/browser/selector-probe` returned 403; `/billing/add-balance` returned
+    405; `/credentials/encrypted` returned 404; public logs/sysinfo remained
+    false. `verify-deployment-bundle` then succeeded against the restored
+    delegate endpoint: both GHCR image refs verified GitHub provenance/SBOM
+    attestations for source commit
+    `f63dd1825b625300940d7a01805de17f287fe729`, the rendered compose included
+    the expected Neko and Playwright sidecar digests, and the live CVM
+    attestation matched app ID, live attested compose hash
+    `cdff9896cb67cf97127928348871e312d8d7a82e9c130f8e4c6160c3023f8c97`,
+    OS image hash
+    `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`,
+    report data
+    `4e9f44d5f19f17701ff866570f30dca930fdeef06bc06ce4131aa551f87740e9`,
+    encryption public key
+    `b98deca07d8d5e1c9ad00872f48151e82045bb65c1c185a3b2ba63e3141d1451`,
+    and quote size `5010`.
   - Public logs are disabled; OTP, Tinker API-key, or card-bearing flows must
     still use only bounded interfaces and disabled endpoint gates must be
     intentionally reopened with fresh evidence.

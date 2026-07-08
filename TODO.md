@@ -767,8 +767,20 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             cannot complete. The raw CDP URL and WebSocket debugger URL stay in
             memory only; tests prove the rendered output omits raw browser URLs,
             query strings, Stripe frame URLs, page text, cookies, account data,
-            OTPs, API keys, and card data. This fallback does not yet run DOM
-            selector counting and is not yet Phala-proven.
+            OTPs, API keys, and card data. A Phala one-shot measurement with
+            GitHub-attested `f63dd18` images proved the raw fallback reaches
+            CDP metadata, WebSocket HTTP `101`, and `Target.getTargets`,
+            returning bounded target count `2+` and page count `1`. It still
+            timed out before `Page.getFrameTree`, so frame inventory and DOM
+            selector counting remain open.
+      - [ ] Preserve bounded page-target inventory when raw-CDP frame-tree
+            probing times out.
+            Next step: catch per-page `Page.getFrameTree` failures inside the
+            raw-CDP fallback so deployed evidence can keep page URL
+            classes/hashes, target/page count bands, and per-page bounded
+            error kinds even when frame traversal times out. This still must
+            avoid DOM text, raw URLs, cookies, account identifiers, OTPs, API
+            keys, and card material.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to

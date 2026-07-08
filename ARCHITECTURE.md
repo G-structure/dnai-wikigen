@@ -771,12 +771,15 @@ Implementation status:
             endpoint showed CDP metadata reachable with Chromium WebSocket
             metadata advertised, raw WebSocket upgrade status `101`, a
             successful bounded one-command CDP protocol response, then
-            `connect_over_cdp` timeout. Actual selector/frame match evidence
-            from the deployed browser remains open until the raw-CDP target/frame
-            fallback is built into GitHub-attested images, deployed, and
-            measured. Actual DOM selector match evidence remains open until
-            Playwright attachment is repaired or the raw-CDP fallback grows a
-            bounded Runtime evaluation path.
+            `connect_over_cdp` timeout. The raw-CDP fallback is Phala-proven
+            through target inventory with GitHub-attested `f63dd18` images:
+            metadata succeeded, WebSocket Upgrade returned status band `101`,
+            `Target.getTargets` succeeded, and the bounded receipt reported
+            target count `2+` and page count `1` with no raw URL/page text
+            egress. `Page.getFrameTree` still timed out, so actual frame
+            inventory and DOM selector match evidence remain open until the
+            fallback handles frame-tree timeouts more granularly, grows bounded
+            Runtime evaluation, or Playwright attachment is repaired.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,

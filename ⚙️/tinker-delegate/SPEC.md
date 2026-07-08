@@ -169,6 +169,12 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   and both endpoints returned 403. This proves the deployed endpoint
   gates/fail-closed paths and the basic DevTools protocol path, but not actual
   selector/frame matches, because Playwright `connect_over_cdp` still times out.
+  A later GitHub-attested `f63dd18` one-shot run proved the raw-CDP selector
+  fallback reaches metadata, WebSocket Upgrade status band `101`, and
+  `Target.getTargets`, returning bounded target count `2+` and page count `1`.
+  `Page.getFrameTree` still timed out, so frame inventory and DOM selector
+  counts remain incomplete. The CVM was restored to normal compose afterward,
+  and both diagnostic endpoints returned 403.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,
