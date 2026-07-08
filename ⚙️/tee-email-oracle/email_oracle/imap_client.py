@@ -159,7 +159,7 @@ class IMAPClient:
             match = re.search(extract_pattern, body)
             if match:
                 pin = match.group()
-                print(f"[imap] extracted pin '{pin}' from email '{subject}' ({sender})")
+                print(f"[imap] extracted pin from email '{subject}' ({sender})")
                 return ExtractedPin(
                     pin=pin,
                     email_id=msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id),

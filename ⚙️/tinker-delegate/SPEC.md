@@ -97,7 +97,8 @@ PHASE 0: EMAIL
 PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   Neko browser → tinker-console.thinkingmachines.ai → auth.thinkingmachines.ai
   → enter cock.email address → Continue → magic-code page (6-digit OTP)
-  → delegate calls authenticated email oracle POST /pin, regex \b\d{6}\b
+  → delegate calls authenticated email oracle POST /pin with target service,
+    expected sender, nonce, caller identity, reason, max age, and bounded regex
   → enter code into 6x input[inputmode="numeric"] boxes → authenticated
   → complete onboarding form (name + TOS checkbox) → welcome page
   → navigate to /keys → click "New key" → click "Generate key"

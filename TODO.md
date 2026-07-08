@@ -209,6 +209,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       email creds, Tinker API key, funding token state, and run metadata.
 - [ ] `P0` Add log scrubbing for OTPs, API keys, card data, bearer tokens, and
       raw artifacts.
+      - [x] Stop logging extracted OTP values in the email oracle and Tinker
+            delegate, and stop binding raw OTP values into quote report data.
+      - [ ] Add centralized redaction for bearer tokens, card payloads, API keys,
+            screenshots, browser traces, and raw artifact errors.
 - [ ] `P0` Add a deployment runbook section for rollback:
       what is safe to redeploy, what must be frozen, what requires user notice.
 - [ ] `P1` Add health endpoints that separate:
@@ -242,10 +246,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Add outbound email support for:
       reviewer holds, consent confirmations, revocations, bounded-result
       delivery, and recovery notices.
-- [ ] `P0` Add scoped OTP request API:
+- [x] `P0` Add scoped OTP request API:
       target service, expected sender, expected subject pattern, max age, nonce,
       caller identity, and reason.
-- [ ] `P0` Add OTP one-time-use semantics so the same code cannot be replayed.
+- [x] `P0` Add OTP one-time-use semantics so the same code cannot be replayed.
+      Current implementation is runtime-scoped/in-memory; add durable replay
+      state before production restart/redeploy claims.
 - [ ] `P1` Add mailbox retention policy:
       delete or redact messages after OTP extraction unless retention is
       explicitly required for audit.

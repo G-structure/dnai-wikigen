@@ -11,9 +11,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import hashlib
 import hmac
+import json
+import re
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from email_oracle.config import Settings
 from email_oracle.cred_store import CredentialStore, EmailCredentials
@@ -24,11 +26,60 @@ from email_oracle.imap_client import IMAPClient
 # --- Request / Response models ---
 
 class PinRequest(BaseModel):
-    from_filter: str = Field("", description="Filter by sender address")
-    subject_contains: str = Field("", description="Filter by subject substring")
-    max_age_seconds: int = Field(300, description="Max email age in seconds")
-    extract_pattern: str = Field(r"\b\d{6}\b", description="Regex to extract pin")
+    target_service: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-zA-Z0-9_.:-]+$",
+        description="Service requesting the OTP, e.g. tinker",
+    )
+    expected_sender: str = Field(
+        ...,
+        min_length=3,
+        max_length=255,
+        description="Expected sender substring/address",
+    )
+    expected_subject_contains: str = Field(
+        "",
+        max_length=255,
+        description="Expected subject substring, empty only when the live subject is not stable",
+    )
+    max_age_seconds: int = Field(300, ge=1, le=900, description="Max email age in seconds")
+    extract_pattern: str = Field(
+        r"\b\d{6}\b",
+        min_length=1,
+        max_length=128,
+        description="Regex to extract a bounded OTP/confirmation code",
+    )
+    nonce: str = Field(
+        ...,
+        min_length=8,
+        max_length=128,
+        pattern=r"^[a-zA-Z0-9_.:-]+$",
+        description="Caller-generated one-time request nonce",
+    )
+    caller_identity: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+        description="Bounded caller identity such as app id, compose hash, or service name",
+    )
+    reason: str = Field(
+        ...,
+        min_length=1,
+        max_length=256,
+        description="Human-readable bounded purpose for audit logs",
+    )
     delete_after: bool = Field(False, description="Delete email after extraction")
+
+    @field_validator("extract_pattern")
+    @classmethod
+    def validate_extract_pattern(cls, value: str) -> str:
+        try:
+            re.compile(value)
+        except re.error as exc:
+            raise ValueError(f"invalid extract_pattern: {exc}") from exc
+        return value
 
 
 class PinResponse(BaseModel):
@@ -39,6 +90,8 @@ class PinResponse(BaseModel):
     received_at: str
     oracle_email: str
     timestamp: str
+    request_hash: str
+    otp_use_hash: str
     tdx_quote: str = ""  # populated in TEE mode
 
 
@@ -66,6 +119,7 @@ class OracleState:
         self.store: CredentialStore | None = None
         self.creds: EmailCredentials | None = None
         self.imap: IMAPClient | None = None
+        self.used_otp_hashes: set[str] = set()
 
 
 state = OracleState()
@@ -114,6 +168,39 @@ def require_runtime_auth(authorization: str = Header(default="")) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid bearer token",
         )
+
+
+def _hash_json(data: dict) -> str:
+    canonical = json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _pin_request_hash(req: PinRequest) -> str:
+    return _hash_json(
+        {
+            "target_service": req.target_service,
+            "expected_sender": req.expected_sender,
+            "expected_subject_contains": req.expected_subject_contains,
+            "max_age_seconds": req.max_age_seconds,
+            "extract_pattern": req.extract_pattern,
+            "nonce": req.nonce,
+            "caller_identity": req.caller_identity,
+            "reason": req.reason,
+            "delete_after": req.delete_after,
+        }
+    )
+
+
+def _otp_use_hash(req: PinRequest, result, oracle_email: str) -> str:
+    return _hash_json(
+        {
+            "target_service": req.target_service,
+            "caller_identity": req.caller_identity,
+            "oracle_email": oracle_email,
+            "email_id": result.email_id,
+            "pin_hash": hashlib.sha256(result.pin.encode()).hexdigest(),
+        }
+    )
 
 
 @asynccontextmanager
@@ -170,14 +257,23 @@ async def extract_pin(req: PinRequest):
         raise HTTPException(503, "Oracle not initialized — no credentials")
 
     result = state.imap.search_and_extract(
-        from_filter=req.from_filter,
-        subject_contains=req.subject_contains,
+        from_filter=req.expected_sender,
+        subject_contains=req.expected_subject_contains,
         max_age_seconds=req.max_age_seconds,
         extract_pattern=req.extract_pattern,
     )
 
     if not result:
         raise HTTPException(404, "No matching pin found in inbox")
+
+    if len(result.pin) > state.settings.pin_max_length:
+        raise HTTPException(400, "Extracted value exceeds OTP length cap")
+
+    request_hash = _pin_request_hash(req)
+    otp_use_hash = _otp_use_hash(req, result, state.creds.email)
+    if otp_use_hash in state.used_otp_hashes:
+        raise HTTPException(409, "OTP has already been released")
+    state.used_otp_hashes.add(otp_use_hash)
 
     if req.delete_after:
         try:
@@ -187,7 +283,7 @@ async def extract_pin(req: PinRequest):
 
     tdx_quote = ""
     if state.settings.dstack_enabled:
-        tdx_quote, _, _ = get_attestation(f"pin:{result.pin}")
+        tdx_quote, _, _ = get_attestation(f"pin:{request_hash}:{otp_use_hash}")
 
     return PinResponse(
         pin=result.pin,
@@ -197,6 +293,8 @@ async def extract_pin(req: PinRequest):
         received_at=result.received_at,
         oracle_email=state.creds.email,
         timestamp=datetime.now(timezone.utc).isoformat(),
+        request_hash=request_hash,
+        otp_use_hash=otp_use_hash,
         tdx_quote=tdx_quote,
     )
 

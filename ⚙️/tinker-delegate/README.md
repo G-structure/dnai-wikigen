@@ -10,7 +10,7 @@ The March 2026 deployed Phala/headless browser blocker should be treated as hist
 
 The email oracle is still required. It is not just a disposable inbox: it is the no-human-access OTP and confirmation channel for a TEE-owned Tinker account. Operators should not hold the Tinker account credentials or the email credentials; the TEE requests the magic-code email, reads it through the oracle, and completes auth inside the browser session.
 
-The oracle's `/pin` and `/inbox` endpoints are now protected by runtime bearer auth when enabled. In the combined dstack/Phala deployment, the oracle and delegate derive the bearer token from the same dstack key path (`oracle/runtime-auth`). Local development can use an explicit `ORACLE_RUNTIME_AUTH_TOKEN` / `TINKER_ORACLE_AUTH_TOKEN` pair instead.
+The oracle's `/pin` and `/inbox` endpoints are now protected by runtime bearer auth when enabled. In the combined dstack/Phala deployment, the oracle and delegate derive the bearer token from the same dstack key path (`oracle/runtime-auth`). Local development can use an explicit `ORACLE_RUNTIME_AUTH_TOKEN` / `TINKER_ORACLE_AUTH_TOKEN` pair instead. `/pin` requests are scoped: the delegate sends target service, expected sender, caller identity, reason, nonce, max age, and bounded extraction pattern. The oracle tracks released OTP hashes for one-time use within the runtime and logs only bounded metadata, not the OTP value.
 
 Tinker account funding remains in progress. The intended payment path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code now reach Stripe in the local Neko session: a Stripe test card filled the live payment form and was rejected with `Your card was declined.` Adding balance correctly fails closed with `Payment method required before adding balance` when no real card is on file. The plaintext card API endpoint is disabled by default and unavailable in dstack mode; it can only be enabled as a local-development test hook with `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. A capped real-card funding attempt is still required before funding can be called production-complete.
 
@@ -223,7 +223,7 @@ contracts/
 |--------|----------|---------|
 | `health()` | `GET /health` | Check oracle status, get email address |
 | `get_email()` | `GET /health` | Extract oracle email from health response |
-| `get_pin()` | `POST /pin` | Poll inbox for OTP matching `\b\d{6}\b` pattern; sends bearer auth when configured |
+| `get_pin()` | `POST /pin` | Poll inbox with scoped OTP metadata and bearer auth; returns one bounded code plus request/use hashes |
 | `list_inbox()` | `GET /inbox` | Debug: list recent emails; sends bearer auth when configured |
 
 ## Recon Findings

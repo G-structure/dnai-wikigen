@@ -444,7 +444,11 @@ Implementation status:
 ```
 [real]      EmailOracleAuth.sol and tests.
 [real]      email_oracle API, credential store, IMAP client.
+[real]      Scoped `/pin` requests require target service, sender scope, nonce,
+            caller identity, and reason; released OTP hashes are one-time per
+            oracle runtime.
 [partial]   App-auth contract is not yet enforced on every OTP API request.
+[partial]   OTP replay state is in memory only and does not survive CVM restart.
 [planned]   Reviewer notification, consent confirmation, outbound bounded-result delivery.
 ```
 
@@ -944,10 +948,12 @@ IMAPClient connects
 /pin and /inbox require the same-CVM runtime bearer token
   |
   v
-/pin request searches recent email and extracts regex-matched code
+/pin request must include target service, expected sender, subject scope,
+caller identity, nonce, reason, max age, and bounded extraction regex
   |
   v
-PinResponse with oracle email, sender, subject, timestamp, optional quote
+PinResponse with OTP, oracle email, sender, subject, request hash,
+one-time OTP-use hash, timestamp, optional quote over hashes
 ```
 
 ### tinker-delegate
@@ -1180,7 +1186,8 @@ bounded aggregate results
 ```
 1. On-chain TDX quote verification is not implemented.
 2. EmailOracleAuth's on-chain consumer registry is not yet checked by the
-   FastAPI OTP endpoint; same-CVM bearer auth is implemented.
+   FastAPI OTP endpoint; same-CVM bearer auth and scoped runtime OTP requests
+   are implemented.
 3. Tinker browser automation works locally through Neko/CDP but still needs a
    fresh deployed Phala/CVM validation run.
 4. Reliable Tinker account funding through Stripe browser automation is in progress:

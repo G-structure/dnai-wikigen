@@ -37,11 +37,13 @@ async def wait_for_otp(oracle: OracleClient, settings: Settings) -> str:
             subject_contains="",
             max_age_seconds=settings.otp_max_age,
             extract_pattern=r"\b\d{6}\b",
+            caller_identity="tinker-delegate.signup",
+            reason="tinker-passwordless-auth",
             delete_after=True,
         )
         if result and result.get("pin"):
             pin = result["pin"]
-            print(f"[otp] got code: {pin} (from: {result.get('sender', '?')})")
+            print(f"[otp] got code from: {result.get('sender', '?')}")
             return pin
 
         elapsed = int(time.time() - start)

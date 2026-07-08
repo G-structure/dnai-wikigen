@@ -1,5 +1,6 @@
 """Client for the TEE email oracle API."""
 import hashlib
+import secrets
 
 import httpx
 
@@ -40,8 +41,14 @@ class OracleClient:
         self,
         from_filter: str = "",
         subject_contains: str = "",
+        target_service: str = "tinker",
+        expected_sender: str = "no-reply@thinkingmachines.ai",
+        expected_subject_contains: str = "",
         max_age_seconds: int = 300,
         extract_pattern: str = r"\b\d{6}\b",
+        nonce: str = "",
+        caller_identity: str = "tinker-delegate",
+        reason: str = "tinker-auth",
         delete_after: bool = False,
     ) -> dict | None:
         """Poll for a PIN/OTP from the inbox.
@@ -52,10 +59,14 @@ class OracleClient:
             f"{self.base_url}/pin",
             headers=self._headers(),
             json={
-                "from_filter": from_filter,
-                "subject_contains": subject_contains,
+                "target_service": target_service,
+                "expected_sender": expected_sender or from_filter,
+                "expected_subject_contains": expected_subject_contains or subject_contains,
                 "max_age_seconds": max_age_seconds,
                 "extract_pattern": extract_pattern,
+                "nonce": nonce or secrets.token_urlsafe(24),
+                "caller_identity": caller_identity,
+                "reason": reason,
                 "delete_after": delete_after,
             },
         )
