@@ -96,6 +96,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P1` Add a `docs/DECISIONS.md` log for irreversible architecture choices:
       one CVM vs split CVMs, quote verification model, funding rails, data
       locality policy, and frontend deployment target.
+      Started with the result-submission quote-verification decision. Remaining
+      entries still need to record CVM topology, funding rails, data locality,
+      and frontend deployment target before this P1 is complete.
 - [x] `P1` Add a machine-readable manifest of deployed resources:
       contract addresses, Phala CVM IDs, app IDs, compose hashes, image digests,
       BaseScan links, and gateway endpoints.
@@ -183,12 +186,24 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       in the bounded receipt as `payload_result_hash`. The dstack-simulator
       Anvil proof verifies the `EvaluationSubmitted.result_hash` equals the
       submission commitment and is not the raw payload hash.
-- [ ] `P0` Define whether quote verification happens on-chain, in a verifier
+- [x] `P0` Define whether quote verification happens on-chain, in a verifier
       contract, through an attestation registry, or through a verified off-chain
       verifier whose signature the contract accepts.
+      Decision recorded in `docs/DECISIONS.md`: current path is a verified
+      off-chain submitter gate before broadcast, with signer quote evidence
+      binding signer address, chain ID, and contract address. vNext should add a
+      verifier signature accepted by a contract or registry before claiming
+      trustless on-chain quote enforcement.
 - [ ] `P0` Implement the chosen quote-verification path for `submitResult()`.
       Done when a bogus TEE address cannot submit a result even if it knows the
       deal ID.
+      - [x] Implement the pre-broadcast off-chain verifier gate in the
+            `submit-result` path: dstack mode is required, signer quote evidence
+            must match signer address, chain ID, contract address, report data,
+            quote report data, and compose hash, and the bounded receipt carries
+            quote hash/report-data/size without raw secret egress.
+      - [ ] Add verifier-signature contract or registry enforcement so a bogus
+            bare `teeIdentity` cannot submit through the Solidity entrypoint.
 - [ ] `P1` Add ERC20/USDC support in addition to native ETH.
       Done when buyer deposits and pull payments work with a stablecoin.
 - [ ] `P1` Add protocol-fee configuration with timelock/freeze semantics.

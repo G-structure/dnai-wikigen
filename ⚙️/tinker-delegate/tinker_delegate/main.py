@@ -1057,7 +1057,7 @@ def cli():
             DstackEthereumSigner,
             JsonRpcClient,
             SignerUnavailable,
-            current_dstack_compose_hash,
+            get_dstack_signer_attestation,
         )
 
         rpc_url = args.rpc_url or settings.chain_rpc_url
@@ -1077,13 +1077,17 @@ def cli():
                 signer,
                 gas_limit=gas_limit,
             )
-            compose_hash = current_dstack_compose_hash()
+            signer_attestation = get_dstack_signer_attestation(
+                signer_address=signer.address,
+                chain_id=rpc.chain_id(),
+                contract_address=contract_address,
+            )
             receipt = submitter.submit_result(
                 deal_id=args.deal_id,
                 score_band=args.score_band,
                 compute_cost_wei=args.compute_cost_wei,
                 result_hash=args.result_hash,
-                compose_hash=compose_hash,
+                signer_attestation=signer_attestation,
             )
             _emit_bounded_json(receipt.to_public_dict())
         except SignerUnavailable as exc:

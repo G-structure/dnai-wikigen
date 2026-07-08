@@ -84,6 +84,9 @@ def main() -> int:
                 "endpoint_kind": "unix_socket" if str(dstack_endpoint).endswith(".sock") else "http",
                 "signer_address": signer_address,
                 "custody": receipt.get("custody"),
+                "signer_attestation_hash": receipt.get("signer_attestation_hash"),
+                "signer_attestation_quote_size": receipt.get("signer_attestation_quote_size"),
+                "signer_attestation_report_data": receipt.get("signer_attestation_report_data"),
             },
             "chain": {
                 "rpc": "ephemeral_anvil",
@@ -337,6 +340,12 @@ def _assert_receipt(
         raise AssertionError("submit-result receipt did not assert raw_secret_egress=false")
     if receipt.get("payload_result_hash") != RESULT_HASH:
         raise AssertionError("receipt did not preserve the bounded payload result hash")
+    if not receipt.get("signer_attestation_hash"):
+        raise AssertionError("receipt did not include signer attestation hash")
+    if not receipt.get("signer_attestation_report_data"):
+        raise AssertionError("receipt did not include signer attestation report data")
+    if int(receipt.get("signer_attestation_quote_size") or 0) <= 0:
+        raise AssertionError("receipt did not include signer attestation quote size")
     if event_fields.get("result_hash") != receipt.get("result_hash"):
         raise AssertionError("EvaluationSubmitted result_hash did not match submission commitment")
     if event_fields.get("result_hash") == receipt.get("payload_result_hash"):

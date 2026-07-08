@@ -12,13 +12,44 @@ from tinker_delegate.chain_submitter import (
     DiligenceRoomSubmitter,
     DstackEthereumSigner,
     ResultCommitment,
+    SignerAttestationEvidence,
     SignerUnavailable,
     encode_submit_result_calldata,
+    signer_attestation_report_data,
+    verify_signer_attestation_evidence,
 )
 from tinker_delegate.config import Settings
 
 
 COMPOSE_HASH = "0x" + "99" * 32
+CONTRACT_ADDRESS = "0x" + "55" * 20
+
+
+def _signer_attestation(
+    *,
+    signer_address: str,
+    chain_id: int = 31337,
+    contract_address: str = CONTRACT_ADDRESS,
+    compose_hash: str = COMPOSE_HASH,
+) -> SignerAttestationEvidence:
+    report_data = "0x" + signer_attestation_report_data(
+        signer_address=signer_address,
+        chain_id=chain_id,
+        contract_address=contract_address,
+    ).hex()
+    return SignerAttestationEvidence(
+        mode="tdx",
+        signer_address=signer_address,
+        chain_id=chain_id,
+        contract_address=contract_address,
+        report_data=report_data,
+        quote_report_data=report_data,
+        quote_hash="0x" + "88" * 32,
+        quote_size=128,
+        compose_hash=compose_hash,
+        app_id="app-ok",
+        os_image_hash="os-ok",
+    )
 
 
 def _word_int(value: int) -> str:
@@ -109,7 +140,7 @@ class ChainSubmitterTest(unittest.TestCase):
         rpc = FakeRpc(_deal_response(tee_identity=signer.address))
         submitter = DiligenceRoomSubmitter(
             rpc,
-            "0x" + "55" * 20,
+            CONTRACT_ADDRESS,
             signer,
         )
 
@@ -122,7 +153,7 @@ class ChainSubmitterTest(unittest.TestCase):
         )
         expected_commitment = ResultCommitment(
             chain_id=31337,
-            contract_address="0x" + "55" * 20,
+            contract_address=CONTRACT_ADDRESS,
             deal_id=1,
             nonce=7,
             compose_hash=COMPOSE_HASH,
@@ -154,7 +185,7 @@ class ChainSubmitterTest(unittest.TestCase):
         wrong_tee = "0x" + "77" * 20
         submitter = DiligenceRoomSubmitter(
             FakeRpc(_deal_response(tee_identity=wrong_tee)),
-            "0x" + "55" * 20,
+            CONTRACT_ADDRESS,
             signer,
         )
         with self.assertRaisesRegex(ChainSubmitterError, "teeIdentity"):
@@ -168,7 +199,7 @@ class ChainSubmitterTest(unittest.TestCase):
 
         submitter = DiligenceRoomSubmitter(
             FakeRpc(_deal_response(tee_identity=signer.address, state=0)),
-            "0x" + "55" * 20,
+            CONTRACT_ADDRESS,
             signer,
         )
         with self.assertRaisesRegex(ChainSubmitterError, "Funded"):
@@ -184,7 +215,7 @@ class ChainSubmitterTest(unittest.TestCase):
         signer = InjectedTestSigner()
         submitter = DiligenceRoomSubmitter(
             FakeRpc(_deal_response(tee_identity=signer.address, budget_cap=100)),
-            "0x" + "55" * 20,
+            CONTRACT_ADDRESS,
             signer,
         )
         with self.assertRaisesRegex(ChainSubmitterError, "budget"):
@@ -226,7 +257,7 @@ class ChainSubmitterTest(unittest.TestCase):
         rpc = FakeRpc(_deal_response(tee_identity=signer.address))
         receipt = DiligenceRoomSubmitter(
             rpc,
-            "0x" + "55" * 20,
+            CONTRACT_ADDRESS,
             signer,
             gas_limit=200000,
         ).submit_result(
@@ -246,7 +277,7 @@ class ChainSubmitterTest(unittest.TestCase):
     def test_result_commitment_changes_with_replay_context(self):
         base = ResultCommitment(
             chain_id=31337,
-            contract_address="0x" + "55" * 20,
+            contract_address=CONTRACT_ADDRESS,
             deal_id=1,
             nonce=7,
             compose_hash=COMPOSE_HASH,
@@ -257,7 +288,7 @@ class ChainSubmitterTest(unittest.TestCase):
         )
         replay = ResultCommitment(
             chain_id=31337,
-            contract_address="0x" + "55" * 20,
+            contract_address=CONTRACT_ADDRESS,
             deal_id=1,
             nonce=8,
             compose_hash=COMPOSE_HASH,
@@ -269,6 +300,57 @@ class ChainSubmitterTest(unittest.TestCase):
 
         self.assertNotEqual(base.digest(), replay.digest())
         self.assertEqual(base.public_fields()["compute_cost_band"], "1e15-1e18")
+
+    def test_submit_result_uses_signer_attestation_compose_hash(self):
+        signer = InjectedTestSigner()
+        receipt = DiligenceRoomSubmitter(
+            FakeRpc(_deal_response(tee_identity=signer.address)),
+            CONTRACT_ADDRESS,
+            signer,
+        ).submit_result(
+            deal_id=1,
+            score_band="medium",
+            compute_cost_wei=10**15,
+            result_hash="0x" + "66" * 32,
+            signer_attestation=_signer_attestation(signer_address=signer.address),
+        )
+
+        self.assertEqual(receipt.compose_hash, COMPOSE_HASH)
+        self.assertEqual(receipt.signer_attestation_hash, "0x" + "88" * 32)
+        self.assertEqual(receipt.signer_attestation_quote_size, 128)
+        self.assertEqual(
+            receipt.signer_attestation_report_data,
+            "0x" + signer_attestation_report_data(
+                signer_address=signer.address,
+                chain_id=31337,
+                contract_address=CONTRACT_ADDRESS,
+            ).hex(),
+        )
+
+    def test_signer_attestation_rejects_wrong_context(self):
+        signer = InjectedTestSigner()
+        evidence = _signer_attestation(signer_address=signer.address, chain_id=84532)
+
+        with self.assertRaisesRegex(ChainSubmitterError, "chain id mismatch"):
+            verify_signer_attestation_evidence(
+                evidence,
+                signer_address=signer.address,
+                chain_id=31337,
+                contract_address=CONTRACT_ADDRESS,
+            )
+
+    def test_signer_attestation_rejects_compose_mismatch(self):
+        signer = InjectedTestSigner()
+        evidence = _signer_attestation(signer_address=signer.address)
+
+        with self.assertRaisesRegex(ChainSubmitterError, "compose hash mismatch"):
+            verify_signer_attestation_evidence(
+                evidence,
+                signer_address=signer.address,
+                chain_id=31337,
+                contract_address=CONTRACT_ADDRESS,
+                expected_compose_hash="0x" + "77" * 32,
+            )
 
 
 if __name__ == "__main__":

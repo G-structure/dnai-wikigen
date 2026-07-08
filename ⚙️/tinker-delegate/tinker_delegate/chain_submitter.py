@@ -9,6 +9,7 @@ Tests may inject a signer object, but production construction goes through
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -104,6 +105,9 @@ class SubmitResultReceipt:
     nonce: int
     gas_limit: int
     custody: str
+    signer_attestation_hash: str
+    signer_attestation_report_data: str
+    signer_attestation_quote_size: int
     raw_secret_egress: bool = False
 
     def to_public_dict(self) -> dict[str, Any]:
@@ -124,6 +128,9 @@ class SubmitResultReceipt:
             "nonce": self.nonce,
             "gas_limit": self.gas_limit,
             "custody": self.custody,
+            "signer_attestation_hash": self.signer_attestation_hash,
+            "signer_attestation_report_data": self.signer_attestation_report_data,
+            "signer_attestation_quote_size": self.signer_attestation_quote_size,
             "raw_secret_egress": self.raw_secret_egress,
         }
 
@@ -146,6 +153,39 @@ class DstackEthereumSigner:
 
     def sign_transaction(self, transaction: dict[str, Any]):
         return self._account.sign_transaction(transaction)
+
+
+@dataclass(frozen=True)
+class SignerAttestationEvidence:
+    """Bounded signer attestation evidence for off-chain verification."""
+
+    mode: str
+    signer_address: str
+    chain_id: int
+    contract_address: str
+    report_data: str
+    quote_report_data: str
+    quote_hash: str
+    quote_size: int
+    compose_hash: str
+    app_id: str = ""
+    os_image_hash: str = ""
+
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "mode": self.mode,
+            "signer_address": normalize_address(self.signer_address),
+            "chain_id": self.chain_id,
+            "contract_address": normalize_address(self.contract_address),
+            "report_data": normalize_bytes32(self.report_data),
+            "quote_report_data": normalize_bytes32(self.quote_report_data),
+            "quote_hash": normalize_bytes32(self.quote_hash),
+            "quote_size": self.quote_size,
+            "compose_hash": normalize_bytes32(self.compose_hash),
+            "app_id": self.app_id,
+            "os_image_hash": self.os_image_hash,
+            "raw_secret_egress": False,
+        }
 
 
 def derive_ethereum_private_key(key_material: bytes, path: str) -> bytes:
@@ -188,6 +228,35 @@ def normalize_optional_bytes32(value: str) -> str:
     return normalize_bytes32(value)
 
 
+def _hex_bytes(value: str, *, field: str) -> bytes:
+    raw = value.strip().lower()
+    if raw.startswith("0x"):
+        raw = raw[2:]
+    try:
+        decoded = bytes.fromhex(raw)
+    except ValueError as exc:
+        raise ChainSubmitterError(f"{field} must be hex") from exc
+    if not decoded:
+        raise ChainSubmitterError(f"{field} must be non-empty")
+    return decoded
+
+
+def _normalize_quote_report_data(value: str, *, expected_report_data: str) -> str:
+    """Return the 32-byte binding from a TDX quote report-data field.
+
+    TDX report data is 64 bytes. dstack may expose our 32-byte report binding
+    padded with zero bytes, while local bounded receipts keep only the binding.
+    """
+
+    raw = _hex_bytes(value, field="quote_report_data")
+    expected = bytes.fromhex(normalize_bytes32(expected_report_data)[2:])
+    if len(raw) == 32 and raw == expected:
+        return "0x" + raw.hex()
+    if len(raw) == 64 and raw[:32] == expected and raw[32:] == b"\x00" * 32:
+        return "0x" + raw[:32].hex()
+    raise ChainSubmitterError("signer quote report data mismatch")
+
+
 def encode_uint256(value: int) -> bytes:
     if value < 0:
         raise ChainSubmitterError("uint256 value cannot be negative")
@@ -224,6 +293,102 @@ def encode_submit_result_calldata(
         ]
     )
     return "0x" + payload.hex()
+
+
+def signer_attestation_report_data(
+    *,
+    signer_address: str,
+    chain_id: int,
+    contract_address: str,
+) -> bytes:
+    """Report data binding dstack quote evidence to a result signer context."""
+
+    payload = json.dumps(
+        {
+            "service": "dnai-wikigen",
+            "context": "diligence-room-submit-result",
+            "signer_address": normalize_address(signer_address),
+            "chain_id": chain_id,
+            "contract_address": normalize_address(contract_address),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).digest()
+
+
+def get_dstack_signer_attestation(
+    *,
+    signer_address: str,
+    chain_id: int,
+    contract_address: str,
+) -> SignerAttestationEvidence:
+    """Fetch quote evidence binding the current CVM to the result signer."""
+
+    if not is_dstack_enabled():
+        raise SignerUnavailable("dstack mode is required for signer attestation")
+    report_data = signer_attestation_report_data(
+        signer_address=signer_address,
+        chain_id=chain_id,
+        contract_address=contract_address,
+    )
+    details = get_attestation_details(report_data)
+    quote = _hex_bytes(str(details.get("quote") or ""), field="quote")
+    quote_hash = "0x" + hashlib.sha256(quote).hexdigest()
+    expected_report_data = "0x" + report_data.hex()
+    quote_report_data = _normalize_quote_report_data(
+        str(details.get("quote_report_data") or ""),
+        expected_report_data=expected_report_data,
+    )
+    return SignerAttestationEvidence(
+        mode="tdx",
+        signer_address=signer_address,
+        chain_id=chain_id,
+        contract_address=contract_address,
+        report_data=expected_report_data,
+        quote_report_data=quote_report_data,
+        quote_hash=quote_hash,
+        quote_size=len(quote),
+        compose_hash=normalize_bytes32(str(details.get("compose_hash") or "")),
+        app_id=str(details.get("app_id") or ""),
+        os_image_hash=str(details.get("os_image_hash") or ""),
+    )
+
+
+def verify_signer_attestation_evidence(
+    evidence: SignerAttestationEvidence,
+    *,
+    signer_address: str,
+    chain_id: int,
+    contract_address: str,
+    expected_compose_hash: str = "",
+) -> None:
+    """Fail closed unless signer attestation matches the submission context."""
+
+    if evidence.mode != "tdx":
+        raise ChainSubmitterError("signer attestation mode must be tdx")
+    if normalize_address(evidence.signer_address) != normalize_address(signer_address):
+        raise ChainSubmitterError("signer attestation address mismatch")
+    if int(evidence.chain_id) != int(chain_id):
+        raise ChainSubmitterError("signer attestation chain id mismatch")
+    if normalize_address(evidence.contract_address) != normalize_address(contract_address):
+        raise ChainSubmitterError("signer attestation contract mismatch")
+    expected_report_data = "0x" + signer_attestation_report_data(
+        signer_address=signer_address,
+        chain_id=chain_id,
+        contract_address=contract_address,
+    ).hex()
+    if normalize_bytes32(evidence.report_data) != expected_report_data:
+        raise ChainSubmitterError("signer attestation report data mismatch")
+    if normalize_bytes32(evidence.quote_report_data) != expected_report_data:
+        raise ChainSubmitterError("signer quote report data mismatch")
+    if (
+        expected_compose_hash
+        and normalize_bytes32(evidence.compose_hash) != normalize_bytes32(expected_compose_hash)
+    ):
+        raise ChainSubmitterError("signer attestation compose hash mismatch")
+    if evidence.quote_size <= 0:
+        raise ChainSubmitterError("signer attestation quote is missing")
 
 
 @dataclass(frozen=True)
@@ -394,7 +559,8 @@ class DiligenceRoomSubmitter:
         score_band: str | int,
         compute_cost_wei: int,
         result_hash: str,
-        compose_hash: str,
+        compose_hash: str = "",
+        signer_attestation: SignerAttestationEvidence | None = None,
     ) -> SubmitResultReceipt:
         if deal_id < 0:
             raise ChainSubmitterError("deal ID cannot be negative")
@@ -403,7 +569,6 @@ class DiligenceRoomSubmitter:
 
         band_value, band_label = score_band_to_contract_value(score_band)
         payload_result_hash = normalize_bytes32(result_hash)
-        normalized_compose_hash = normalize_optional_bytes32(compose_hash)
         signer_address = normalize_address(self.signer.address)
         deal = self.read_deal(deal_id)
         if deal.state != 1:
@@ -416,6 +581,19 @@ class DiligenceRoomSubmitter:
 
         chain_id = self.rpc.chain_id()
         nonce = self.rpc.nonce(signer_address)
+        if signer_attestation is not None:
+            verify_signer_attestation_evidence(
+                signer_attestation,
+                signer_address=signer_address,
+                chain_id=chain_id,
+                contract_address=self.contract_address,
+                expected_compose_hash=compose_hash,
+            )
+            normalized_compose_hash = normalize_optional_bytes32(signer_attestation.compose_hash)
+        elif compose_hash:
+            normalized_compose_hash = normalize_optional_bytes32(compose_hash)
+        else:
+            raise ChainSubmitterError("signer attestation or compose hash is required")
         commitment = ResultCommitment(
             chain_id=chain_id,
             contract_address=self.contract_address,
@@ -475,6 +653,15 @@ class DiligenceRoomSubmitter:
             nonce=nonce,
             gas_limit=gas_limit,
             custody=getattr(self.signer, "custody", "unknown"),
+            signer_attestation_hash=(
+                signer_attestation.quote_hash if signer_attestation is not None else ""
+            ),
+            signer_attestation_report_data=(
+                signer_attestation.report_data if signer_attestation is not None else ""
+            ),
+            signer_attestation_quote_size=(
+                signer_attestation.quote_size if signer_attestation is not None else 0
+            ),
         )
 
 
@@ -489,12 +676,3 @@ def build_dstack_submitter(settings: Settings, *, rpc_url: str = "", contract_ad
         signer,
         gas_limit=settings.chain_submit_gas_limit,
     )
-
-
-def current_dstack_compose_hash() -> str:
-    """Fetch the current dstack compose hash for result commitments."""
-
-    if not is_dstack_enabled():
-        raise SignerUnavailable("dstack mode is required to bind compose hash")
-    details = get_attestation_details(b"dnai-wikigen-chain-submit-v1")
-    return normalize_optional_bytes32(str(details.get("compose_hash") or ""))

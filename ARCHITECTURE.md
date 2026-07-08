@@ -95,11 +95,14 @@ Important current status:
             through JSON-RPC, and emit only bounded receipt metadata. The
             submitted `resultHash` is an anti-replay commitment over chain ID,
             contract, deal ID, signer nonce, compose hash, payload result hash,
-            score band, compute cost, and expiry.
+            score band, compute cost, and expiry. The `submit-result` path now
+            also fetches and verifies signer quote evidence whose report data
+            binds signer address, chain ID, and contract address; the bounded
+            receipt includes quote hash, report data, and quote size.
             `scripts/prove-chain-submitter-dstack-anvil.py` proves this against
             the Phala/dstack simulator plus ephemeral Anvil and verifies a real
             `EvaluationSubmitted` event. This still needs a deployed-CVM
-            broadcast proof and does not yet bind `teeIdentity` to a measured
+            broadcast proof and contract/registry enforcement for measured
             compose/app identity.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
@@ -1240,12 +1243,14 @@ TEE-held signing plumbing: in dstack mode it derives an Ethereum key from a
 dstack key path, preflights `deals(dealId)` so the signer must match the public
 teeIdentity, checks funded state and compute budget, commits the payload result
 hash to chain ID, contract address, deal ID, signer nonce, compose hash, score
-band, compute cost, and expiry, signs the transaction in memory, and returns
-bounded receipt metadata. A local Phala/dstack simulator proof broadcasts
-`submitResult()` to ephemeral Anvil and verifies `EvaluationSubmitted` carries
-the replay-bound commitment rather than the raw payload hash. This is not yet
-proof that the address is controlled by a verified compose/app measurement, and
-the deployed Phala CVM-origin broadcast path still needs live validation.
+band, compute cost, and expiry, verifies signer quote evidence whose report data
+binds the signer address to the chain ID and contract address, signs the
+transaction in memory, and returns bounded receipt metadata. A local
+Phala/dstack simulator proof broadcasts `submitResult()` to ephemeral Anvil and
+verifies `EvaluationSubmitted` carries the replay-bound commitment rather than
+the raw payload hash. This is still pre-broadcast/off-chain enforcement: the
+Solidity contract does not yet require a verifier signature or registry proof,
+and the deployed Phala CVM-origin broadcast path still needs live validation.
 ```
 
 ## Service Architecture
