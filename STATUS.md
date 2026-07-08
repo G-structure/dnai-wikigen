@@ -98,11 +98,12 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   bounded `browser_unavailable` JSON if the browser cannot be reached. The
   matching `GET /browser/selector-probe` endpoint is now Phala-proven as a
   deployed gate/fail-closed path: one-shot compose with GitHub-attested
-  `a2e14b5` images enabled it on top of the bounded bootstrap profile, the live
+  `7973b27` images enabled it on top of the bounded bootstrap profile, the live
   response returned bounded `browser_unavailable` JSON with
   `raw_secret_egress=false`, and the restored normal compose returns 403.
-  Deployed selector/frame match capture remains open because CDP metadata was
-  reachable but the browser WebSocket handshake timed out during that probe.
+  Deployed selector/frame match capture remains open because CDP metadata and
+  raw WebSocket upgrade succeeded but Playwright/CDP protocol connection timed
+  out during that probe.
 - `tinker-delegate browser-readiness` and disabled-by-default
   `GET /browser/readiness` now provide a bounded way to diagnose that deployed
   browser-control failure without logs, SSH, screenshots, page text, cookies,
@@ -116,11 +117,11 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   Normal Phala compose keeps
   `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`; the one-shot bootstrap
   measurement compose enables it alongside the selector probe. This diagnostic
-  is now Phala-proven with GitHub-attested `a2e14b5` images: the one-shot
+  is now Phala-proven with GitHub-attested `7973b27` images: the one-shot
   endpoint returned bounded `cdp_timeout` after successful CDP metadata
-  discovery, and the restored normal compose returns 403. The newer raw
-  WebSocket stage is real in source/tests and pending a fresh GitHub image plus
-  Phala one-shot evidence.
+  discovery, raw WebSocket TCP connect, and HTTP Upgrade status band `101`; the
+  restored normal compose returns 403. The remaining browser-control blocker is
+  post-upgrade Playwright/CDP protocol timeout.
 - `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps
@@ -604,19 +605,19 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   current deployment as one bounded certificate by combining the GitHub image
   attestation gate, digest-pinned compose policy, sidecar digest requirements,
   and live Phala CVM attestation envelope.
-- GitHub Actions run `28958905325` built the current deploy-critical images on
+- GitHub Actions run `28960362186` built the current deploy-critical images on
   GitHub-hosted workers from source commit
-  `a2e14b542314a16e07f20a17694e9da1a67b1f1c` and attached
+  `7973b27d27a3d3fba3a24efcc23c89498e8a04bf` and attached
   GitHub-signed SLSA provenance plus SPDX SBOM attestations. The local deploy
   gate verified both image digests with
   `⚙️/tinker-delegate/scripts/verify-ghcr-image-attestation.sh`.
 - Current deploy-critical image digests:
   - Oracle:
-    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:5db7fbbce413f1b0d351984e7c05934aceb9e58a82123a31777449f44b7c7ba5`.
+    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a96371264da361c51a2478ba1563f9752a0e170eabf0a0cecf9692fc5a21b59d`.
   - Delegate:
-    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:50e09833e5ef46b9b6c526823be08949ef6db10f65e8c296d8e19e82dfe086b0`.
+    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:9ee40b9526ad518e99ce0edede42878bbc54e7f2b4793f2154fd80821009228c`.
 - Local `verify-ghcr-image-attestation` checks passed for both current image
-  indexes with source commit `a2e14b542314a16e07f20a17694e9da1a67b1f1c`,
+  indexes with source commit `7973b27d27a3d3fba3a24efcc23c89498e8a04bf`,
   source ref `refs/heads/codex/wikigen-private-reward-pitch`, verified
   provenance attestation, verified SBOM attestation, and
   `raw_secret_egress=false`.
@@ -656,11 +657,11 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   - OS image hash:
     `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`
   - Attested compose hash:
-    `6f94411ca22c044d68590cdb777b56d98cdc65758a04d9427038805bb858ff91`
+    `96391ca054421b1521fa56777ea1ec7ea0a5b8c6ef89d2c774a8b561ace050a1`
   - Local raw-compose/image-policy hash:
-    `36cb67f0b81d4c2b73127d36615db6bbe8392805c2a24a6ce42f170118a19946`
+    `baa1089dea56828379130c407d5ce95a2044c2ca6ac56e57073022f55a5b834a`
   - Rendered compose SHA-256:
-    `00cdd24f69c151d9ce5df1c04d2a0712407593027491c64bae36a9b105efa761`
+    `b43fa62c1af841bd57b03c56526c3cbec2af066964e7864db993d9875ebbdf29`
   - Delegate endpoint:
     `https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network`
   - Oracle endpoint:
@@ -845,6 +846,23 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     `docker-compose.all.phala.yaml`; final health showed
     `api_key_configured=false`, `api_key_source=none`,
     `bootstrap_attempted=false`, and both diagnostic endpoints returned 403.
+    The seventh live run used GitHub-attested oracle/delegate images from
+    commit `7973b27d27a3d3fba3a24efcc23c89498e8a04bf` and enabled the same
+    two one-shot diagnostic endpoints. Its local raw-compose/image-policy hash
+    was `3c999ed959b3a87ea95879cfb6cc4e93b76cf684ce73b6a2d9fde603961d450e`,
+    rendered compose SHA-256 was
+    `eda52d403243a309abfa2b7626e9fc2958f14373ba691e4575dad3bc5ad4d176`, and
+    live attested compose hash was
+    `e1af69be64ffd1f589a4b8a480c14eda082fda26c63424b08d09faecae1accc2`.
+    `GET /browser/readiness` returned HTTP 200 with bounded
+    `error_kind=cdp_timeout`: CDP metadata was reachable, the advertised
+    WebSocket URL stayed hashed/classed, raw TCP connect succeeded, the HTTP
+    Upgrade request was sent, HTTP status band was `101`, and Playwright
+    `connect_over_cdp` still timed out. `GET /browser/selector-probe` still
+    returned HTTP 503 with bounded `browser_unavailable`. The CVM was then
+    redeployed back to `docker-compose.all.phala.yaml`; final health showed
+    `api_key_configured=false`, `api_key_source=none`,
+    `bootstrap_attempted=false`, and both diagnostic endpoints returned 403.
   - Public logs are disabled; OTP, Tinker API-key, or card-bearing flows must
     still use only bounded interfaces and disabled endpoint gates must be
     intentionally reopened with fresh evidence.
@@ -860,13 +878,13 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   - `verify-deployment-bundle` succeeded against the same delegate endpoint:
     both deploy-critical GHCR image refs verified GitHub SLSA provenance and
     SPDX SBOM attestations for source commit
-    `ca877db2d02ee4498d30560f19d4d394cf165676`, the rendered compose included
+    `7973b27d27a3d3fba3a24efcc23c89498e8a04bf`, the rendered compose included
     those exact oracle/delegate refs plus required Neko and Playwright sidecar
     digests, and the live CVM attestation matched app ID, attested compose hash,
     OS image hash, report data
-    `b4c353d94d3295246021b9c8aadc2ede1ae4fdfa09059d13fffdc8d6892302bc`,
+    `6f4097de14dfae4c1c24a51dee1bbfc8b2c87efb0dd9c6eefdba11c7f0294105`,
     public key
-    `5c7f4a6edabf4428bcb8faf7ba1590ed8c28741b73ae5c958af82b52bae3f07e`,
+    `1fed47f377a7b7d921553ee3bdf2553e46bac60eb41406edca7fc741e20b0c35`,
     and quote size `5010`.
   - Oracle `/attestation?context=oracle-credentials` now returns a live TDX
     credential-ingress envelope with report data
@@ -982,11 +1000,11 @@ explicitly legacy.
   is not yet proven. Bounded early-stage bootstrap receipts and the
   disabled-by-default selector-probe and browser-readiness endpoints are now in
   source, compose, and Phala evidence. The latest readiness probe reached CDP
-  metadata and confirmed Chromium WebSocket metadata exists, but
-  `connect_over_cdp` timed out; the selector probe then returned bounded
+  metadata, confirmed Chromium WebSocket metadata exists, and proved the raw
+  WebSocket HTTP Upgrade returns status band `101`, but Playwright
+  `connect_over_cdp` still timed out; the selector probe then returned bounded
   `browser_unavailable`. Actual deployed selector/frame match evidence is
-  still open until the new raw WebSocket upgrade diagnostic is deployed to
-  classify the handshake failure and the CDP WebSocket path is fixed or an
+  still open until the post-upgrade CDP protocol/client timeout is fixed or an
   approved bounded browser-control path replaces it.
 - Full Intel TDX quote-internal parsing and quote freshness checking need
   implementation; current verifier checks the public dstack envelope and
@@ -1025,15 +1043,15 @@ cd "⚙️/tee-email-oracle" && uv run python -m compileall email_oracle
 
 cd "⚙️/tinker-delegate" && \
   scripts/verify-ghcr-image-attestation.sh \
-    ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:5db7fbbce413f1b0d351984e7c05934aceb9e58a82123a31777449f44b7c7ba5 \
-    --source-digest a2e14b542314a16e07f20a17694e9da1a67b1f1c \
+    ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a96371264da361c51a2478ba1563f9752a0e170eabf0a0cecf9692fc5a21b59d \
+    --source-digest 7973b27d27a3d3fba3a24efcc23c89498e8a04bf \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch \
     --repo G-structure/dnai-wikigen
 
 cd "⚙️/tinker-delegate" && \
   scripts/verify-ghcr-image-attestation.sh \
-    ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:50e09833e5ef46b9b6c526823be08949ef6db10f65e8c296d8e19e82dfe086b0 \
-    --source-digest a2e14b542314a16e07f20a17694e9da1a67b1f1c \
+    ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:9ee40b9526ad518e99ce0edede42878bbc54e7f2b4793f2154fd80821009228c \
+    --source-digest 7973b27d27a3d3fba3a24efcc23c89498e8a04bf \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch \
     --repo G-structure/dnai-wikigen
 
@@ -1042,12 +1060,12 @@ cd "⚙️/tinker-delegate" && \
     https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network \
     --compose docker-compose.all.phala.yaml \
     --phala-raw-compose \
-    --expected-compose-hash 36cb67f0b81d4c2b73127d36615db6bbe8392805c2a24a6ce42f170118a19946 \
-    --attested-compose-hash 6f94411ca22c044d68590cdb777b56d98cdc65758a04d9427038805bb858ff91 \
+    --expected-compose-hash baa1089dea56828379130c407d5ce95a2044c2ca6ac56e57073022f55a5b834a \
+    --attested-compose-hash 96391ca054421b1521fa56777ea1ec7ea0a5b8c6ef89d2c774a8b561ace050a1 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
-    --require-image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:5db7fbbce413f1b0d351984e7c05934aceb9e58a82123a31777449f44b7c7ba5 \
-    --require-image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:50e09833e5ef46b9b6c526823be08949ef6db10f65e8c296d8e19e82dfe086b0 \
+    --require-image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a96371264da361c51a2478ba1563f9752a0e170eabf0a0cecf9692fc5a21b59d \
+    --require-image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:9ee40b9526ad518e99ce0edede42878bbc54e7f2b4793f2154fd80821009228c \
     --require-image-digest 320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \
     --require-image-digest e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f
 
@@ -1055,14 +1073,14 @@ cd "⚙️/tinker-delegate" && \
   uv run python -m tinker_delegate.main verify-deployment-bundle \
     https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network \
     --compose docker-compose.all.phala.yaml \
-    --image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:5db7fbbce413f1b0d351984e7c05934aceb9e58a82123a31777449f44b7c7ba5 \
-    --image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:50e09833e5ef46b9b6c526823be08949ef6db10f65e8c296d8e19e82dfe086b0 \
-    --source-digest a2e14b542314a16e07f20a17694e9da1a67b1f1c \
+    --image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:a96371264da361c51a2478ba1563f9752a0e170eabf0a0cecf9692fc5a21b59d \
+    --image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:9ee40b9526ad518e99ce0edede42878bbc54e7f2b4793f2154fd80821009228c \
+    --source-digest 7973b27d27a3d3fba3a24efcc23c89498e8a04bf \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch \
     --repo G-structure/dnai-wikigen \
     --phala-raw-compose \
-    --expected-compose-hash 36cb67f0b81d4c2b73127d36615db6bbe8392805c2a24a6ce42f170118a19946 \
-    --attested-compose-hash 6f94411ca22c044d68590cdb777b56d98cdc65758a04d9427038805bb858ff91 \
+    --expected-compose-hash baa1089dea56828379130c407d5ce95a2044c2ca6ac56e57073022f55a5b834a \
+    --attested-compose-hash 96391ca054421b1521fa56777ea1ec7ea0a5b8c6ef89d2c774a8b561ace050a1 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
     --require-image-digest 320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \

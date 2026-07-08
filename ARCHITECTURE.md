@@ -737,19 +737,21 @@ Implementation status:
             measurement profile enables it temporarily. The pre-WebSocket-stage
             version is Phala-proven: the one-shot endpoint returned bounded
             `cdp_timeout` after CDP metadata succeeded, and the restored normal
-            compose returns 403. The raw WebSocket stage is currently real in
-            source/tests and awaits a fresh GitHub image plus Phala one-shot
-            evidence.
+            compose returns 403. The raw WebSocket stage is now Phala-proven
+            with GitHub-attested `7973b27` images: CDP metadata succeeded, the
+            raw WebSocket TCP connect and HTTP Upgrade succeeded with status
+            band `101`, and Playwright `connect_over_cdp` still timed out.
 [partial]   The selector-probe endpoint has been Phala-proven as an endpoint
-            gate and fail-closed path using GitHub-attested `a2e14b5` images:
+            gate and fail-closed path using GitHub-attested `7973b27` images:
             one-shot bootstrap compose enabled the endpoint, live response was
             bounded `browser_unavailable` with `raw_secret_egress=false`, and
             the restored normal compose returns 403. The paired readiness
             endpoint showed CDP metadata reachable with Chromium WebSocket
-            metadata advertised, then `connect_over_cdp` timed out. Actual
-            selector/frame match evidence from the deployed browser remains
-            open until that CDP WebSocket handshake path is repaired or replaced
-            by another bounded browser-control path.
+            metadata advertised, raw WebSocket upgrade status `101`, then
+            `connect_over_cdp` timeout. Actual selector/frame match evidence
+            from the deployed browser remains open until the post-upgrade CDP
+            protocol/client path is repaired or replaced by another bounded
+            browser-control path.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
@@ -971,11 +973,11 @@ Implementation status:
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning `ok` with sealed mailbox readiness/hash only, and live delegate
             attestation verification passing against local raw compose hash
-            `36cb67f0b81d4c2b73127d36615db6bbe8392805c2a24a6ce42f170118a19946`
+            `baa1089dea56828379130c407d5ce95a2044c2ca6ac56e57073022f55a5b834a`
             and live Phala attested compose hash
-            `6f94411ca22c044d68590cdb777b56d98cdc65758a04d9427038805bb858ff91`.
+            `96391ca054421b1521fa56777ea1ec7ea0a5b8c6ef89d2c774a8b561ace050a1`.
             The live delegate image is built from commit
-            `a2e14b542314a16e07f20a17694e9da1a67b1f1c`, so it includes the
+            `7973b27d27a3d3fba3a24efcc23c89498e8a04bf`, so it includes the
             bounded signup/signin egress fix, bounded early-stage
             startup-bootstrap attempt records, and the disabled-by-default
             selector-probe and browser-readiness endpoints. Tinker bootstrap,
