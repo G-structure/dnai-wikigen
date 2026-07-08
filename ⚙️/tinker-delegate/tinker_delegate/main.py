@@ -258,6 +258,17 @@ def cli():
     sub.add_parser("signup", help="Full signup: auth → onboarding → API key")
     sub.add_parser("signin", help="Sign in to existing account")
     sub.add_parser("reauth", help="Refresh Tinker auth through OTP and return bounded receipt")
+    synthetic_reward_p = sub.add_parser(
+        "synthetic-private-reward-demo",
+        help="Run a bounded synthetic hidden-dataset private reward demo",
+    )
+    synthetic_reward_p.add_argument(
+        "--candidate",
+        action="append",
+        default=[],
+        help="Candidate keyword to query; repeat for multiple candidates",
+    )
+    synthetic_reward_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
 
     # Billing commands
     sub.add_parser("balance", help="Get current Tinker account balance")
@@ -789,6 +800,20 @@ def cli():
         result = asyncio.run(reauth(settings))
         print(json.dumps(result, indent=2, default=str))
         sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "synthetic-private-reward-demo":
+        from tinker_delegate.private_reward_envs.synthetic_demo import (
+            hidden_demo_forbidden_values,
+            run_synthetic_hidden_keyword_demo,
+        )
+
+        candidates = tuple(args.candidate)
+        result = run_synthetic_hidden_keyword_demo(candidates or None)
+        _emit_bounded_json(
+            result,
+            output_path=args.output,
+            forbidden_values=hidden_demo_forbidden_values(candidates or None),
+        )
 
     elif args.command == "balance":
         from tinker_delegate.billing import get_balance

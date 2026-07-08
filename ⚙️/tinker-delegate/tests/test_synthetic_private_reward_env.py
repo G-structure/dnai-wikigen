@@ -2,6 +2,11 @@ import unittest
 
 from tinker_delegate.private_reward import Candidate, Decision, LeakageBudget, RewardBand
 from tinker_delegate.private_reward_envs import SyntheticHiddenKeywordEnvironment
+from tinker_delegate.private_reward_envs.synthetic_demo import (
+    DEMO_RECORDS,
+    hidden_demo_forbidden_values,
+    run_synthetic_hidden_keyword_demo,
+)
 from tinker_delegate.private_reward_holdout import HoldoutSplitPolicy
 
 
@@ -111,6 +116,22 @@ class SyntheticHiddenKeywordEnvironmentTest(unittest.TestCase):
         self.assertEqual(invalid.decision, Decision.POLICY_REJECTED)
         self.assertEqual(non_utf8.decision, Decision.POLICY_REJECTED)
         self.assertEqual(env.holdout.reward_query_count, 0)
+
+    def test_synthetic_demo_returns_bounded_public_packet(self):
+        candidates = ("alpha", "beta")
+
+        packet = run_synthetic_hidden_keyword_demo(candidates)
+
+        self.assertEqual(packet["demo"], "synthetic_hidden_keyword")
+        self.assertFalse(packet["raw_secret_egress"])
+        self.assertEqual(packet["submitted_candidate_count"], 2)
+        self.assertEqual(len(packet["feedback"]), 2)
+        self.assertEqual(packet["final_result"]["public_message"], "bounded synthetic final validation result")
+        public_text = str(packet)
+        for forbidden in hidden_demo_forbidden_values(candidates):
+            self.assertNotIn(forbidden, public_text)
+        for payload in DEMO_RECORDS.values():
+            self.assertNotIn(payload.decode("utf-8"), public_text)
 
 
 if __name__ == "__main__":

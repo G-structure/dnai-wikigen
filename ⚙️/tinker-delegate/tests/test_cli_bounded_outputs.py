@@ -91,6 +91,40 @@ class CliBoundedOutputsTest(unittest.TestCase):
                 forbidden_values=("Stripe Test User",),
             )
 
+    def test_synthetic_private_reward_demo_cli_writes_bounded_packet(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "synthetic-reward.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "synthetic-private-reward-demo",
+                    "--candidate",
+                    "alpha",
+                    "--candidate",
+                    "beta",
+                    "--output",
+                    str(output_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=_env(tmpdir),
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
+            body = json.loads(output_path.read_text(encoding="utf-8"))
+            rendered = json.dumps(body)
+            self.assertEqual(body["demo"], "synthetic_hidden_keyword")
+            self.assertEqual(body["submitted_candidate_count"], 2)
+            self.assertFalse(body["raw_secret_egress"])
+            self.assertNotIn("alpha", rendered)
+            self.assertNotIn("beta", rendered)
+            self.assertNotIn("sealed alpha", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

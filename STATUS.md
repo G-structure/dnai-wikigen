@@ -196,6 +196,10 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   exact scores, candidate text, match counts, record IDs, or payloads.
 - Finalization uses the final-validation holdout once, caches the bounded final
   result, and closes later reward queries.
+- `python -m tinker_delegate.main synthetic-private-reward-demo` runs a
+  replayable synthetic hidden-dataset reward demo and emits only optimizer view,
+  bounded feedback, final bounded result, transcript/leakage hashes, and
+  attestation metadata.
 
 ## Partial
 
@@ -444,8 +448,8 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
 
 [partial] Private reward environments:
 
-- The base interface, leakage accounting, and one synthetic toy environment are
-  real.
+- The base interface, leakage accounting, one synthetic toy environment, and a
+  bounded synthetic hidden-dataset CLI packet are real.
 - Real RLVR, TTT, computational-bio, code-audit, or model-evaluation
   environments are not implemented.
 - Candidate sandboxing has a local Python runner for toy candidates, but

@@ -1025,6 +1025,11 @@ Implementation status:
 [real]      SyntheticHiddenKeywordEnvironment with bounded reward bands,
             hidden reward partition queries, final-validation gating, and
             public manifests that omit record IDs and payloads.
+[real]      `synthetic-private-reward-demo` CLI runs the synthetic hidden
+            dataset environment and emits a bounded public packet: optimizer
+            view, candidate hashes, reward bands, final result, transcript hash,
+            leakage hash, and attestation metadata. Hidden records and submitted
+            candidate strings are forbidden from the rendered output.
 [modeled]   TTT/RL bio-validation concept.
 [partial]   SFT evaluator scaffold.
 [real]      Output banding and offer computation.

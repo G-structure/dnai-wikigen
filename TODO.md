@@ -768,6 +768,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
   - [x] `P0` Add generic anti-overfitting guards for adaptive query attacks:
         per-candidate repeat caps, minimum unique reward candidates before
         final validation, and public aggregate repeat accounting.
+  - [x] `P0` Add a bounded synthetic hidden-dataset demo command.
+        Done with `synthetic-private-reward-demo`: it runs
+        `SyntheticHiddenKeywordEnvironment` over a synthetic sealed dataset and
+        emits optimizer view, bounded feedback, final result, transcript hash,
+        leakage hash, and attestation metadata without hidden records or
+        submitted candidate strings.
   - [ ] `P0` Wire hidden-holdout checks into concrete private-reward
         environments and add domain-specific anti-overfitting rules.
 - [ ] `P1` Implement a toy `private_reward_envs/` package with:
@@ -1301,7 +1307,10 @@ vision Wiki is reaching for.
 1. [x] Track `PROJECT.md`, `ARCHITECTURE.md`, and this `TODO.md`.
 2. [x] Fix stale Tinker status in `⚙️/tinker-delegate/SPEC.md`.
 3. [x] Define the `PrivateRewardEnvironment` interface and leakage model.
-4. [ ] Build a fake private-reward environment with a synthetic hidden dataset.
+4. [x] Build a fake private-reward environment with a synthetic hidden dataset.
+       `SyntheticHiddenKeywordEnvironment` plus
+       `synthetic-private-reward-demo` now provide a replayable local bounded
+       private-reward proof over a synthetic hidden dataset.
 5. [ ] Fix `tinker-delegate` Docker install so the Tinker SDK path is present in
        the deployed image.
 6. [x] Enforce oracle auth on `/pin` and `/inbox`.
