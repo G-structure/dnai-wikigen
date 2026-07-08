@@ -7,7 +7,8 @@ Endpoints:
   POST /billing/card              — add payment method (plaintext — local dev only)
   POST /billing/card/encrypted    — add payment method (encrypted to TEE — production)
   POST /billing/add-balance       — add credit balance
-  POST /deal/{deal_id}/artifact   — upload seller's encrypted artifact
+  POST /deal/{deal_id}/artifact/encrypted — upload seller's encrypted artifact
+  POST /deal/{deal_id}/artifact   — plaintext local-dev artifact hook
   GET  /deal/{deal_id}/result     — get bounded evaluation result
   GET  /deals                     — list active deals
   POST /deal/{deal_id}/evaluate   — trigger evaluation (internal)
@@ -17,11 +18,17 @@ import os
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from cryptography.exceptions import InvalidTag
 from pydantic import BaseModel
 
 from tinker_delegate.api_key_store import resolve_api_key
-from tinker_delegate.artifacts import decode_artifact_hex, zero_buffer
+from tinker_delegate.artifacts import (
+    decode_artifact_hex,
+    decrypt_artifact_payload,
+    zero_buffer,
+)
 from tinker_delegate.config import Settings
+from tinker_delegate.crypto import EncryptedPayload
 from tinker_delegate.dstack_utils import is_dstack_enabled
 from tinker_delegate.oracle_client import OracleClient
 from tinker_delegate.redaction import redact_text
@@ -31,6 +38,7 @@ from tinker_delegate.card_channel import (
     EncryptedCardPayload,
     BalancePayload,
     BillingResponse,
+    get_tee_keypair,
     get_attestation,
     handle_card_update,
     handle_encrypted_card_update,
@@ -64,6 +72,11 @@ def _plaintext_card_endpoint_allowed() -> bool:
     return settings.allow_plaintext_card_endpoint and not is_dstack_enabled()
 
 
+def _plaintext_artifact_endpoint_allowed() -> bool:
+    """Plaintext artifacts are a local-dev escape hatch, never a TEE path."""
+    return settings.allow_plaintext_artifact_endpoint and not is_dstack_enabled()
+
+
 def _get_control_plane():
     global _control_plane
     if _control_plane is None:
@@ -90,6 +103,12 @@ def _get_control_plane():
 class ArtifactUpload(BaseModel):
     artifact_hex: str        # hex-encoded artifact payload
     artifact_hash: str       # keccak256 of the artifact
+
+class EncryptedArtifactUpload(BaseModel):
+    ephemeral_public_key: str  # hex
+    nonce: str                 # hex
+    ciphertext: str            # hex
+    artifact_hash: str         # keccak256 of the decrypted artifact
 
 class DealFundedNotification(BaseModel):
     deal_id: str
@@ -138,8 +157,9 @@ async def attestation():
 
     Developer MUST:
     1. Verify the TDX quote (code measurements match expected values)
-    2. Extract encryption_public_key from the response
-    3. Encrypt card details to this key before sending to /billing/card/encrypted
+    2. Verify report_data binds encryption_public_key
+    3. Extract encryption_public_key from the response
+    4. Encrypt card details or artifacts to this key before sending them to an encrypted endpoint
     """
     return get_attestation()
 
@@ -223,7 +243,15 @@ async def deal_notify_funded(notification: DealFundedNotification):
 
 @app.post("/deal/{deal_id}/artifact")
 async def deal_upload_artifact(deal_id: str, upload: ArtifactUpload):
-    """Seller uploads artifact payload. Held in memory only."""
+    """Seller uploads artifact payload. Local dev only; held in memory only."""
+    if not _plaintext_artifact_endpoint_allowed():
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Plaintext artifact endpoint is disabled; use "
+                "POST /deal/{deal_id}/artifact/encrypted after verifying attestation"
+            ),
+        )
     artifact_buffer = None
     try:
         artifact_buffer = decode_artifact_hex(upload.artifact_hex)
@@ -234,6 +262,37 @@ async def deal_upload_artifact(deal_id: str, upload: ArtifactUpload):
         raise HTTPException(404, f"Deal {deal_id} not found")
     except (AssertionError, ValueError) as e:
         raise HTTPException(400, redact_text(e))
+    except InvalidTag:
+        raise HTTPException(400, "encrypted artifact could not be decrypted or verified")
+    finally:
+        zero_buffer(artifact_buffer)
+
+
+@app.post("/deal/{deal_id}/artifact/encrypted")
+async def deal_upload_artifact_encrypted(deal_id: str, upload: EncryptedArtifactUpload):
+    """Seller uploads artifact encrypted to the quote-bound TEE public key."""
+    artifact_buffer = None
+    try:
+        encrypted = EncryptedPayload.from_hex({
+            "ephemeral_public_key": upload.ephemeral_public_key,
+            "nonce": upload.nonce,
+            "ciphertext": upload.ciphertext,
+        })
+        artifact_buffer = decrypt_artifact_payload(
+            encrypted,
+            get_tee_keypair(),
+            deal_id=deal_id,
+            artifact_hash=upload.artifact_hash,
+        )
+        cp = _get_control_plane()
+        cp.receive_artifact(deal_id, artifact_buffer, upload.artifact_hash)
+        return {"deal_id": deal_id, "received": True, "size": len(artifact_buffer)}
+    except KeyError:
+        raise HTTPException(404, f"Deal {deal_id} not found")
+    except (AssertionError, ValueError) as e:
+        raise HTTPException(400, redact_text(e))
+    except InvalidTag:
+        raise HTTPException(400, "encrypted artifact could not be decrypted or verified")
     finally:
         zero_buffer(artifact_buffer)
 

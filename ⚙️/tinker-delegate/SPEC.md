@@ -350,10 +350,16 @@ Orchestrates the deal lifecycle. Watches the on-chain escrow contract, creates/d
 **API:**
 
 ```
+POST /deal/{deal_id}/artifact/encrypted
+  Auth: seller's signature
+  Body: artifact encrypted to the attestation-exposed TEE public key
+  → Decrypts inside TEE, verifies artifactHash, stores artifact in memory
+    (never on disk)
+
 POST /deal/{deal_id}/artifact
   Auth: seller's signature
-  Body: encrypted artifact (encrypted to TEE's public key)
-  → Stores artifact in memory (never on disk)
+  Body: plaintext hex artifact payload
+  → Local-dev hook only; disabled by default and unavailable in dstack mode
 
 GET /deal/{deal_id}/result
   Auth: buyer's signature

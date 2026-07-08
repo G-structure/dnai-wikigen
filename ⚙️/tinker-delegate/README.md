@@ -135,11 +135,13 @@ The `serve` command starts a FastAPI server for programmatic access:
 
 ```
 GET  /health              — service health + oracle email
-GET  /attestation         — TDX attestation quote (verify before sending card)
+GET  /attestation         — TDX attestation quote + report_data-bound public key
 GET  /billing/balance     — current Tinker balance
 POST /billing/card        — plaintext local-dev hook, disabled by default
 POST /billing/card/encrypted — add payment method after attestation-verified encryption
 POST /billing/add-balance — add credit balance
+POST /deal/{id}/artifact/encrypted — upload artifact encrypted to TEE key
+POST /deal/{id}/artifact — plaintext local-dev hook, disabled by default
 ```
 
 ### Signup Output

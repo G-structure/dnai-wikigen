@@ -517,6 +517,14 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 - [ ] `P0` Encrypt artifact upload to the TEE public key after verifying the live
       quote.
+      - [x] Add encrypted artifact upload endpoint using the attestation-exposed
+            TEE public key, artifact-specific HKDF context, and deal/hash-bound
+            AES-GCM associated data.
+      - [x] Disable plaintext artifact upload by default and in dstack mode.
+      - [x] Bind the TEE encryption public key and operation context into
+            attestation report data.
+      - [ ] Add a client-side quote verifier/uploader that refuses to encrypt or
+            upload until the live TDX quote, compose hash, and report data pass.
 - [x] `P0` Verify `keccak256(rawArtifact) == artifactHash` inside the TEE before
       a deal can proceed.
 - [ ] `P0` Add per-corpus/per-deal key derivation:

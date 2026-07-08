@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from eth_hash.auto import keccak
 
+from tinker_delegate.crypto import ARTIFACT_HKDF_INFO, EncryptedPayload, TEEKeyPair, encrypt_for_tee
+
+
+ARTIFACT_AAD_PREFIX = b"dnai-wikigen/artifact/v1"
+
 
 def decode_artifact_hex(artifact_hex: str) -> bytearray:
     """Decode a hex artifact payload into a mutable buffer."""
@@ -48,3 +53,46 @@ def verify_artifact_hash(artifact: bytes | bytearray, artifact_hash: str) -> str
     if actual != expected:
         raise ValueError("artifact_hash does not match uploaded artifact")
     return expected
+
+
+def artifact_associated_data(deal_id: str, artifact_hash: str) -> bytes:
+    """Build AES-GCM associated data binding ciphertext to deal and hash."""
+    normalized_hash = normalize_artifact_hash(artifact_hash)
+    return b"|".join((ARTIFACT_AAD_PREFIX, deal_id.encode(), normalized_hash.encode()))
+
+
+def encrypt_artifact_payload(
+    artifact: bytes | bytearray,
+    tee_public_key_hex: str,
+    *,
+    deal_id: str,
+    artifact_hash: str,
+) -> dict:
+    """Encrypt artifact bytes to the TEE public key for the encrypted endpoint."""
+    expected_hash = verify_artifact_hash(artifact, artifact_hash)
+    tee_public_key = bytes.fromhex(tee_public_key_hex)
+    payload = encrypt_for_tee(
+        bytes(artifact),
+        tee_public_key,
+        info=ARTIFACT_HKDF_INFO,
+        associated_data=artifact_associated_data(deal_id, expected_hash),
+    )
+    result = payload.to_hex()
+    result["artifact_hash"] = expected_hash
+    return result
+
+
+def decrypt_artifact_payload(
+    encrypted: EncryptedPayload,
+    tee_keypair: TEEKeyPair,
+    *,
+    deal_id: str,
+    artifact_hash: str,
+) -> bytearray:
+    """Decrypt an artifact ciphertext inside the TEE into a mutable buffer."""
+    plaintext = tee_keypair.decrypt(
+        encrypted,
+        info=ARTIFACT_HKDF_INFO,
+        associated_data=artifact_associated_data(deal_id, artifact_hash),
+    )
+    return bytearray(plaintext)

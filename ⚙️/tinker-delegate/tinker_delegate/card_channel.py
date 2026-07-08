@@ -3,6 +3,7 @@
 Trust model:
   1. Developer requests TDX attestation from CVM via GET /attestation
   2. Developer verifies: code measurements match git SHA → docker digest → compose hash
+     and report_data binds the returned encryption_public_key
   3. Developer encrypts CardPayload to TEE's ephemeral public key (X25519 + AES-256-GCM)
   4. Developer sends encrypted payload to POST /billing/card
   5. TEE decrypts inside enclave, fills Stripe form via browser, submits
@@ -34,6 +35,7 @@ account that the TEE controls. The developer trusts the TEE because its code
 is attested. The card is delivered to Stripe, not stored by the TEE.
 """
 import asyncio
+import hashlib
 import json
 from typing import Optional
 
@@ -114,11 +116,25 @@ def get_tee_keypair() -> TEEKeyPair:
     return _tee_keypair
 
 
+def attestation_report_data(context: str, public_key: bytes) -> bytes:
+    """Report data binding an operation context to the TEE encryption key."""
+    payload = json.dumps(
+        {
+            "service": "tinker-delegate",
+            "context": context,
+            "encryption_public_key": public_key.hex(),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(payload).digest()
+
+
 # ---------------------------------------------------------------------------
 # TEE attestation (stub for local, real in dstack)
 # ---------------------------------------------------------------------------
 
-def get_attestation() -> dict:
+def get_attestation(context: str = "ingress") -> dict:
     """Get TDX attestation quote + TEE's encryption public key.
 
     In production (dstack CVM): returns real TDX quote binding the
@@ -127,13 +143,16 @@ def get_attestation() -> dict:
     Locally: returns a stub with the encryption public key (for testing).
     """
     keypair = get_tee_keypair()
+    report_data = attestation_report_data(context, keypair.public_key_bytes)
     if is_dstack_enabled():
         try:
-            quote, app_id, compose_hash = get_dstack_attestation("billing-attestation")
+            quote, app_id, compose_hash = get_dstack_attestation(report_data)
             return {
                 "mode": "tdx",
                 "quote": quote,
                 "encryption_public_key": keypair.public_key_bytes.hex(),
+                "report_context": context,
+                "report_data": report_data.hex(),
                 "app_id": app_id,
                 "compose_hash": compose_hash,
                 "verified": True,
@@ -145,6 +164,8 @@ def get_attestation() -> dict:
             "mode": "local",
             "note": "Running locally without TDX. In production, this returns a real attestation quote.",
             "encryption_public_key": keypair.public_key_bytes.hex(),
+            "report_context": context,
+            "report_data": report_data.hex(),
             "verified": False,
         }
 
@@ -174,7 +195,7 @@ async def handle_card_update(payload: CardPayload, settings: Settings) -> Billin
     try:
         result = await add_payment_method(card, settings)
 
-        attestation = get_attestation()
+        attestation = get_attestation("billing")
 
         return BillingResponse(
             success=result.get("success", False),
@@ -227,7 +248,7 @@ async def handle_encrypted_card_update(
         plaintext_bytes = None
 
         result = await add_payment_method(card, settings)
-        attestation = get_attestation()
+        attestation = get_attestation("billing")
 
         return BillingResponse(
             success=result.get("success", False),

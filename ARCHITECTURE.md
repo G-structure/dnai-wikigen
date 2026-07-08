@@ -44,8 +44,9 @@ Important current status:
             test-card billing rejection are validated; deployed CVM validation
             and real funding remain open.
 [partial]   IsolatedTinkerSession and bounded control plane. Artifact ingress
-            now verifies Ethereum keccak256 against the committed artifactHash
-            before storing the upload in memory.
+            now decrypts quote-key-encrypted artifact uploads and verifies
+            Ethereum keccak256 against the committed artifactHash before
+            storing the upload in memory.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -240,6 +241,8 @@ This is the intended end-to-end flow for a private artifact or bio dataset.
    v
 4. TEE receives artifact
    |
+   |  encrypted to the attestation-exposed TEE public key
+   |  ciphertext is bound to deal ID and artifactHash
    |  verify keccak256(rawArtifact) == artifactHash
    |  artifact held in enclave memory or sealed store
    v
@@ -543,11 +546,17 @@ Implementation status:
 [real]      Artifact upload verifies Ethereum keccak256 against artifactHash
             before DealContext state changes; mutable API decode buffers and
             stored control-plane artifact buffers are best-effort zeroed.
+[real]      Encrypted artifact upload uses the attestation-exposed TEE public
+            key, artifact-specific HKDF context, and deal/hash-bound AES-GCM
+            associated data; plaintext artifact upload is disabled by default.
+[real]      Attestation report data binds operation context plus the TEE
+            encryption public key so verifiers can detect key substitution.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE, but a capped real-card funding attempt still needs to be proven.
 [partial]   Optional Tinker SDK dependency must be installed for real evaluator execution.
-[partial]   Artifact upload is not yet encrypted to a live quote-verified TEE key,
-            and evaluator-side raw-byte copies still need a lifetime audit.
+[partial]   Artifact upload still needs a client-side live quote verifier/uploader
+            that refuses to encrypt until compose hash and report data pass;
+            evaluator-side raw-byte copies still need a lifetime audit.
 [planned]   Dedicated Tinker account encumbrance contract / funding-rail policy contract.
 ```
 
@@ -990,7 +999,8 @@ POST /billing/card            local-dev plaintext hook, disabled by default
 POST /billing/card/encrypted  production encrypted card channel
 POST /billing/add-balance
 POST /deal/notify-funded
-POST /deal/{deal_id}/artifact
+POST /deal/{deal_id}/artifact/encrypted
+POST /deal/{deal_id}/artifact local-dev plaintext hook, disabled by default
 POST /deal/{deal_id}/evaluate
 GET  /deal/{deal_id}/result
 POST /deal/{deal_id}/resolve
@@ -1020,7 +1030,7 @@ Deal flow:
 ControlPlane creates DealContext + IsolatedTinkerSession
   |
   v
-/deal/{id}/artifact verifies artifactHash, then stores artifact bytes in memory
+/deal/{id}/artifact/encrypted decrypts, verifies artifactHash, then stores bytes in memory
   |
   v
 /deal/{id}/evaluate runs evaluator_fn
