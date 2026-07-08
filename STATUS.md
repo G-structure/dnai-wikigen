@@ -359,15 +359,20 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   `deals(dealId)` state before signing, requires the signer to match
   `teeIdentity`, checks funded state and compute budget, signs
   `submitResult()` in memory, broadcasts through JSON-RPC, and returns only
-  bounded receipt metadata. Current tests use an injected test signer to verify
-  signed transaction recovery and receipt shape without committing or accepting
-  raw keys.
+  bounded receipt metadata. The submitted `resultHash` is an anti-replay
+  commitment over chain ID, contract address, deal ID, signer nonce, compose
+  hash, payload result hash, score band, compute cost, and expiry; the original
+  bounded payload hash remains separate as `payload_result_hash` in the receipt.
+  Current tests use an injected test signer to verify signed transaction
+  recovery, commitment drift under replay-context changes, and bounded receipt
+  shape without committing or accepting raw keys.
 - `⚙️/tinker-delegate/scripts/prove-chain-submitter-dstack-anvil.py` proves the
   submitter against Phala/dstack simulator key derivation and real local Anvil:
   it derives the signer through the same dstack path used by the CLI, funds that
   signer on ephemeral Anvil, creates and funds a deal whose `teeIdentity` is the
   derived address, runs `tinker-delegate submit-result`, and verifies the real
-  `EvaluationSubmitted` event with `raw_secret_egress=false`.
+  `EvaluationSubmitted` event carries the replay-bound submission commitment,
+  not the raw payload hash, with `raw_secret_egress=false`.
 - The watcher is not yet deployed as a Phala/CVM process and does not include
   chain-lag alerting or deep-reorg rollback beyond the configured confirmation
   policy.

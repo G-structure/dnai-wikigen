@@ -174,9 +174,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       bare trusted address.
       Done when result submission proves the signer is controlled by a verified
       measurement.
-- [ ] `P0` Add anti-replay material to submitted results:
+- [x] `P0` Add anti-replay material to submitted results:
       `chainId`, contract address, deal ID, nonce, compose hash, result hash,
       score band, compute cost, and expiry.
+      Done in `tinker_delegate.chain_submitter`: the value submitted to
+      `DiligenceRoom.resultHash` is now an anti-replay commitment over those
+      fields, while the original bounded payload result hash remains separate
+      in the bounded receipt as `payload_result_hash`. The dstack-simulator
+      Anvil proof verifies the `EvaluationSubmitted.result_hash` equals the
+      submission commitment and is not the raw payload hash.
 - [ ] `P0` Define whether quote verification happens on-chain, in a verifier
       contract, through an attestation registry, or through a verified off-chain
       verifier whose signature the contract accepts.

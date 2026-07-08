@@ -566,7 +566,10 @@ def cli():
         help="Bounded score band: negligible, low, medium, high, or exceptional",
     )
     submit_result_p.add_argument("compute_cost_wei", type=int, help="Bounded compute cost in wei")
-    submit_result_p.add_argument("result_hash", help="bytes32 hash of the full bounded result")
+    submit_result_p.add_argument(
+        "result_hash",
+        help="bytes32 hash of the bounded result payload; the CLI submits an anti-replay commitment",
+    )
     submit_result_p.add_argument("--rpc-url", default="", help="JSON-RPC URL, or TINKER_CHAIN_RPC_URL")
     submit_result_p.add_argument(
         "--contract-address",
@@ -1054,6 +1057,7 @@ def cli():
             DstackEthereumSigner,
             JsonRpcClient,
             SignerUnavailable,
+            current_dstack_compose_hash,
         )
 
         rpc_url = args.rpc_url or settings.chain_rpc_url
@@ -1073,11 +1077,13 @@ def cli():
                 signer,
                 gas_limit=gas_limit,
             )
+            compose_hash = current_dstack_compose_hash()
             receipt = submitter.submit_result(
                 deal_id=args.deal_id,
                 score_band=args.score_band,
                 compute_cost_wei=args.compute_cost_wei,
                 result_hash=args.result_hash,
+                compose_hash=compose_hash,
             )
             _emit_bounded_json(receipt.to_public_dict())
         except SignerUnavailable as exc:

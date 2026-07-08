@@ -18,7 +18,11 @@ from eth_hash.auto import keccak
 from eth_utils import to_checksum_address
 
 from tinker_delegate.config import Settings
-from tinker_delegate.dstack_utils import derive_storage_key, is_dstack_enabled
+from tinker_delegate.dstack_utils import (
+    derive_storage_key,
+    get_attestation_details,
+    is_dstack_enabled,
+)
 from tinker_delegate.run_metadata_store import value_band
 
 
@@ -91,6 +95,9 @@ class SubmitResultReceipt:
     score_band_value: int
     compute_cost_band: str
     result_hash: str
+    payload_result_hash: str
+    compose_hash: str
+    expiry: int
     signer_address: str
     contract_address: str
     chain_id: int
@@ -108,6 +115,9 @@ class SubmitResultReceipt:
             "score_band_value": self.score_band_value,
             "compute_cost_band": self.compute_cost_band,
             "result_hash": self.result_hash,
+            "payload_result_hash": self.payload_result_hash,
+            "compose_hash": self.compose_hash,
+            "expiry": self.expiry,
             "signer_address": self.signer_address,
             "contract_address": self.contract_address,
             "chain_id": self.chain_id,
@@ -172,6 +182,12 @@ def normalize_bytes32(value: str) -> str:
     return "0x" + raw
 
 
+def normalize_optional_bytes32(value: str) -> str:
+    if not value:
+        raise ChainSubmitterError("compose hash is required for result commitment")
+    return normalize_bytes32(value)
+
+
 def encode_uint256(value: int) -> bytes:
     if value < 0:
         raise ChainSubmitterError("uint256 value cannot be negative")
@@ -208,6 +224,51 @@ def encode_submit_result_calldata(
         ]
     )
     return "0x" + payload.hex()
+
+
+@dataclass(frozen=True)
+class ResultCommitment:
+    """Anti-replay commitment submitted as DiligenceRoom.resultHash."""
+
+    chain_id: int
+    contract_address: str
+    deal_id: int
+    nonce: int
+    compose_hash: str
+    payload_result_hash: str
+    score_band_value: int
+    compute_cost_wei: int
+    expiry: int
+
+    def digest(self) -> str:
+        payload = b"".join(
+            [
+                keccak(b"dnai-wikigen:DiligenceRoomResult:v1"),
+                encode_uint256(self.chain_id),
+                bytes.fromhex(normalize_address(self.contract_address)[2:]).rjust(32, b"\x00"),
+                encode_uint256(self.deal_id),
+                encode_uint256(self.nonce),
+                bytes.fromhex(normalize_bytes32(self.compose_hash)[2:]),
+                bytes.fromhex(normalize_bytes32(self.payload_result_hash)[2:]),
+                encode_uint256(self.score_band_value),
+                encode_uint256(self.compute_cost_wei),
+                encode_uint256(self.expiry),
+            ]
+        )
+        return "0x" + keccak(payload).hex()
+
+    def public_fields(self) -> dict[str, Any]:
+        return {
+            "chain_id": self.chain_id,
+            "contract_address": normalize_address(self.contract_address),
+            "deal_id": self.deal_id,
+            "nonce": self.nonce,
+            "compose_hash": normalize_bytes32(self.compose_hash),
+            "payload_result_hash": normalize_bytes32(self.payload_result_hash),
+            "score_band_value": self.score_band_value,
+            "compute_cost_band": value_band(self.compute_cost_wei),
+            "expiry": self.expiry,
+        }
 
 
 def encode_deals_calldata(deal_id: int) -> str:
@@ -333,6 +394,7 @@ class DiligenceRoomSubmitter:
         score_band: str | int,
         compute_cost_wei: int,
         result_hash: str,
+        compose_hash: str,
     ) -> SubmitResultReceipt:
         if deal_id < 0:
             raise ChainSubmitterError("deal ID cannot be negative")
@@ -340,7 +402,8 @@ class DiligenceRoomSubmitter:
             raise ChainSubmitterError("compute cost cannot be negative")
 
         band_value, band_label = score_band_to_contract_value(score_band)
-        normalized_result_hash = normalize_bytes32(result_hash)
+        payload_result_hash = normalize_bytes32(result_hash)
+        normalized_compose_hash = normalize_optional_bytes32(compose_hash)
         signer_address = normalize_address(self.signer.address)
         deal = self.read_deal(deal_id)
         if deal.state != 1:
@@ -351,14 +414,26 @@ class DiligenceRoomSubmitter:
         if compute_cost_wei + fee > deal.budget_cap:
             raise ChainSubmitterError("compute cost exceeds deal budget cap")
 
+        chain_id = self.rpc.chain_id()
+        nonce = self.rpc.nonce(signer_address)
+        commitment = ResultCommitment(
+            chain_id=chain_id,
+            contract_address=self.contract_address,
+            deal_id=deal_id,
+            nonce=nonce,
+            compose_hash=normalized_compose_hash,
+            payload_result_hash=payload_result_hash,
+            score_band_value=band_value,
+            compute_cost_wei=compute_cost_wei,
+            expiry=deal.expiry,
+        )
+        submission_result_hash = commitment.digest()
         calldata = encode_submit_result_calldata(
             deal_id=deal_id,
             score_band=band_value,
             compute_cost_wei=compute_cost_wei,
-            result_hash=normalized_result_hash,
+            result_hash=submission_result_hash,
         )
-        chain_id = self.rpc.chain_id()
-        nonce = self.rpc.nonce(signer_address)
         gas_price = self.rpc.gas_price()
         base_tx = {
             "from": signer_address,
@@ -390,7 +465,10 @@ class DiligenceRoomSubmitter:
             score_band=band_label,
             score_band_value=band_value,
             compute_cost_band=value_band(compute_cost_wei),
-            result_hash=normalized_result_hash,
+            result_hash=submission_result_hash,
+            payload_result_hash=payload_result_hash,
+            compose_hash=normalized_compose_hash,
+            expiry=deal.expiry,
             signer_address=signer_address,
             contract_address=self.contract_address,
             chain_id=chain_id,
@@ -411,3 +489,12 @@ def build_dstack_submitter(settings: Settings, *, rpc_url: str = "", contract_ad
         signer,
         gas_limit=settings.chain_submit_gas_limit,
     )
+
+
+def current_dstack_compose_hash() -> str:
+    """Fetch the current dstack compose hash for result commitments."""
+
+    if not is_dstack_enabled():
+        raise SignerUnavailable("dstack mode is required to bind compose hash")
+    details = get_attestation_details(b"dnai-wikigen-chain-submit-v1")
+    return normalize_optional_bytes32(str(details.get("compose_hash") or ""))

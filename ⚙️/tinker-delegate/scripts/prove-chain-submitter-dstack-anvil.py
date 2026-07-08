@@ -73,9 +73,9 @@ def main() -> int:
             to_block=after_submit_block,
         )
 
-        _assert_receipt(receipt, signer_address, contract_address)
         if not submitted_event:
             raise AssertionError("submit-result transaction did not emit EvaluationSubmitted")
+        _assert_receipt(receipt, signer_address, contract_address, submitted_event.fields)
 
         print(json.dumps({
             "ok": True,
@@ -104,7 +104,10 @@ def main() -> int:
                 "score_band": receipt.get("score_band"),
                 "score_band_value": receipt.get("score_band_value"),
                 "compute_cost_band": receipt.get("compute_cost_band"),
-                "result_hash": receipt.get("result_hash"),
+                "payload_result_hash": receipt.get("payload_result_hash"),
+                "submitted_result_hash": receipt.get("result_hash"),
+                "compose_hash": receipt.get("compose_hash"),
+                "nonce": receipt.get("nonce"),
                 "event_name": submitted_event.name,
                 "event_fields": submitted_event.fields,
             },
@@ -316,7 +319,12 @@ def _find_evaluation_submitted(
     return None
 
 
-def _assert_receipt(receipt: dict[str, Any], signer_address: str, contract_address: str) -> None:
+def _assert_receipt(
+    receipt: dict[str, Any],
+    signer_address: str,
+    contract_address: str,
+    event_fields: dict[str, Any],
+) -> None:
     if not receipt.get("submitted"):
         raise AssertionError("submit-result receipt did not report submitted=true")
     if receipt.get("custody") != "dstack_derived":
@@ -327,6 +335,12 @@ def _assert_receipt(receipt: dict[str, Any], signer_address: str, contract_addre
         raise AssertionError("submit-result contract address mismatch")
     if receipt.get("raw_secret_egress") is not False:
         raise AssertionError("submit-result receipt did not assert raw_secret_egress=false")
+    if receipt.get("payload_result_hash") != RESULT_HASH:
+        raise AssertionError("receipt did not preserve the bounded payload result hash")
+    if event_fields.get("result_hash") != receipt.get("result_hash"):
+        raise AssertionError("EvaluationSubmitted result_hash did not match submission commitment")
+    if event_fields.get("result_hash") == receipt.get("payload_result_hash"):
+        raise AssertionError("submitted result_hash was not replay-bound")
     if "private" in json.dumps(receipt).lower():
         raise AssertionError("bounded receipt contained private-key-shaped text")
 

@@ -11,10 +11,14 @@ from tinker_delegate.chain_submitter import (
     ChainSubmitterError,
     DiligenceRoomSubmitter,
     DstackEthereumSigner,
+    ResultCommitment,
     SignerUnavailable,
     encode_submit_result_calldata,
 )
 from tinker_delegate.config import Settings
+
+
+COMPOSE_HASH = "0x" + "99" * 32
 
 
 def _word_int(value: int) -> str:
@@ -114,7 +118,19 @@ class ChainSubmitterTest(unittest.TestCase):
             score_band="medium",
             compute_cost_wei=10**15,
             result_hash="0x" + "66" * 32,
+            compose_hash=COMPOSE_HASH,
         )
+        expected_commitment = ResultCommitment(
+            chain_id=31337,
+            contract_address="0x" + "55" * 20,
+            deal_id=1,
+            nonce=7,
+            compose_hash=COMPOSE_HASH,
+            payload_result_hash="0x" + "66" * 32,
+            score_band_value=2,
+            compute_cost_wei=10**15,
+            expiry=9999999999,
+        ).digest()
 
         self.assertTrue(receipt.submitted)
         self.assertEqual(receipt.tx_hash, "0x" + "ab" * 32)
@@ -123,6 +139,10 @@ class ChainSubmitterTest(unittest.TestCase):
         self.assertEqual(receipt.chain_id, 31337)
         self.assertEqual(receipt.nonce, 7)
         self.assertEqual(receipt.gas_limit, 123456)
+        self.assertEqual(receipt.payload_result_hash, "0x" + "66" * 32)
+        self.assertEqual(receipt.result_hash, expected_commitment)
+        self.assertEqual(receipt.compose_hash, COMPOSE_HASH)
+        self.assertEqual(receipt.expiry, 9999999999)
         self.assertEqual(receipt.custody, "injected_test_signer")
         self.assertFalse(receipt.raw_secret_egress)
         self.assertEqual(len(rpc.sent_raw_transactions), 1)
@@ -143,6 +163,7 @@ class ChainSubmitterTest(unittest.TestCase):
                 score_band="low",
                 compute_cost_wei=1,
                 result_hash="0x" + "66" * 32,
+                compose_hash=COMPOSE_HASH,
             )
 
         submitter = DiligenceRoomSubmitter(
@@ -156,6 +177,7 @@ class ChainSubmitterTest(unittest.TestCase):
                 score_band="low",
                 compute_cost_wei=1,
                 result_hash="0x" + "66" * 32,
+                compose_hash=COMPOSE_HASH,
             )
 
     def test_submit_result_rejects_over_budget_compute_cost(self):
@@ -171,6 +193,7 @@ class ChainSubmitterTest(unittest.TestCase):
                 score_band="low",
                 compute_cost_wei=100,
                 result_hash="0x" + "66" * 32,
+                compose_hash=COMPOSE_HASH,
             )
 
     def test_dstack_signer_fails_closed_outside_dstack_mode(self):
@@ -211,6 +234,7 @@ class ChainSubmitterTest(unittest.TestCase):
             score_band="medium",
             compute_cost_wei=10**15,
             result_hash="0x" + "66" * 32,
+            compose_hash=COMPOSE_HASH,
         )
 
         body = json.dumps(receipt.to_public_dict())
@@ -218,6 +242,33 @@ class ChainSubmitterTest(unittest.TestCase):
         self.assertNotIn("private", body.lower())
         self.assertNotIn("card", body.lower())
         self.assertNotIn("api_key", body.lower())
+
+    def test_result_commitment_changes_with_replay_context(self):
+        base = ResultCommitment(
+            chain_id=31337,
+            contract_address="0x" + "55" * 20,
+            deal_id=1,
+            nonce=7,
+            compose_hash=COMPOSE_HASH,
+            payload_result_hash="0x" + "66" * 32,
+            score_band_value=2,
+            compute_cost_wei=10**15,
+            expiry=9999999999,
+        )
+        replay = ResultCommitment(
+            chain_id=31337,
+            contract_address="0x" + "55" * 20,
+            deal_id=1,
+            nonce=8,
+            compose_hash=COMPOSE_HASH,
+            payload_result_hash="0x" + "66" * 32,
+            score_band_value=2,
+            compute_cost_wei=10**15,
+            expiry=9999999999,
+        )
+
+        self.assertNotEqual(base.digest(), replay.digest())
+        self.assertEqual(base.public_fields()["compute_cost_band"], "1e15-1e18")
 
 
 if __name__ == "__main__":

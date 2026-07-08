@@ -92,7 +92,10 @@ Important current status:
             can derive an Ethereum signer from dstack key material, guard
             `submitResult()` against public `deals(dealId)` state, sign a raw
             transaction without a raw-private-key CLI/env path, broadcast it
-            through JSON-RPC, and emit only bounded receipt metadata.
+            through JSON-RPC, and emit only bounded receipt metadata. The
+            submitted `resultHash` is an anti-replay commitment over chain ID,
+            contract, deal ID, signer nonce, compose hash, payload result hash,
+            score band, compute cost, and expiry.
             `scripts/prove-chain-submitter-dstack-anvil.py` proves this against
             the Phala/dstack simulator plus ephemeral Anvil and verifies a real
             `EvaluationSubmitted` event. This still needs a deployed-CVM
@@ -1235,12 +1238,14 @@ Current caveat:
 submitResult() trusts a bare teeIdentity address. The delegate now has partial
 TEE-held signing plumbing: in dstack mode it derives an Ethereum key from a
 dstack key path, preflights `deals(dealId)` so the signer must match the public
-teeIdentity, checks funded state and compute budget, signs the transaction in
-memory, and returns bounded receipt metadata. A local Phala/dstack simulator
-proof broadcasts `submitResult()` to ephemeral Anvil and verifies
-`EvaluationSubmitted`. This is not yet proof that the address is controlled by a
-verified compose/app measurement, and the deployed Phala CVM-origin broadcast
-path still needs live validation.
+teeIdentity, checks funded state and compute budget, commits the payload result
+hash to chain ID, contract address, deal ID, signer nonce, compose hash, score
+band, compute cost, and expiry, signs the transaction in memory, and returns
+bounded receipt metadata. A local Phala/dstack simulator proof broadcasts
+`submitResult()` to ephemeral Anvil and verifies `EvaluationSubmitted` carries
+the replay-bound commitment rather than the raw payload hash. This is not yet
+proof that the address is controlled by a verified compose/app measurement, and
+the deployed Phala CVM-origin broadcast path still needs live validation.
 ```
 
 ## Service Architecture
@@ -1652,7 +1657,7 @@ Flow:
 10. Tinker delegate starts an isolated evaluation session.
 11. Target future evaluator runs TTT/RL bio-validation.
 12. Control plane converts raw metric to score band.
-13. TEE submits resultHash, scoreBand, and computeCost.
+13. TEE submits replay-bound resultHash commitment, scoreBand, and computeCost.
 14. Buyer accepts or rejects.
 15. Contract accrues seller payment, developer compute+fee, and buyer refund.
 16. Parties withdraw.
