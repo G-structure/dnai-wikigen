@@ -47,6 +47,13 @@ class SecurityTier(str, Enum):
     EXTERNAL_BOUNDED = "external_bounded"
 
 
+class OptimizerLocation(str, Enum):
+    """Where the adaptive optimizer is allowed to run."""
+    INTERNAL_TEE = "internal_tee"
+    ATTESTED_REMOTE = "attested_remote"
+    EXTERNAL = "external"
+
+
 @dataclass(frozen=True)
 class PublicProblem:
     title: str
@@ -125,6 +132,79 @@ class LeakageBudget:
 
 
 @dataclass(frozen=True)
+class OptimizerPolicy:
+    """Policy for optimizer-visible reward-derived state."""
+    location: OptimizerLocation
+    feedback_mode: FeedbackMode = FeedbackMode.BAND
+    allow_exact_rewards: bool = False
+    allow_reward_derived_state: bool = False
+    allow_private_checkpoints: bool = False
+    require_attestation: bool = True
+    notes: str = ""
+
+    def __post_init__(self) -> None:
+        if self.location == OptimizerLocation.EXTERNAL and (
+            self.allow_exact_rewards
+            or self.allow_reward_derived_state
+            or self.allow_private_checkpoints
+        ):
+            raise ValueError("external optimizers must not receive reward-derived state")
+        if self.location == OptimizerLocation.ATTESTED_REMOTE and (
+            self.allow_exact_rewards
+            or self.allow_reward_derived_state
+            or self.allow_private_checkpoints
+        ) and not self.require_attestation:
+            raise ValueError("attested remote optimizer state requires attestation")
+
+    @classmethod
+    def external_bounded(cls, feedback_mode: FeedbackMode = FeedbackMode.BAND) -> "OptimizerPolicy":
+        return cls(
+            location=OptimizerLocation.EXTERNAL,
+            feedback_mode=feedback_mode,
+            allow_exact_rewards=False,
+            allow_reward_derived_state=False,
+            allow_private_checkpoints=False,
+            require_attestation=False,
+            notes="external optimizer receives public prompt and bounded feedback only",
+        )
+
+    @classmethod
+    def internal_dense(cls) -> "OptimizerPolicy":
+        return cls(
+            location=OptimizerLocation.INTERNAL_TEE,
+            feedback_mode=FeedbackMode.NONE,
+            allow_exact_rewards=True,
+            allow_reward_derived_state=True,
+            allow_private_checkpoints=True,
+            require_attestation=True,
+            notes="optimizer is inside the same attested boundary",
+        )
+
+    @classmethod
+    def attested_remote_dense(cls) -> "OptimizerPolicy":
+        return cls(
+            location=OptimizerLocation.ATTESTED_REMOTE,
+            feedback_mode=FeedbackMode.NONE,
+            allow_exact_rewards=True,
+            allow_reward_derived_state=True,
+            allow_private_checkpoints=True,
+            require_attestation=True,
+            notes="optimizer is in a separately attested service",
+        )
+
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "location": self.location.value,
+            "feedback_mode": self.feedback_mode.value,
+            "allow_exact_rewards": self.allow_exact_rewards,
+            "allow_reward_derived_state": self.allow_reward_derived_state,
+            "allow_private_checkpoints": self.allow_private_checkpoints,
+            "require_attestation": self.require_attestation,
+            "notes": self.notes,
+        }
+
+
+@dataclass(frozen=True)
 class QueryLeakageRecord:
     candidate_hash: str
     accepted: bool
@@ -197,6 +277,8 @@ class EnvironmentAttestation:
     transcript_hash: str
     leakage_hash: str
     security_tier: SecurityTier
+    optimizer_location: OptimizerLocation
+    optimizer_policy_hash: str
     query_budget: int
     accepted_count: int
     rejected_count: int
@@ -207,6 +289,8 @@ class EnvironmentAttestation:
             "transcript_hash": self.transcript_hash,
             "leakage_hash": self.leakage_hash,
             "security_tier": self.security_tier.value,
+            "optimizer_location": self.optimizer_location.value,
+            "optimizer_policy_hash": self.optimizer_policy_hash,
             "query_budget": self.query_budget,
             "accepted_count": self.accepted_count,
             "rejected_count": self.rejected_count,
@@ -242,6 +326,10 @@ class PrivateRewardEnvironment(ABC):
     @property
     def security_tier(self) -> SecurityTier:
         return SecurityTier.EXTERNAL_BOUNDED
+
+    @property
+    def optimizer_policy(self) -> OptimizerPolicy:
+        return OptimizerPolicy.external_bounded(feedback_mode=self.query_budget.feedback_mode)
 
     def acceptance_policy(self, candidate: Candidate) -> Decision:
         if candidate.size_bytes > self.candidate_schema.max_bytes:
@@ -314,9 +402,14 @@ class PrivateRewardEnvironment(ABC):
             "problem": self.problem().to_public_dict(),
             "candidate_schema": self.candidate_schema.to_public_dict(),
             "query_budget": self.query_budget.to_public_dict(),
+            "optimizer_policy": self.optimizer_policy.to_public_dict(),
             "records": [record.to_public_dict() for record in self._records],
         }
         return _sha256_json(leakage)
+
+    @property
+    def optimizer_policy_hash(self) -> str:
+        return _sha256_json(self.optimizer_policy.to_public_dict())
 
     @property
     def environment_hash(self) -> str:
@@ -325,7 +418,28 @@ class PrivateRewardEnvironment(ABC):
             "candidate_schema": self.candidate_schema.to_public_dict(),
             "query_budget": self.query_budget.to_public_dict(),
             "security_tier": self.security_tier.value,
+            "optimizer_policy": self.optimizer_policy.to_public_dict(),
         })
+
+    def optimizer_view(self) -> dict[str, Any]:
+        """Public optimizer setup view without private data or exact rewards."""
+        return {
+            "problem": self.problem().to_public_dict(),
+            "candidate_schema": self.candidate_schema.to_public_dict(),
+            "query_budget": self.query_budget.to_public_dict(),
+            "optimizer_policy": self.optimizer_policy.to_public_dict(),
+            "environment_hash": self.environment_hash,
+        }
+
+    def internal_reward_for_optimizer(self, index: int = -1) -> InternalReward:
+        """Return exact reward only when the optimizer is inside a trusted boundary."""
+        policy = self.optimizer_policy
+        if not policy.allow_exact_rewards or policy.location == OptimizerLocation.EXTERNAL:
+            raise PermissionError("optimizer policy forbids exact rewards")
+        if not self._internal_rewards:
+            raise IndexError("no internal rewards recorded")
+        reward = self._internal_rewards[index]
+        return InternalReward(value=reward.value, metrics=dict(reward.metrics))
 
     def attest(self) -> EnvironmentAttestation:
         return EnvironmentAttestation(
@@ -333,6 +447,8 @@ class PrivateRewardEnvironment(ABC):
             transcript_hash=self.transcript_hash,
             leakage_hash=self.leakage_hash,
             security_tier=self.security_tier,
+            optimizer_location=self.optimizer_policy.location,
+            optimizer_policy_hash=self.optimizer_policy_hash,
             query_budget=self.query_budget.max_queries,
             accepted_count=self.accepted_count,
             rejected_count=self.rejected_count,

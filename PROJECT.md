@@ -254,16 +254,19 @@ The environment owns:
 - candidate sandbox
 - query budget
 - reward precision policy
+- optimizer placement policy
 - output reducer
 - transcript hash
 - attestation payload
 - settlement payload
 
 Implementation note: `tinker_delegate.private_reward` now contains the base
-`PrivateRewardEnvironment`, leakage-budget, bounded-feedback, transcript-hash,
-leakage-hash, and attestation dataclasses. This is the interface layer only;
-real RLVR, TTT, bio-validation, and candidate-sandbox environments are still
-separate implementation work.
+`PrivateRewardEnvironment`, leakage-budget, optimizer-policy,
+bounded-feedback, transcript-hash, leakage-hash, and attestation dataclasses.
+The default optimizer mode is external and bounded; exact rewards are exposed
+only through an explicit internal or attested optimizer policy. This is the
+interface layer only; real RLVR, TTT, bio-validation, and candidate-sandbox
+environments are still separate implementation work.
 
 ## Security Goal
 

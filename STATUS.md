@@ -105,10 +105,19 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Public evaluation returns `BoundedFeedback` and appends
   `QueryLeakageRecord` entries containing candidate hashes, decisions, reward
   bands or withheld feedback, timing bands, and transcript hashes.
+- `OptimizerPolicy` now names where the optimizer runs: inside the same TEE, in
+  an attested remote service, or outside the boundary with bounded feedback
+  only.
+- The default optimizer policy is external and fail-closed: exact rewards,
+  reward-derived state, and private checkpoints are rejected for external
+  optimizers.
+- Internal dense-reward mode exists for optimizers inside the attested boundary;
+  public evaluation still returns bounded feedback.
 - Exact `InternalReward` values remain in the environment; tests cover bounded
   feedback, budget exhaustion, policy rejection, pass/hold/deny precision
-  reduction, reducer hash mismatch fail-closed behavior, and final
-  transcript/leakage hashes.
+  reduction, reducer hash mismatch fail-closed behavior, optimizer policy
+  enforcement, internal dense-reward access, and final transcript/leakage
+  hashes.
 
 ## Partial
 
@@ -165,8 +174,8 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Real RLVR, TTT, computational-bio, code-audit, or model-evaluation
   environments are not implemented.
 - Candidate sandboxing, side-channel normalization beyond timing bands,
-  hidden-holdout separation, and external optimizer policy enforcement remain
-  open P0 work.
+  hidden-holdout separation, and integration of optimizer policy with real
+  Tinker/browser execution remain open P0 work.
 
 [partial] Frontend and product surface:
 

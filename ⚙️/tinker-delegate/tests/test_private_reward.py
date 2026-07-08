@@ -8,6 +8,8 @@ from tinker_delegate.private_reward import (
     FeedbackMode,
     InternalReward,
     LeakageBudget,
+    OptimizerLocation,
+    OptimizerPolicy,
     PrivateRewardEnvironment,
     PublicProblem,
     RewardBand,
@@ -60,6 +62,12 @@ class ToyPrivateRewardEnvironment(PrivateRewardEnvironment):
             reward_band=band,
             public_message="bounded score band",
         )
+
+
+class InternalDenseRewardEnvironment(ToyPrivateRewardEnvironment):
+    @property
+    def optimizer_policy(self) -> OptimizerPolicy:
+        return OptimizerPolicy.internal_dense()
 
 
 class PrivateRewardEnvironmentTest(unittest.TestCase):
@@ -144,6 +152,65 @@ class PrivateRewardEnvironmentTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "candidate_hash mismatch"):
             env.evaluate(Candidate(b"x"))
+
+    def test_external_optimizer_is_bounded_by_default(self):
+        env = ToyPrivateRewardEnvironment()
+        env.evaluate(Candidate(b"xxx"))
+
+        self.assertEqual(env.optimizer_policy.location, OptimizerLocation.EXTERNAL)
+        self.assertFalse(env.optimizer_policy.allow_exact_rewards)
+        with self.assertRaisesRegex(PermissionError, "forbids exact rewards"):
+            env.internal_reward_for_optimizer()
+
+        view = env.optimizer_view()
+        self.assertEqual(view["optimizer_policy"]["location"], OptimizerLocation.EXTERNAL.value)
+        self.assertNotIn("0.3", str(view))
+        self.assertNotIn("raw_count", str(view))
+        self.assertNotIn("xxx", str(view))
+
+    def test_external_optimizer_policy_rejects_reward_derived_state(self):
+        with self.assertRaisesRegex(ValueError, "external optimizers"):
+            OptimizerPolicy(
+                location=OptimizerLocation.EXTERNAL,
+                allow_exact_rewards=True,
+            )
+        with self.assertRaisesRegex(ValueError, "external optimizers"):
+            OptimizerPolicy(
+                location=OptimizerLocation.EXTERNAL,
+                allow_reward_derived_state=True,
+            )
+        with self.assertRaisesRegex(ValueError, "external optimizers"):
+            OptimizerPolicy(
+                location=OptimizerLocation.EXTERNAL,
+                allow_private_checkpoints=True,
+            )
+
+    def test_internal_dense_optimizer_can_read_exact_reward_inside_boundary(self):
+        env = InternalDenseRewardEnvironment()
+
+        public_feedback = env.evaluate(Candidate(b"xxx"))
+        reward = env.internal_reward_for_optimizer()
+
+        self.assertEqual(reward.value, 0.3)
+        self.assertEqual(reward.metrics["raw_count"], 7)
+        self.assertEqual(public_feedback.reward_band, RewardBand.HIGH)
+        self.assertNotIn("0.3", str(public_feedback.to_public_dict()))
+        self.assertEqual(env.attest().optimizer_location, OptimizerLocation.INTERNAL_TEE)
+        self.assertEqual(len(env.attest().optimizer_policy_hash), 64)
+
+    def test_attested_remote_dense_policy_requires_attestation(self):
+        with self.assertRaisesRegex(ValueError, "requires attestation"):
+            OptimizerPolicy(
+                location=OptimizerLocation.ATTESTED_REMOTE,
+                allow_exact_rewards=True,
+                require_attestation=False,
+            )
+
+        policy = OptimizerPolicy.attested_remote_dense()
+
+        self.assertEqual(policy.location, OptimizerLocation.ATTESTED_REMOTE)
+        self.assertTrue(policy.allow_exact_rewards)
+        self.assertTrue(policy.require_attestation)
 
 
 if __name__ == "__main__":

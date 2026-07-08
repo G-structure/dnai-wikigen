@@ -423,17 +423,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [x] `P0` Define the leakage function for every environment:
       public problem text, accepted candidate count, reward bands or no reward
       egress, final bounded result, timing/cost bands, hashes, and attestations.
-- [ ] `P0` Decide where the optimizer lives for each security tier:
+- [x] `P0` Decide where the optimizer lives for each security tier:
       inside the same TEE, inside an attested remote Tinker/training service, or
       outside the TEE with no reward-derived state leaving.
-- [ ] `P0` Prohibit the unsafe default:
+- [x] `P0` Prohibit the unsafe default:
       do not send private reward labels, dense rewards, selected-example traces,
       reward-derived gradients, private holdout data, or checkpoints encoding
       private reward information to an untrusted external trainer.
-- [ ] `P0` Add an internal-only dense-reward mode.
+- [x] `P0` Add an internal-only dense-reward mode.
       The optimizer may see exact rewards if it is inside the attested boundary;
       public egress still gets only bounded summaries.
-- [ ] `P0` Add an external-optimizer-safe mode.
+- [x] `P0` Add an external-optimizer-safe mode.
       External LLMs or code generators can propose candidates, but they receive
       only public prompts and approved bounded feedback.
 - [x] `P0` Add a reward-query budget and transcript hash for every private

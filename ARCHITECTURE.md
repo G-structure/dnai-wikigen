@@ -51,8 +51,9 @@ Important current status:
             before storing the upload in memory.
 [real]      PrivateRewardEnvironment interface and leakage accounting types.
             The base contract exposes public problem/schema metadata, query
-            budget, reward precision policy, bounded feedback, transcript hash,
-            leakage hash, and attestable environment metadata.
+            budget, optimizer placement policy, reward precision policy,
+            bounded feedback, transcript hash, leakage hash, and attestable
+            environment metadata.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -641,6 +642,10 @@ PrivateRewardEnvironment.candidate_schema   allowed candidate envelope
 PrivateRewardEnvironment.reward()           exact internal reward, TEE-only
 PrivateRewardEnvironment.output_reducer()   approved bounded feedback
 PrivateRewardEnvironment.query_budget       max queries and reward precision
+PrivateRewardEnvironment.optimizer_policy   internal / attested remote / external
+PrivateRewardEnvironment.optimizer_view()   public optimizer setup view
+PrivateRewardEnvironment.internal_reward_for_optimizer()
+                                            exact reward only for trusted optimizers
 PrivateRewardEnvironment.finalize()         bounded result and hashes
 PrivateRewardEnvironment.attest()           environment/transcript metadata
 ```
@@ -678,12 +683,29 @@ bounded output reducer
 score band, pass/hold/deny, confidence, result hash
 ```
 
+Optimizer placement guardrails:
+
+```
+internal TEE optimizer
+  may read exact rewards and reward-derived state inside the attested boundary
+
+attested remote optimizer
+  may read exact rewards only when the remote service is separately attested
+
+external optimizer
+  receives public problem/schema metadata and bounded feedback only
+  exact rewards, reward-derived state, private checkpoints, and holdout data
+  are rejected by default policy
+```
+
 Implementation status:
 
 ```
 [real]      PrivateRewardEnvironment base interface, LeakageBudget,
             QueryLeakageRecord, transcript hash, leakage hash, bounded
-            feedback/result dataclasses, and toy unit tests.
+            feedback/result dataclasses, OptimizerPolicy, external bounded
+            default mode, internal dense-reward mode, attested remote policy
+            guard, and toy unit tests.
 [modeled]   TTT/RL bio-validation concept.
 [partial]   SFT evaluator scaffold.
 [real]      Output banding and offer computation.
