@@ -10,6 +10,7 @@ from urllib.request import urlopen
 
 from playwright.async_api import Browser, BrowserContext, Playwright
 
+from tinker_delegate.browser_session_store import build_browser_session_store
 from tinker_delegate.config import Settings
 from tinker_delegate.redaction import redact_text
 
@@ -126,8 +127,13 @@ async def connect_chromium(playwright: Playwright, settings: Settings) -> Browse
     )
 
 
-async def get_browser_context(browser: Browser) -> BrowserContext:
-    """Reuse the first context when present, otherwise create one."""
+async def get_browser_context(browser: Browser, settings: Settings | None = None) -> BrowserContext:
+    """Reuse the first context, or create one from encrypted Tinker session state."""
     if browser.contexts:
         return browser.contexts[0]
+    if settings is not None:
+        state = build_browser_session_store(settings).load()
+        if state:
+            print("[browser] creating context from encrypted Tinker session state")
+            return await browser.new_context(storage_state=state)
     return await browser.new_context()

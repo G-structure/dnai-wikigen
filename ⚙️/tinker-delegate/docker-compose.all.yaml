@@ -111,6 +111,7 @@ services:
       TINKER_CDP_URL: http://172.20.0.3:9222
       TINKER_ORACLE_URL: http://172.20.0.4:8000
       TINKER_API_KEY_STORE_PATH: /data/tinker_api_key.enc
+      TINKER_BROWSER_SESSION_STORE_PATH: /data/browser_session.enc
       TINKER_FUNDING_RECEIPT_STORE_PATH: /data/funding_receipts.enc
       TINKER_RUN_METADATA_STORE_PATH: /data/run_metadata.enc
       TINKER_FUNDING_MODE: ${TINKER_FUNDING_MODE:-manual_prefund}

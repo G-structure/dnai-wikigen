@@ -544,6 +544,15 @@ and the billing page is authenticated before any approved real-card prompt.
   require a bearer token; the funding CLIs read it from
   `TINKER_RUNTIME_AUTH_TOKEN` by default so the secret does not have to appear
   in command-line arguments.
+- Reauth/session continuity is now source/test-real: successful
+  signup/signin/reauth saves Playwright `storage_state` into an encrypted
+  browser-session store under `/data/browser_session.enc`, using the separate
+  `tinker/browser_session` dstack key path. Billing loads that sealed state when
+  it must create a fresh browser context, so the operator can run `/auth/reauth`
+  before encrypted-card/add-balance attempts without relying on a throwaway
+  browser context. Tests prove the encrypted file does not contain raw
+  cookie/localStorage values. This still needs GitHub-attested images, digest
+  pinning, Phala redeploy, and live probes before it updates deployed evidence.
 - Funding validation packets can include a separate add-balance evidence lane:
   `--add-balance-receipt-json` binds an existing bounded top-up receipt, and
   `--run-add-balance-attempt` posts only the amount to `/billing/add-balance`

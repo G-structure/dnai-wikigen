@@ -1057,6 +1057,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P1` Add browser session recovery:
       stale OTP page detection, cookie/session expiration, login loop detection,
       screenshot artifacts with secrets redacted.
+      - [x] Source/test 2026-07-08: persist Playwright `storage_state` from
+            successful signup/signin/reauth into an encrypted browser-session
+            store under the delegate data volume, using a separate
+            `tinker/browser_session` dstack key path, and load that state when
+            billing creates a fresh browser context. Tests prove the encrypted
+            file does not contain raw cookie/localStorage values and compose
+            files keep the store under `/data`.
+      - [ ] Rebuild/pin/deploy the browser-session store slice to Phala and
+            rerun `/auth/reauth`, encrypted test-card, and `$5` add-balance
+            probes against the new attested compose hash.
+      - [ ] Add bounded stale-session and login-loop classifications before
+            deciding whether to refresh OTP or fail closed.
 - [ ] `P1` Add a `cdp-playground` recipe specifically for Tinker auth and
       billing probes.
 - [ ] `P1` Add replayable browser tests against mock pages for auth, onboarding,

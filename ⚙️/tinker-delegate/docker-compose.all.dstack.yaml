@@ -47,6 +47,8 @@ services:
       TINKER_ORACLE_AUTH_KEY_PATH: oracle/runtime-auth
       TINKER_BOOTSTRAP_SIGNUP: "true"
       TINKER_API_KEY_STORE_PATH: /data/tinker_api_key.enc
+      TINKER_BROWSER_SESSION_STORE_PATH: /data/browser_session.enc
+      TINKER_BROWSER_SESSION_KEY_PATH: tinker/browser_session
       TINKER_FUNDING_RECEIPT_STORE_PATH: /data/funding_receipts.enc
       TINKER_FUNDING_RECEIPT_KEY_PATH: tinker/funding_receipts
       TINKER_RUN_METADATA_STORE_PATH: /data/run_metadata.enc

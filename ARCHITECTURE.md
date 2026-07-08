@@ -633,8 +633,12 @@ Diagram:
 |          v                                                  |
 |  +----------------+      +----------------------+           |
 |  | Tinker console |----->| sealed API key store |           |
-|  | browser session|      +----------+-----------+           |
+|  | browser session|----->| sealed browser state |           |
 |  +-------+--------+                 |                       |
+|          |                          v                       |
+|          |              +----------+-----------+             |
+|          |              | sealed API key store |             |
+|          |              +----------+-----------+             |
 |          |                          v                       |
 |          |              +--------------------------+        |
 |          |              | IsolatedTinkerSession    |        |
@@ -917,6 +921,16 @@ Implementation status:
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
             OTP, browser URL, API key, or page text.
+[real]      Source/tests now persist successful signup/signin/reauth
+            Playwright `storage_state` to an encrypted browser-session store
+            under the delegate data volume, using a separate
+            `tinker/browser_session` dstack key path from API keys and funding
+            receipts. Billing creates fresh browser contexts from that sealed
+            state when no reusable context exists, so `/auth/reauth` can
+            prepare the later encrypted-card/add-balance request without
+            exposing cookies, localStorage, raw URLs, OTPs, page text, or card
+            data. Compose hardening tests keep the store under `/data`; this
+            slice still needs GitHub-attested images and a Phala repro.
 [real]      `⚙️/tinker-delegate/docs/TINKER-AUTOMATION-ROUTE.md` records the
             acceptable Tinker automation route: prefer official/support-approved
             workflows; use browser automation only as bounded TEE custody for

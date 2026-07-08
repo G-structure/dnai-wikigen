@@ -69,6 +69,34 @@ class ComposeHardeningTest(unittest.TestCase):
                 self.assertIn("TINKER_RUN_METADATA_KEY_PATH", block)
                 self.assertIn("tinker/run_metadata", block)
 
+    def test_delegate_browser_session_store_is_under_data_volume(self):
+        for compose_name in (
+            "docker-compose.yaml",
+            "docker-compose.dstack.yaml",
+            "docker-compose.all.yaml",
+            "docker-compose.all.dstack.yaml",
+            "docker-compose.all.phala.yaml",
+            "docker-compose.mailbox-genesis.phala.yaml",
+            "docker-compose.tinker-bootstrap.phala.yaml",
+            "docker-compose.tinker-funding-validation.phala.yaml",
+        ):
+            with self.subTest(compose_name=compose_name):
+                block = _service_block((ROOT / compose_name).read_text(), "delegate")
+                self.assertIn("TINKER_BROWSER_SESSION_STORE_PATH: /data/browser_session.enc", block)
+
+        for compose_name in (
+            "docker-compose.dstack.yaml",
+            "docker-compose.all.dstack.yaml",
+            "docker-compose.all.phala.yaml",
+            "docker-compose.mailbox-genesis.phala.yaml",
+            "docker-compose.tinker-bootstrap.phala.yaml",
+            "docker-compose.tinker-funding-validation.phala.yaml",
+        ):
+            with self.subTest(compose_name=compose_name):
+                block = _service_block((ROOT / compose_name).read_text(), "delegate")
+                self.assertIn("TINKER_BROWSER_SESSION_KEY_PATH", block)
+                self.assertIn("tinker/browser_session", block)
+
     def test_delegate_funding_mode_defaults_to_manual_prefund(self):
         for compose_name in (
             "docker-compose.yaml",

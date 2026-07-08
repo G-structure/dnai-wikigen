@@ -336,7 +336,7 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
     furthest_stage = AutomationStage.NOT_STARTED
     async with async_playwright() as p:
         browser = await connect_chromium(p, settings)
-        context = await get_browser_context(browser)
+        context = await get_browser_context(browser, settings)
         page = context.pages[0] if context.pages else await context.new_page()
 
         # Navigate to billing page
@@ -457,7 +457,7 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
 
     async with async_playwright() as p:
         browser = await connect_chromium(p, settings)
-        context = await get_browser_context(browser)
+        context = await get_browser_context(browser, settings)
         page = context.pages[0] if context.pages else await context.new_page()
 
         await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
@@ -520,7 +520,7 @@ async def configure_auto_reload(
 
     async with async_playwright() as p:
         browser = await connect_chromium(p, settings)
-        context = await get_browser_context(browser)
+        context = await get_browser_context(browser, settings)
         page = context.pages[0] if context.pages else await context.new_page()
 
         await page.goto(
@@ -569,7 +569,7 @@ async def get_balance(settings: Settings | None = None) -> dict:
 
     async with async_playwright() as p:
         browser = await connect_chromium(p, settings)
-        context = await get_browser_context(browser)
+        context = await get_browser_context(browser, settings)
         page = context.pages[0] if context.pages else await context.new_page()
 
         await page.goto(

@@ -19,6 +19,7 @@ import time
 from playwright.async_api import async_playwright, Page
 
 from tinker_delegate.browser_ready import connect_chromium, get_browser_context
+from tinker_delegate.browser_session_store import build_browser_session_store
 from tinker_delegate.api_key_store import build_api_key_store
 from tinker_delegate.automation_receipts import (
     AutomationOutcome,
@@ -238,17 +239,19 @@ async def signup(settings: Settings | None = None) -> dict:
         async with async_playwright() as p:
             browser = await connect_chromium(p, settings)
             stage = AutomationStage.BROWSER_CONNECTED
-            context = await get_browser_context(browser)
+            context = await get_browser_context(browser, settings)
             page = context.pages[0] if context.pages else await context.new_page()
             stage = AutomationStage.BROWSER_CONTEXT_READY
 
             # Step 1: Authenticate
             await _authenticate(page, email, oracle, settings)
             stage = AutomationStage.AUTHENTICATED
+            await _save_browser_session_state(context, settings)
 
             # Step 2: Handle onboarding if present
             await _handle_onboarding(page, settings)
             stage = AutomationStage.ONBOARDING_COMPLETE
+            await _save_browser_session_state(context, settings)
 
             # Step 3: Create API key
             api_key = await _create_api_key(page, settings)
@@ -324,16 +327,18 @@ async def signin(settings: Settings | None = None) -> dict:
 
     async with async_playwright() as p:
         browser = await connect_chromium(p, settings)
-        context = await get_browser_context(browser)
+        context = await get_browser_context(browser, settings)
         page = context.pages[0] if context.pages else await context.new_page()
 
         await _authenticate(page, email, oracle, settings)
+        session_state_saved = await _save_browser_session_state(context, settings)
 
         final_url = page.url
         return {
             "email_hash": email_hash,
             "url_hash": _hash_text(final_url),
             "success": "tinker-console" in final_url,
+            "session_state_saved": session_state_saved,
         }
 
 
@@ -353,9 +358,10 @@ async def reauth(settings: Settings | None = None) -> dict:
     try:
         async with async_playwright() as p:
             browser = await connect_chromium(p, settings)
-            context = await get_browser_context(browser)
+            context = await get_browser_context(browser, settings)
             page = context.pages[0] if context.pages else await context.new_page()
             await _authenticate(page, email, oracle, settings)
+            session_state_saved = await _save_browser_session_state(context, settings)
     except AuthAccessBlockedError as exc:
         receipt = _auth_receipt(
             email=email,
@@ -397,6 +403,7 @@ async def reauth(settings: Settings | None = None) -> dict:
         "success": True,
         "authenticated": True,
         "error_kind": "",
+        "session_state_saved": session_state_saved,
         "attempt_record": receipt.to_public_dict(),
     }
 
@@ -404,6 +411,20 @@ async def reauth(settings: Settings | None = None) -> dict:
 # ---------------------------------------------------------------------------
 # Internal steps
 # ---------------------------------------------------------------------------
+
+async def _save_browser_session_state(context, settings: Settings) -> bool:
+    """Persist Playwright auth state encrypted inside the delegate boundary."""
+    storage_state = getattr(context, "storage_state", None)
+    if not callable(storage_state):
+        return False
+    try:
+        state = await storage_state()
+        build_browser_session_store(settings).save(state)
+        return True
+    except Exception as exc:
+        print(f"[browser_session_store] session state save failed: {redact_text(exc)}")
+        return False
+
 
 async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: Settings) -> None:
     """Navigate to auth, enter email, complete OTP. Leaves browser on console."""
