@@ -61,6 +61,11 @@ from tinker_delegate.funding_policy import (
     require_card_automation_allowed,
 )
 from tinker_delegate.redaction import redact_text
+from tinker_delegate.tinker_encumbrance import (
+    TinkerEncumbranceError,
+    TinkerOperationKind,
+    preflight_tinker_operation,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +211,25 @@ async def handle_card_update(payload: CardPayload, settings: Settings) -> Billin
     """
     try:
         require_card_automation_allowed(settings)
+        _require_tinker_encumbrance_allowed(
+            settings,
+            surface=AutomationSurface.PAYMENT_METHOD,
+            operation_kind=TinkerOperationKind.ADD_PAYMENT_METHOD,
+        )
     except FundingPolicyError as exc:
+        error = redact_text(exc)
+        payload.zero()
+        return _billing_response_with_persisted_receipt(
+            settings,
+            success=False,
+            error=error,
+            attempt_record=funding_policy_receipt(
+                surface=AutomationSurface.PAYMENT_METHOD,
+                error=error,
+                card_payload_destroyed=True,
+            ),
+        )
+    except TinkerEncumbranceError as exc:
         error = redact_text(exc)
         payload.zero()
         return _billing_response_with_persisted_receipt(
@@ -280,7 +303,24 @@ async def handle_encrypted_card_update(
     card = None
     try:
         require_card_automation_allowed(settings)
+        _require_tinker_encumbrance_allowed(
+            settings,
+            surface=AutomationSurface.PAYMENT_METHOD,
+            operation_kind=TinkerOperationKind.ADD_PAYMENT_METHOD,
+        )
     except FundingPolicyError as exc:
+        error = redact_text(exc)
+        return _billing_response_with_persisted_receipt(
+            settings,
+            success=False,
+            error=error,
+            attempt_record=funding_policy_receipt(
+                surface=AutomationSurface.PAYMENT_METHOD,
+                error=error,
+                card_payload_destroyed=True,
+            ),
+        )
+    except TinkerEncumbranceError as exc:
         error = redact_text(exc)
         return _billing_response_with_persisted_receipt(
             settings,
@@ -362,7 +402,25 @@ async def handle_add_balance(payload: BalancePayload, settings: Settings) -> Bil
     """Add credit balance. No card details needed (uses card on file)."""
     try:
         require_add_balance_allowed(settings)
+        _require_tinker_encumbrance_allowed(
+            settings,
+            surface=AutomationSurface.ADD_BALANCE,
+            operation_kind=TinkerOperationKind.ADD_BALANCE,
+            amount_dollars=payload.amount_dollars,
+        )
     except FundingPolicyError as exc:
+        error = redact_text(exc)
+        return _billing_response_with_persisted_receipt(
+            settings,
+            success=False,
+            error=error,
+            attempt_record=funding_policy_receipt(
+                surface=AutomationSurface.ADD_BALANCE,
+                error=error,
+                amount_dollars=payload.amount_dollars,
+            ),
+        )
+    except TinkerEncumbranceError as exc:
         error = redact_text(exc)
         return _billing_response_with_persisted_receipt(
             settings,
@@ -414,6 +472,24 @@ def _with_quote_hash(attempt_record: Optional[dict], quote: Optional[str]) -> Op
     bounded = dict(attempt_record)
     bounded["tdx_quote_hash"] = quote_hash(quote)
     return bounded
+
+
+def _require_tinker_encumbrance_allowed(
+    settings: Settings,
+    *,
+    surface: AutomationSurface,
+    operation_kind: TinkerOperationKind,
+    amount_dollars: float | None = None,
+) -> None:
+    result = preflight_tinker_operation(
+        settings,
+        operation_kind=operation_kind,
+        amount_dollars=amount_dollars,
+    )
+    if result.allowed:
+        return
+    label = surface.value.replace("_", "-")
+    raise TinkerEncumbranceError(f"Tinker encumbrance policy denied {label}: {result.reason}")
 
 
 def _attempt_record_or_fallback(

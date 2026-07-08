@@ -199,6 +199,74 @@ class FundingPolicyTest(unittest.IsolatedAsyncioTestCase):
             stored = FundingReceiptStore(str(receipt_path), key_hex="33" * 32).load()
             self.assertEqual(stored, [result.attempt_record])
 
+    async def test_required_encumbrance_denies_plaintext_card_before_browser(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "funding_receipts.enc"
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                encumbrance_required=True,
+                funding_receipt_store_path=str(receipt_path),
+                funding_receipt_store_key="88" * 32,
+            )
+            payload = _payload()
+
+            with patch("tinker_delegate.card_channel.add_payment_method", new=AsyncMock()) as add_payment:
+                result = await handle_card_update(payload, settings)
+
+            self.assertFalse(result.success)
+            self.assertIn("missing_contract", result.error)
+            self.assertEqual(result.attempt_record["outcome"], "policy_denied")
+            self.assertTrue(result.attempt_record["card_payload_destroyed"])
+            self.assertEqual(payload.card_number, "")
+            add_payment.assert_not_called()
+
+    async def test_required_encumbrance_denies_encrypted_card_before_decrypt(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "funding_receipts.enc"
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                encumbrance_required=True,
+                funding_receipt_store_path=str(receipt_path),
+                funding_receipt_store_key="99" * 32,
+            )
+            payload = EncryptedCardPayload(
+                ephemeral_public_key="00",
+                nonce="00",
+                ciphertext="00",
+            )
+
+            with (
+                patch("tinker_delegate.card_channel.add_payment_method", new=AsyncMock()) as add_payment,
+                patch("tinker_delegate.card_channel.EncryptedPayload.from_hex") as from_hex,
+            ):
+                result = await handle_encrypted_card_update(payload, settings)
+
+            self.assertFalse(result.success)
+            self.assertIn("missing_contract", result.error)
+            self.assertEqual(result.attempt_record["outcome"], "policy_denied")
+            self.assertTrue(result.attempt_record["card_payload_destroyed"])
+            add_payment.assert_not_called()
+            from_hex.assert_not_called()
+
+    async def test_required_encumbrance_denies_add_balance_before_browser(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "funding_receipts.enc"
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                encumbrance_required=True,
+                funding_receipt_store_path=str(receipt_path),
+                funding_receipt_store_key="aa" * 32,
+            )
+
+            with patch("tinker_delegate.card_channel.add_balance", new=AsyncMock()) as add_balance:
+                result = await handle_add_balance(BalancePayload(amount_dollars=5.0), settings)
+
+            self.assertFalse(result.success)
+            self.assertIn("missing_contract", result.error)
+            self.assertEqual(result.attempt_record["surface"], "add_balance")
+            self.assertEqual(result.attempt_record["outcome"], "policy_denied")
+            add_balance.assert_not_called()
+
 
 class FundingPolicyApiTest(unittest.TestCase):
     def setUp(self):

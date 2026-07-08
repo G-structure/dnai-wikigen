@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     chain_result_verifier_key_path: str = "tinker/chain_result_verifier"
     chain_result_authorization_ttl_seconds: int = 300
     chain_submit_gas_limit: int = 0
+    encumbrance_contract_address: str = ""
+    encumbrance_rpc_url: str = ""
+    encumbrance_required: bool = False
+    encumbrance_compose_hash: str = ""
+    encumbrance_policy_units_per_usd_wei: int = 10**18
     bootstrap_signup: bool = False
     bootstrap_fail_open: bool = False
     bootstrap_oracle_timeout: float = 300.0

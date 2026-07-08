@@ -306,6 +306,50 @@ def cli():
     )
     funding_preflight_p.add_argument("--output", default="", help="Optional output path for preflight JSON")
 
+    encumbrance_preflight_p = sub.add_parser(
+        "tinker-encumbrance-preflight",
+        help="Check TinkerAccountEncumbrance policy without card material or browser launch",
+    )
+    encumbrance_preflight_p.add_argument(
+        "--operation",
+        required=True,
+        choices=("add-payment-method", "add-balance", "spend-tinker-compute", "manual-prefund"),
+        help="Tinker account operation to check",
+    )
+    encumbrance_preflight_p.add_argument(
+        "--amount",
+        type=float,
+        default=None,
+        help="USD amount to map into policy units for add-balance checks",
+    )
+    encumbrance_preflight_p.add_argument(
+        "--amount-wei",
+        type=int,
+        default=None,
+        help="Explicit policy amount in wei-style units; overrides --amount",
+    )
+    encumbrance_preflight_p.add_argument(
+        "--compose-hash",
+        default="",
+        help="Compose hash to check; defaults to TINKER_ENCUMBRANCE_COMPOSE_HASH",
+    )
+    encumbrance_preflight_p.add_argument(
+        "--contract-address",
+        default="",
+        help="TinkerAccountEncumbrance address; defaults to TINKER_ENCUMBRANCE_CONTRACT_ADDRESS",
+    )
+    encumbrance_preflight_p.add_argument(
+        "--rpc-url",
+        default="",
+        help="JSON-RPC URL; defaults to TINKER_ENCUMBRANCE_RPC_URL or TINKER_CHAIN_RPC_URL",
+    )
+    encumbrance_preflight_p.add_argument(
+        "--required",
+        action="store_true",
+        help="Fail closed if no encumbrance contract is configured",
+    )
+    encumbrance_preflight_p.add_argument("--output", default="", help="Optional output path for preflight JSON")
+
     funding_manifest_p = sub.add_parser(
         "funding-manifest",
         help="Build a bounded funding validation manifest from preflight and receipt JSON",
@@ -770,6 +814,31 @@ def cli():
         )
         _emit_bounded_json(result.to_public_dict(), output_path=args.output)
         sys.exit(0 if result.ready else 1)
+
+    elif args.command == "tinker-encumbrance-preflight":
+        from tinker_delegate.tinker_encumbrance import (
+            TinkerOperationKind,
+            preflight_tinker_operation,
+        )
+
+        operation_kinds = {
+            "add-payment-method": TinkerOperationKind.ADD_PAYMENT_METHOD,
+            "add-balance": TinkerOperationKind.ADD_BALANCE,
+            "spend-tinker-compute": TinkerOperationKind.SPEND_TINKER_COMPUTE,
+            "manual-prefund": TinkerOperationKind.MANUAL_PREFUND,
+        }
+        result = preflight_tinker_operation(
+            settings,
+            operation_kind=operation_kinds[args.operation],
+            amount_dollars=args.amount,
+            amount_wei=args.amount_wei,
+            compose_hash=args.compose_hash,
+            contract_address=args.contract_address,
+            rpc_url=args.rpc_url,
+            required=args.required or None,
+        )
+        _emit_bounded_json(result.to_public_dict(), output_path=args.output)
+        sys.exit(0 if result.allowed else 1)
 
     elif args.command == "funding-manifest":
         from tinker_delegate.funding_manifest import build_funding_validation_manifest

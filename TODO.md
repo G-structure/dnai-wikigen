@@ -35,7 +35,7 @@ The honest current gap:
 
 ```text
 Email encumbrance: real but runtime enforcement is incomplete.
-Tinker encumbrance: scaffolded but signup/funding is blocked upstream.
+Tinker encumbrance: local contract plus runtime preflight exist; deployment and live funding remain incomplete.
 TTT/RL bio validation: not built; current evaluator is stub/SFT-oriented.
 Private verified reward/RLVR environments: concept now clarified, not built.
 DNAI settlement: core escrow exists; live attestation, watcher, and full product flow are incomplete.
@@ -283,6 +283,14 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       bounded operations inside owner-set caps and approved measurements, but
       cannot set managers, change caps, approve measurements, toggle emergency
       halt, exceed caps, or bypass compose/emergency/duplicate guards.
+- [x] `P0` Add a local runtime preflight/helper that reads
+      `TinkerAccountEncumbrance` before browser-mediated Tinker funding.
+      Done with `tinker_encumbrance.py`, the `tinker-encumbrance-preflight`
+      CLI, funding-preflight integration, and card/add-balance handler gates.
+      When `TINKER_ENCUMBRANCE_REQUIRED=true` or a contract address is
+      configured, payment-method and add-balance automation deny before
+      decryption/browser launch unless the compose hash is approved, the
+      contract is not halted, and the amount is within cap.
 - [ ] `P1` Add funding rail policy:
       developer prefund, buyer compute deposit, crypto top-up, A2A/ACH/card
       path, and manual emergency funding.

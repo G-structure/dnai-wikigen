@@ -651,10 +651,16 @@ Implementation status:
             prove managers cannot set managers, change caps, approve
             measurements, toggle halt, exceed caps, or bypass compose,
             duplicate, and settlement guards.
-[partial]   The tinker-delegate runtime does not yet query
-            TinkerAccountEncumbrance before billing/add-balance/browser
-            automation, and the contract is not yet deployed or recorded in the
-            Base Sepolia manifest.
+[real]      The tinker-delegate runtime has a read-only
+            TinkerAccountEncumbrance preflight helper and CLI. When
+            `TINKER_ENCUMBRANCE_REQUIRED=true` or an encumbrance contract
+            address is configured, payment-method and add-balance automation
+            deny before card decryption or browser launch unless public
+            contract reads show the compose hash is approved, emergency halt is
+            off, and the amount is within cap.
+[partial]   TinkerAccountEncumbrance is not yet deployed or recorded in the
+            Base Sepolia manifest, so deployed funding still needs the live
+            contract address, compose hash, policy caps, and on-chain evidence.
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
 [real]      Signup/bootstrap stores captured Tinker API keys in encrypted
             storage and returns only bounded hash/status metadata.

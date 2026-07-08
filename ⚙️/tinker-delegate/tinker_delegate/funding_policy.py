@@ -15,6 +15,11 @@ from tinker_delegate.automation_receipts import (
 )
 from tinker_delegate.funding_receipt_store import build_funding_receipt_store
 from tinker_delegate.redaction import redact_text
+from tinker_delegate.tinker_encumbrance import (
+    TinkerEncumbranceError,
+    TinkerOperationKind,
+    preflight_tinker_operation,
+)
 
 
 class FundingMode(StrEnum):
@@ -214,6 +219,11 @@ def funding_validation_preflight(
             )
         )
 
+    if getattr(settings, "encumbrance_required", False) or getattr(
+        settings, "encumbrance_contract_address", ""
+    ):
+        checks.append(_tinker_encumbrance_check(settings, amount_dollars=amount_dollars))
+
     if require_add_balance_endpoint:
         endpoint_ok = bool(settings.allow_add_balance_endpoint)
         checks.append(
@@ -259,6 +269,32 @@ def _receipt_store_check(settings) -> FundingPreflightCheck:
         ok=True,
         status="loadable",
         detail="bounded encrypted receipt store can be opened",
+    )
+
+
+def _tinker_encumbrance_check(settings, *, amount_dollars: float | None) -> FundingPreflightCheck:
+    try:
+        result = preflight_tinker_operation(
+            settings,
+            operation_kind=TinkerOperationKind.ADD_BALANCE,
+            amount_dollars=amount_dollars or 0,
+        )
+    except TinkerEncumbranceError as exc:
+        return FundingPreflightCheck(
+            name="tinker_encumbrance",
+            ok=False,
+            status="error",
+            detail=redact_text(exc),
+        )
+    return FundingPreflightCheck(
+        name="tinker_encumbrance",
+        ok=bool(result.allowed),
+        status=result.reason,
+        detail=(
+            "contract policy checked for add-balance"
+            if result.checked
+            else "contract policy not checked"
+        ),
     )
 
 

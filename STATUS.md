@@ -74,6 +74,12 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   launch. `operator_capped_validation` is required for one-off approved
   operator validation attempts, and denied requests persist bounded
   `policy_denied` receipts.
+- `tinker-delegate` can now read `TinkerAccountEncumbrance` policy before
+  Tinker funding automation. If `TINKER_ENCUMBRANCE_REQUIRED=true` or an
+  encumbrance contract address is configured, payment-method and add-balance
+  operations fail closed before card decryption/browser launch unless public
+  contract reads show the compose hash is approved, emergency halt is off, and
+  the add-balance/spend amount is within cap.
 
 [real] `tinker-delegate` bounded run metadata:
 
@@ -227,8 +233,9 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
 
 - A minimal `TinkerAccountEncumbrance.sol` contract now exists locally with
   tests proving managers cannot exceed owner-set caps or change owner-only
-  policy. It is not yet deployed, and `tinker-delegate` does not yet query it
-  before card/add-balance/browser automation.
+  policy. The runtime now has a read-only policy preflight and optional
+  fail-closed card/add-balance gate, but the contract is not yet deployed or
+  recorded in the Base Sepolia manifest.
 - Test-card billing reaches a clear declined-card outcome.
 - Payment-method and add-balance operations return bounded attempt records with
   outcome class, furthest stage, issued timestamp, evidence hash, amount/balance
