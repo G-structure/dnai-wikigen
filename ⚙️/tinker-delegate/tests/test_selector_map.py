@@ -580,6 +580,110 @@ class SelectorMapTest(unittest.TestCase):
         self.assertNotIn("origin", rendered)
         self.assertEqual(redact_text(rendered), rendered)
 
+    def test_raw_cdp_tries_direct_page_runtime_when_attached_session_times_out(self):
+        raw_cdp_url = "http://172.20.0.3:9223"
+        raw_browser_ws_url = "ws://172.20.0.3:9223/devtools/browser/raw-session-id"
+        raw_page_ws_url = "ws://127.0.0.1:9222/devtools/page/raw-page-session"
+        raw_page_url = "https://tinker-console.thinkingmachines.ai/keys?session=secret"
+        metadata_response = FakeResponse({"webSocketDebuggerUrl": raw_browser_ws_url})
+        target_list_response = FakeResponse(
+            [
+                {
+                    "id": "page-1",
+                    "type": "page",
+                    "url": raw_page_url,
+                    "webSocketDebuggerUrl": raw_page_ws_url,
+                }
+            ]
+        )
+        browser_socket = TimeoutAfterChunksSocket(
+            [
+                b"HTTP/1.1 101 Switching Protocols\r\n\r\n",
+                server_text_frame(
+                    {
+                        "id": 1,
+                        "result": {
+                            "targetInfos": [
+                                {"targetId": "page-1", "type": "page", "url": raw_page_url},
+                            ]
+                        },
+                    }
+                ),
+                server_text_frame({"id": 2, "result": {"sessionId": "session-1"}}),
+            ]
+        )
+        direct_page_socket = ChunkedFakeSocket(
+            [
+                b"HTTP/1.1 101 Switching Protocols\r\n\r\n",
+                server_text_frame(
+                    {
+                        "method": "Runtime.executionContextCreated",
+                        "params": {"context": {"id": 7, "origin": "https://secret.example"}},
+                    }
+                ),
+                server_text_frame({"id": 1, "result": {}}),
+                server_text_frame(
+                    {
+                        "id": 2,
+                        "result": {"result": {"type": "string", "value": "dnai_runtime_ok"}},
+                    }
+                ),
+                server_text_frame(
+                    {
+                        "id": 3,
+                        "result": {
+                            "result": {
+                                "type": "object",
+                                "value": runtime_selector_matrix(api_key_create="1"),
+                            }
+                        },
+                    }
+                ),
+            ]
+        )
+
+        with (
+            patch(
+                "tinker_delegate.selector_map.urlopen",
+                side_effect=[metadata_response, target_list_response],
+            ),
+            patch(
+                "tinker_delegate.selector_map.socket.create_connection",
+                side_effect=[browser_socket, direct_page_socket],
+            ),
+        ):
+            result = _probe_raw_cdp_targets(Settings(cdp_url=raw_cdp_url))
+
+        self.assertTrue(result["success"])
+        self.assertFalse(result["runtime_enable_command_success"])
+        self.assertTrue(result["direct_page_runtime_attempted"])
+        self.assertTrue(result["direct_page_runtime_enable_success"])
+        self.assertTrue(result["direct_page_runtime_micro_probe_success"])
+        self.assertTrue(result["direct_page_runtime_selector_success"])
+        self.assertEqual(result["partial_error_kind"], "runtime_enable_timeout")
+        page = result["pages"][0]
+        direct = page["direct_page_runtime"]
+        self.assertTrue(direct["page_list_success"])
+        self.assertTrue(direct["page_websocket_available"])
+        self.assertTrue(direct["runtime_enable_success"])
+        self.assertTrue(direct["runtime_event_before_enable_response"])
+        self.assertEqual(direct["runtime_event_count_band"], "1")
+        self.assertTrue(direct["runtime_execution_context_created"])
+        self.assertTrue(direct["runtime_micro_probe_success"])
+        self.assertTrue(direct["runtime_selector_success"])
+        api_flow = next(flow for flow in direct["flow_observations"] if flow["name"] == "api_keys")
+        create_family = next(
+            family for family in api_flow["family_observations"] if family["name"] == "create_key"
+        )
+        self.assertEqual(create_family["match_band"], "1")
+        rendered = _render_bounded_json(result)
+        self.assertNotIn(raw_cdp_url, rendered)
+        self.assertNotIn(raw_browser_ws_url, rendered)
+        self.assertNotIn(raw_page_ws_url, rendered)
+        self.assertNotIn("session=secret", rendered)
+        self.assertNotIn("secret.example", rendered)
+        self.assertEqual(redact_text(rendered), rendered)
+
     def test_live_selector_probe_falls_back_to_raw_cdp(self):
         async def failing_context(_playwright, _settings):
             raise RuntimeError("playwright cdp timeout")

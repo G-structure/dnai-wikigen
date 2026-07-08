@@ -781,7 +781,21 @@ Implementation status:
             `runtime_selector_command_success=false`, and
             `flow_observations=[]`. Selector-family bands are still not
             Phala-proven; next work is to repair or route around the deployed
-            Neko/CDP attached-session Runtime domain timeout.
+            Neko/CDP attached-session Runtime domain timeout. Source/tests now
+            add that route-around candidate: if attached-session
+            `Runtime.enable` fails, the raw-CDP fallback fetches bounded
+            page-target inventory from `/json/list`, connects directly to the
+            matching page target WebSocket, and retries `Runtime.enable`, the
+            constant micro-probe, and the selector-family matrix. The nested
+            `direct_page_runtime` receipt emits only page-list success,
+            page-WebSocket availability, Runtime enable/error/event-count
+            bands, micro-probe success/error, selector success/error, and
+            declared selector-family count bands. It emits no raw page URLs,
+            WebSocket URLs, event payloads, context IDs, frame IDs, page text,
+            raw selectors, cookies, OTPs, API keys, or card material. This
+            direct route is source/test-real and needs a GitHub-attested image
+            plus Phala measurement before it can be treated as deployed
+            evidence.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed
             one-shot evidence capture. It is disabled by default and returns
             403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
@@ -863,7 +877,10 @@ Implementation status:
             `9d69364` images returned `runtime_enable_timeout`, no Runtime
             execution-context event, no micro-probe, and no selector
             evaluation. The deployed blocker is therefore the attached-session
-            Runtime domain itself.
+            Runtime domain itself. Source/tests now add a direct page-target
+            WebSocket Runtime route that can recover selector-family bands
+            after an attached-session `Runtime.enable` timeout; it remains
+            source/test-real until remeasured on Phala.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,

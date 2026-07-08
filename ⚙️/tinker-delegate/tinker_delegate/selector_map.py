@@ -16,7 +16,7 @@ import socket
 import ssl
 import time
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 from urllib.request import urlopen
 
 from playwright.async_api import async_playwright
@@ -60,7 +60,7 @@ from tinker_delegate.signup import (
 SELECTOR_MAP_VERSION = "2026-07-08.1"
 DEPLOYED_SELECTOR_EVIDENCE_STATUS = "pending_deployed_cvm_capture"
 PROBE_VERSION = "2026-07-08.1"
-RAW_CDP_PROBE_VERSION = "2026-07-08.2"
+RAW_CDP_PROBE_VERSION = "2026-07-08.3"
 COUNT_BAND_CAP = 2
 MATCH_BANDS = {"0", "1", "2+", "probe_error"}
 
@@ -339,6 +339,27 @@ def _http_status_band(status_code: int) -> str:
     return "unknown"
 
 
+def _cdp_list_url(cdp_url: str) -> str:
+    probe_url = _cdp_probe_url(cdp_url)
+    if probe_url.endswith("/json/version"):
+        return probe_url[: -len("/json/version")] + "/json/list"
+    return probe_url.rstrip("/") + "/json/list"
+
+
+def _normalize_target_websocket_url(cdp_url: str, websocket_url: str) -> str:
+    parsed_ws = urlparse(websocket_url)
+    if parsed_ws.scheme not in {"ws", "wss"} or not parsed_ws.hostname:
+        raise RuntimeError("unsupported_websocket_url")
+    parsed_cdp = urlparse(cdp_url)
+    if not parsed_cdp.netloc:
+        raise RuntimeError("unsupported_websocket_url")
+    host = parsed_ws.hostname.lower()
+    if host in {"127.0.0.1", "localhost", "0.0.0.0", "::1"}:
+        scheme = "wss" if parsed_cdp.scheme in {"wss", "https"} else "ws"
+        return urlunparse((scheme, parsed_cdp.netloc, parsed_ws.path, "", parsed_ws.query, ""))
+    return websocket_url
+
+
 def _read_matching_cdp_response(
     sock: socket.socket,
     command_id: int,
@@ -559,6 +580,121 @@ def _runtime_evaluate_value(response: dict[str, Any]) -> Any:
     return remote_object["value"]
 
 
+def _empty_direct_page_runtime_result() -> dict[str, Any]:
+    return {
+        "attempted": False,
+        "page_list_success": False,
+        "page_websocket_available": False,
+        "runtime_enable_success": False,
+        "runtime_enable_error_kind": "",
+        "runtime_event_before_enable_response": False,
+        "runtime_event_count_band": "0",
+        "runtime_execution_context_created": False,
+        "runtime_micro_probe_success": False,
+        "runtime_micro_probe_error_kind": "",
+        "runtime_selector_success": False,
+        "runtime_selector_error_kind": "",
+        "flow_observations": [],
+        "error_kind": "",
+    }
+
+
+def _probe_direct_page_runtime(
+    settings: Settings,
+    target_id: str,
+    selector_map: dict[str, Any],
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    result = _empty_direct_page_runtime_result()
+    result["attempted"] = True
+    try:
+        with urlopen(_cdp_list_url(settings.cdp_url), timeout=5) as response:
+            targets = json.loads(response.read().decode("utf-8", errors="replace"))
+    except Exception:
+        result["error_kind"] = "page_list_unavailable"
+        return result
+    if not isinstance(targets, list):
+        result["error_kind"] = "page_list_invalid"
+        return result
+    result["page_list_success"] = True
+    page_target = next(
+        (
+            target
+            for target in targets
+            if isinstance(target, dict)
+            and str(target.get("type") or "") == "page"
+            and str(target.get("id") or target.get("targetId") or "") == target_id
+        ),
+        None,
+    )
+    if not isinstance(page_target, dict):
+        result["error_kind"] = "page_target_not_found"
+        return result
+    websocket_url = str(page_target.get("webSocketDebuggerUrl") or "")
+    if not websocket_url:
+        result["error_kind"] = "missing_page_websocket_url"
+        return result
+    result["page_websocket_available"] = True
+    try:
+        normalized_websocket_url = _normalize_target_websocket_url(settings.cdp_url, websocket_url)
+        with _RawCdpClient(normalized_websocket_url, timeout_seconds) as client:
+            try:
+                runtime_enable_response = client.command("Runtime.enable")
+            except Exception as exc:
+                result["runtime_enable_error_kind"] = _raw_cdp_error_kind(exc)
+                result["error_kind"] = f"runtime_enable_{result['runtime_enable_error_kind']}"
+                return result
+            result["runtime_enable_success"] = True
+            result["runtime_event_before_enable_response"] = bool(
+                runtime_enable_response.get("_saw_event_before_response")
+            )
+            result["runtime_event_count_band"] = _count_band(
+                int(runtime_enable_response.get("_runtime_event_count_before_response") or 0)
+            )
+            result["runtime_execution_context_created"] = bool(
+                runtime_enable_response.get("_saw_runtime_execution_context_created_before_response")
+            )
+            try:
+                micro_probe_response = client.command(
+                    "Runtime.evaluate",
+                    {
+                        "expression": _runtime_micro_probe_expression(),
+                        "returnByValue": True,
+                        "awaitPromise": False,
+                        "silent": True,
+                    },
+                )
+                micro_probe_value = _runtime_evaluate_value(micro_probe_response)
+                if micro_probe_value != "dnai_runtime_ok":
+                    raise RuntimeError("runtime_exception")
+            except Exception as exc:
+                result["runtime_micro_probe_error_kind"] = _raw_cdp_error_kind(exc)
+                result["error_kind"] = f"runtime_micro_probe_{result['runtime_micro_probe_error_kind']}"
+                return result
+            result["runtime_micro_probe_success"] = True
+            try:
+                runtime_response = client.command(
+                    "Runtime.evaluate",
+                    {
+                        "expression": _runtime_selector_expression(selector_map),
+                        "returnByValue": True,
+                        "awaitPromise": False,
+                        "silent": True,
+                    },
+                )
+                runtime_value = _runtime_evaluate_value(runtime_response)
+            except Exception as exc:
+                result["runtime_selector_error_kind"] = _raw_cdp_error_kind(exc)
+                result["error_kind"] = f"runtime_selector_{result['runtime_selector_error_kind']}"
+                return result
+            result["runtime_selector_success"] = True
+            result["flow_observations"] = _runtime_selector_observations(runtime_value, selector_map)
+            return result
+    except Exception as exc:
+        result["error_kind"] = _raw_cdp_error_kind(exc)
+        return result
+
+
 def _raw_cdp_error_kind(exc: Exception) -> str:
     if isinstance(exc, (socket.timeout, TimeoutError)):
         return "timeout"
@@ -602,6 +738,10 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
         "target_command_success": False,
         "runtime_enable_command_success": False,
         "runtime_execution_context_event_observed": False,
+        "direct_page_runtime_attempted": False,
+        "direct_page_runtime_enable_success": False,
+        "direct_page_runtime_micro_probe_success": False,
+        "direct_page_runtime_selector_success": False,
         "runtime_micro_probe_command_success": False,
         "runtime_selector_command_success": False,
         "frame_tree_command_success": False,
@@ -661,6 +801,7 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                     "runtime_event_before_enable_response": False,
                     "runtime_event_count_band": "0",
                     "runtime_execution_context_created": False,
+                    "direct_page_runtime": _empty_direct_page_runtime_result(),
                     "runtime_micro_probe_success": False,
                     "runtime_micro_probe_error_kind": "",
                     "runtime_selector_success": False,
@@ -697,6 +838,29 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                             error_kind = _raw_cdp_error_kind(exc)
                             page_result["runtime_enable_error_kind"] = error_kind
                             partial_errors.append(f"runtime_enable_{error_kind}")
+                            direct_page_runtime = _probe_direct_page_runtime(
+                                settings,
+                                target_id,
+                                selector_map,
+                                timeout_seconds,
+                            )
+                            page_result["direct_page_runtime"] = direct_page_runtime
+                            result["direct_page_runtime_attempted"] = bool(
+                                result["direct_page_runtime_attempted"]
+                                or direct_page_runtime["attempted"]
+                            )
+                            result["direct_page_runtime_enable_success"] = bool(
+                                result["direct_page_runtime_enable_success"]
+                                or direct_page_runtime["runtime_enable_success"]
+                            )
+                            result["direct_page_runtime_micro_probe_success"] = bool(
+                                result["direct_page_runtime_micro_probe_success"]
+                                or direct_page_runtime["runtime_micro_probe_success"]
+                            )
+                            result["direct_page_runtime_selector_success"] = bool(
+                                result["direct_page_runtime_selector_success"]
+                                or direct_page_runtime["runtime_selector_success"]
+                            )
                             stop_after_page = True
                         else:
                             page_result["runtime_enable_success"] = True

@@ -225,7 +225,18 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   at live attested compose hash
   `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`, and
   `/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
-  returned 403.
+  returned 403. Source/tests now add a direct page-target WebSocket route for
+  that blocker: if attached-session `Runtime.enable` fails, the probe fetches
+  bounded page-target inventory from `/json/list`, connects directly to the
+  matching page target WebSocket, and retries `Runtime.enable`, the constant
+  micro-probe, and selector-family matrix on that direct connection. The nested
+  `direct_page_runtime` receipt emits only page-list success, page-WebSocket
+  availability, Runtime enable/error/event-count bands, micro-probe
+  success/error, selector success/error, and declared selector-family count
+  bands. It emits no raw page URLs, WebSocket URLs, event payloads, context IDs,
+  frame IDs, page text, selectors, cookies, OTPs, API keys, or card material.
+  This direct route is source/test-real until a GitHub-attested image is
+  remeasured on Phala.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,

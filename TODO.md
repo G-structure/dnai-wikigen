@@ -910,6 +910,22 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             and `/billing/add-balance` all return 403. Next step: repair or
             route around the Neko/CDP attached-session Runtime domain timeout
             before retrying selector-family counts.
+            Follow-up source/tests 2026-07-08: when the attached-session
+            `Runtime.enable` path fails, the raw-CDP fallback now fetches the
+            bounded page-target inventory from `/json/list`, connects directly
+            to the matching page target WebSocket, and retries
+            `Runtime.enable`, the constant micro-probe, and the selector-family
+            matrix on that direct page connection. The direct route emits only
+            bounded fields under `direct_page_runtime`: page-list success,
+            page-WebSocket availability, Runtime enable/error/event-count
+            bands, micro-probe success/error, selector success/error, and
+            declared selector-family count bands. Tests prove the direct route
+            can recover selector-family observations after an attached-session
+            `Runtime.enable` timeout without emitting raw page URLs, WebSocket
+            URLs, event payloads, context IDs, frame IDs, page text, selectors,
+            cookies, OTPs, API keys, or card material. Next step: build
+            GitHub-attested images, run one-shot Phala selector-probe, record
+            whether direct page Runtime succeeds, then restore normal compose.
 - [x] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
       needed by each compose profile.
       Done 2026-07-08: `scripts/redeploy-phala-cvm.mjs` now defaults to

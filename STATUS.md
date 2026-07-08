@@ -166,7 +166,18 @@ return 403 in normal mode.
   `runtime_event_count_band=0`, `runtime_execution_context_created=false`,
   `runtime_micro_probe_command_success=false`,
   `runtime_selector_command_success=false`, `flow_observations=[]`, and
-  `raw_secret_egress=false`.
+  `raw_secret_egress=false`. Source/tests now add a direct page-target
+  WebSocket route-around candidate: when attached-session `Runtime.enable`
+  fails, the raw-CDP fallback fetches bounded page-target inventory from
+  `/json/list`, connects directly to the matching page target WebSocket, and
+  retries `Runtime.enable`, the constant micro-probe, and selector-family
+  matrix. The nested `direct_page_runtime` receipt emits only page-list success,
+  page-WebSocket availability, Runtime enable/error/event-count bands,
+  micro-probe success/error, selector success/error, and declared
+  selector-family count bands. It emits no raw page URLs, WebSocket URLs, event
+  payloads, context IDs, frame IDs, page text, selectors, cookies, OTPs, API
+  keys, or card material. This route remains source/test-real until a
+  GitHub-attested image is remeasured on Phala.
   `Page.getFrameTree` still times out before frame inventory. The
   timeout-preserving page observation refinement is now Phala-proven with
   GitHub-attested `a384db2` images:
