@@ -881,6 +881,35 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             GitHub-attested images for this source slice, run one-shot Phala
             selector-probe, record whether `Runtime.enable` or the subsequent
             micro-probe times out, then restore normal compose.
+            Follow-up Phala attempt 2026-07-08: GitHub Actions built and
+            signed source commit
+            `9d6936434aab24eb3513abe7b5e862c1802da022` into
+            `tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04`
+            and
+            `tee-email-oracle@sha256:f88457fbde049ed42e75a5f06d06008376f1d313ca3b91db7038df50853d2df6`;
+            local attestation checks passed for both images. A one-shot Phala
+            diagnostic compose reached app compose hash
+            `081ef36b1a2a4d6e84623a524f5a2e0f033516fb6eabdf72a18758e71b4f9fb4`;
+            `/browser/selector-probe` returned `success=true`,
+            `probe_backend=raw_cdp`,
+            `partial_error_kind=runtime_enable_timeout`,
+            `runtime_enable_command_success=false`,
+            `runtime_execution_context_event_observed=false`,
+            `runtime_micro_probe_command_success=false`,
+            `runtime_selector_command_success=false`, bounded page
+            `url_class=other`, `attached=true`,
+            `runtime_enable_error_kind=timeout`,
+            `runtime_event_count_band=0`,
+            `runtime_execution_context_created=false`, empty
+            `flow_observations`, and `raw_secret_egress=false`. This narrows
+            the blocker below page-scoped evaluation itself: the deployed
+            attached page session does not complete `Runtime.enable`. Normal
+            compose was restored afterward at live attested compose hash
+            `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`;
+            health is OK and `/browser/readiness`, `/browser/selector-probe`,
+            and `/billing/add-balance` all return 403. Next step: repair or
+            route around the Neko/CDP attached-session Runtime domain timeout
+            before retrying selector-family counts.
 - [x] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
       needed by each compose profile.
       Done 2026-07-08: `scripts/redeploy-phala-cvm.mjs` now defaults to
@@ -893,7 +922,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       explicit missing-key fail-closed behavior, allow-file additions, and the
       explicit all-env fallback. The current Phala normal profile was redeployed
       with this policy: live compose hash
-      `6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd`,
+      `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`,
       `allowed_env_count=7`, public logs/sysinfo disabled, health OK, and both
       browser diagnostic endpoints still 403. Deployment-bundle verification
       passed against the narrowed allowed-env policy with `raw_secret_egress=false`.
@@ -1644,6 +1673,9 @@ vision Wiki is reaching for.
             Refreshed again 2026-07-08 for bounded post-upgrade CDP protocol
             probe commit `59a9eac5d22f9834d74e3f263de2f46130a0a898` with
             GitHub Actions build run `28961851866`.
+            Refreshed again 2026-07-08 for bounded Runtime-enable CDP
+            diagnostic commit `9d6936434aab24eb3513abe7b5e862c1802da022`
+            with GitHub Actions build run `28971028987`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
@@ -1651,14 +1683,14 @@ vision Wiki is reaching for.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` /
       `cvm_1w85mGjo` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:d5512a498f91e7b7470b70dcc93bd5262f483e0d74eacbaeb5626a9eb21086bc`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f88457fbde049ed42e75a5f06d06008376f1d313ca3b91db7038df50853d2df6`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:509346d9f232cf49962b0e980a59fc6d3911cce5ede1fa74a71726a48a15577f`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
       image refs change. The current normal profile is live at attested compose
-      hash `6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd`
+      hash `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`
       with narrowed `allowed_env_count=7`. Live update with disabled public
       logs/sysinfo succeeded, but Phala still reports `dstack-dev-0.5.9` /
       `is_dev=true`.
@@ -1680,16 +1712,16 @@ vision Wiki is reaching for.
       - [x] `verify-deployment-bundle` passes against the live log-hardened
             Phala deployment with GitHub image provenance/SBOM checks, required
             sidecar digests, local raw compose hash
-            `5cde251bf97cce3ca6ef099b6e07fd1c2d0b38b7419c13ad6cfd296787b66601`,
+            `a5319e40a0844083303515e2a322f93880378ff51aa972a1cf7b8f9bfa25d0ae`,
             and live attested compose hash
-            `6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd`.
+            `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.
             Done 2026-07-08: live delegate image
-            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:509346d9f232cf49962b0e980a59fc6d3911cce5ede1fa74a71726a48a15577f`
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04`
             is GitHub-attested from commit
-            `5943c61a496e81fbd19093f3fced61b14bcd5bb0`; `/pin` rejects
+            `9d6936434aab24eb3513abe7b5e862c1802da022`; `/pin` rejects
             unauthenticated requests with `401`, `/browser/readiness` and
             `/browser/selector-probe` reject while disabled with `403`,
             `/credentials/encrypted` is closed on the delegate port with `404`,

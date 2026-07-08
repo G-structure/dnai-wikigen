@@ -33,26 +33,26 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
 `wikigen` in workspace `wiki`.
 
 Latest Phala evidence, 2026-07-08: GitHub Actions built source commit
-`5943c61a496e81fbd19093f3fced61b14bcd5bb0` into GHCR digest-pinned
-`tee-email-oracle@sha256:d5512a498f91e7b7470b70dcc93bd5262f483e0d74eacbaeb5626a9eb21086bc`
+`9d6936434aab24eb3513abe7b5e862c1802da022` into GHCR digest-pinned
+`tee-email-oracle@sha256:f88457fbde049ed42e75a5f06d06008376f1d313ca3b91db7038df50853d2df6`
 and
-`tinker-delegate@sha256:509346d9f232cf49962b0e980a59fc6d3911cce5ede1fa74a71726a48a15577f`
+`tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04`
 images. Local `verify-ghcr-image-attestation` checks passed for both SLSA
 provenance and SPDX SBOM attestations. The restored normal CVM
 `cvm_1w85mGjo` is running app ID
 `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717` at live Phala compose hash
-`6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd` with
+`54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2` with
 public logs/sysinfo disabled and 7 allowed runtime env keys. The local raw
 compose/image-policy hash is
-`5cde251bf97cce3ca6ef099b6e07fd1c2d0b38b7419c13ad6cfd296787b66601`;
+`a5319e40a0844083303515e2a322f93880378ff51aa972a1cf7b8f9bfa25d0ae`;
 the rendered compose SHA-256 is
-`15feb78a5e580b14f95105bc4b6c8d9c58ce8ef137caaa2d3d0db43be8d01deb`.
+`fbc95279dc8c5e154015635a6ea064da4ab12ad5272e52fbbf1275a671bb884b`.
 `verify-deployment-bundle` passed against the live endpoint with OS image hash
 `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`,
 report data
-`7b7110dc7566895624eb8681a83137ea154b965296eff540bc9b5be5c2a3c0f3`,
+`76bba71f3c5db248cdcb697fb13f08ed186d2008389b053718f9911977fd0b6e`,
 encryption public key
-`80bf91db812f09cfab809d10925df3194fb257e4272a6980276040613b9be86b`,
+`0e0cc835bf1411be410358f9ba49eb381d017d9bcf3656ff4244aa1e3bdd7956`,
 and quote size `5010`. Health is OK, the oracle is ready, and
 `/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
 return 403 in normal mode.
@@ -155,8 +155,18 @@ return 403 in normal mode.
   cover successful execution-context observation and a `Runtime.enable` timeout
   before any micro-probe or selector evaluation. It emits no event payloads,
   context IDs, frame IDs, raw URLs, page text, selectors, cookies, OTPs, API
-  keys, or card material. This new diagnostic is source/test-real pending a
-  GitHub-attested image build and Phala one-shot measurement.
+  keys, or card material. A Phala one-shot measurement using GitHub-attested
+  `9d69364` images reached `probe_backend=raw_cdp`, returned `success=true`,
+  preserved bounded page `url_class=other` and `attached=true`, and proved
+  `Runtime.enable` itself times out before any micro-probe or selector
+  evaluation: `partial_error_kind=runtime_enable_timeout`,
+  `runtime_enable_command_success=false`,
+  `runtime_execution_context_event_observed=false`,
+  `runtime_enable_error_kind=timeout`,
+  `runtime_event_count_band=0`, `runtime_execution_context_created=false`,
+  `runtime_micro_probe_command_success=false`,
+  `runtime_selector_command_success=false`, `flow_observations=[]`, and
+  `raw_secret_egress=false`.
   `Page.getFrameTree` still times out before frame inventory. The
   timeout-preserving page observation refinement is now Phala-proven with
   GitHub-attested `a384db2` images:
@@ -165,20 +175,20 @@ return 403 in normal mode.
   class/hash, `attached=true`, `frame_tree_error_kind=timeout`,
   `partial_error_kind=frame_tree_timeout`, empty frame observations, and
   `raw_secret_egress=false`. Normal compose was restored afterward at compose
-  hash `6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd`,
+  hash `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`,
   with public logs/sysinfo still disabled; both diagnostic endpoints return
   403. The restored deployment-bundle verifier ties the new normal compose to
-  `tinker-delegate@sha256:509346d9f232cf49962b0e980a59fc6d3911cce5ede1fa74a71726a48a15577f`,
-  `tee-email-oracle@sha256:d5512a498f91e7b7470b70dcc93bd5262f483e0d74eacbaeb5626a9eb21086bc`,
-  GitHub-signed provenance/SBOM attestations for source `5943c61`, app ID
+  `tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04`,
+  `tee-email-oracle@sha256:f88457fbde049ed42e75a5f06d06008376f1d313ca3b91db7038df50853d2df6`,
+  GitHub-signed provenance/SBOM attestations for source `9d69364`, app ID
   `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, OS image hash
   `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`,
   local raw compose/image-policy hash
-  `5cde251bf97cce3ca6ef099b6e07fd1c2d0b38b7419c13ad6cfd296787b66601`,
+  `a5319e40a0844083303515e2a322f93880378ff51aa972a1cf7b8f9bfa25d0ae`,
   rendered compose SHA-256
-  `15feb78a5e580b14f95105bc4b6c8d9c58ce8ef137caaa2d3d0db43be8d01deb`,
+  `fbc95279dc8c5e154015635a6ea064da4ab12ad5272e52fbbf1275a671bb884b`,
   and live attested compose hash
-  `6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd`.
+  `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`.
   The matching `GET /browser/selector-probe` endpoint is now Phala-proven as a
   deployed gate/fail-closed path: one-shot compose with GitHub-attested
   `7973b27` images enabled it on top of the bounded bootstrap profile, the live
@@ -698,19 +708,19 @@ return 403 in normal mode.
   current deployment as one bounded certificate by combining the GitHub image
   attestation gate, digest-pinned compose policy, sidecar digest requirements,
   and live Phala CVM attestation envelope.
-- GitHub Actions run `28969484141` built the current deploy-critical images on
+- GitHub Actions run `28971028987` built the current deploy-critical images on
   GitHub-hosted workers from source commit
-  `5943c61a496e81fbd19093f3fced61b14bcd5bb0` and attached GitHub-signed SLSA
+  `9d6936434aab24eb3513abe7b5e862c1802da022` and attached GitHub-signed SLSA
   provenance plus SPDX SBOM attestations. The local deploy gate verified both
   image digests with
   `⚙️/tinker-delegate/scripts/verify-ghcr-image-attestation.sh`.
 - Current deploy-critical image digests:
   - Oracle:
-    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:d5512a498f91e7b7470b70dcc93bd5262f483e0d74eacbaeb5626a9eb21086bc`.
+    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f88457fbde049ed42e75a5f06d06008376f1d313ca3b91db7038df50853d2df6`.
   - Delegate:
-    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:509346d9f232cf49962b0e980a59fc6d3911cce5ede1fa74a71726a48a15577f`.
+    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04`.
 - Local `verify-ghcr-image-attestation` checks passed for both current image
-  indexes with source commit `5943c61a496e81fbd19093f3fced61b14bcd5bb0`,
+  indexes with source commit `9d6936434aab24eb3513abe7b5e862c1802da022`,
   verified provenance attestation, verified SBOM attestation, and
   `raw_secret_egress=false`.
 - The current Phala compose hardcodes these deploy-critical image refs and the
@@ -726,7 +736,7 @@ return 403 in normal mode.
   - App ID: `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`
   - Status: `running`
   - Live compose hash:
-    `6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd`
+    `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`
   - Gateway base: `dstack-pha-prod9.phala.network`
   - Public logs/sysinfo: `false` / `false`.
   - Runtime env surface: narrowed on 2026-07-08. `scripts/redeploy-phala-cvm.mjs`
@@ -1196,14 +1206,14 @@ cd "⚙️/tee-email-oracle" && uv run python -m compileall email_oracle
 
 cd "⚙️/tinker-delegate" && \
   scripts/verify-ghcr-image-attestation.sh \
-    ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:d5512a498f91e7b7470b70dcc93bd5262f483e0d74eacbaeb5626a9eb21086bc \
-    --source-digest 5943c61a496e81fbd19093f3fced61b14bcd5bb0 \
+    ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f88457fbde049ed42e75a5f06d06008376f1d313ca3b91db7038df50853d2df6 \
+    --source-digest 9d6936434aab24eb3513abe7b5e862c1802da022 \
     --repo G-structure/dnai-wikigen
 
 cd "⚙️/tinker-delegate" && \
   scripts/verify-ghcr-image-attestation.sh \
-    ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:509346d9f232cf49962b0e980a59fc6d3911cce5ede1fa74a71726a48a15577f \
-    --source-digest 5943c61a496e81fbd19093f3fced61b14bcd5bb0 \
+    ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04 \
+    --source-digest 9d6936434aab24eb3513abe7b5e862c1802da022 \
     --repo G-structure/dnai-wikigen
 
 cd "⚙️/tinker-delegate" && \
@@ -1219,12 +1229,12 @@ cd "⚙️/tinker-delegate" && \
     --allowed-env TINKER_MAX_ADD_BALANCE_USD \
     --allowed-env TINKER_ORACLE_AUTH_KEY_PATH \
     --allowed-env TINKER_RUN_METADATA_KEY_PATH \
-    --expected-compose-hash 5cde251bf97cce3ca6ef099b6e07fd1c2d0b38b7419c13ad6cfd296787b66601 \
-    --attested-compose-hash 6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd \
+    --expected-compose-hash a5319e40a0844083303515e2a322f93880378ff51aa972a1cf7b8f9bfa25d0ae \
+    --attested-compose-hash 54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
-    --require-image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:d5512a498f91e7b7470b70dcc93bd5262f483e0d74eacbaeb5626a9eb21086bc \
-    --require-image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:509346d9f232cf49962b0e980a59fc6d3911cce5ede1fa74a71726a48a15577f \
+    --require-image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f88457fbde049ed42e75a5f06d06008376f1d313ca3b91db7038df50853d2df6 \
+    --require-image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04 \
     --require-image-digest sha256:320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \
     --require-image-digest sha256:e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f
 
@@ -1240,13 +1250,13 @@ cd "⚙️/tinker-delegate" && \
     --allowed-env TINKER_MAX_ADD_BALANCE_USD \
     --allowed-env TINKER_ORACLE_AUTH_KEY_PATH \
     --allowed-env TINKER_RUN_METADATA_KEY_PATH \
-    --image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:d5512a498f91e7b7470b70dcc93bd5262f483e0d74eacbaeb5626a9eb21086bc \
-    --image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:509346d9f232cf49962b0e980a59fc6d3911cce5ede1fa74a71726a48a15577f \
-    --source-digest 5943c61a496e81fbd19093f3fced61b14bcd5bb0 \
+    --image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f88457fbde049ed42e75a5f06d06008376f1d313ca3b91db7038df50853d2df6 \
+    --image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04 \
+    --source-digest 9d6936434aab24eb3513abe7b5e862c1802da022 \
     --repo G-structure/dnai-wikigen \
     --phala-raw-compose \
-    --expected-compose-hash 5cde251bf97cce3ca6ef099b6e07fd1c2d0b38b7419c13ad6cfd296787b66601 \
-    --attested-compose-hash 6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd \
+    --expected-compose-hash a5319e40a0844083303515e2a322f93880378ff51aa972a1cf7b8f9bfa25d0ae \
+    --attested-compose-hash 54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
     --require-image-digest sha256:320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \

@@ -211,8 +211,21 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   `runtime_enable_error_kind`, `runtime_event_before_enable_response`,
   `runtime_event_count_band`, and `runtime_execution_context_created`. It emits
   no event payloads, context IDs, frame IDs, raw URLs, page text, selectors,
-  cookies, OTPs, API keys, or card material. It still needs a GitHub-attested
-  image build and Phala one-shot measurement.
+  cookies, OTPs, API keys, or card material. A 2026-07-08 Phala one-shot run
+  with GitHub-attested `9d69364` images proved `Runtime.enable` itself times
+  out on the attached page session before any micro-probe or selector
+  evaluation: `partial_error_kind=runtime_enable_timeout`,
+  `runtime_enable_command_success=false`,
+  `runtime_execution_context_event_observed=false`,
+  `runtime_enable_error_kind=timeout`, `runtime_event_count_band=0`,
+  `runtime_execution_context_created=false`,
+  `runtime_micro_probe_command_success=false`,
+  `runtime_selector_command_success=false`, `flow_observations=[]`, and
+  `raw_secret_egress=false`. The CVM was restored to normal compose afterward
+  at live attested compose hash
+  `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`, and
+  `/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
+  returned 403.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,

@@ -768,7 +768,20 @@ Implementation status:
             payloads, context IDs, frame IDs, raw URLs, page text, selectors,
             cookies, OTPs, API keys, or card material. It still needs a
             GitHub-attested image build and Phala measurement before it can be
-            treated as deployed evidence.
+            treated as deployed evidence. A follow-up one-shot Phala
+            measurement with GitHub-attested `9d69364` images proved
+            `Runtime.enable` itself times out on the attached page session:
+            `partial_error_kind=runtime_enable_timeout`,
+            `runtime_enable_command_success=false`,
+            `runtime_execution_context_event_observed=false`,
+            `runtime_enable_error_kind=timeout`,
+            `runtime_event_count_band=0`,
+            `runtime_execution_context_created=false`,
+            `runtime_micro_probe_command_success=false`,
+            `runtime_selector_command_success=false`, and
+            `flow_observations=[]`. Selector-family bands are still not
+            Phala-proven; next work is to repair or route around the deployed
+            Neko/CDP attached-session Runtime domain timeout.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed
             one-shot evidence capture. It is disabled by default and returns
             403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
@@ -846,9 +859,11 @@ Implementation status:
             selector expression itself. Source/tests now add a bounded
             Runtime/session diagnostic by running `Runtime.enable` before the
             constant micro-probe and recording only success/error/event-count
-            bands. The next deployed measurement should identify whether
-            `Runtime.enable` itself times out or whether enable succeeds
-            without a subsequent evaluable execution context.
+            bands. The 2026-07-08 Phala measurement on GitHub-attested
+            `9d69364` images returned `runtime_enable_timeout`, no Runtime
+            execution-context event, no micro-probe, and no selector
+            evaluation. The deployed blocker is therefore the attached-session
+            Runtime domain itself.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
@@ -1079,17 +1094,17 @@ Implementation status:
             delegate `/health` returning `ok`, and live delegate
             deployment-bundle verification passing against local raw compose
             image-policy hash
-            `5cde251bf97cce3ca6ef099b6e07fd1c2d0b38b7419c13ad6cfd296787b66601`,
+            `a5319e40a0844083303515e2a322f93880378ff51aa972a1cf7b8f9bfa25d0ae`,
             rendered compose SHA-256
-            `15feb78a5e580b14f95105bc4b6c8d9c58ce8ef137caaa2d3d0db43be8d01deb`,
+            `fbc95279dc8c5e154015635a6ea064da4ab12ad5272e52fbbf1275a671bb884b`,
             and live Phala attested compose hash
-            `6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd`.
+            `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`.
             The current oracle image is
-            `tee-email-oracle@sha256:d5512a498f91e7b7470b70dcc93bd5262f483e0d74eacbaeb5626a9eb21086bc`
+            `tee-email-oracle@sha256:f88457fbde049ed42e75a5f06d06008376f1d313ca3b91db7038df50853d2df6`
             and the current delegate image is
-            `tinker-delegate@sha256:509346d9f232cf49962b0e980a59fc6d3911cce5ede1fa74a71726a48a15577f`,
+            `tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04`,
             both built from source commit
-            `5943c61a496e81fbd19093f3fced61b14bcd5bb0`. Tinker bootstrap,
+            `9d6936434aab24eb3513abe7b5e862c1802da022`. Tinker bootstrap,
             selector-probe, browser-readiness, and add-balance are disabled in
             the current normal compose, and live checks return 403 for those
             widened/diagnostic endpoints.
