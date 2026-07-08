@@ -885,7 +885,11 @@ Implementation status:
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning degraded until credentials are sealed, and live delegate
             attestation verification passing against Phala compose hash
-            `cb4e3a013cedb9d14db49ad745dfde44eeb7b6a57121e892bd3e51b2a1f25b71`.
+            `0c745547099dd2c1f0777cc60deb163b040b920dfcf736697edd53dce1d26985`.
+            Oracle credential-ingress attestation is live for
+            `context=oracle-credentials`, but credential provisioning is
+            disabled by default and no real mailbox credentials have been
+            sealed into the running CVM.
             The current source commit, image digests, endpoints, and bounded
             quote-envelope fields are recorded in `deployments/base-sepolia.json`.
 [real]      In dstack mode `/attestation` includes public dstack evidence fields

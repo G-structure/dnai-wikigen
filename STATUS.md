@@ -124,6 +124,10 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   Python compile checks, and Python unit tests for implemented suites.
 - `.github/workflows/ci.yml` runs the same secret scan, Foundry, and Python
   gates in CI for pushes and pull requests.
+- The Foundry CI checkout intentionally does not recurse into the read-only
+  research submodules; `forge-std` is vendored under the contracts package, and
+  avoiding recursive submodules prevents the GitHub runner from failing in the
+  emoji-path `🔬/` submodule metadata before Foundry starts.
 - Python unit tests for Tinker delegate and email oracle services.
 - Mocked-SDK `IsolatedTinkerSession` tests cover one training run per deal,
   TTL on checkpoint save paths, path-checked sampling, cleanup deletion, and
@@ -542,15 +546,15 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   current deployment as one bounded certificate by combining the GitHub image
   attestation gate, digest-pinned compose policy, sidecar digest requirements,
   and live Phala CVM attestation envelope.
-- GitHub Actions run `28937712489` built the current deploy-critical images on
+- GitHub Actions run `28938983027` built the current deploy-critical images on
   GitHub-hosted workers and attached GitHub-signed SLSA provenance plus SPDX
   SBOM attestations. The local deploy gate verified both image digests with
   `⚙️/tinker-delegate/scripts/verify-ghcr-image-attestation.sh`.
 - Current deploy-critical image digests:
   - Oracle:
-    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:c4c9b5837ef8ca71f00b6545b683be1fe55dc22e1fc6cb0423a8822caa786a73`
+    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55`
   - Delegate:
-    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:47c2c384421805a15d10dddb34907f039b6d22cd0d1d7ebd2af18f5fba8e69fc`
+    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ac2617341d56023da207340eb2219608710bf67beb05cb28688a68d755b8ae3f`
 - Full reproducible container images for every side service, apt package
   pinning, timestamp normalization, and published digest evidence for
   non-critical side services remain open.
@@ -563,9 +567,9 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   - OS image hash:
     `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`
   - Attested compose hash:
-    `cb4e3a013cedb9d14db49ad745dfde44eeb7b6a57121e892bd3e51b2a1f25b71`
+    `0c745547099dd2c1f0777cc60deb163b040b920dfcf736697edd53dce1d26985`
   - Local raw-compose/image-policy hash:
-    `86951bb72fcff8a613760ee1c4672d97373e03558593a5f5366fd5c2b58003aa`
+    `e7027ccb2fd071d589d3ad43de96ee2b13c3b8e04ba56072edb388a4d54ea799`
   - Delegate endpoint:
     `https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network`
   - Oracle endpoint:
@@ -579,17 +583,24 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     a usable browser-control response.
   - `verify-cvm-attestation` succeeded against delegate
     `/attestation?context=artifact`: mode `tdx`, quote size `5010`, report data
-    `3a6638177e8e45f8a7c85a03e32f77c10d2da582c63c28832f42e356246503d8`,
+    `fc845ae4dd1e5362a30552da36d5e96df35bfae7a8c1b3175a50ecac1c09f371`,
     encryption public key
-    `e2f0848538394a3fdae0b4fb4f9b984975ebd44115c886a09281c20007819c4a`,
+    `d17076aae4ce30f1468c92b52b22f5359890753e996a5ff788e11d8f1f43b066`,
     and the attested compose/app/OS-image/image-digest policy above.
   - `verify-deployment-bundle` succeeded against the same delegate endpoint:
     both deploy-critical GHCR image refs verified GitHub SLSA provenance and
     SPDX SBOM attestations for source commit
-    `6ed07d0323182b1a7e67b2778e6bb9ee8497b976`, the rendered compose included
+    `378bda387a76da252b862b4e1094496850be8eb4`, the rendered compose included
     those exact oracle/delegate refs plus required Neko and Playwright sidecar
     digests, and the live CVM attestation matched app ID, attested compose hash,
     OS image hash, report data, public key, and quote size `5010`.
+  - Oracle `/attestation?context=oracle-credentials` now returns a live TDX
+    credential-ingress envelope with report data
+    `4040f319b9cdf29496710aa1d1e3ef51553fd175a2fbbc81e8038227e54252f8`,
+    encryption public key
+    `80e3c8a45c3ecda90e8cc2b1d914d8e284458c515ee24d7ea016e9119d9fdc1d`,
+    quote size `5010`, `oracle_email=""`, and no raw credential output.
+    `POST /credentials/encrypted` rejects while disabled by default.
 - `deployments/base-sepolia.json` is now the machine-readable deployment
   manifest. It records the funded current operator deployer, current
   operator-controlled Base Sepolia contracts, and their deployment transaction
@@ -672,10 +683,10 @@ explicitly legacy.
 - Production or repeated card funding needs legal/compliance approval; raw-card
   encrypted delivery remains limited to an operator-owned capped validation
   path.
-- Deployed Phala/CVM credential provisioning remains pending: an encrypted
-  provisioning path exists, but it has not been run against the live CVM with
-  real mailbox credentials; the oracle has no sealed email credentials, and the
-  delegate has no Tinker API key configured.
+- Deployed Phala/CVM credential provisioning is present and attested, but
+  intentionally disabled by default. It has not been run with real mailbox
+  credentials; the oracle has no sealed email credentials, and the delegate has
+  no Tinker API key configured.
 - Deployed headed Neko and Playwright sidecar containers are running, but
   Tinker login/API-key capture inside the deployed CVM is not yet proven.
 - Full Intel TDX quote-internal parsing and quote freshness checking need
@@ -712,19 +723,22 @@ cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main funding-pre
 
 cd "⚙️/tinker-delegate" && \
   scripts/verify-ghcr-image-attestation.sh \
-    ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:c4c9b5837ef8ca71f00b6545b683be1fe55dc22e1fc6cb0423a8822caa786a73 \
-    --source-digest 6ed07d0323182b1a7e67b2778e6bb9ee8497b976 \
+    ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55 \
+    --source-digest 378bda387a76da252b862b4e1094496850be8eb4 \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch
 
 cd "⚙️/tinker-delegate" && \
   scripts/verify-ghcr-image-attestation.sh \
-    ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:47c2c384421805a15d10dddb34907f039b6d22cd0d1d7ebd2af18f5fba8e69fc \
-    --source-digest 6ed07d0323182b1a7e67b2778e6bb9ee8497b976 \
+    ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ac2617341d56023da207340eb2219608710bf67beb05cb28688a68d755b8ae3f \
+    --source-digest 378bda387a76da252b862b4e1094496850be8eb4 \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch
 
 cd "⚙️/tinker-delegate" && \
-  TINKER_ORACLE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:c4c9b5837ef8ca71f00b6545b683be1fe55dc22e1fc6cb0423a8822caa786a73 \
-  TINKER_DELEGATE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:47c2c384421805a15d10dddb34907f039b6d22cd0d1d7ebd2af18f5fba8e69fc \
+  TINKER_ORACLE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55 \
+  TINKER_DELEGATE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ac2617341d56023da207340eb2219608710bf67beb05cb28688a68d755b8ae3f \
+  ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=false \
+  ORACLE_CREDENTIAL_PROVISIONING_TOKEN= \
+  TINKER_BOOTSTRAP_SIGNUP=false \
   uv run python -m tinker_delegate.main verify-cvm-attestation \
     https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network \
     --compose docker-compose.all.phala.yaml \
@@ -732,27 +746,34 @@ cd "⚙️/tinker-delegate" && \
     --allowed-env TINKER_ORACLE_IMAGE \
     --allowed-env TINKER_DELEGATE_IMAGE \
     --allowed-env TINKER_BOOTSTRAP_SIGNUP \
-    --attested-compose-hash cb4e3a013cedb9d14db49ad745dfde44eeb7b6a57121e892bd3e51b2a1f25b71 \
+    --allowed-env ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT \
+    --allowed-env ORACLE_CREDENTIAL_PROVISIONING_TOKEN \
+    --attested-compose-hash 0c745547099dd2c1f0777cc60deb163b040b920dfcf736697edd53dce1d26985 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
-    --require-image-digest sha256:c4c9b5837ef8ca71f00b6545b683be1fe55dc22e1fc6cb0423a8822caa786a73 \
-    --require-image-digest sha256:47c2c384421805a15d10dddb34907f039b6d22cd0d1d7ebd2af18f5fba8e69fc
+    --require-image-digest sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55 \
+    --require-image-digest sha256:ac2617341d56023da207340eb2219608710bf67beb05cb28688a68d755b8ae3f
 
 cd "⚙️/tinker-delegate" && \
-  TINKER_ORACLE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:c4c9b5837ef8ca71f00b6545b683be1fe55dc22e1fc6cb0423a8822caa786a73 \
-  TINKER_DELEGATE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:47c2c384421805a15d10dddb34907f039b6d22cd0d1d7ebd2af18f5fba8e69fc \
+  TINKER_ORACLE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55 \
+  TINKER_DELEGATE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ac2617341d56023da207340eb2219608710bf67beb05cb28688a68d755b8ae3f \
+  ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=false \
+  ORACLE_CREDENTIAL_PROVISIONING_TOKEN= \
+  TINKER_BOOTSTRAP_SIGNUP=false \
   uv run python -m tinker_delegate.main verify-deployment-bundle \
     https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network \
     --compose docker-compose.all.phala.yaml \
-    --image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:c4c9b5837ef8ca71f00b6545b683be1fe55dc22e1fc6cb0423a8822caa786a73 \
-    --image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:47c2c384421805a15d10dddb34907f039b6d22cd0d1d7ebd2af18f5fba8e69fc \
-    --source-digest 6ed07d0323182b1a7e67b2778e6bb9ee8497b976 \
+    --image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55 \
+    --image ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ac2617341d56023da207340eb2219608710bf67beb05cb28688a68d755b8ae3f \
+    --source-digest 378bda387a76da252b862b4e1094496850be8eb4 \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch \
     --phala-raw-compose \
     --allowed-env TINKER_ORACLE_IMAGE \
     --allowed-env TINKER_DELEGATE_IMAGE \
     --allowed-env TINKER_BOOTSTRAP_SIGNUP \
-    --attested-compose-hash cb4e3a013cedb9d14db49ad745dfde44eeb7b6a57121e892bd3e51b2a1f25b71 \
+    --allowed-env ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT \
+    --allowed-env ORACLE_CREDENTIAL_PROVISIONING_TOKEN \
+    --attested-compose-hash 0c745547099dd2c1f0777cc60deb163b040b920dfcf736697edd53dce1d26985 \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
     --require-image-digest sha256:320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \

@@ -1158,7 +1158,9 @@ vision Wiki is reaching for.
       `forge build`, `forge test`, gas snapshot, coverage if feasible.
       Done in `.github/workflows/ci.yml`: the Foundry job installs Foundry and
       runs `scripts/verify-local.sh foundry`, which executes `forge build
-      --sizes` and `forge test`.
+      --sizes` and `forge test`. Refreshed 2026-07-08: the Foundry checkout no
+      longer requests recursive research submodules, because the needed
+      `forge-std` files are vendored in the contract package.
 - [x] `P0` Add CI for Python packages:
       `uv sync`, import checks, unit tests, compileall, type checks where set up.
       Done in `.github/workflows/ci.yml`: the Python job installs `uv` and runs
@@ -1209,17 +1211,17 @@ vision Wiki is reaching for.
       - [x] Run the GitHub image workflow, verify published image attestations,
             and record final image digests.
             Refreshed 2026-07-08 for commit
-            `6ed07d0323182b1a7e67b2778e6bb9ee8497b976` with GitHub Actions run
-            `28937712489`.
+            `378bda387a76da252b862b4e1094496850be8eb4` with GitHub Actions run
+            `28938983027`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:c4c9b5837ef8ca71f00b6545b683be1fe55dc22e1fc6cb0423a8822caa786a73`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:47c2c384421805a15d10dddb34907f039b6d22cd0d1d7ebd2af18f5fba8e69fc`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ac2617341d56023da207340eb2219608710bf67beb05cb28688a68d755b8ae3f`.
 - [ ] `Deploy` Verify CVM endpoints:
       `/health`, `/attestation`, oracle `/pin` auth rejection, delegate status,
       browser CDP internal-only or protected.
@@ -1232,8 +1234,12 @@ vision Wiki is reaching for.
             token required`.
       - [x] Public CDP gateway probe returns host-header rejection rather than
             a usable `/json/version` browser-control response.
-      - [ ] Verify credential provisioning, Tinker API-key capture, and funded
-            billing flow inside the deployed CVM.
+      - [x] Oracle `/attestation?context=oracle-credentials` returns a live
+            TDX credential-ingress envelope, and `POST /credentials/encrypted`
+            rejects while disabled by default.
+      - [ ] Verify credential provisioning with real mailbox credentials,
+            Tinker API-key capture, and funded billing flow inside the
+            deployed CVM.
 - [x] `Deploy` Deploy or update Base Sepolia contracts with the chosen vNext
       interfaces.
       - [x] Verify the historical deployed contracts are not controlled by the
