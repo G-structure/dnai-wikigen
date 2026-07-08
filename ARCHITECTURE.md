@@ -43,7 +43,9 @@ Important current status:
             Local Neko login, OTP, onboarding, API-key provisioning, and
             test-card billing rejection are validated; deployed CVM validation
             and real funding remain open.
-[partial]   IsolatedTinkerSession and bounded control plane.
+[partial]   IsolatedTinkerSession and bounded control plane. Artifact ingress
+            now verifies Ethereum keccak256 against the committed artifactHash
+            before storing the upload in memory.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -238,6 +240,7 @@ This is the intended end-to-end flow for a private artifact or bio dataset.
    v
 4. TEE receives artifact
    |
+   |  verify keccak256(rawArtifact) == artifactHash
    |  artifact held in enclave memory or sealed store
    v
 5. Gate / coordination layer checks request
@@ -537,9 +540,14 @@ Implementation status:
 [real]      Plaintext card API is disabled by default and unavailable in dstack mode.
 [real]      Central redaction helpers scrub bearer, OTP/password, card, API-key,
             and artifact-shaped values from bounded errors and high-risk logs.
+[real]      Artifact upload verifies Ethereum keccak256 against artifactHash
+            before DealContext state changes; mutable API decode buffers and
+            stored control-plane artifact buffers are best-effort zeroed.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE, but a capped real-card funding attempt still needs to be proven.
 [partial]   Optional Tinker SDK dependency must be installed for real evaluator execution.
+[partial]   Artifact upload is not yet encrypted to a live quote-verified TEE key,
+            and evaluator-side raw-byte copies still need a lifetime audit.
 [planned]   Dedicated Tinker account encumbrance contract / funding-rail policy contract.
 ```
 
@@ -1012,7 +1020,7 @@ Deal flow:
 ControlPlane creates DealContext + IsolatedTinkerSession
   |
   v
-/deal/{id}/artifact stores artifact bytes in memory
+/deal/{id}/artifact verifies artifactHash, then stores artifact bytes in memory
   |
   v
 /deal/{id}/evaluate runs evaluator_fn

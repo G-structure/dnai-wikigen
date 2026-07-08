@@ -2,7 +2,7 @@
 
 Responsibilities:
   1. Session factory — creates IsolatedTinkerSession per deal
-  2. Artifact ingress — receives encrypted artifacts, holds in memory
+  2. Artifact ingress — receives artifact payloads, holds in memory
   3. Agent orchestration — runs evaluator with session + artifact
   4. Output bounding — maps raw metrics to score bands
   5. Cleanup — destroys sessions on deal resolution
@@ -21,6 +21,7 @@ from typing import Optional
 
 import tinker
 
+from tinker_delegate.artifacts import verify_artifact_hash, zero_buffer
 from tinker_delegate.dstack_utils import get_attestation, is_dstack_enabled
 from tinker_delegate.session import IsolatedTinkerSession
 
@@ -117,7 +118,7 @@ class DealContext:
     reserve_price: int    # wei
     state: DealState = DealState.PENDING_ARTIFACT
     session: Optional[IsolatedTinkerSession] = None
-    artifact: Optional[bytes] = None
+    artifact: Optional[bytearray] = None
     artifact_hash: str = ""
     result: Optional[EvaluationResult] = None
     created_at: float = field(default_factory=time.time)
@@ -166,14 +167,14 @@ class ControlPlane:
     def receive_artifact(
         self,
         deal_id: str,
-        artifact: bytes,
+        artifact: bytes | bytearray,
         artifact_hash: str,
     ) -> None:
-        """Receive seller's encrypted artifact. Held in memory only."""
+        """Receive seller's artifact after verifying its committed hash."""
         ctx = self._deals[deal_id]
         assert ctx.state == DealState.PENDING_ARTIFACT
-        ctx.artifact = artifact
-        ctx.artifact_hash = artifact_hash
+        ctx.artifact_hash = verify_artifact_hash(artifact, artifact_hash)
+        ctx.artifact = bytearray(artifact)
         # Ready for evaluation — but don't auto-start.
         # The watcher or API triggers evaluate().
 
@@ -201,7 +202,7 @@ class ControlPlane:
 
         try:
             raw = await evaluator_fn(
-                artifact=ctx.artifact,
+                artifact=bytes(ctx.artifact),
                 artifact_type="dataset",  # TODO: detect from artifact
                 session=ctx.session,
                 budget_cap=ctx.budget_cap,
@@ -254,7 +255,7 @@ class ControlPlane:
 
         # Zero artifact from memory
         if ctx.artifact:
-            ctx.artifact = b"\x00" * len(ctx.artifact)
+            zero_buffer(ctx.artifact)
             ctx.artifact = None
 
         ctx.state = DealState.RESOLVED

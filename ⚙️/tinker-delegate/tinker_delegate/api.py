@@ -20,6 +20,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from tinker_delegate.api_key_store import resolve_api_key
+from tinker_delegate.artifacts import decode_artifact_hex, zero_buffer
 from tinker_delegate.config import Settings
 from tinker_delegate.dstack_utils import is_dstack_enabled
 from tinker_delegate.oracle_client import OracleClient
@@ -87,7 +88,7 @@ def _get_control_plane():
 # ---------------------------------------------------------------------------
 
 class ArtifactUpload(BaseModel):
-    artifact_hex: str        # hex-encoded encrypted artifact
+    artifact_hex: str        # hex-encoded artifact payload
     artifact_hash: str       # keccak256 of the artifact
 
 class DealFundedNotification(BaseModel):
@@ -222,16 +223,19 @@ async def deal_notify_funded(notification: DealFundedNotification):
 
 @app.post("/deal/{deal_id}/artifact")
 async def deal_upload_artifact(deal_id: str, upload: ArtifactUpload):
-    """Seller uploads encrypted artifact. Held in memory only."""
-    cp = _get_control_plane()
+    """Seller uploads artifact payload. Held in memory only."""
+    artifact_buffer = None
     try:
-        artifact_bytes = bytes.fromhex(upload.artifact_hex)
-        cp.receive_artifact(deal_id, artifact_bytes, upload.artifact_hash)
-        return {"deal_id": deal_id, "received": True, "size": len(artifact_bytes)}
+        artifact_buffer = decode_artifact_hex(upload.artifact_hex)
+        cp = _get_control_plane()
+        cp.receive_artifact(deal_id, artifact_buffer, upload.artifact_hash)
+        return {"deal_id": deal_id, "received": True, "size": len(artifact_buffer)}
     except KeyError:
         raise HTTPException(404, f"Deal {deal_id} not found")
-    except AssertionError as e:
+    except (AssertionError, ValueError) as e:
         raise HTTPException(400, redact_text(e))
+    finally:
+        zero_buffer(artifact_buffer)
 
 
 @app.post("/deal/{deal_id}/evaluate")

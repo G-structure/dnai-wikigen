@@ -517,12 +517,16 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 - [ ] `P0` Encrypt artifact upload to the TEE public key after verifying the live
       quote.
-- [ ] `P0` Verify `keccak256(rawArtifact) == artifactHash` inside the TEE before
+- [x] `P0` Verify `keccak256(rawArtifact) == artifactHash` inside the TEE before
       a deal can proceed.
 - [ ] `P0` Add per-corpus/per-deal key derivation:
       no single static artifact key for all rooms.
 - [ ] `P0` Ensure artifacts never touch disk unencrypted.
 - [ ] `P0` Add memory zeroing for raw artifact buffers after resolution.
+      - [x] Zero mutable API upload decode buffers after ingress and stored
+            control-plane artifact buffers after deal resolution.
+      - [ ] Audit evaluator copies and Python immutable byte lifetimes before
+            making a production-grade memory-destruction claim.
 - [ ] `P1` Add attested destruction or cleanup records:
       artifact deleted, keys dropped, checkpoints deleted/expired.
 - [ ] `P1` Add source-controller records:
