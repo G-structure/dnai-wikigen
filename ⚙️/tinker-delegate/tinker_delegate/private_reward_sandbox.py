@@ -11,6 +11,7 @@ import ast
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -25,12 +26,21 @@ class SandboxOutcome(str, Enum):
     TIMEOUT = "timeout"
 
 
+class SandboxFailureCode(str, Enum):
+    NONE = "none"
+    POLICY_REJECTED = "policy_rejected"
+    SYNTAX_ERROR = "syntax_error"
+    RUNTIME_ERROR = "runtime_error"
+    TIMEOUT = "timeout"
+
+
 @dataclass(frozen=True)
 class SandboxPolicy:
     timeout_seconds: float = 1.0
     max_source_bytes: int = 16_384
     max_stdout_bytes: int = 4_096
     max_stderr_bytes: int = 2_048
+    timing_band_seconds: float = 0.1
     deterministic_seed: int = 0
     cpu_seconds: int = 1
     memory_megabytes: int = 128
@@ -48,6 +58,8 @@ class SandboxPolicy:
             raise ValueError("max_stdout_bytes must be non-negative")
         if self.max_stderr_bytes < 0:
             raise ValueError("max_stderr_bytes must be non-negative")
+        if self.timing_band_seconds <= 0:
+            raise ValueError("timing_band_seconds must be positive")
         if self.cpu_seconds <= 0:
             raise ValueError("cpu_seconds must be positive")
         if self.memory_megabytes <= 0:
@@ -65,6 +77,7 @@ class SandboxPolicy:
             "max_source_bytes": self.max_source_bytes,
             "max_stdout_bytes": self.max_stdout_bytes,
             "max_stderr_bytes": self.max_stderr_bytes,
+            "timing_band_seconds": self.timing_band_seconds,
             "deterministic_seed": self.deterministic_seed,
             "cpu_seconds": self.cpu_seconds,
             "memory_megabytes": self.memory_megabytes,
@@ -78,8 +91,10 @@ class SandboxPolicy:
 class SandboxResult:
     candidate_hash: str
     outcome: SandboxOutcome
+    failure_code: SandboxFailureCode
     exit_code: int | None
     timed_out: bool
+    elapsed_band_seconds: float
     stdout: str
     stderr: str
     stdout_truncated: bool
@@ -93,8 +108,10 @@ class SandboxResult:
         return {
             "candidate_hash": self.candidate_hash,
             "outcome": self.outcome.value,
+            "failure_code": self.failure_code.value,
             "exit_code": self.exit_code,
             "timed_out": self.timed_out,
+            "elapsed_band_seconds": self.elapsed_band_seconds,
             "stdout": self.stdout,
             "stderr": self.stderr,
             "stdout_truncated": self.stdout_truncated,
@@ -109,15 +126,16 @@ class PythonCandidateSandbox:
         self.policy = policy or SandboxPolicy()
 
     def run(self, candidate: Candidate) -> SandboxResult:
+        started_at = time.monotonic()
         source = self._decode_source(candidate)
         if source is None:
-            return self._reject(candidate, "candidate payload must be utf-8 Python source")
+            return self._reject(candidate, SandboxFailureCode.POLICY_REJECTED, started_at)
         if candidate.size_bytes > self.policy.max_source_bytes:
-            return self._reject(candidate, "candidate source exceeds sandbox byte limit")
+            return self._reject(candidate, SandboxFailureCode.POLICY_REJECTED, started_at)
 
-        preflight_error = _preflight_source(source)
-        if preflight_error:
-            return self._reject(candidate, preflight_error)
+        preflight_failure = _preflight_source(source)
+        if preflight_failure != SandboxFailureCode.NONE:
+            return self._reject(candidate, preflight_failure, started_at)
 
         with tempfile.TemporaryDirectory(prefix=self.policy.scratch_prefix) as scratch_dir:
             try:
@@ -140,12 +158,14 @@ class PythonCandidateSandbox:
                 )
             except subprocess.TimeoutExpired as exc:
                 stdout, stdout_truncated = _cap_text(exc.stdout or "", self.policy.max_stdout_bytes)
-                stderr, stderr_truncated = _cap_text("candidate execution timed out", self.policy.max_stderr_bytes)
+                stderr, stderr_truncated = _cap_text("sandbox failure: timeout", self.policy.max_stderr_bytes)
                 return SandboxResult(
                     candidate_hash=candidate.candidate_hash,
                     outcome=SandboxOutcome.TIMEOUT,
+                    failure_code=SandboxFailureCode.TIMEOUT,
                     exit_code=None,
                     timed_out=True,
+                    elapsed_band_seconds=self._elapsed_band(started_at),
                     stdout=stdout,
                     stderr=stderr,
                     stdout_truncated=stdout_truncated,
@@ -153,13 +173,17 @@ class PythonCandidateSandbox:
                 )
 
         stdout, stdout_truncated = _cap_text(proc.stdout, self.policy.max_stdout_bytes)
-        stderr, stderr_truncated = _cap_text(proc.stderr, self.policy.max_stderr_bytes)
         outcome = SandboxOutcome.PASS if proc.returncode == 0 else SandboxOutcome.RUNTIME_ERROR
+        failure_code = SandboxFailureCode.NONE if proc.returncode == 0 else SandboxFailureCode.RUNTIME_ERROR
+        stderr = "" if proc.returncode == 0 else "sandbox failure: runtime_error"
+        stderr, stderr_truncated = _cap_text(stderr, self.policy.max_stderr_bytes)
         return SandboxResult(
             candidate_hash=candidate.candidate_hash,
             outcome=outcome,
+            failure_code=failure_code,
             exit_code=proc.returncode,
             timed_out=False,
+            elapsed_band_seconds=self._elapsed_band(started_at),
             stdout=stdout,
             stderr=stderr,
             stdout_truncated=stdout_truncated,
@@ -172,18 +196,33 @@ class PythonCandidateSandbox:
         except UnicodeDecodeError:
             return None
 
-    def _reject(self, candidate: Candidate, reason: str) -> SandboxResult:
-        stderr, stderr_truncated = _cap_text(f"sandbox policy rejected candidate: {reason}", self.policy.max_stderr_bytes)
+    def _reject(
+        self,
+        candidate: Candidate,
+        failure_code: SandboxFailureCode,
+        started_at: float,
+    ) -> SandboxResult:
+        stderr, stderr_truncated = _cap_text(
+            f"sandbox failure: {failure_code.value}",
+            self.policy.max_stderr_bytes,
+        )
         return SandboxResult(
             candidate_hash=candidate.candidate_hash,
             outcome=SandboxOutcome.POLICY_REJECTED,
+            failure_code=failure_code,
             exit_code=None,
             timed_out=False,
+            elapsed_band_seconds=self._elapsed_band(started_at),
             stdout="",
             stderr=stderr,
             stdout_truncated=False,
             stderr_truncated=stderr_truncated,
         )
+
+    def _elapsed_band(self, started_at: float) -> float:
+        granularity = self.policy.timing_band_seconds
+        elapsed = max(0.0, time.monotonic() - started_at)
+        return (int(elapsed / granularity)) * granularity
 
 
 _BANNED_IMPORT_ROOTS = {
@@ -216,33 +255,33 @@ _BANNED_CALLS = {
 }
 
 
-def _preflight_source(source: str) -> str:
+def _preflight_source(source: str) -> SandboxFailureCode:
     try:
         tree = ast.parse(source, mode="exec")
-    except SyntaxError as exc:
-        return f"syntax error at line {exc.lineno}"
+    except SyntaxError:
+        return SandboxFailureCode.SYNTAX_ERROR
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 root = alias.name.split(".", maxsplit=1)[0]
                 if root in _BANNED_IMPORT_ROOTS:
-                    return f"import of {root!r} is not allowed"
+                    return SandboxFailureCode.POLICY_REJECTED
         elif isinstance(node, ast.ImportFrom):
             root = (node.module or "").split(".", maxsplit=1)[0]
             if root in _BANNED_IMPORT_ROOTS:
-                return f"import of {root!r} is not allowed"
+                return SandboxFailureCode.POLICY_REJECTED
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             if node.func.id in _BANNED_CALLS:
-                return f"call to {node.func.id!r} is not allowed"
+                return SandboxFailureCode.POLICY_REJECTED
         elif isinstance(node, ast.Name):
             if node.id in _BANNED_CALLS or node.id == "__builtins__":
-                return f"name {node.id!r} is not allowed"
+                return SandboxFailureCode.POLICY_REJECTED
         elif isinstance(node, ast.Attribute):
             if node.attr.startswith("__"):
-                return "dunder attribute access is not allowed"
+                return SandboxFailureCode.POLICY_REJECTED
 
-    return ""
+    return SandboxFailureCode.NONE
 
 
 def _cap_text(value: str | bytes, max_bytes: int) -> tuple[str, bool]:

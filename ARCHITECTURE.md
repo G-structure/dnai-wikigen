@@ -57,7 +57,8 @@ Important current status:
 [real]      Local PythonCandidateSandbox for toy private-reward environments.
             It runs candidate source in a subprocess with scratch cwd,
             stripped environment, deterministic seed, timeout, capped
-            stdout/stderr, static preflight, and runtime import/file guards.
+            stdout/stderr, timing bands, public failure-code buckets, static
+            preflight, and runtime import/file guards.
 [partial]   Candidate sandboxing for arbitrary third-party code. The local
             Python sandbox is not OS/container isolation and is not sufficient
             for untrusted production candidate execution inside a CVM.
@@ -665,7 +666,8 @@ PythonCandidateSandbox.run(candidate)
   guard:  AST preflight blocks file, process, network, import, dunder escapes
   runtime: subprocess, scratch cwd, stripped environment, deterministic seed
   limits: timeout, CPU/memory best-effort, max source bytes, capped stdout/stderr
-  output: candidate hash, pass/reject/error/timeout, exit code, capped traces
+  output: candidate hash, pass/reject/error/timeout, failure bucket,
+          elapsed timing band, exit code, capped traces
 ```
 
 This sandbox is a real local development guardrail, not the final production
@@ -732,11 +734,15 @@ Implementation status:
 [real]      PythonCandidateSandbox for local toy candidates with preflight,
             subprocess timeout, deterministic seed, capped stdout/stderr, and
             no supported network/filesystem/process access.
+[real]      Local sandbox side-channel buckets for elapsed timing, timeout
+            normalization, capped output, best-effort memory limits, and
+            policy/syntax/runtime/timeout failure codes.
 [modeled]   TTT/RL bio-validation concept.
 [partial]   SFT evaluator scaffold.
 [real]      Output banding and offer computation.
-[planned]   Hardened production sandbox, domain-specific bio benchmark, risk
-            classifier, and validation report schema.
+[planned]   Hardened production sandbox and deployed side-channel controls,
+            domain-specific bio benchmark, risk classifier, and validation
+            report schema.
 ```
 
 ### 4. DNAI

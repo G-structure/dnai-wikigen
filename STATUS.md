@@ -127,9 +127,11 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   CPU/memory limits, max source bytes, and capped stdout/stderr.
 - Static preflight rejects file, network, process, import, builtin-import,
   dunder-attribute, and direct `open`/`eval`/`exec` style escape attempts.
-- Public sandbox results expose candidate hash, bounded outcome, exit code,
-  timeout flag, capped stdout/stderr, and truncation flags without echoing the
-  source.
+- Public sandbox results expose candidate hash, bounded outcome, failure-code
+  bucket, exit code, timeout flag, elapsed timing band, capped stdout/stderr,
+  and truncation flags without echoing the source.
+- Failure traces are bucketed into policy, syntax, runtime, and timeout classes
+  instead of returning raw exception strings or preflight details.
 
 ## Partial
 
@@ -188,9 +190,10 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Candidate sandboxing has a local Python runner for toy candidates, but
   hardened OS/container isolation for arbitrary third-party code is not
   implemented.
-- Side-channel normalization beyond timing/output caps, hidden-holdout
-  separation, and integration of optimizer policy with real Tinker/browser
-  execution remain open P0 work.
+- Local sandbox side-channel controls exist, but deployed reward side-channel
+  hardening for real evaluator/Tinker/browser paths remains open.
+- Hidden-holdout separation and integration of optimizer policy with real
+  Tinker/browser execution remain open P0 work.
 
 [partial] Frontend and product surface:
 

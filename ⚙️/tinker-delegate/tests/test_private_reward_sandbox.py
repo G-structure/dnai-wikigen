@@ -3,6 +3,7 @@ import unittest
 from tinker_delegate.private_reward import Candidate
 from tinker_delegate.private_reward_sandbox import (
     PythonCandidateSandbox,
+    SandboxFailureCode,
     SandboxOutcome,
     SandboxPolicy,
 )
@@ -16,9 +17,13 @@ class PythonCandidateSandboxTest(unittest.TestCase):
 
         self.assertTrue(result.accepted)
         self.assertEqual(result.outcome, SandboxOutcome.PASS)
+        self.assertEqual(result.failure_code, SandboxFailureCode.NONE)
         self.assertEqual(result.stdout, "6\n")
+        self.assertGreaterEqual(result.elapsed_band_seconds, 0)
         public = result.to_public_dict()
         self.assertIn("candidate_hash", public)
+        self.assertIn("failure_code", public)
+        self.assertIn("elapsed_band_seconds", public)
         self.assertNotIn("sum([1, 2, 3])", str(public))
 
     def test_rejects_network_file_and_process_escape_attempts(self):
@@ -36,16 +41,19 @@ class PythonCandidateSandboxTest(unittest.TestCase):
             with self.subTest(payload=payload):
                 result = sandbox.run(Candidate(payload))
                 self.assertEqual(result.outcome, SandboxOutcome.POLICY_REJECTED)
+                self.assertEqual(result.failure_code, SandboxFailureCode.POLICY_REJECTED)
                 self.assertFalse(result.accepted)
                 self.assertEqual(result.stdout, "")
 
-    def test_runtime_import_guard_fails_closed(self):
+    def test_policy_rejections_are_bucketed_not_detailed(self):
         sandbox = PythonCandidateSandbox()
 
         result = sandbox.run(Candidate(b"mod = __import__('socket')\nprint(mod)"))
 
         self.assertEqual(result.outcome, SandboxOutcome.POLICY_REJECTED)
-        self.assertIn("not allowed", result.stderr)
+        self.assertEqual(result.failure_code, SandboxFailureCode.POLICY_REJECTED)
+        self.assertEqual(result.stderr, "sandbox failure: policy_rejected")
+        self.assertNotIn("socket", result.stderr)
 
     def test_stdout_is_capped(self):
         sandbox = PythonCandidateSandbox(SandboxPolicy(max_stdout_bytes=12))
@@ -56,14 +64,17 @@ class PythonCandidateSandboxTest(unittest.TestCase):
         self.assertLessEqual(len(result.stdout.encode("utf-8")), 12)
         self.assertTrue(result.stdout_truncated)
 
-    def test_stderr_is_capped(self):
-        sandbox = PythonCandidateSandbox(SandboxPolicy(max_stderr_bytes=20))
+    def test_stderr_is_capped_and_bucketed(self):
+        sandbox = PythonCandidateSandbox(SandboxPolicy(max_stderr_bytes=15))
 
         result = sandbox.run(Candidate(b"raise ValueError('x' * 100)"))
 
         self.assertEqual(result.outcome, SandboxOutcome.RUNTIME_ERROR)
-        self.assertLessEqual(len(result.stderr.encode("utf-8")), 20)
+        self.assertEqual(result.failure_code, SandboxFailureCode.RUNTIME_ERROR)
+        self.assertLessEqual(len(result.stderr.encode("utf-8")), 15)
         self.assertTrue(result.stderr_truncated)
+        self.assertNotIn("ValueError", result.stderr)
+        self.assertNotIn("100", result.stderr)
 
     def test_timeout_is_bounded(self):
         sandbox = PythonCandidateSandbox(SandboxPolicy(timeout_seconds=0.1, cpu_seconds=5))
@@ -71,8 +82,10 @@ class PythonCandidateSandboxTest(unittest.TestCase):
         result = sandbox.run(Candidate(b"while True:\n    pass"))
 
         self.assertEqual(result.outcome, SandboxOutcome.TIMEOUT)
+        self.assertEqual(result.failure_code, SandboxFailureCode.TIMEOUT)
         self.assertTrue(result.timed_out)
         self.assertIsNone(result.exit_code)
+        self.assertEqual(result.stderr, "sandbox failure: timeout")
 
     def test_random_seed_is_deterministic(self):
         sandbox = PythonCandidateSandbox(SandboxPolicy(deterministic_seed=42))
@@ -91,6 +104,8 @@ class PythonCandidateSandboxTest(unittest.TestCase):
             SandboxPolicy(allow_process_spawn=True)
         with self.assertRaisesRegex(ValueError, "filesystem"):
             SandboxPolicy(allow_filesystem=True)
+        with self.assertRaisesRegex(ValueError, "timing_band"):
+            SandboxPolicy(timing_band_seconds=0)
 
     def test_rejects_non_utf8_and_oversized_source(self):
         sandbox = PythonCandidateSandbox(SandboxPolicy(max_source_bytes=8))
@@ -100,6 +115,24 @@ class PythonCandidateSandboxTest(unittest.TestCase):
 
         self.assertEqual(non_utf8.outcome, SandboxOutcome.POLICY_REJECTED)
         self.assertEqual(oversized.outcome, SandboxOutcome.POLICY_REJECTED)
+        self.assertEqual(non_utf8.failure_code, SandboxFailureCode.POLICY_REJECTED)
+        self.assertEqual(oversized.failure_code, SandboxFailureCode.POLICY_REJECTED)
+
+    def test_syntax_errors_are_bucketed(self):
+        sandbox = PythonCandidateSandbox()
+
+        result = sandbox.run(Candidate(b"def nope(:\n    pass"))
+
+        self.assertEqual(result.outcome, SandboxOutcome.POLICY_REJECTED)
+        self.assertEqual(result.failure_code, SandboxFailureCode.SYNTAX_ERROR)
+        self.assertEqual(result.stderr, "sandbox failure: syntax_error")
+
+    def test_elapsed_time_is_banded(self):
+        sandbox = PythonCandidateSandbox(SandboxPolicy(timing_band_seconds=60))
+
+        result = sandbox.run(Candidate(b"print('fast')"))
+
+        self.assertEqual(result.elapsed_band_seconds, 0)
 
 
 if __name__ == "__main__":

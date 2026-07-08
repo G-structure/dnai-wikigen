@@ -454,6 +454,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Add side-channel controls for reward evaluation:
       timing bands, output-size caps, timeout normalization, memory limits, and
       failure-code bucketing.
+  - [x] `P0` Add local sandbox side-channel buckets: elapsed timing bands,
+        stdout/stderr caps, timeout normalization, best-effort memory limits,
+        and public failure-code buckets.
+  - [ ] `P0` Harden deployed reward side-channel controls with CVM/container
+        resource limits, timeout normalization, failure bucketing, and egress
+        auditing for real evaluator/Tinker/browser paths.
 - [ ] `P0` Add hidden-holdout separation:
       train/reward split, final validation split, and anti-overfitting checks
       for adaptive query attacks.
