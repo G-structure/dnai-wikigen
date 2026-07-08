@@ -217,8 +217,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       raw artifacts.
       - [x] Stop logging extracted OTP values in the email oracle and Tinker
             delegate, and stop binding raw OTP values into quote report data.
-      - [ ] Add centralized redaction for bearer tokens, card payloads, API keys,
-            screenshots, browser traces, and raw artifact errors.
+      - [x] Add centralized redaction helpers for bearer tokens, card payloads,
+            API keys, OTP/password text, and raw artifact-shaped error text;
+            wire them into API errors and high-risk automation logs.
+      - [x] Keep secret-bearing screenshots disabled by default and behind
+            explicit debug flags.
+      - [ ] Add trace-file redaction/deletion if Playwright/browser tracing is
+            enabled in a future deployed debugging mode.
 - [ ] `P0` Add a deployment runbook section for rollback:
       what is safe to redeploy, what must be frozen, what requires user notice.
 - [ ] `P1` Add health endpoints that separate:

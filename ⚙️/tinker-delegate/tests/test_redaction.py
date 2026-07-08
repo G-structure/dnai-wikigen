@@ -1,0 +1,44 @@
+import unittest
+from unittest.mock import AsyncMock, patch
+
+from tinker_delegate.card_channel import CardPayload, handle_card_update
+from tinker_delegate.config import Settings
+from tinker_delegate.redaction import redact_text
+
+
+class RedactionTest(unittest.IsolatedAsyncioTestCase):
+    def test_redacts_api_key_bearer_card_and_artifact_material(self):
+        text = (
+            'Authorization: Bearer secret-token TINKER_API_KEY=tml-secretsecretsecretsecret '
+            '"card_number":"4242424242424242" cvc=123 '
+            '"artifact_hex":"abcdefabcdefabcdefabcdefabcdefabcdef"'
+        )
+
+        redacted = redact_text(text)
+
+        self.assertNotIn("secret-token", redacted)
+        self.assertNotIn("tml-secretsecretsecretsecret", redacted)
+        self.assertNotIn("4242424242424242", redacted)
+        self.assertNotIn("cvc=123", redacted)
+        self.assertNotIn("abcdefabcdefabcdefabcdefabcdefabcdef", redacted)
+
+    async def test_card_update_error_is_redacted(self):
+        payload = CardPayload(
+            card_number="4242424242424242",
+            exp_month="12",
+            exp_year="2030",
+            cvc="123",
+            cardholder_name="Test User",
+        )
+        error = RuntimeError("processor saw card_number=4242424242424242 cvc=123")
+
+        with patch("tinker_delegate.card_channel.add_payment_method", new=AsyncMock(side_effect=error)):
+            result = await handle_card_update(payload, Settings())
+
+        self.assertFalse(result.success)
+        self.assertNotIn("4242424242424242", result.error)
+        self.assertNotIn("cvc=123", result.error)
+
+
+if __name__ == "__main__":
+    unittest.main()

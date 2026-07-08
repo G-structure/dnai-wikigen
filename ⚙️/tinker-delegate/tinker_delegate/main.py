@@ -9,6 +9,7 @@ import sys
 from tinker_delegate.api_key_store import build_api_key_store
 from tinker_delegate.config import Settings
 from tinker_delegate.oracle_client import OracleClient
+from tinker_delegate.redaction import redact_text
 from tinker_delegate.runtime_state import reset_runtime_state, update_runtime_state
 from tinker_delegate.signup import AuthAccessBlockedError
 
@@ -26,7 +27,7 @@ def _wait_for_oracle(settings: Settings) -> None:
                 return
             print(f"[serve] oracle not ready yet: {health}")
         except Exception as exc:
-            print(f"[serve] oracle check failed: {exc}")
+            print(f"[serve] oracle check failed: {redact_text(exc)}")
 
         time.sleep(settings.bootstrap_oracle_poll_interval)
 
@@ -54,7 +55,7 @@ async def _ensure_api_key(settings: Settings) -> None:
         try:
             api_key = store.load()
         except Exception as exc:
-            raise RuntimeError(f"failed to load stored API key: {exc}") from exc
+            raise RuntimeError(f"failed to load stored API key: {redact_text(exc)}") from exc
         if api_key:
             print(f"[serve] loaded stored API key from {settings.api_key_store_path}")
             update_runtime_state(
@@ -195,13 +196,13 @@ def cli():
         try:
             asyncio.run(_ensure_api_key(settings))
         except Exception as exc:
-            print(f"[serve] bootstrap failed: {exc}")
+            print(f"[serve] bootstrap failed: {redact_text(exc)}")
             update_runtime_state(
                 api_key_available=False,
                 api_key_source="bootstrap" if settings.bootstrap_signup else "none",
                 bootstrap_attempted=settings.bootstrap_signup,
                 bootstrap_success=False,
-                bootstrap_error=str(exc),
+                bootstrap_error=redact_text(exc),
                 bootstrap_error_kind=(
                     "auth_access_blocked"
                     if isinstance(exc, AuthAccessBlockedError)

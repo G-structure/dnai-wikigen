@@ -16,6 +16,7 @@ import sys
 
 from email_oracle.config import Settings
 from email_oracle.cred_store import CredentialStore
+from email_oracle.redaction import redact_text
 
 
 async def cmd_genesis(settings: Settings, store: CredentialStore) -> None:
@@ -71,7 +72,7 @@ def cmd_check(settings: Settings, store: CredentialStore) -> None:
         for e in emails:
             print(f"  {e['date']}  {e['from']}  {e['subject']}")
     except Exception as e:
-        print(f"[check] IMAP FAILED: {e}")
+        print(f"[check] IMAP FAILED: {redact_text(e)}")
         sys.exit(1)
     finally:
         client.disconnect()

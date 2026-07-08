@@ -22,6 +22,7 @@ from tinker_delegate.browser_ready import connect_chromium, get_browser_context
 from tinker_delegate.api_key_store import build_api_key_store
 from tinker_delegate.config import Settings
 from tinker_delegate.oracle_client import OracleClient
+from tinker_delegate.redaction import redact_text
 
 
 class AuthAccessBlockedError(RuntimeError):
@@ -147,7 +148,7 @@ async def signup(settings: Settings | None = None) -> dict:
                 result["stored"] = True
                 result["success"] = True
             except Exception as e:
-                result["store_error"] = str(e)
+                result["store_error"] = redact_text(e)
             print("[done] API key captured and sealed" if result["stored"] else "[done] API key captured but not stored")
         print(f"\n[done] success={result['success']}")
         return result
@@ -258,7 +259,7 @@ async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: 
     if "magic-code" in state["url"] or "Check your email" in state["text"]:
         print("[auth] on OTP page, waiting for code...")
         code = await wait_for_otp(oracle, settings)
-        print(f"[auth] entering code: {code}")
+        print("[auth] entering verification code")
         await enter_otp(page, code)
         await asyncio.sleep(5)
 

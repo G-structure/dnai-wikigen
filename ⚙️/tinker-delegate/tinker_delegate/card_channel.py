@@ -43,6 +43,7 @@ from tinker_delegate.billing import CardDetails, add_payment_method, add_balance
 from tinker_delegate.config import Settings
 from tinker_delegate.crypto import TEEKeyPair, EncryptedPayload
 from tinker_delegate.dstack_utils import get_attestation as get_dstack_attestation, is_dstack_enabled
+from tinker_delegate.redaction import redact_text
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +139,7 @@ def get_attestation() -> dict:
                 "verified": True,
             }
         except Exception as e:
-            return {"mode": "tdx", "error": str(e), "verified": False}
+            return {"mode": "tdx", "error": redact_text(e), "verified": False}
     else:
         return {
             "mode": "local",
@@ -181,7 +182,7 @@ async def handle_card_update(payload: CardPayload, settings: Settings) -> Billin
             tdx_quote=attestation.get("quote"),
         )
     except Exception as e:
-        return BillingResponse(success=False, error=str(e))
+        return BillingResponse(success=False, error=redact_text(e))
     finally:
         card.zero()
         payload.zero()
@@ -234,7 +235,7 @@ async def handle_encrypted_card_update(
             tdx_quote=attestation.get("quote"),
         )
     except Exception as e:
-        return BillingResponse(success=False, error=str(e))
+        return BillingResponse(success=False, error=redact_text(e))
     finally:
         if plaintext_bytes is not None:
             for i in range(len(plaintext_bytes)):
@@ -252,7 +253,7 @@ async def handle_add_balance(payload: BalancePayload, settings: Settings) -> Bil
             error=result.get("error"),
         )
     except Exception as e:
-        return BillingResponse(success=False, error=str(e))
+        return BillingResponse(success=False, error=redact_text(e))
 
 
 async def handle_get_balance(settings: Settings) -> BillingResponse:
@@ -264,4 +265,4 @@ async def handle_get_balance(settings: Settings) -> BillingResponse:
             balance=result.get("balance"),
         )
     except Exception as e:
-        return BillingResponse(success=False, error=str(e))
+        return BillingResponse(success=False, error=redact_text(e))

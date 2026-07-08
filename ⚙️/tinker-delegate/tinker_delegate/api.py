@@ -23,6 +23,7 @@ from tinker_delegate.api_key_store import resolve_api_key
 from tinker_delegate.config import Settings
 from tinker_delegate.dstack_utils import is_dstack_enabled
 from tinker_delegate.oracle_client import OracleClient
+from tinker_delegate.redaction import redact_text
 from tinker_delegate.runtime_state import get_runtime_state
 from tinker_delegate.card_channel import (
     CardPayload,
@@ -117,7 +118,7 @@ async def health():
     try:
         oracle_health = oracle.health()
     except Exception as e:
-        oracle_health = {"error": str(e)}
+        oracle_health = {"error": redact_text(e)}
 
     return {
         "status": "ok",
@@ -230,7 +231,7 @@ async def deal_upload_artifact(deal_id: str, upload: ArtifactUpload):
     except KeyError:
         raise HTTPException(404, f"Deal {deal_id} not found")
     except AssertionError as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, redact_text(e))
 
 
 @app.post("/deal/{deal_id}/evaluate")
@@ -258,7 +259,7 @@ async def deal_evaluate(deal_id: str):
     except KeyError:
         raise HTTPException(404, f"Deal {deal_id} not found")
     except AssertionError as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, redact_text(e))
 
 
 @app.get("/deal/{deal_id}/result", response_model=EvaluationResultResponse)

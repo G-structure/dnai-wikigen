@@ -535,6 +535,8 @@ Implementation status:
             storage and returns only bounded hash/status metadata.
 [real]      Local Stripe test-card billing path reaches submission and returns a bounded decline.
 [real]      Plaintext card API is disabled by default and unavailable in dstack mode.
+[real]      Central redaction helpers scrub bearer, OTP/password, card, API-key,
+            and artifact-shaped values from bounded errors and high-risk logs.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE, but a capped real-card funding attempt still needs to be proven.
 [partial]   Optional Tinker SDK dependency must be installed for real evaluator execution.
@@ -1423,6 +1425,8 @@ These invariants should hold as the project grows:
 No raw artifact leaves the TEE.
 No Tinker API key leaves the TEE.
 No card details are logged or persisted by repo services.
+Error and automation logs are passed through service-local redaction helpers
+before they become API responses or operator-visible diagnostics.
 No result is accepted as "attested" without a quote and compose-hash story.
 Every evaluator output is bounded before public release.
 Buyer spend is capped by the contract budget cap.

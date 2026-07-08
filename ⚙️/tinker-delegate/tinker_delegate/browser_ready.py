@@ -11,6 +11,7 @@ from urllib.request import urlopen
 from playwright.async_api import Browser, BrowserContext, Playwright
 
 from tinker_delegate.config import Settings
+from tinker_delegate.redaction import redact_text
 
 
 def _cdp_probe_url(cdp_url: str) -> str:
@@ -43,7 +44,7 @@ def _probe_cdp(probe_url: str) -> tuple[bool, str]:
             return False, "missing webSocketDebuggerUrl"
         return True, browser
     except Exception as exc:  # pragma: no cover - transient network failures
-        return False, str(exc)
+        return False, redact_text(exc)
 
 
 async def wait_for_cdp(settings: Settings) -> None:
@@ -79,7 +80,7 @@ async def connect_playwright_server(
         except Exception as exc:
             print(
                 "[browser] remote Playwright server not ready yet at "
-                f"{settings.browser_ws_endpoint}: {exc}"
+                f"{settings.browser_ws_endpoint}: {redact_text(exc)}"
             )
             await asyncio.sleep(settings.browser_poll_interval)
 
@@ -103,7 +104,7 @@ async def connect_chromium(playwright: Playwright, settings: Settings) -> Browse
                 raise
             print(
                 "[browser] remote Playwright connect failed, "
-                f"falling back to local Chromium: {exc}"
+                f"falling back to local Chromium: {redact_text(exc)}"
             )
 
     if settings.cdp_url:
@@ -116,7 +117,7 @@ async def connect_chromium(playwright: Playwright, settings: Settings) -> Browse
         except Exception as exc:
             if not settings.local_browser_fallback:
                 raise
-            print(f"[cdp] connect_over_cdp failed, falling back to local Chromium: {exc}")
+            print(f"[cdp] connect_over_cdp failed, falling back to local Chromium: {redact_text(exc)}")
 
     print("[browser] launching bundled local Chromium")
     return await playwright.chromium.launch(

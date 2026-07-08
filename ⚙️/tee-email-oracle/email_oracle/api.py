@@ -22,6 +22,7 @@ from email_oracle.cred_store import CredentialStore, EmailCredentials
 from email_oracle.dstack_utils import derive_storage_key, get_attestation
 from email_oracle.imap_client import IMAPClient
 from email_oracle.replay_store import OtpReplayStore
+from email_oracle.redaction import redact_text
 
 
 # --- Request / Response models ---
@@ -253,7 +254,7 @@ async def lifespan(app: FastAPI):
         state.otp_replay_store_ready = True
         print(f"[api] loaded {len(state.used_otp_hashes)} OTP replay entries")
     except Exception as e:
-        print(f"[api] failed to decrypt OTP replay ledger: {e}")
+        print(f"[api] failed to decrypt OTP replay ledger: {redact_text(e)}")
         state.used_otp_hashes = set()
         state.otp_replay_store_ready = False
 
@@ -263,7 +264,7 @@ async def lifespan(app: FastAPI):
             state.creds = state.store.load()
             print(f"[api] loaded credentials for {state.creds.email}")
         except Exception as e:
-            print(f"[api] failed to decrypt credentials (wrong key?): {e}")
+            print(f"[api] failed to decrypt credentials (wrong key?): {redact_text(e)}")
             print("[api] delete the credential file or use the same dstack key path / ORACLE_CRED_STORE_KEY")
             state.creds = None
     else:
@@ -275,7 +276,7 @@ async def lifespan(app: FastAPI):
         try:
             state.imap.connect()
         except Exception as e:
-            print(f"[api] IMAP connection failed (will retry on request): {e}")
+            print(f"[api] IMAP connection failed (will retry on request): {redact_text(e)}")
 
     yield
 
@@ -319,7 +320,7 @@ async def extract_pin(req: PinRequest):
         try:
             state.imap.delete_email(result.email_id)
         except Exception as e:
-            print(f"[api] failed to delete email {result.email_id}: {e}")
+            print(f"[api] failed to delete email {result.email_id}: {redact_text(e)}")
 
     tdx_quote = ""
     if state.settings.dstack_enabled:

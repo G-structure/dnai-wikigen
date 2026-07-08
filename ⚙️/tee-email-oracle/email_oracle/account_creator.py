@@ -13,6 +13,7 @@ import httpx
 
 from email_oracle.config import Settings
 from email_oracle.cred_store import CredentialStore, EmailCredentials
+from email_oracle.redaction import redact_text
 
 
 from captcha_solver.parser import parse_box_shadow_pixels, pixels_to_image, extract_captcha_key
@@ -59,7 +60,7 @@ def signup_http(settings: Settings) -> EmailCredentials:
         pixels = parse_box_shadow_pixels(html)
         img = pixels_to_image(pixels, scale=1)
         captcha_solution = solve_from_image(img)
-        print(f"[signup] captcha solved: {captcha_solution}")
+        print("[signup] captcha solved")
 
         # Submit registration
         form_data = {
@@ -146,7 +147,7 @@ async def signup_browser(settings: Settings) -> EmailCredentials:
             pixels = parse_box_shadow_pixels(html)
             img = pixels_to_image(pixels, scale=1)
             captcha_solution = solve_from_image(img)
-            print(f"[signup] captcha solved: {captcha_solution}")
+            print("[signup] captcha solved")
 
             # Fill form
             await page.fill('input[name="username"]', creds.username)
@@ -195,7 +196,7 @@ async def create_account(
             return creds
         except Exception as e:
             last_error = e
-            print(f"[signup] HTTP attempt {attempt} failed: {e}")
+            print(f"[signup] HTTP attempt {attempt} failed: {redact_text(e)}")
 
     # Fall back to browser if HTTP failed
     if settings.use_browser_fallback:
@@ -207,6 +208,6 @@ async def create_account(
                 return creds
             except Exception as e:
                 last_error = e
-                print(f"[signup] browser attempt {attempt} failed: {e}")
+                print(f"[signup] browser attempt {attempt} failed: {redact_text(e)}")
 
-    raise RuntimeError(f"Account creation failed after all attempts: {last_error}")
+    raise RuntimeError(f"Account creation failed after all attempts: {redact_text(last_error)}")
