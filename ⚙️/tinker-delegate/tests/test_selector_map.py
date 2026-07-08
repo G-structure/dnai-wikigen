@@ -1,6 +1,11 @@
 import asyncio
 import unittest
+from unittest.mock import patch
 
+from fastapi.testclient import TestClient
+
+from tinker_delegate import api
+from tinker_delegate.config import Settings
 from tinker_delegate.main import _render_bounded_json
 from tinker_delegate.redaction import redact_text
 from tinker_delegate.selector_map import build_selector_map, probe_selector_map_context, selector_map_hash
@@ -36,6 +41,12 @@ class FakeContext:
 
 
 class SelectorMapTest(unittest.TestCase):
+    def setUp(self):
+        self.original_settings = api.settings
+
+    def tearDown(self):
+        api.settings = self.original_settings
+
     def test_selector_map_covers_required_tinker_and_billing_flows(self):
         selector_map = build_selector_map()
         flow_names = {flow["name"] for flow in selector_map["flows"]}
@@ -124,6 +135,54 @@ class SelectorMapTest(unittest.TestCase):
         )
         self.assertEqual(create_family["match_band"], "1")
         self.assertEqual(close_family["match_band"], "2+")
+
+    def test_selector_probe_endpoint_disabled_by_default(self):
+        api.settings = Settings(allow_selector_probe_endpoint=False)
+        client = TestClient(api.app)
+
+        response = client.get("/browser/selector-probe")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("selector probe endpoint is disabled", response.json()["detail"])
+
+    def test_selector_probe_endpoint_returns_bounded_probe(self):
+        api.settings = Settings(allow_selector_probe_endpoint=True)
+        client = TestClient(api.app)
+        bounded = {
+            "surface": "tinker_console_and_stripe_billing",
+            "raw_secret_egress": False,
+            "bounded_output": True,
+            "read_only": True,
+            "success": True,
+            "pages": [],
+        }
+
+        async def fake_probe(settings):
+            return bounded
+
+        with patch("tinker_delegate.selector_map.probe_live_selector_map", new=fake_probe):
+            response = client.get("/browser/selector-probe")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), bounded)
+
+    def test_selector_probe_endpoint_fails_closed_when_browser_unavailable(self):
+        api.settings = Settings(allow_selector_probe_endpoint=True)
+        client = TestClient(api.app)
+
+        async def failing_probe(settings):
+            raise RuntimeError("browser_ws_endpoint=ws://secret unavailable for oracle@example.com")
+
+        with patch("tinker_delegate.selector_map.probe_live_selector_map", new=failing_probe):
+            response = client.get("/browser/selector-probe")
+
+        self.assertEqual(response.status_code, 503)
+        body = response.json()
+        self.assertFalse(body["success"])
+        self.assertEqual(body["error_kind"], "browser_unavailable")
+        self.assertFalse(body["raw_secret_egress"])
+        self.assertNotIn("oracle@example.com", repr(body))
+        self.assertNotIn("ws://secret", repr(body))
 
 
 if __name__ == "__main__":

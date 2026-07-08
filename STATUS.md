@@ -96,7 +96,12 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   capture, emits only URL classes/hashes, selector match bands, frame kinds,
   selector-map hash, and `raw_secret_egress=false`, and fails closed with
   bounded `browser_unavailable` JSON if the browser cannot be reached. The
-  deployed-CVM selector/frame capture remains open.
+  matching `GET /browser/selector-probe` endpoint is now implemented for
+  one-shot Phala evidence capture, but it is disabled by default and returns
+  403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`. The deployed-CVM
+  selector/frame capture remains open until a new GitHub-built image is pinned,
+  the temporary endpoint flag is enabled in the measurement profile, and the
+  live endpoint response is recorded.
 - `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps

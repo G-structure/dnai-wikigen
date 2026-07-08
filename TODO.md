@@ -670,6 +670,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             kinds, selector-map hash, and `raw_secret_egress=false`. Browser
             connection failures return bounded `browser_unavailable` JSON
             instead of tracebacks.
+      - [x] Add a disabled-by-default HTTP selector-probe endpoint for one-shot
+            deployed evidence capture.
+            Done 2026-07-08: `GET /browser/selector-probe` returns 403 unless
+            `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled it invokes
+            the same read-only bounded probe and converts browser failures to a
+            bounded `browser_unavailable` response without leaking browser URLs,
+            account identifiers, page text, cookies, OTPs, API keys, or card
+            material. The steady-state Phala compose remains disabled until a
+            new GitHub-built image is pinned and deployed for capture.
       - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.

@@ -4,6 +4,7 @@ Endpoints:
   GET  /health                    — service health + oracle email
   GET  /attestation               — TDX attestation quote + context-bound encryption public key
   POST /auth/reauth               — bounded Tinker OTP re-auth, disabled unless explicitly enabled
+  GET  /browser/selector-probe    — bounded read-only selector/frame probe, disabled unless explicitly enabled
   GET  /billing/balance           — current Tinker balance
   GET  /billing/funding-policy    — bounded active funding mode
   GET  /billing/funding-preflight — bounded operator validation readiness
@@ -23,6 +24,7 @@ import os
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from cryptography.exceptions import InvalidTag
 from pydantic import BaseModel, Field
 
@@ -212,6 +214,35 @@ async def auth_reauth():
         last_reauth_attempt_record=result.get("attempt_record"),
     )
     return result
+
+
+@app.get("/browser/selector-probe")
+async def browser_selector_probe():
+    """Return a bounded read-only browser selector/frame observation.
+
+    Disabled by default. Enable only for one-shot deployed evidence capture.
+    The probe must not navigate, click, type, screenshot, or return page text.
+    """
+    if not settings.allow_selector_probe_endpoint:
+        raise HTTPException(403, "selector probe endpoint is disabled")
+
+    from tinker_delegate.selector_map import probe_live_selector_map
+
+    try:
+        return await probe_live_selector_map(settings)
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "surface": "tinker_console_and_stripe_billing",
+                "raw_secret_egress": False,
+                "bounded_output": True,
+                "read_only": True,
+                "success": False,
+                "error_kind": "browser_unavailable",
+                "bounded_message": "selector_probe_browser_unavailable",
+            },
+        )
 
 
 @app.get("/billing/balance")

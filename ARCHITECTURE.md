@@ -714,6 +714,14 @@ Implementation status:
             kinds, selector-map hash, bounded timestamps, and
             `raw_secret_egress=false`. Browser connection failures return
             bounded `browser_unavailable` JSON instead of tracebacks.
+[real]      `GET /browser/selector-probe` wraps the same probe for deployed
+            one-shot evidence capture. It is disabled by default and returns
+            403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
+            it still performs no navigation, clicking, typing, screenshots, or
+            page-text capture, and browser failures are reduced to bounded
+            `browser_unavailable` JSON. The normal Phala compose keeps this
+            endpoint disabled; enabling it is a temporary measurement profile,
+            not a widened production interface.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
