@@ -341,7 +341,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             extraction-failure behavior without a live Tinker account.
       - [x] Auth and OTP mock-page tests.
       - [x] Onboarding mock-page tests.
-      - [ ] Billing and Stripe-frame mock-page tests.
+      - [x] Billing and Stripe-frame mock-page tests.
 
 ### Tinker Funding
 
