@@ -84,6 +84,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Mocked-SDK `IsolatedTinkerSession` tests cover one training run per deal,
   TTL on checkpoint save paths, path-checked sampling, cleanup deletion, and
   cost metering without calling real Tinker.
+- Skip-by-default real Tinker SDK smoke harness exists for tiny
+  training/sampling/cleanup, gated by `TINKER_RUN_REAL_SDK_TESTS=1`,
+  `TINKER_API_KEY`, and `TINKER_REAL_SDK_MAX_USD <= 0.50`.
 
 ## Partial
 
@@ -94,8 +97,8 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - The same flow still needs fresh validation inside a deployed Phala CVM.
 - The optional Tinker SDK dependency and runtime behavior inside the final CVM
   image are not yet proven.
-- Real Tinker SDK training/sampling/cleanup tests remain gated on credentials,
-  budget cap, and deployed CVM validation.
+- Real Tinker SDK training/sampling/cleanup tests have not been run here; they
+  remain gated on credentials, budget cap, and deployed CVM validation.
 
 [partial] Account funding:
 

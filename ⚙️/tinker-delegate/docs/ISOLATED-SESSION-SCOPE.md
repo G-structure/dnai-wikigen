@@ -543,10 +543,12 @@ Larger RL evaluation on Qwen3-235B:
 
 ### 8.2 Integration Tests (Against Tinker API)
 
-**Requires `TINKER_API_KEY` and real API calls. Run with `--integration` flag.**
+**Requires `TINKER_API_KEY` and real API calls. Disabled by default. Run only
+with `TINKER_RUN_REAL_SDK_TESTS=1` and a low `TINKER_REAL_SDK_MAX_USD` cap.**
 
 | Test | Steps | Asserts |
 |------|-------|---------|
+| `test_tiny_training_sampling_and_cleanup` | Tiny real SDK smoke with explicit budget gate | Creates run, saves TTL checkpoint, samples, cleans up |
 | `test_e2e_sft_evaluation` | Full SFT eval with 10 training examples | Returns quality_delta > 0, compute_cost_wei > 0 |
 | `test_checkpoint_ttl_expiry` | Save with TTL=3600, wait, check expiry | Checkpoint `expires_at` is set correctly |
 | `test_cleanup_deletes_all` | Create run, save 3 checkpoints, cleanup | `list_checkpoints` returns empty |

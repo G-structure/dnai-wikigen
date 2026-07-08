@@ -380,7 +380,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       samples from it, and deletes/lets it expire.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
-- [ ] `P0` Add real SDK integration tests gated by an env var and budget cap.
+- [x] `P0` Add real SDK integration tests gated by an env var and budget cap.
 - [x] `P0` Enforce one training run per deal in runtime, not only by convention.
 - [x] `P0` Enforce checkpoint TTL on every save.
 - [x] `P0` Enforce path-checked sampling:

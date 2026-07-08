@@ -573,9 +573,16 @@ Implementation status:
             run per deal enforcement, TTL clamping on every checkpoint save
             path including save-and-sample, path-checked sampling, state
             checkpoints not being sampleable, cleanup deletion, and metering.
+[real]      Real Tinker SDK smoke-test harness exists but is disabled by
+            default. It requires `TINKER_RUN_REAL_SDK_TESTS=1`,
+            `TINKER_API_KEY`, and `TINKER_REAL_SDK_MAX_USD <= 0.50` before it
+            will create a tiny training run, save a TTL checkpoint, sample, and
+            cleanup.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE, but a capped real-card funding attempt still needs to be proven.
-[partial]   Optional Tinker SDK dependency must be installed for real evaluator execution.
+[partial]   Optional Tinker SDK dependency must be installed and the real SDK
+            harness must be run inside the deployed CVM before claiming real
+            evaluator execution.
 [partial]   Artifact upload still needs full cryptographic Intel TDX quote
             parsing/freshness validation, downstream evaluator/Tinker/browser
             no-disk audit, sealed-retention key hierarchy if retention is added,

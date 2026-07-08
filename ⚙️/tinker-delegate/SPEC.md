@@ -838,7 +838,11 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] Mocked-SDK integration tests: create run, enforce one-run guard, clamp TTL
       on every save path, sample only approved paths, meter calls, cleanup
       checkpoints
-- [ ] Real SDK integration test: create training run → train → sample → cleanup
+- [x] Gated real SDK integration test harness: create training run → train →
+      save TTL checkpoint → sample → cleanup, disabled unless
+      `TINKER_RUN_REAL_SDK_TESTS=1` and `TINKER_REAL_SDK_MAX_USD` is low
+- [ ] Run real SDK integration test inside deployed CVM:
+      create training run → train → sample → cleanup
       → verify deletion
 
 ### Phase 3: Evaluator Agent ✅ IMPLEMENTED (stub + SFT)
