@@ -208,9 +208,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             quote/public-key fields, and report-data/key mismatch before
             encryption.
       - [x] Add a standalone `verify-attestation` CLI that live-fetches
-            `/attestation` and verifies mode, quote presence, compose hash,
-            app ID, OS image hash, public-key shape, report-data key binding,
-            and client fetch freshness before accepting the evidence envelope.
+            `/attestation?context=...` and verifies mode, quote presence,
+            compose hash, app ID, OS image hash, public-key shape, report-data
+            key binding, and client fetch freshness before accepting the
+            evidence envelope.
       - [ ] Add cryptographic Intel TDX quote parsing and freshness checks;
             current `dstack_sdk` helpers do not expose a complete verifier.
 - [ ] `P0` Deploy the combined email-oracle + tinker-delegate stack to Phala
@@ -343,6 +344,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Disable plaintext `POST /billing/card` by default, disallow it in
             dstack mode, and wipe plaintext card request objects on success and
             failure.
+      - [x] Exercise encrypted `/billing/card/encrypted` locally after
+            context-bound billing attestation verification; Stripe test-card
+            submission returns bounded `card_declined` and the encrypted receipt
+            store records the attempt.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test

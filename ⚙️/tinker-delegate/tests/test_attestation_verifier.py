@@ -53,6 +53,7 @@ class AttestationVerifierTest(unittest.TestCase):
         def handler(request: httpx.Request) -> httpx.Response:
             self.assertEqual(request.method, "GET")
             self.assertEqual(request.url.path, "/attestation")
+            self.assertEqual(request.url.params["context"], "artifact")
             return httpx.Response(200, json=_tdx_attestation())
 
         before = time.time()

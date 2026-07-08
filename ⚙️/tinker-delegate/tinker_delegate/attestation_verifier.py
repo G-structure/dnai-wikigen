@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import time
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urlencode, urljoin
 
 import httpx
 
@@ -45,6 +45,11 @@ class AttestationVerificationResult:
 
 def _endpoint(base_url: str, path: str) -> str:
     return urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+
+
+def attestation_endpoint(base_url: str, context: str) -> str:
+    """Build a context-specific attestation endpoint URL."""
+    return _endpoint(base_url, "/attestation") + "?" + urlencode({"context": context})
 
 
 def _hex_bytes(value: object, field: str, *, expected_len: int | None = None) -> bytes:
@@ -141,7 +146,7 @@ def fetch_and_verify_attestation(
     http = client or httpx.Client(timeout=30.0)
     fetched_at = time.time()
     try:
-        response = http.get(_endpoint(base_url, "/attestation"))
+        response = http.get(attestation_endpoint(base_url, policy.context))
         response.raise_for_status()
         return verify_attestation_envelope(response.json(), policy, fetched_at=fetched_at)
     finally:

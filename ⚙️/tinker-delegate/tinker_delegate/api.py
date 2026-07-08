@@ -2,7 +2,7 @@
 
 Endpoints:
   GET  /health                    — service health + oracle email
-  GET  /attestation               — TDX attestation quote + encryption public key
+  GET  /attestation               — TDX attestation quote + context-bound encryption public key
   GET  /billing/balance           — current Tinker balance
   GET  /billing/funding-receipts  — bounded funding attempt audit records
   POST /billing/card              — add payment method (plaintext — local dev only)
@@ -153,17 +153,22 @@ async def health():
     }
 
 
+ATTESTATION_CONTEXTS = {"ingress", "artifact", "billing"}
+
+
 @app.get("/attestation")
-async def attestation():
-    """Get TDX attestation quote + TEE encryption public key.
+async def attestation(context: str = "ingress"):
+    """Get TDX attestation quote + context-bound TEE encryption public key.
 
     Developer MUST:
     1. Verify the TDX quote (code measurements match expected values)
-    2. Verify report_data binds encryption_public_key
+    2. Verify report_data binds context + encryption_public_key
     3. Extract encryption_public_key from the response
     4. Encrypt card details or artifacts to this key before sending them to an encrypted endpoint
     """
-    return get_attestation()
+    if context not in ATTESTATION_CONTEXTS:
+        raise HTTPException(400, "unsupported attestation context")
+    return get_attestation(context)
 
 
 @app.get("/billing/balance")
@@ -206,10 +211,10 @@ async def billing_card_encrypted(payload: EncryptedCardPayload):
     """Add a payment method (encrypted to TEE — production).
 
     The payload must be encrypted using X25519 + AES-256-GCM to the
-    TEE's public key from GET /attestation.
+    TEE's public key from GET /attestation?context=billing.
 
     Protocol:
-    1. GET /attestation → verify TDX quote → extract encryption_public_key
+    1. GET /attestation?context=billing → verify TDX quote → extract encryption_public_key
     2. Generate ephemeral X25519 keypair
     3. ECDH(ephemeral_private, tee_public) → shared_secret
     4. HKDF-SHA256(shared_secret, info="tinker-delegate-card") → AES key

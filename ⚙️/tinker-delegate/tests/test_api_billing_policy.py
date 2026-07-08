@@ -12,6 +12,8 @@ from tinker_delegate.automation_receipts import (
     AutomationSurface,
     make_receipt,
 )
+from tinker_delegate.billing_uploader import encrypt_billing_card_payload
+from tinker_delegate.card_channel import attestation_report_data, get_tee_keypair
 from tinker_delegate.config import Settings
 from tinker_delegate.funding_receipt_store import FundingReceiptStore
 
@@ -70,6 +72,57 @@ class BillingApiPolicyTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["error"], "stubbed")
         handle_card_update.assert_awaited_once()
+
+    def test_attestation_endpoint_binds_requested_billing_context(self):
+        client = TestClient(api.app)
+
+        response = client.get("/attestation", params={"context": "billing"})
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        keypair = get_tee_keypair()
+        self.assertEqual(body["report_context"], "billing")
+        self.assertEqual(
+            body["report_data"],
+            attestation_report_data("billing", keypair.public_key_bytes).hex(),
+        )
+
+    def test_attestation_endpoint_rejects_unknown_context(self):
+        client = TestClient(api.app)
+
+        response = client.get("/attestation", params={"context": "raw-card-dump"})
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_encrypted_card_endpoint_decrypts_and_persists_bounded_receipt(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "funding_receipts.enc"
+            key = "aa" * 32
+            api.settings = Settings(
+                funding_receipt_store_path=str(receipt_path),
+                funding_receipt_store_key=key,
+            )
+            client = TestClient(api.app)
+            attestation = client.get("/attestation", params={"context": "billing"}).json()
+            encrypted = encrypt_billing_card_payload(
+                CARD_PAYLOAD,
+                attestation["encryption_public_key"],
+            )
+
+            with patch(
+                "tinker_delegate.card_channel.add_payment_method",
+                new=AsyncMock(return_value={"success": False, "error": "Your card was declined."}),
+            ):
+                response = client.post("/billing/card/encrypted", json=encrypted)
+
+            stored = FundingReceiptStore(str(receipt_path), key_hex=key).load()
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertFalse(body["success"])
+        self.assertEqual(body["attempt_record"]["outcome"], "card_declined")
+        self.assertEqual(stored, [body["attempt_record"]])
+        self.assertNotIn("4242424242424242", repr(body))
 
     def test_funding_receipts_endpoint_returns_bounded_records(self):
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -1,7 +1,7 @@
 """Secure card update channel — encrypted card delivery from developer to TEE.
 
 Trust model:
-  1. Developer requests TDX attestation from CVM via GET /attestation
+  1. Developer requests TDX attestation from CVM via GET /attestation?context=billing
   2. Developer verifies: code measurements match git SHA → docker digest → compose hash
      and report_data binds the returned encryption_public_key
   3. Developer encrypts CardPayload to TEE's ephemeral public key (X25519 + AES-256-GCM)
@@ -91,7 +91,7 @@ class EncryptedCardPayload(BaseModel):
     """Encrypted card payload — production format.
 
     Developer encrypts CardPayload JSON to the TEE's X25519 public key
-    (obtained from GET /attestation after verifying the TDX quote).
+    (obtained from GET /attestation?context=billing after verifying the TDX quote).
     """
     ephemeral_public_key: str  # hex
     nonce: str                 # hex

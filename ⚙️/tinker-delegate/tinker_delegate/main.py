@@ -134,6 +134,38 @@ def cli():
     add_bal_p = sub.add_parser("add-balance", help="Add credit balance to Tinker account")
     add_bal_p.add_argument("amount", type=float, help="Amount in USD to add")
 
+    add_card_encrypted_p = sub.add_parser(
+        "add-card-encrypted",
+        help="Verify attestation, encrypt card details, and POST /billing/card/encrypted",
+    )
+    add_card_encrypted_p.add_argument("api_url", help="Tinker delegate API base URL")
+    add_card_encrypted_p.add_argument("--number", required=True, help="Card number")
+    add_card_encrypted_p.add_argument("--exp-month", required=True, help="Expiration month (01-12)")
+    add_card_encrypted_p.add_argument("--exp-year", required=True, help="Expiration year (26 or 2026)")
+    add_card_encrypted_p.add_argument("--cvc", required=True, help="CVC/CVV code")
+    add_card_encrypted_p.add_argument("--name", required=True, help="Cardholder name")
+    add_card_encrypted_p.add_argument("--address-line1", default="", help="Address line 1")
+    add_card_encrypted_p.add_argument("--address-city", default="", help="City")
+    add_card_encrypted_p.add_argument("--address-state", default="", help="State")
+    add_card_encrypted_p.add_argument("--address-postal", default="", help="Postal code")
+    add_card_encrypted_p.add_argument("--address-country", default="US", help="Country (default: US)")
+    add_card_encrypted_p.add_argument(
+        "--compose-hash",
+        default="",
+        help="Expected dstack compose hash; required unless --allow-local-attestation is set",
+    )
+    add_card_encrypted_p.add_argument("--app-id", default="", help="Expected dstack app ID")
+    add_card_encrypted_p.add_argument(
+        "--os-image-hash",
+        default="",
+        help="Expected dstack OS image hash",
+    )
+    add_card_encrypted_p.add_argument(
+        "--allow-local-attestation",
+        action="store_true",
+        help="Allow local-mode attestation for development only",
+    )
+
     upload_artifact_p = sub.add_parser(
         "upload-artifact",
         help="Verify attestation, encrypt an artifact, and upload it to a deal",
@@ -242,6 +274,49 @@ def cli():
         result = asyncio.run(handle_add_balance(payload, settings))
         print(result.model_dump_json(indent=2))
         sys.exit(0 if result.success else 1)
+
+    elif args.command == "add-card-encrypted":
+        from tinker_delegate.attestation_verifier import AttestationVerificationError
+        from tinker_delegate.billing_uploader import (
+            BillingCardUploadPolicy,
+            upload_billing_card_payload,
+        )
+
+        card = {
+            "card_number": args.number,
+            "exp_month": args.exp_month,
+            "exp_year": args.exp_year,
+            "cvc": args.cvc,
+            "cardholder_name": args.name,
+            "address_line1": args.address_line1,
+            "address_city": args.address_city,
+            "address_state": args.address_state,
+            "address_postal": args.address_postal,
+            "address_country": args.address_country,
+        }
+        policy = BillingCardUploadPolicy(
+            expected_compose_hash=args.compose_hash,
+            expected_app_id=args.app_id,
+            expected_os_image_hash=args.os_image_hash,
+            allow_local=args.allow_local_attestation,
+        )
+        try:
+            result = upload_billing_card_payload(args.api_url, card, policy)
+        except AttestationVerificationError as exc:
+            print(f"[add-card-encrypted] attestation rejected: {redact_text(exc)}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"[add-card-encrypted] update failed: {redact_text(exc)}")
+            sys.exit(1)
+        finally:
+            for key in list(card):
+                card[key] = ""
+
+        print(json.dumps({
+            "status_code": result.status_code,
+            "response": result.response,
+        }, indent=2))
+        sys.exit(0 if result.response.get("success") else 1)
 
     elif args.command == "upload-artifact":
         from tinker_delegate.artifact_uploader import (

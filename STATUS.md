@@ -65,8 +65,8 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 
 [real] Artifact ingress:
 
-- `GET /attestation` exposes a public upload key and dstack attestation when
-  available.
+- `GET /attestation?context=artifact` exposes a context-bound public upload key
+  and dstack attestation when available.
 - Upload clients verify the attestation envelope before sending an artifact.
 - Artifact uploads are encrypted client-side to the attested key.
 - Server-side artifact keys are derived per deal and artifact hash.
@@ -190,6 +190,10 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Bounded funding receipts are persisted in encrypted/sealed delegate storage
   under a separate funding-receipt key path and exposed through
   `GET /billing/funding-receipts`.
+- The encrypted card client/harness verifies context-bound billing attestation,
+  posts only ciphertext to `/billing/card/encrypted`, and was locally exercised
+  against the Neko/Tinker/Stripe test-card path. It returned bounded
+  `card_declined` and persisted one funding receipt.
 - Real card funding is intentionally not attempted until real payment details
   are provided out of band.
 - Payment-method token/reference handling and the sealed long-lived funding

@@ -62,6 +62,7 @@ class ArtifactUploaderTest(unittest.TestCase):
         def handler(request: httpx.Request) -> httpx.Response:
             requests.append(request)
             if request.method == "GET" and request.url.path == "/attestation":
+                self.assertEqual(request.url.params["context"], "artifact")
                 return httpx.Response(200, json=_tdx_attestation())
             if request.method == "POST" and request.url.path == "/deal/deal-1/artifact/encrypted":
                 payload = request.read().decode()
@@ -99,6 +100,7 @@ class ArtifactUploaderTest(unittest.TestCase):
         def handler(request: httpx.Request) -> httpx.Response:
             requests.append(request)
             if request.method == "GET" and request.url.path == "/attestation":
+                self.assertEqual(request.url.params["context"], "artifact")
                 return httpx.Response(200, json=_tdx_attestation(compose_hash="bad"))
             return httpx.Response(500, json={"error": "should not post"})
 

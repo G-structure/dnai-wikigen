@@ -384,8 +384,8 @@ GET /deal/{deal_id}/result
   Auth: buyer's signature
   → Returns EvaluationResult + TDX quote (only after evaluation completes)
 
-GET /attestation
-  → Returns current TDX quote, compose hash, code measurements
+GET /attestation?context=ingress|artifact|billing
+  → Returns current context-bound TDX quote, compose hash, code measurements
 
 GET /health
   → Liveness check + active session count
@@ -923,7 +923,7 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 
 1. **Tinker console signup flow** — Local Neko/CDP automation works against the live Tinker UI as of 2026-07-08: OTP arrives through the email oracle, onboarding completes, and API-key provisioning captures a one-time `tml-...` key. Production signup is not complete until the same selector flow is validated in the deployed CVM package.
 
-2. **Tinker billing settings page** — Browser automation and encrypted card-channel code exist. Local Neko reaches the Stripe Elements payment form, fills the test card, and receives the expected `Your card was declined.` response. Add-balance fails closed with `Payment method required before adding balance` when no real card is on file. On 2026-07-08, the local billing path returned and encrypted/persisted bounded `payment_method` and `add_balance` attempt records with outcome classes, furthest-stage markers, timestamps, evidence hashes, amount bands, and card-payload destruction status. The plaintext card API endpoint is disabled by default and is not available in dstack mode; production funding still needs a capped real-card attempt after attestation verification.
+2. **Tinker billing settings page** — Browser automation and encrypted card-channel code exist. Local Neko reaches the Stripe Elements payment form, fills the test card, and receives the expected `Your card was declined.` response. Add-balance fails closed with `Payment method required before adding balance` when no real card is on file. On 2026-07-08, the local billing path returned and encrypted/persisted bounded `payment_method` and `add_balance` attempt records with outcome classes, furthest-stage markers, timestamps, evidence hashes, amount bands, and card-payload destruction status. The encrypted client harness verifies `/attestation?context=billing`, posts only ciphertext to `/billing/card/encrypted`, and locally reproduced the test-card decline with a persisted receipt. The plaintext card API endpoint is disabled by default and is not available in dstack mode; production funding still needs a capped real-card attempt after deployed attestation verification.
 
 3. **TTL reliability** — Does Tinker actually purge expired checkpoints and make them inaccessible after `ttl_seconds`? Or are they just marked expired but still fetchable? Needs empirical testing.
 

@@ -13,6 +13,7 @@ from tinker_delegate.artifacts import artifact_keccak256, encrypt_artifact_paylo
 from tinker_delegate.attestation_verifier import (
     AttestationPolicy,
     AttestationVerificationError,
+    attestation_endpoint,
     verify_attestation_envelope,
 )
 
@@ -75,7 +76,7 @@ def upload_artifact_bytes(
     owns_client = client is None
     http = client or httpx.Client(timeout=30.0)
     try:
-        attestation_response = http.get(_endpoint(base_url, "/attestation"))
+        attestation_response = http.get(attestation_endpoint(base_url, policy.context))
         attestation_response.raise_for_status()
         tee_public_key = verify_artifact_attestation(attestation_response.json(), policy)
 

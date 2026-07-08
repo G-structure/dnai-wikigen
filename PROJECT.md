@@ -100,6 +100,8 @@ The current branch already contains:
   isolated Tinker sessions, bounded control plane, evaluator scaffold, and API.
   API-key provisioning and billing automation return and persist bounded
   attempt records rather than raw keys, card data, or browser page bodies.
+  The client-side encrypted billing harness verifies context-bound attestation
+  before posting card ciphertext.
 
 - `⚙️/props-room`
   Source-controller and sealed-asset control plane stub.

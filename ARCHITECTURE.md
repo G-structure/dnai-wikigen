@@ -591,13 +591,22 @@ Implementation status:
             artifact hash even with the same TEE public key.
 [real]      Attestation report data binds operation context plus the TEE
             encryption public key so verifiers can detect key substitution.
-[real]      Client-side artifact uploader fetches `/attestation` and refuses to
-            encrypt or upload unless mode, quote presence, compose hash, app ID,
-            public-key shape, and report data match policy.
-[real]      Standalone `verify-attestation` CLI live-fetches `/attestation` and
-            checks the public evidence envelope: mode, quote presence, compose
-            hash, app ID, OS image hash, report-data key binding, and client
-            fetch freshness.
+[real]      `/attestation` accepts an explicit bounded context query
+            (`ingress`, `artifact`, or `billing`) and rejects unsupported
+            contexts. Encrypted artifact and billing clients request their
+            context before encrypting payloads.
+[real]      Client-side artifact uploader fetches
+            `/attestation?context=artifact` and refuses to encrypt or upload
+            unless mode, quote presence, compose hash, app ID, public-key shape,
+            and report data match policy.
+[real]      Client-side encrypted billing uploader fetches context-bound
+            billing attestation, refuses local/non-matching evidence unless
+            explicitly allowed, encrypts card JSON to `/billing/card/encrypted`,
+            wipes its plaintext buffer, and posts only ciphertext.
+[real]      Standalone `verify-attestation` CLI live-fetches
+            `/attestation?context=...` and checks the public evidence envelope:
+            mode, quote presence, compose hash, app ID, OS image hash,
+            report-data key binding, and client fetch freshness.
 [real]      In dstack mode `/attestation` includes public dstack evidence fields
             when available: event log, VM config, instance/device IDs,
             aggregated measurement, OS image hash, compose hash, and TCB info.
@@ -1161,7 +1170,7 @@ Endpoints:
 
 ```
 GET  /health
-GET  /attestation
+GET  /attestation?context=ingress|artifact|billing
 GET  /billing/balance
 GET  /billing/funding-receipts bounded funding attempt audit records
 POST /billing/card            local-dev plaintext hook, disabled by default

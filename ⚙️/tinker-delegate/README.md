@@ -12,7 +12,7 @@ The email oracle is still required. It is not just a disposable inbox: it is the
 
 The oracle's `/pin` and `/inbox` endpoints are now protected by runtime bearer auth when enabled. In the combined dstack/Phala deployment, the oracle and delegate derive the bearer token from the same dstack key path (`oracle/runtime-auth`). Local development can use an explicit `ORACLE_RUNTIME_AUTH_TOKEN` / `TINKER_ORACLE_AUTH_TOKEN` pair instead. `/pin` requests are scoped: the delegate sends target service, expected sender, caller identity, reason, nonce, max age, and bounded extraction pattern. The oracle persists released OTP hashes in an encrypted/sealed replay ledger so one-time-use survives restart, and logs only bounded metadata, not the OTP value.
 
-Tinker account funding remains in progress. The intended payment path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code now reach Stripe in the local Neko session: a Stripe test card filled the live payment form and was rejected with `Your card was declined.` Adding balance correctly fails closed with `Payment method required before adding balance` when no real card is on file. On 2026-07-08, the same local session produced bounded `payment_method` and `add_balance` attempt records with outcome classes, furthest-stage markers, timestamps, evidence hashes, amount bands, and card-payload destruction status. The plaintext card API endpoint is disabled by default and unavailable in dstack mode; it can only be enabled as a local-development test hook with `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. A capped real-card funding attempt is still required before funding can be called production-complete.
+Tinker account funding remains in progress. The intended payment path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code now reach Stripe in the local Neko session: a Stripe test card filled the live payment form and was rejected with `Your card was declined.` Adding balance correctly fails closed with `Payment method required before adding balance` when no real card is on file. On 2026-07-08, the same local session produced bounded `payment_method` and `add_balance` attempt records with outcome classes, furthest-stage markers, timestamps, evidence hashes, amount bands, and card-payload destruction status. The encrypted client harness verifies `/attestation?context=billing`, encrypts locally, posts only ciphertext to `/billing/card/encrypted`, and locally reproduced the same bounded test-card decline with a persisted receipt. The plaintext card API endpoint is disabled by default and unavailable in dstack mode; it can only be enabled as a local-development test hook with `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. A capped real-card funding attempt is still required before funding can be called production-complete.
 
 ## How It Works
 
@@ -122,6 +122,15 @@ uv venv && uv pip install playwright httpx pydantic pydantic-settings
 # Add balance (requires card on file)
 .venv/bin/python -m tinker_delegate.main add-balance 50.00
 
+# Add payment method through attestation-verified encrypted channel
+.venv/bin/python -m tinker_delegate.main add-card-encrypted http://localhost:8080 \
+  --number <stripe-test-card-number> \
+  --exp-month 12 --exp-year 2028 \
+  --cvc 123 --name "Dev Team" \
+  --address-line1 "123 Main St" --address-city "SF" \
+  --address-state "CA" --address-postal "94105" \
+  --allow-local-attestation
+
 # Start API server (for TEE deployment)
 .venv/bin/python -m tinker_delegate.main serve --port 8080
 ```
@@ -132,7 +141,7 @@ the encrypted card channel after verifying the TEE attestation.
 ### Artifact Upload
 
 Use `upload-artifact` from the seller/controller side after a deal exists. The
-command fetches `/attestation`, refuses local/default attestation unless
+command fetches `/attestation?context=artifact`, refuses local/default attestation unless
 explicitly allowed, checks the expected compose hash/app ID and report-data-bound
 public key, then encrypts the artifact to `POST /deal/{id}/artifact/encrypted`.
 It prints only bounded metadata: deal ID, artifact hash, size, status code, and
@@ -153,7 +162,8 @@ must use the dstack/TDX attestation path.
 ### Attestation Verification
 
 Use `verify-attestation` to check the public evidence envelope from a laptop
-before sending payment material or artifacts. It live-fetches `/attestation` and
+before sending payment material or artifacts. It live-fetches `/attestation` for
+the selected context and
 verifies mode, quote presence, expected compose hash, optional app ID, optional
 OS image hash, public-key shape, report-data key binding, and client fetch
 freshness. This is not a complete Intel quote-chain parser yet; that remains a
@@ -174,7 +184,7 @@ The `serve` command starts a FastAPI server for programmatic access:
 
 ```
 GET  /health              — service health + oracle email
-GET  /attestation         — TDX attestation quote + report_data-bound public key
+GET  /attestation?context=ingress|artifact|billing — context-bound quote + public key
 GET  /billing/balance     — current Tinker balance
 GET  /billing/funding-receipts — bounded funding attempt audit records
 POST /billing/card        — plaintext local-dev hook, disabled by default
@@ -319,6 +329,10 @@ contracts/
 - **Receipt storage**: bounded funding attempt records are persisted in the
   encrypted delegate store and can be read through `/billing/funding-receipts`.
   The store rejects unknown fields and any receipt claiming raw secret egress.
+- **Encrypted client**: `add-card-encrypted` and
+  `tinker_delegate.billing_uploader` fetch `/attestation?context=billing`,
+  verify policy, encrypt card JSON, wipe the local plaintext buffer, and post
+  only ciphertext to `/billing/card/encrypted`.
 - **Auto-reload**: Configurable threshold + amount
 - **Pricing** (USD/million tokens): Llama-3.2-1B $0.03-$0.09, Llama-3.1-8B $0.13-$0.40, Qwen3-235B $0.68-$2.04
 - **Trust model**: Developer encrypts card to TEE's TDX key → TEE fills Stripe form → zeroes memory → card never persisted
