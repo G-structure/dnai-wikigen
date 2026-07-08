@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     cred_store_key: str = ""  # 32-byte hex key; auto-generated if empty
 
     # --- cock.li registration ---
+    auto_genesis: bool = True
     cockli_register_url: str = "https://cock.li/register.php"
     cockli_domain: str = "cock.email"
     cockli_imap_host: str = "mail.cock.li"

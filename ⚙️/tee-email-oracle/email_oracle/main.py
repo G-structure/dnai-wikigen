@@ -36,14 +36,18 @@ def cmd_serve(settings: Settings, store: CredentialStore) -> None:
     """Start the API server."""
     import uvicorn
 
-    # Auto-genesis if no credentials exist
-    if not store.exists():
+    # Auto-genesis is useful for local demos but brittle in production: account
+    # creation failures must not prevent bounded health/attestation endpoints
+    # from serving.
+    if not store.exists() and settings.auto_genesis:
         print("[serve] no credentials found, running genesis first...")
         asyncio.run(cmd_genesis(settings, store))
 
-    if not store.exists():
+    if not store.exists() and settings.auto_genesis:
         print("[serve] genesis failed, cannot start server")
         sys.exit(1)
+    if not store.exists():
+        print("[serve] no credentials found, starting API in degraded mode")
 
     print(f"[serve] starting API on {settings.api_host}:{settings.api_port}")
     uvicorn.run(
