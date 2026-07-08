@@ -22,7 +22,7 @@ We need:
 | Decision | Resolution |
 |---|---|
 | **Who pays Tinker compute?** | The buyer. Compute cost is deducted from their escrow alongside the deal payment. |
-| **How is the Tinker account funded?** | Pre-funded by the developers (us). `TINKER_FUNDING_MODE=manual_prefund` is the default production model and denies raw-card/add-balance browser automation. The encrypted raw-card channel is limited to opt-in `operator_capped_validation` for a capped operator-owned validation path; `funding-preflight` / `/billing/funding-preflight` checks mode, cap, receipt-store availability, and billing attestation policy before any card payload or browser launch. `funding-preflight --output` and billing `--receipt-output` write bounded validation artifacts; CLI rendering fails closed if a response contains submitted card material or secret-shaped fields. `funding-manifest` builds a bounded audit envelope from saved preflight/receipt JSON and rejects raw card/API-key/secret-shaped inputs; `verify-funding-manifest` replay-verifies saved packet hashes without echoing packet bodies. `funding-validation-packet` writes the full bounded packet directory, requires explicit `--run-card-attempt` before accepting card fields, and can add a separate top-up evidence lane only through `--add-balance-receipt-json` or explicit `--run-add-balance-attempt`. `check-funding-validation-packet` distinguishes internally consistent local packets from packets with live deployed TDX attestation evidence. Production/repeated funding should use an official Tinker route, Stripe-hosted/tokenized collection, SetupIntent / PaymentMethod reuse with consent, or manual/developer prefunding until compliance review approves otherwise. |
+| **How is the Tinker account funded?** | Pre-funded by the developers (us). `TINKER_FUNDING_MODE=manual_prefund` is the default production model and denies raw-card/add-balance browser automation. The encrypted raw-card channel is limited to opt-in `operator_capped_validation` for a capped operator-owned validation path; `funding-preflight` / `/billing/funding-preflight` checks mode, cap, receipt-store availability, and billing attestation policy before any card payload or browser launch. Runtime bearer auth protects operator-only mutation endpoints when `TINKER_RUNTIME_AUTH_REQUIRED=true`: `/auth/reauth`, `/billing/card/encrypted`, `/billing/add-balance`, `/billing/funding-receipts`, and the explicitly local plaintext card endpoint. `funding-preflight --output` and billing `--receipt-output` write bounded validation artifacts; CLI rendering fails closed if a response contains submitted card material or secret-shaped fields. `funding-manifest` builds a bounded audit envelope from saved preflight/receipt JSON and rejects raw card/API-key/secret-shaped inputs; `verify-funding-manifest` replay-verifies saved packet hashes without echoing packet bodies. `funding-validation-packet` writes the full bounded packet directory, requires explicit `--run-card-attempt` before accepting card fields, can run `/auth/reauth` through `--run-reauth-attempt`, reads the bearer token from `TINKER_RUNTIME_AUTH_TOKEN` by default, and can add a separate top-up evidence lane only through `--add-balance-receipt-json` or explicit `--run-add-balance-attempt`. `check-funding-validation-packet` distinguishes internally consistent local packets from packets with live deployed TDX attestation evidence. `docker-compose.tinker-funding-validation.phala.yaml` is the temporary capped Phala profile for low-value operator validation, but it is not production funding posture. Production/repeated funding should use an official Tinker route, Stripe-hosted/tokenized collection, SetupIntent / PaymentMethod reuse with consent, or manual/developer prefunding until compliance review approves otherwise. |
 | **Fee structure** | 1% surcharge on top of raw Tinker API costs, paid to the developer account. |
 | **Evaluation protocol** | Up to the agent and its owner (the buyer). The agent decides base model, steps, benchmarks autonomously. |
 | **`ttl_seconds` on checkpoints** | Mandatory on every save. Dead man's switch — Tinker auto-deletes even if our cleanup never runs. |
@@ -258,7 +258,22 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   `page_enable_error_kind`, so the next Phala run can distinguish page-domain
   command delivery from Runtime-domain enablement without exposing page text,
   raw URLs, selectors, cookies, OTPs, API keys, card material, event payloads,
-  frame IDs, or execution-context IDs.
+  frame IDs, or execution-context IDs. A follow-up 2026-07-08 Phala one-shot
+  run with GitHub-attested `556387a` images proved that `Page.enable` itself
+  times out on both attached-session and direct page-target paths:
+  `partial_error_kind=page_enable_timeout`,
+  `page_enable_command_success=false`,
+  `direct_page_runtime.page_list_success=true`,
+  `direct_page_runtime.page_websocket_available=true`,
+  `direct_page_runtime.page_enable_success=false`,
+  `direct_page_runtime.page_enable_error_kind=timeout`, no Runtime micro-probe,
+  no selector-family matrix, empty `flow_observations`, and
+  `raw_secret_egress=false`. The CVM was restored to normal compose afterward
+  at live attested compose hash
+  `e9e07417f7df3b0dae2fdc148fc6847751afa240b9167cc81e76883060ecd586`, and
+  `/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
+  returned 403. The remaining deployed blocker is now lower-level page CDP
+  command delivery through the Phala Neko path.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,

@@ -63,6 +63,7 @@ class BillingUploaderTest(unittest.TestCase):
                 self.assertEqual(request.url.params["context"], "billing")
                 return httpx.Response(200, json=_tdx_billing_attestation())
             if request.method == "POST" and request.url.path == "/billing/card/encrypted":
+                self.assertEqual(request.headers.get("authorization"), "Bearer operator-secret")
                 payload = request.read().decode()
                 self.assertIn("ciphertext", payload)
                 self.assertIn("ephemeral_public_key", payload)
@@ -89,7 +90,11 @@ class BillingUploaderTest(unittest.TestCase):
         result = upload_billing_card_payload(
             "https://tee.example",
             _card_payload(),
-            BillingCardUploadPolicy(expected_compose_hash="compose-ok", expected_app_id="app-ok"),
+            BillingCardUploadPolicy(
+                expected_compose_hash="compose-ok",
+                expected_app_id="app-ok",
+                auth_token="operator-secret",
+            ),
             client=client,
         )
 

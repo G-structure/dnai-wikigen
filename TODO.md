@@ -955,10 +955,6 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             health is OK, `/browser/readiness` and
             `/browser/selector-probe` return 403, and `/billing/add-balance`
             returns 403 when called with the current `amount_dollars` schema.
-            Next step: debug the Neko/Chrome Runtime domain itself, likely by
-            comparing Chrome/supervisord flags or deploying a marked
-            public-logs/dev-access diagnostic profile, then restore the
-            locked-down compose again.
             Follow-up source/tests 2026-07-08: the raw-CDP probe now sends a
             bounded `Page.enable` command before `Runtime.enable` on both the
             attached page session and the direct page-target WebSocket. It
@@ -968,9 +964,34 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             "page-session commands work but Runtime-domain enable hangs" from
             "all page-target commands hang" in the next Phala measurement,
             without exposing page text, raw URLs, selectors, cookies, OTPs, API
-            keys, or card material. Next step: build GitHub-attested images,
-            run the one-shot selector-probe, record the Page-vs-Runtime result,
-            then restore normal compose.
+            keys, or card material. Follow-up Phala attempt 2026-07-08:
+            GitHub Actions built and signed source commit
+            `556387a9e673e91d3ea4991cdaee96ead3e52922` into
+            `tinker-delegate@sha256:72b584ff4228783711ff3108f8674a9d5ab86fec2a072cf1ea3f8b71b697ec38`
+            and
+            `tee-email-oracle@sha256:287028f12f7cb596d573f950e6dc1cb2437fe37ea2984101abd8bd451d44eca3`;
+            local attestation checks passed for both provenance and SBOM
+            attestations. A one-shot Phala diagnostic compose reached live app
+            compose hash
+            `1926b9f99a249dd27f4772a7ffd90deba7b83c402e30aa49e408b8cdcb5db06a`;
+            `/browser/selector-probe` returned `success=true`,
+            `probe_backend=raw_cdp`,
+            `partial_error_kind=page_enable_timeout`,
+            `page_enable_command_success=false`,
+            `direct_page_runtime.page_list_success=true`,
+            `direct_page_runtime.page_websocket_available=true`,
+            `direct_page_runtime.page_enable_success=false`,
+            `direct_page_runtime.page_enable_error_kind=timeout`, no Runtime
+            micro-probe, no selector-family matrix, empty `flow_observations`,
+            and `raw_secret_egress=false`. Normal compose was restored
+            afterward at live attested compose hash
+            `e9e07417f7df3b0dae2fdc148fc6847751afa240b9167cc81e76883060ecd586`;
+            health is OK and `/browser/readiness`, `/browser/selector-probe`,
+            and `/billing/add-balance` return 403. The remaining blocker is
+            lower-level page CDP command delivery through the Phala Neko path;
+            next implementation step is to route Tinker automation through the
+            Playwright sidecar or repair the Neko CDP transport before trying
+            account funding.
 - [x] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
       needed by each compose profile.
       Done 2026-07-08: `scripts/redeploy-phala-cvm.mjs` now defaults to
@@ -1111,6 +1132,22 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             without placing card fields in command-line arguments; prompt mode
             rejects missing deployed attestation expectations before asking for
             card material.
+      - [x] Add runtime bearer auth for operator-only Tinker mutation endpoints:
+            `/auth/reauth`, `/billing/card/encrypted`,
+            `/billing/add-balance`, `/billing/funding-receipts`, and the local
+            plaintext card endpoint when explicitly enabled now require a bearer
+            token when `TINKER_RUNTIME_AUTH_REQUIRED=true`. The
+            `funding-validation-packet`, `add-card-encrypted`, and
+            `add-card-encrypted-prompt` CLIs read the token from
+            `TINKER_RUNTIME_AUTH_TOKEN` by default and never require it on the
+            command line.
+      - [x] Add a temporary Phala funding-validation compose profile that keeps
+            signup/bootstrap and plaintext card input disabled, enables only
+            capped operator reauth/encrypted-card/add-balance endpoints, uses
+            the Playwright sidecar instead of the currently blocked Neko CDP
+            path, caps top-up attempts at `$5`, and quote-binds the profile
+            through digest-pinned registry images plus explicit runtime env
+            policy.
       - [x] Run a fresh local FastAPI encrypted-card smoke with local billing
             attestation and a Stripe test card: `$5` operator preflight returns
             ready, `$10` with add-balance endpoint required returns not ready,
@@ -1119,7 +1156,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             file does not contain the test card number, CVC, name, postal code,
             or raw card field names.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
-            deployed attested endpoint after quote verification.
+            deployed attested funding-validation endpoint after quote
+            verification and GitHub-attested images for the runtime-auth source
+            commit are pinned.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
       account and a safe test card or approved real card.
       - [x] Stripe test card reaches live Tinker/Stripe submission and returns
@@ -1137,7 +1176,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`, even when
             `operator_capped_validation` mode is enabled.
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
-            attempt after receiving approved card details.
+            attempt after the funding-validation compose is deployed on Phala,
+            its live attested compose hash is recorded, and the operator CLI
+            command targets that hash with `--fetch-attestation`.
 - [x] `P0` Confirm PCI and Stripe obligations.
       Research whether the current encrypted-card-to-TEE flow is acceptable or
       whether the system must use Stripe-hosted tokenization / SetupIntent /
@@ -1740,6 +1781,9 @@ vision Wiki is reaching for.
             Refreshed again 2026-07-08 for bounded direct page-target Runtime
             diagnostic commit `bf39f569840f348c639be9fe0a8928f3360d9835`
             with GitHub Actions build run `28972610369`.
+            Refreshed again 2026-07-08 for bounded `Page.enable`
+            discriminator commit `556387a9e673e91d3ea4991cdaee96ead3e52922`
+            with GitHub Actions build run `28974675082`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
@@ -1750,11 +1794,17 @@ vision Wiki is reaching for.
       `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:43bf7d096bdd0e56b8fa95c23325513ba09825114de16e23fb578169cb8a3e42`
       and delegate image
       `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c43ac01ee461aca4b49bbfe77d55491cfac8bb3dc70907c84a7b40b34657c277`.
+      Refreshed 2026-07-08 again from source
+      `556387a9e673e91d3ea4991cdaee96ead3e52922`: the normal Phala compose now
+      runs oracle image
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:287028f12f7cb596d573f950e6dc1cb2437fe37ea2984101abd8bd451d44eca3`
+      and delegate image
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:72b584ff4228783711ff3108f8674a9d5ab86fec2a072cf1ea3f8b71b697ec38`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
       image refs change. The current normal profile is live at attested compose
-      hash `382aa6c881d477724552f4445157afbcd75738ee1feb9603b982b75ec4e82c2c`
+      hash `e9e07417f7df3b0dae2fdc148fc6847751afa240b9167cc81e76883060ecd586`
       with narrowed `allowed_env_count=7`. Live update with disabled public
       logs/sysinfo succeeded, but Phala still reports `dstack-dev-0.5.9` /
       `is_dev=true`.
@@ -1779,6 +1829,18 @@ vision Wiki is reaching for.
             `ddd344213f29769cebd3c0caef8ff990628f5422b4295346ee84a8072a3c5adf`,
             and live attested compose hash
             `382aa6c881d477724552f4445157afbcd75738ee1feb9603b982b75ec4e82c2c`.
+            Refreshed 2026-07-08: `verify-deployment-bundle` also passes
+            against source `556387a9e673e91d3ea4991cdaee96ead3e52922`, oracle
+            image
+            `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:287028f12f7cb596d573f950e6dc1cb2437fe37ea2984101abd8bd451d44eca3`,
+            delegate image
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:72b584ff4228783711ff3108f8674a9d5ab86fec2a072cf1ea3f8b71b697ec38`,
+            local raw compose hash
+            `1a4870ab818fe2d8d5e59c6c84ada795a36210c3ea5a0d2bc16d342bfdbb87f5`,
+            rendered compose SHA-256
+            `9c664e88ba1c79108f6f9c2987f667aa2e6ee6fa853b19277c7a8f8abfd43441`,
+            and live attested compose hash
+            `e9e07417f7df3b0dae2fdc148fc6847751afa240b9167cc81e76883060ecd586`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.

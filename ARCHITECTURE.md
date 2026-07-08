@@ -812,9 +812,15 @@ Implementation status:
             reveal whether page-domain CDP commands succeed before the Runtime
             domain hangs, without emitting page text, raw URLs, selectors,
             cookies, OTPs, API keys, card material, event payloads, frame IDs,
-            or execution-context IDs. This Page-vs-Runtime discriminator is
-            source/test-real until a GitHub-attested image is remeasured on
-            Phala.
+            or execution-context IDs. The 2026-07-08 Phala measurement on
+            GitHub-attested `556387a` images returned
+            `partial_error_kind=page_enable_timeout`,
+            `page_enable_command_success=false`, and direct page-target
+            `page_enable_success=false` / `page_enable_error_kind=timeout`
+            after proving `/json/list` and page-WebSocket availability. The
+            deployed blocker is therefore lower than Runtime-specific command
+            handling: page-target CDP command delivery through the Phala Neko
+            path does not complete even for `Page.enable`.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed
             one-shot evidence capture. It is disabled by default and returns
             403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
@@ -903,10 +909,10 @@ Implementation status:
             proved `/json/list` and page-WebSocket availability, but direct
             page `Runtime.enable` also timed out, so deployed selector-family
             evidence remains blocked on Neko/Chrome Runtime-domain behavior.
-            Source/tests now add a bounded `Page.enable` discriminator before
-            `Runtime.enable`; it still needs Phala measurement to determine
-            whether the deployed page target can execute non-Runtime CDP
-            commands.
+            A follow-up Phala measurement on GitHub-attested `556387a` images
+            shows `Page.enable` also times out on the deployed page target, so
+            selector-family evidence remains blocked on lower-level Neko/Chrome
+            CDP command delivery rather than selector expressions.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
@@ -1001,12 +1007,36 @@ Implementation status:
             exclusive with test-card flags, and deployed compose/app/OS-image
             attestation expectations are required before prompting unless
             local-development attestation is explicitly allowed.
+[real]      Operator-only mutation endpoints now have delegate runtime bearer
+            auth. When `TINKER_RUNTIME_AUTH_REQUIRED=true`,
+            `/auth/reauth`, `/billing/card/encrypted`,
+            `/billing/add-balance`, `/billing/funding-receipts`, and the
+            explicitly local plaintext card endpoint require
+            `Authorization: Bearer ...`; missing tokens fail 401, wrong tokens
+            fail 403, and misconfigured required auth fails closed. The token
+            can be supplied explicitly through `TINKER_RUNTIME_AUTH_TOKEN` for
+            operator CLI runs, or derived inside dstack from
+            `TINKER_RUNTIME_AUTH_KEY_PATH` for same-TEE callers.
 [real]      Funding validation packets can also include separate add-balance
             evidence: an add-balance receipt, manifest, verification, and
             summary fields. The runner can bind an existing bounded top-up
             receipt, or POST only the amount to `/billing/add-balance` when
             `--run-add-balance-attempt` is explicitly set and `--amount` is
             provided.
+[real]      `docker-compose.tinker-funding-validation.phala.yaml` is a
+            temporary one-shot Phala profile for capped operator validation.
+            It uses registry digest images only, disables signup/bootstrap and
+            plaintext card submission, enables reauth/encrypted-card/add-balance
+            only behind runtime bearer auth, sets
+            `TINKER_FUNDING_MODE=operator_capped_validation`, caps top-ups at
+            `$5`, and routes browser work through the Playwright sidecar rather
+            than the currently blocked Neko CDP path.
+[partial]   The funding-validation profile is source/test-real but not yet live
+            Phala evidence for a real-card attempt until GitHub Actions builds
+            images for this runtime-auth source commit, the compose is updated
+            to those pinned digests, Phala reports a fresh live attested compose
+            hash, and `funding-validation-packet --fetch-attestation` is run
+            against that live endpoint.
 [real]      `check-funding-validation-packet` replay-checks packet directories:
             required files, payment manifest replay, optional add-balance
             manifest replay, summary hash consistency, and optional deployed
@@ -1137,17 +1167,17 @@ Implementation status:
             delegate `/health` returning `ok`, and live delegate
             deployment-bundle verification passing against local raw compose
             image-policy hash
-            `ddd344213f29769cebd3c0caef8ff990628f5422b4295346ee84a8072a3c5adf`,
+            `1a4870ab818fe2d8d5e59c6c84ada795a36210c3ea5a0d2bc16d342bfdbb87f5`,
             rendered compose SHA-256
-            `751d95bb7ac785b2bbf87ca27d00fd1b79d9c0bfd68d086259e08faefffbd40e`,
+            `9c664e88ba1c79108f6f9c2987f667aa2e6ee6fa853b19277c7a8f8abfd43441`,
             and live Phala attested compose hash
-            `382aa6c881d477724552f4445157afbcd75738ee1feb9603b982b75ec4e82c2c`.
+            `e9e07417f7df3b0dae2fdc148fc6847751afa240b9167cc81e76883060ecd586`.
             The current oracle image is
-            `tee-email-oracle@sha256:43bf7d096bdd0e56b8fa95c23325513ba09825114de16e23fb578169cb8a3e42`
+            `tee-email-oracle@sha256:287028f12f7cb596d573f950e6dc1cb2437fe37ea2984101abd8bd451d44eca3`
             and the current delegate image is
-            `tinker-delegate@sha256:c43ac01ee461aca4b49bbfe77d55491cfac8bb3dc70907c84a7b40b34657c277`,
+            `tinker-delegate@sha256:72b584ff4228783711ff3108f8674a9d5ab86fec2a072cf1ea3f8b71b697ec38`,
             both built from source commit
-            `bf39f569840f348c639be9fe0a8928f3360d9835`. Tinker bootstrap,
+            `556387a9e673e91d3ea4991cdaee96ead3e52922`. Tinker bootstrap,
             selector-probe, browser-readiness, and add-balance are disabled in
             the current normal compose, and live checks return 403 for those
             widened/diagnostic endpoints.

@@ -42,7 +42,10 @@ class ReauthApiTest(unittest.TestCase):
         api.settings = Settings(allow_auth_automation_endpoint=False)
         client = TestClient(api.app)
 
-        with patch("tinker_delegate.signup.reauth", new=AsyncMock()) as reauth:
+        with patch(
+            "tinker_delegate.signup.reauth",
+            new=AsyncMock(return_value=BOUNDED_REAUTH_RESULT),
+        ) as reauth:
             response = client.post("/auth/reauth")
 
         self.assertEqual(response.status_code, 403)
@@ -68,6 +71,24 @@ class ReauthApiTest(unittest.TestCase):
         self.assertTrue(runtime["reauth_success"])
         self.assertEqual(runtime["reauth_error_kind"], "")
         self.assertEqual(runtime["last_reauth_attempt_record"], BOUNDED_REAUTH_RESULT["attempt_record"])
+
+    def test_reauth_endpoint_requires_runtime_auth_when_enabled(self):
+        api.settings = Settings(
+            allow_auth_automation_endpoint=True,
+            runtime_auth_required=True,
+            runtime_auth_token="operator-secret",
+        )
+        client = TestClient(api.app)
+
+        with patch("tinker_delegate.signup.reauth", new=AsyncMock(return_value=BOUNDED_REAUTH_RESULT)) as reauth:
+            missing = client.post("/auth/reauth")
+            wrong = client.post("/auth/reauth", headers={"Authorization": "Bearer wrong"})
+            ok = client.post("/auth/reauth", headers={"Authorization": "Bearer operator-secret"})
+
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(wrong.status_code, 403)
+        self.assertEqual(ok.status_code, 200)
+        reauth.assert_awaited_once()
 
 
 if __name__ == "__main__":

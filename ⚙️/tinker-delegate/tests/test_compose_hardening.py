@@ -164,6 +164,31 @@ class ComposeHardeningTest(unittest.TestCase):
         self.assertIn('TINKER_BOOTSTRAP_FAIL_OPEN: "true"', delegate)
         self.assertIn('TINKER_LOCAL_BROWSER_FALLBACK: "false"', delegate)
 
+    def test_tinker_funding_validation_compose_is_capped_and_auth_gated(self):
+        compose = (ROOT / "docker-compose.tinker-funding-validation.phala.yaml").read_text()
+        oracle = _service_block(compose, "oracle")
+        delegate = _service_block(compose, "delegate")
+
+        self.assertIn("Temporary Main-CVM Tinker Funding Validation Compose", compose)
+        self.assertNotIn("  neko:", compose)
+        self.assertIn("tee-email-oracle@sha256:", oracle)
+        self.assertIn("tinker-delegate@sha256:", delegate)
+        self.assertIn("mcr.microsoft.com/playwright:v1.58.0-noble@sha256:", compose)
+        self.assertIn('ORACLE_AUTO_GENESIS: "false"', oracle)
+        self.assertIn('ORACLE_RUNTIME_AUTH_REQUIRED: "true"', oracle)
+        self.assertIn('TINKER_RUNTIME_AUTH_REQUIRED: "true"', delegate)
+        self.assertIn("TINKER_RUNTIME_AUTH_TOKEN: ${TINKER_RUNTIME_AUTH_TOKEN:-}", delegate)
+        self.assertIn('TINKER_FUNDING_MODE: "operator_capped_validation"', delegate)
+        self.assertIn('TINKER_MAX_ADD_BALANCE_USD: "5.0"', delegate)
+        self.assertIn('TINKER_ALLOW_AUTH_AUTOMATION_ENDPOINT: "true"', delegate)
+        self.assertIn('TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "true"', delegate)
+        self.assertIn('TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT: "false"', delegate)
+        self.assertIn('TINKER_ALLOW_BROWSER_READINESS_ENDPOINT: "false"', delegate)
+        self.assertIn('TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT: "false"', delegate)
+        self.assertIn('TINKER_BOOTSTRAP_SIGNUP: "false"', delegate)
+        self.assertIn("TINKER_BROWSER_WS_ENDPOINT: ws://172.20.0.6:3000/", delegate)
+        self.assertIn('TINKER_CDP_URL: ""', delegate)
+
 
 if __name__ == "__main__":
     unittest.main()

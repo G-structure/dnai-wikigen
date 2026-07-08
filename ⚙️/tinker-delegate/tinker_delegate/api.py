@@ -21,10 +21,12 @@ Endpoints:
   POST /deal/{deal_id}/evaluate   — trigger evaluation (internal)
   POST /deal/{deal_id}/resolve    — notify deal resolution (internal)
 """
+import hashlib
+import hmac
 import os
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException, status
 from fastapi.responses import JSONResponse
 from cryptography.exceptions import InvalidTag
 from pydantic import BaseModel, Field
@@ -37,7 +39,7 @@ from tinker_delegate.artifacts import (
 )
 from tinker_delegate.config import Settings
 from tinker_delegate.crypto import EncryptedPayload
-from tinker_delegate.dstack_utils import is_dstack_enabled
+from tinker_delegate.dstack_utils import derive_storage_key, is_dstack_enabled
 from tinker_delegate.funding_receipt_store import build_funding_receipt_store
 from tinker_delegate.funding_policy import (
     FundingPolicyError,
@@ -92,6 +94,40 @@ def _plaintext_card_endpoint_allowed() -> bool:
 def _plaintext_artifact_endpoint_allowed() -> bool:
     """Plaintext artifacts are a local-dev escape hatch, never a TEE path."""
     return settings.allow_plaintext_artifact_endpoint and not is_dstack_enabled()
+
+
+def _runtime_auth_enabled() -> bool:
+    return settings.runtime_auth_required or bool(settings.runtime_auth_token)
+
+
+def _runtime_auth_token() -> str:
+    if settings.runtime_auth_token:
+        return settings.runtime_auth_token
+    if is_dstack_enabled():
+        key = derive_storage_key(settings.runtime_auth_key_path)
+        return hashlib.sha256(b"tinker-delegate-runtime-auth:" + key).hexdigest()
+    return ""
+
+
+def _require_runtime_auth(authorization: str = Header(default="")) -> None:
+    """Protect operator-only Tinker account mutation endpoints."""
+    if not _runtime_auth_enabled():
+        return
+    expected = _runtime_auth_token()
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Delegate runtime auth is required but no token is configured",
+        )
+    scheme, _, supplied = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not supplied:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bearer token required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not hmac.compare_digest(supplied, expected):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid bearer token")
 
 
 def _get_control_plane():
@@ -195,7 +231,7 @@ async def attestation(context: str = "ingress"):
 
 
 @app.post("/auth/reauth")
-async def auth_reauth():
+async def auth_reauth(authorization: str = Header(default="")):
     """Refresh Tinker browser auth through the OTP path.
 
     This endpoint is disabled by default because it can trigger account auth
@@ -204,6 +240,7 @@ async def auth_reauth():
     """
     if not settings.allow_auth_automation_endpoint:
         raise HTTPException(403, "auth automation endpoint is disabled")
+    _require_runtime_auth(authorization)
 
     from tinker_delegate.signup import reauth
 
@@ -307,8 +344,9 @@ async def billing_funding_preflight(
 
 
 @app.get("/billing/funding-receipts")
-async def billing_funding_receipts():
+async def billing_funding_receipts(authorization: str = Header(default="")):
     """Return bounded funding attempt records from sealed storage."""
+    _require_runtime_auth(authorization)
     try:
         receipts = build_funding_receipt_store(settings).load()
     except Exception as e:
@@ -317,7 +355,7 @@ async def billing_funding_receipts():
 
 
 @app.post("/billing/card", response_model=BillingResponse)
-async def billing_card(payload: CardPayload):
+async def billing_card(payload: CardPayload, authorization: str = Header(default="")):
     """Add a payment method (plaintext — local dev only).
 
     In production, use POST /billing/card/encrypted instead.
@@ -330,12 +368,13 @@ async def billing_card(payload: CardPayload):
                 "POST /billing/card/encrypted after verifying attestation"
             ),
         )
+    _require_runtime_auth(authorization)
     result = await handle_card_update(payload, settings)
     return result
 
 
 @app.post("/billing/card/encrypted", response_model=BillingResponse)
-async def billing_card_encrypted(payload: EncryptedCardPayload):
+async def billing_card_encrypted(payload: EncryptedCardPayload, authorization: str = Header(default="")):
     """Add a payment method (encrypted to TEE — production).
 
     The payload must be encrypted using X25519 + AES-256-GCM to the
@@ -351,12 +390,13 @@ async def billing_card_encrypted(payload: EncryptedCardPayload):
 
     See tinker_delegate.crypto.encrypt_card_payload() for a reference implementation.
     """
+    _require_runtime_auth(authorization)
     result = await handle_encrypted_card_update(payload, settings)
     return result
 
 
 @app.post("/billing/add-balance", response_model=BillingResponse)
-async def billing_add_balance(payload: BalancePayload):
+async def billing_add_balance(payload: BalancePayload, authorization: str = Header(default="")):
     """Add credit balance to the Tinker account.
 
     Requires a payment method to already be on file.
@@ -369,6 +409,7 @@ async def billing_add_balance(payload: BalancePayload):
                 "CLI path or explicitly enable TINKER_ALLOW_ADD_BALANCE_ENDPOINT"
             ),
         )
+    _require_runtime_auth(authorization)
     result = await handle_add_balance(payload, settings)
     return result
 

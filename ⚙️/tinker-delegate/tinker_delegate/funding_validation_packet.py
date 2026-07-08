@@ -26,7 +26,8 @@ from tinker_delegate.redaction import redact_text
 
 
 PacketUploadFn = Callable[[str, dict[str, Any], BillingCardUploadPolicy], BillingCardUploadResult]
-AddBalanceFn = Callable[[str, float], dict[str, Any]]
+AddBalanceFn = Callable[[str, float, str], dict[str, Any]]
+ReauthFn = Callable[[str, str], dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -40,12 +41,15 @@ class FundingValidationPacketResult:
     manifest_path: str = ""
     verification_path: str = ""
     add_balance_receipt_path: str = ""
+    reauth_receipt_path: str = ""
     add_balance_manifest_path: str = ""
     add_balance_verification_path: str = ""
     preflight_ready: bool = False
     card_attempt_run: bool = False
+    reauth_attempt_run: bool = False
     add_balance_attempt_run: bool = False
     receipt_surface: str = ""
+    reauth_receipt_outcome: str = ""
     receipt_outcome: str = ""
     add_balance_receipt_outcome: str = ""
     manifest_hash: str = ""
@@ -65,12 +69,15 @@ class FundingValidationPacketResult:
             "manifest_path": self.manifest_path,
             "verification_path": self.verification_path,
             "add_balance_receipt_path": self.add_balance_receipt_path,
+            "reauth_receipt_path": self.reauth_receipt_path,
             "add_balance_manifest_path": self.add_balance_manifest_path,
             "add_balance_verification_path": self.add_balance_verification_path,
             "preflight_ready": self.preflight_ready,
             "card_attempt_run": self.card_attempt_run,
+            "reauth_attempt_run": self.reauth_attempt_run,
             "add_balance_attempt_run": self.add_balance_attempt_run,
             "receipt_surface": self.receipt_surface,
+            "reauth_receipt_outcome": self.reauth_receipt_outcome,
             "receipt_outcome": self.receipt_outcome,
             "add_balance_receipt_outcome": self.add_balance_receipt_outcome,
             "manifest_hash": self.manifest_hash,
@@ -119,15 +126,18 @@ def run_funding_validation_packet(
     expected_app_id: str = "",
     expected_os_image_hash: str = "",
     allow_local_attestation: bool = False,
+    auth_token: str = "",
     fetch_attestation: bool = False,
     require_add_balance_endpoint: bool = False,
     validation_id: str = "",
     receipt_json: Path | None = None,
     add_balance_receipt_json: Path | None = None,
     run_card_attempt: bool = False,
+    run_reauth_attempt: bool = False,
     run_add_balance_attempt: bool = False,
     card_data: dict[str, Any] | None = None,
     upload_fn: PacketUploadFn = upload_billing_card_payload,
+    reauth_fn: ReauthFn | None = None,
     add_balance_fn: AddBalanceFn | None = None,
 ) -> FundingValidationPacketResult:
     """Create a bounded validation packet from preflight through verification."""
@@ -135,6 +145,7 @@ def run_funding_validation_packet(
     issued_at = int(time.time())
     preflight_path = output_dir / "preflight.json"
     receipt_path = output_dir / "payment-method-receipt.json"
+    reauth_receipt_path = output_dir / "reauth-receipt.json"
     manifest_path = output_dir / "funding-manifest.json"
     verification_path = output_dir / "funding-verification.json"
     add_balance_receipt_path = output_dir / "add-balance-receipt.json"
@@ -171,10 +182,20 @@ def run_funding_validation_packet(
                     output_dir=str(output_dir),
                     preflight_path=str(preflight_path),
                     preflight_ready=False,
+                    reauth_attempt_run=run_reauth_attempt,
                     error_kind="preflight_not_ready",
                     error="funding preflight did not pass; funding attempts skipped",
                     issued_at=issued_at,
                 ),
+            )
+
+        reauth_receipt: dict[str, Any] | None = None
+        if run_reauth_attempt:
+            reauth_receipt = _run_reauth_receipt(
+                receipt_path=reauth_receipt_path,
+                api_url=api_url,
+                auth_token=auth_token,
+                reauth_fn=reauth_fn or _post_reauth,
             )
 
         receipt = _load_or_create_receipt(
@@ -188,6 +209,7 @@ def run_funding_validation_packet(
                 expected_app_id=expected_app_id,
                 expected_os_image_hash=expected_os_image_hash,
                 allow_local=allow_local_attestation,
+                auth_token=auth_token,
             ),
             upload_fn=upload_fn,
         )
@@ -220,6 +242,7 @@ def run_funding_validation_packet(
                 run_add_balance_attempt=run_add_balance_attempt,
                 amount_dollars=amount_dollars,
                 api_url=api_url,
+                auth_token=auth_token,
                 add_balance_fn=add_balance_fn or _post_add_balance,
             )
             add_balance_manifest = build_funding_validation_manifest(
@@ -258,8 +281,13 @@ def run_funding_validation_packet(
                 ),
                 preflight_ready=True,
                 card_attempt_run=run_card_attempt,
+                reauth_attempt_run=run_reauth_attempt,
                 add_balance_attempt_run=run_add_balance_attempt,
+                reauth_receipt_path=str(reauth_receipt_path) if reauth_receipt else "",
                 receipt_surface=str(receipt.get("surface", "")),
+                reauth_receipt_outcome=(
+                    str(reauth_receipt.get("outcome", "")) if reauth_receipt else ""
+                ),
                 receipt_outcome=str(receipt.get("outcome", "")),
                 add_balance_receipt_outcome=(
                     str(add_balance_receipt.get("outcome", "")) if add_balance_receipt else ""
@@ -284,6 +312,7 @@ def run_funding_validation_packet(
                 preflight_path=str(preflight_path),
                 preflight_ready=preflight_ready,
                 card_attempt_run=run_card_attempt,
+                reauth_attempt_run=run_reauth_attempt,
                 add_balance_attempt_run=run_add_balance_attempt,
                 error_kind=type(exc).__name__,
                 error=redact_text(exc),
@@ -328,6 +357,22 @@ def _load_or_create_receipt(
     return receipt
 
 
+def _run_reauth_receipt(
+    *,
+    receipt_path: Path,
+    api_url: str,
+    auth_token: str,
+    reauth_fn: ReauthFn,
+) -> dict[str, Any]:
+    response = reauth_fn(api_url, auth_token)
+    _assert_no_secret_output(response)
+    receipt = response.get("attempt_record")
+    if not isinstance(receipt, dict):
+        raise ValueError("reauth response did not include bounded attempt_record")
+    _write_bounded_json(receipt_path, receipt)
+    return receipt
+
+
 def _load_or_create_add_balance_receipt(
     *,
     receipt_path: Path,
@@ -335,6 +380,7 @@ def _load_or_create_add_balance_receipt(
     run_add_balance_attempt: bool,
     amount_dollars: float | None,
     api_url: str,
+    auth_token: str,
     add_balance_fn: AddBalanceFn,
 ) -> dict[str, Any]:
     if receipt_json is not None and run_add_balance_attempt:
@@ -348,7 +394,7 @@ def _load_or_create_add_balance_receipt(
     if amount_dollars is None:
         raise ValueError("run_add_balance_attempt requires amount_dollars")
 
-    response = add_balance_fn(api_url, float(amount_dollars))
+    response = add_balance_fn(api_url, float(amount_dollars), auth_token)
     _assert_no_secret_output(response)
     receipt = response.get("attempt_record")
     if not isinstance(receipt, dict):
@@ -357,10 +403,20 @@ def _load_or_create_add_balance_receipt(
     return receipt
 
 
-def _post_add_balance(api_url: str, amount_dollars: float) -> dict[str, Any]:
+def _post_add_balance(api_url: str, amount_dollars: float, auth_token: str = "") -> dict[str, Any]:
     endpoint = urljoin(api_url.rstrip("/") + "/", "/billing/add-balance".lstrip("/"))
+    headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else None
     with httpx.Client(timeout=30.0) as client:
-        response = client.post(endpoint, json={"amount_dollars": amount_dollars})
+        response = client.post(endpoint, json={"amount_dollars": amount_dollars}, headers=headers)
+        response.raise_for_status()
+        return response.json()
+
+
+def _post_reauth(api_url: str, auth_token: str = "") -> dict[str, Any]:
+    endpoint = urljoin(api_url.rstrip("/") + "/", "/auth/reauth".lstrip("/"))
+    headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else None
+    with httpx.Client(timeout=180.0) as client:
+        response = client.post(endpoint, headers=headers)
         response.raise_for_status()
         return response.json()
 

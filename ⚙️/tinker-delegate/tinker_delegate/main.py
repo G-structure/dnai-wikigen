@@ -479,6 +479,11 @@ def cli():
         help="Allow local-mode billing attestation for development only",
     )
     validation_packet_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token",
+    )
+    validation_packet_p.add_argument(
         "--fetch-attestation",
         action="store_true",
         help="Live-fetch and verify /attestation?context=billing during preflight",
@@ -487,6 +492,11 @@ def cli():
         "--run-card-attempt",
         action="store_true",
         help="Explicitly run encrypted card submission; requires card fields",
+    )
+    validation_packet_p.add_argument(
+        "--run-reauth-attempt",
+        action="store_true",
+        help="Explicitly POST /auth/reauth before encrypted card submission",
     )
     validation_packet_p.add_argument(
         "--prompt-card",
@@ -578,6 +588,11 @@ def cli():
         action="store_true",
         help="Allow local-mode attestation for development only",
     )
+    add_card_encrypted_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token",
+    )
     add_card_encrypted_p.add_argument("--receipt-output", default="", help="Optional output path for bounded receipt JSON")
 
     add_card_encrypted_prompt_p = sub.add_parser(
@@ -600,6 +615,11 @@ def cli():
         "--allow-local-attestation",
         action="store_true",
         help="Allow local-mode attestation for development only; do not use for real cards",
+    )
+    add_card_encrypted_prompt_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token",
     )
     add_card_encrypted_prompt_p.add_argument(
         "--receipt-output",
@@ -1237,6 +1257,7 @@ def cli():
             expected_app_id=args.app_id,
             expected_os_image_hash=args.os_image_hash,
             allow_local_attestation=args.allow_local_attestation,
+            auth_token=os.environ.get(args.auth_token_env, ""),
             fetch_attestation=args.fetch_attestation,
             require_add_balance_endpoint=args.require_add_balance_endpoint,
             validation_id=args.validation_id,
@@ -1245,6 +1266,7 @@ def cli():
                 Path(args.add_balance_receipt_json) if args.add_balance_receipt_json else None
             ),
             run_card_attempt=args.run_card_attempt,
+            run_reauth_attempt=args.run_reauth_attempt,
             run_add_balance_attempt=args.run_add_balance_attempt,
             card_data=card_fields if args.run_card_attempt else None,
         )
@@ -1321,6 +1343,7 @@ def cli():
             expected_app_id=args.app_id,
             expected_os_image_hash=args.os_image_hash,
             allow_local=args.allow_local_attestation,
+            auth_token=os.environ.get(args.auth_token_env, ""),
         )
         try:
             result = upload_billing_card_payload(args.api_url, card, policy)
@@ -1372,6 +1395,7 @@ def cli():
             expected_app_id=args.app_id,
             expected_os_image_hash=args.os_image_hash,
             allow_local=args.allow_local_attestation,
+            auth_token=os.environ.get(args.auth_token_env, ""),
         )
         forbidden_values = tuple(card.values())
         try:

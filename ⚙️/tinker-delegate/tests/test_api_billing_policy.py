@@ -128,6 +128,28 @@ class BillingApiPolicyTest(unittest.TestCase):
         self.assertEqual(stored, [body["attempt_record"]])
         self.assertNotIn("4242424242424242", repr(body))
 
+    def test_encrypted_card_endpoint_requires_runtime_auth_when_enabled(self):
+        api.settings = Settings(
+            funding_mode="operator_capped_validation",
+            runtime_auth_required=True,
+            runtime_auth_token="operator-secret",
+        )
+        client = TestClient(api.app)
+        attestation = client.get("/attestation", params={"context": "billing"}).json()
+        encrypted = encrypt_billing_card_payload(CARD_PAYLOAD, attestation["encryption_public_key"])
+
+        with patch("tinker_delegate.card_channel.add_payment_method", new=AsyncMock()) as add_payment:
+            missing = client.post("/billing/card/encrypted", json=encrypted)
+            wrong = client.post(
+                "/billing/card/encrypted",
+                json=encrypted,
+                headers={"Authorization": "Bearer wrong"},
+            )
+
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(wrong.status_code, 403)
+        add_payment.assert_not_called()
+
     def test_funding_receipts_endpoint_returns_bounded_records(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             receipt_path = Path(tmpdir) / "funding_receipts.enc"
@@ -182,6 +204,27 @@ class BillingApiPolicyTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["error"], "stubbed")
         handle_add_balance.assert_awaited_once()
+
+    def test_add_balance_endpoint_requires_runtime_auth_when_enabled(self):
+        api.settings = Settings(
+            allow_add_balance_endpoint=True,
+            funding_mode="operator_capped_validation",
+            runtime_auth_required=True,
+            runtime_auth_token="operator-secret",
+        )
+        client = TestClient(api.app)
+
+        with patch("tinker_delegate.api.handle_add_balance", new=AsyncMock()) as handle_add_balance:
+            missing = client.post("/billing/add-balance", json={"amount_dollars": 5.0})
+            wrong = client.post(
+                "/billing/add-balance",
+                json={"amount_dollars": 5.0},
+                headers={"Authorization": "Bearer wrong"},
+            )
+
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(wrong.status_code, 403)
+        handle_add_balance.assert_not_called()
 
 
 if __name__ == "__main__":

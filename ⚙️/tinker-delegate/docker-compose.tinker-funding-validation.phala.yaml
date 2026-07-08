@@ -1,0 +1,135 @@
+###############################################################################
+# Temporary Main-CVM Tinker Funding Validation Compose
+#
+# Purpose: one-shot operator-owned funding validation against the main Phala CVM.
+# Redeploy back to docker-compose.all.phala.yaml immediately after collecting the
+# bounded receipts.
+#
+# Guardrails:
+# - registry images only; no local build contexts
+# - Tinker signup/bootstrap remains disabled; use /auth/reauth with email oracle
+# - plaintext card endpoint remains disabled
+# - encrypted card, re-auth, and add-balance mutation endpoints require bearer auth
+# - funding mode is quote-visible operator_capped_validation with a $5 cap
+# - browser automation uses the Playwright sidecar, not the blocked Neko CDP path
+# - selector/readiness diagnostics remain disabled
+###############################################################################
+
+services:
+  oracle:
+    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:287028f12f7cb596d573f950e6dc1cb2437fe37ea2984101abd8bd451d44eca3
+    platform: linux/amd64
+    restart: unless-stopped
+    ulimits:
+      core: 0
+    networks:
+      tee-net:
+        ipv4_address: 172.20.0.4
+    ports:
+      - "8000:8000"
+    volumes:
+      - oracle-data:/data
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    environment:
+      ORACLE_CRED_STORE_PATH: /data/credentials.enc
+      ORACLE_CRED_STORE_KEY: ${ORACLE_CRED_STORE_KEY:-}
+      ORACLE_AUTO_GENESIS: "false"
+      ORACLE_COCKLI_DOMAIN: ${ORACLE_DOMAIN:-cock.email}
+      ORACLE_API_HOST: 0.0.0.0
+      ORACLE_API_PORT: "8000"
+      ORACLE_DSTACK_ENABLED: "true"
+      ORACLE_DSTACK_KEY_PATH: ${ORACLE_DSTACK_KEY_PATH:-email/creds}
+      ORACLE_RUNTIME_AUTH_REQUIRED: "true"
+      ORACLE_RUNTIME_AUTH_KEY_PATH: ${ORACLE_RUNTIME_AUTH_KEY_PATH:-oracle/runtime-auth}
+      ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: "false"
+      ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ""
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      retries: 5
+      timeout: 5s
+      start_period: 180s
+
+  delegate:
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:72b584ff4228783711ff3108f8674a9d5ab86fec2a072cf1ea3f8b71b697ec38
+    platform: linux/amd64
+    restart: unless-stopped
+    ulimits:
+      core: 0
+    depends_on:
+      delegate-browser:
+        condition: service_started
+      oracle:
+        condition: service_started
+    networks:
+      tee-net:
+        ipv4_address: 172.20.0.5
+    ports:
+      - "8080:8080"
+    volumes:
+      - delegate-data:/data
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    environment:
+      TINKER_BROWSER_WS_ENDPOINT: ws://172.20.0.6:3000/
+      TINKER_CDP_URL: ""
+      TINKER_ORACLE_URL: http://172.20.0.4:8000
+      TINKER_ORACLE_AUTH_KEY_PATH: ${TINKER_ORACLE_AUTH_KEY_PATH:-oracle/runtime-auth}
+      TINKER_RUNTIME_AUTH_REQUIRED: "true"
+      TINKER_RUNTIME_AUTH_TOKEN: ${TINKER_RUNTIME_AUTH_TOKEN:-}
+      TINKER_RUNTIME_AUTH_KEY_PATH: ${TINKER_RUNTIME_AUTH_KEY_PATH:-tinker/runtime-auth}
+      TINKER_API_KEY_STORE_PATH: /data/tinker_api_key.enc
+      TINKER_DSTACK_KEY_PATH: ${TINKER_DSTACK_KEY_PATH:-tinker/api_key}
+      TINKER_FUNDING_RECEIPT_STORE_PATH: /data/funding_receipts.enc
+      TINKER_FUNDING_RECEIPT_KEY_PATH: ${TINKER_FUNDING_RECEIPT_KEY_PATH:-tinker/funding_receipts}
+      TINKER_RUN_METADATA_STORE_PATH: /data/run_metadata.enc
+      TINKER_RUN_METADATA_KEY_PATH: ${TINKER_RUN_METADATA_KEY_PATH:-tinker/run_metadata}
+      TINKER_FUNDING_MODE: "operator_capped_validation"
+      TINKER_MAX_ADD_BALANCE_USD: "5.0"
+      TINKER_ALLOW_AUTH_AUTOMATION_ENDPOINT: "true"
+      TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "true"
+      TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT: "false"
+      TINKER_ALLOW_BROWSER_READINESS_ENDPOINT: "false"
+      TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT: "false"
+      TINKER_BOOTSTRAP_SIGNUP: "false"
+      TINKER_BOOTSTRAP_FAIL_OPEN: "true"
+      TINKER_BOOTSTRAP_ORACLE_TIMEOUT: ${TINKER_BOOTSTRAP_ORACLE_TIMEOUT:-300}
+      TINKER_BOOTSTRAP_ORACLE_POLL_INTERVAL: ${TINKER_BOOTSTRAP_ORACLE_POLL_INTERVAL:-5}
+      TINKER_FIRST_NAME: ${TINKER_FIRST_NAME:-Tinker}
+      TINKER_LAST_NAME: ${TINKER_LAST_NAME:-Delegate}
+      TINKER_LOCAL_BROWSER_FALLBACK: "false"
+      DSTACK_ENABLED: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      retries: 40
+      timeout: 5s
+      start_period: 300s
+
+  delegate-browser:
+    image: mcr.microsoft.com/playwright:v1.58.0-noble@sha256:e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f
+    platform: linux/amd64
+    restart: unless-stopped
+    init: true
+    ulimits:
+      core: 0
+    ipc: host
+    working_dir: /home/pwuser
+    user: pwuser
+    networks:
+      tee-net:
+        ipv4_address: 172.20.0.6
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        exec npx -y playwright@1.58.0 run-server --port 3000 --host 0.0.0.0
+
+volumes:
+  oracle-data:
+  delegate-data:
+
+networks:
+  tee-net:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

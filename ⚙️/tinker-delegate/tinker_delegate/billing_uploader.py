@@ -27,6 +27,7 @@ class BillingCardUploadPolicy:
     context: str = "billing"
     allow_local: bool = False
     max_age_seconds: float = 60.0
+    auth_token: str = ""
 
 
 @dataclass(frozen=True)
@@ -94,7 +95,12 @@ def upload_billing_card_payload(
         tee_public_key = verify_billing_attestation(attestation_response.json(), policy)
 
         encrypted = encrypt_billing_card_payload(card_data, tee_public_key)
-        update_response = http.post(_endpoint(base_url, "/billing/card/encrypted"), json=encrypted)
+        headers = {"Authorization": f"Bearer {policy.auth_token}"} if policy.auth_token else None
+        update_response = http.post(
+            _endpoint(base_url, "/billing/card/encrypted"),
+            json=encrypted,
+            headers=headers,
+        )
         update_response.raise_for_status()
         return BillingCardUploadResult(
             status_code=update_response.status_code,

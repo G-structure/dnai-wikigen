@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     oracle_url: str = "http://localhost:8000"
     oracle_auth_token: str = ""
     oracle_auth_key_path: str = "oracle/runtime-auth"
+    runtime_auth_required: bool = False
+    runtime_auth_token: str = ""
+    runtime_auth_key_path: str = "tinker/runtime-auth"
 
     # Tinker auth
     tinker_console_url: str = "https://tinker-console.thinkingmachines.ai"

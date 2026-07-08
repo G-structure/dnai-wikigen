@@ -48,6 +48,28 @@ def _add_balance_receipt() -> dict:
     }
 
 
+def _reauth_response() -> dict:
+    return {
+        "success": True,
+        "authenticated": True,
+        "error_kind": "",
+        "attempt_record": {
+            "surface": "tinker_auth",
+            "outcome": "success",
+            "furthest_stage": "authenticated",
+            "bounded_message": "reauthenticated",
+            "evidence_hash": "e" * 64,
+            "account_hash": "f" * 64,
+            "amount_band": "",
+            "balance_band": "",
+            "tdx_quote_hash": "",
+            "card_payload_destroyed": False,
+            "raw_secret_egress": False,
+            "issued_at": 122,
+        },
+    }
+
+
 def _env(tmpdir: str) -> dict[str, str]:
     env = os.environ.copy()
     env.update(
@@ -259,9 +281,10 @@ class FundingValidationPacketTest(unittest.TestCase):
                 funding_receipt_store_key="aa" * 32,
             )
 
-            def fake_add_balance(api_url, amount_dollars):
+            def fake_add_balance(api_url, amount_dollars, auth_token):
                 self.assertEqual(api_url, "http://localhost:8080")
                 self.assertEqual(amount_dollars, 5.0)
+                self.assertEqual(auth_token, "operator-secret")
                 return {
                     "success": False,
                     "error": "Payment method required before adding balance",
@@ -277,6 +300,7 @@ class FundingValidationPacketTest(unittest.TestCase):
                 validation_id="operator-run-1",
                 receipt_json=receipt_path,
                 run_add_balance_attempt=True,
+                auth_token="operator-secret",
                 add_balance_fn=fake_add_balance,
             ).to_public_dict()
 
@@ -285,6 +309,40 @@ class FundingValidationPacketTest(unittest.TestCase):
             self.assertEqual(result["add_balance_receipt_outcome"], "payment_method_required")
             verification = json.loads((output_dir / "add-balance-verification.json").read_text(encoding="utf-8"))
             self.assertTrue(verification["ok"])
+
+    def test_runner_reauth_attempt_uses_runtime_auth_token(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "existing-receipt.json"
+            output_dir = Path(tmpdir) / "packet"
+            receipt_path.write_text(json.dumps(_receipt()), encoding="utf-8")
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="aa" * 32,
+            )
+
+            def fake_reauth(api_url, auth_token):
+                self.assertEqual(api_url, "http://localhost:8080")
+                self.assertEqual(auth_token, "operator-secret")
+                return _reauth_response()
+
+            result = run_funding_validation_packet(
+                settings,
+                output_dir=output_dir,
+                api_url="http://localhost:8080",
+                amount_dollars=5.0,
+                allow_local_attestation=True,
+                validation_id="operator-run-1",
+                receipt_json=receipt_path,
+                run_reauth_attempt=True,
+                auth_token="operator-secret",
+                reauth_fn=fake_reauth,
+            ).to_public_dict()
+
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["reauth_attempt_run"])
+            self.assertEqual(result["reauth_receipt_outcome"], "success")
+            self.assertTrue((output_dir / "reauth-receipt.json").exists())
 
     def test_cli_packet_rejects_add_balance_attempt_without_amount(self):
         with tempfile.TemporaryDirectory() as tmpdir:
