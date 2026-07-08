@@ -144,12 +144,17 @@ without echoing the packet bodies. The packet runner writes the bounded
 preflight, receipt, manifest, verification, and summary JSON artifacts in one
 directory. It can also write a separate add-balance receipt, manifest, and
 verification. To include an encrypted card submission, the operator must pass
-`--run-card-attempt`; card fields without that flag are rejected. To include a
-live top-up attempt, the operator must pass `--run-add-balance-attempt` and
-`--amount`; the command posts only the amount to `/billing/add-balance`. The
-packet checker distinguishes an internally consistent local packet from a
-packet with live deployed TDX evidence; pass `--require-deployed-attestation`
-before treating packet evidence as deployed proof.
+`--run-card-attempt`; for approved real-card validation, add `--prompt-card` so
+card fields are entered interactively instead of through command-line flags.
+Prompt mode rejects missing deployed compose/app/OS-image expectations before
+asking for card material unless local-development attestation is explicitly
+allowed. Card fields without `--run-card-attempt` are rejected, and prompt mode
+is mutually exclusive with test-card flags. To include a live top-up attempt,
+the operator must pass `--run-add-balance-attempt` and `--amount`; the command
+posts only the amount to `/billing/add-balance`. The packet checker
+distinguishes an internally consistent local packet from a packet with live
+deployed TDX evidence; pass `--require-deployed-attestation` before treating
+packet evidence as deployed proof.
 
 ## Validation Boundary
 
@@ -164,6 +169,9 @@ What is real:
 - `add-card-encrypted-prompt` accepts approved operator card details
   interactively instead of through command-line flags and requires deployed
   attestation expectations unless explicitly run in local-development mode.
+- `funding-validation-packet --prompt-card --run-card-attempt` brings the same
+  interactive card-entry boundary into one-command packet generation and fails
+  before prompting when deployed attestation expectations are missing.
 - Funding attempts persist bounded encrypted receipts.
 - Policy-denied card and add-balance requests persist bounded receipts without
   launching browser automation.

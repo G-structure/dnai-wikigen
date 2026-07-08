@@ -648,6 +648,12 @@ Implementation status:
             bounded receipt, or run encrypted card submission only when
             `--run-card-attempt` is explicitly set; card fields without that
             flag are rejected before any network or browser path.
+[real]      Packet generation supports `--prompt-card` for approved operator
+            validation: card fields are prompted interactively instead of
+            accepted through command-line arguments, prompt mode is mutually
+            exclusive with test-card flags, and deployed compose/app/OS-image
+            attestation expectations are required before prompting unless
+            local-development attestation is explicitly allowed.
 [real]      Funding validation packets can also include separate add-balance
             evidence: an add-balance receipt, manifest, verification, and
             summary fields. The runner can bind an existing bounded top-up

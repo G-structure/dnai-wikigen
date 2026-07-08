@@ -420,6 +420,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             are entered interactively instead of as command-line flags; the
             prompt path requires deployed compose/app/OS-image attestation
             expectations unless explicitly run in local-dev mode.
+      - [x] Extend `funding-validation-packet` with `--prompt-card` so an
+            approved real-card validation can create the full bounded packet
+            without placing card fields in command-line arguments; prompt mode
+            rejects missing deployed attestation expectations before asking for
+            card material.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test

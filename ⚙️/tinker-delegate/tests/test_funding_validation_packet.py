@@ -137,6 +137,67 @@ class FundingValidationPacketTest(unittest.TestCase):
             self.assertNotIn("4242424242424242", result.stdout)
             self.assertNotIn("4242424242424242", result.stderr)
 
+    def test_cli_packet_prompt_requires_deployed_policy_before_prompting(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "funding-validation-packet",
+                    "--output-dir",
+                    str(Path(tmpdir) / "packet"),
+                    "--api-url",
+                    "http://localhost:8080",
+                    "--amount",
+                    "5",
+                    "--run-card-attempt",
+                    "--prompt-card",
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=_env(tmpdir),
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("policy rejected", result.stdout)
+            self.assertIn("--compose-hash", result.stdout)
+            self.assertNotIn("Card number", result.stdout)
+
+    def test_cli_packet_rejects_mixed_prompt_and_test_card_fields(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "funding-validation-packet",
+                    "--output-dir",
+                    str(Path(tmpdir) / "packet"),
+                    "--api-url",
+                    "http://localhost:8080",
+                    "--amount",
+                    "5",
+                    "--allow-local-attestation",
+                    "--run-card-attempt",
+                    "--prompt-card",
+                    "--number",
+                    "4242424242424242",
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=_env(tmpdir),
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("either --prompt-card or test-card fields", result.stdout)
+            self.assertNotIn("4242424242424242", result.stdout)
+            self.assertNotIn("4242424242424242", result.stderr)
+
     def test_runner_card_attempt_uses_fake_uploader_and_zeroes_card_data(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "packet"

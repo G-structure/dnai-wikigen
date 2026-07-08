@@ -256,6 +256,12 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   verification, and summary JSON. It can bind an existing bounded receipt, or
   run encrypted card submission only when `--run-card-attempt` is explicitly
   set.
+- `funding-validation-packet --prompt-card --run-card-attempt` prompts
+  interactively for approved operator card details instead of reading them from
+  command-line flags. Prompt mode is mutually exclusive with test-card fields
+  and rejects missing deployed compose/app/OS-image attestation expectations
+  before asking for card material unless local-development attestation is
+  explicitly allowed.
 - Funding validation packets can include a separate add-balance evidence lane:
   `--add-balance-receipt-json` binds an existing bounded top-up receipt, and
   `--run-add-balance-attempt` posts only the amount to `/billing/add-balance`

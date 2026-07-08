@@ -248,13 +248,14 @@ build a public manifest:
 
 The manifest builder and packet runner reject raw card, API-key, and
 secret-shaped inputs. To run an encrypted card attempt inside the packet
-command, pass `--run-card-attempt` plus the same card and policy flags used by
-`add-card-encrypted`; card fields without `--run-card-attempt` are rejected. To
-run top-up inside the packet command, pass `--run-add-balance-attempt` with
-`--amount`; this posts only the amount and still requires the delegate
-add-balance endpoint to be explicitly enabled.
+command for approved operator validation, pass `--run-card-attempt
+--prompt-card` with deployed compose/app/OS-image expectations; prompt mode is
+mutually exclusive with test-card flags and rejects missing measurement policy
+before asking for card material. To run top-up inside the packet command, pass
+`--run-add-balance-attempt` with `--amount`; this posts only the amount and
+still requires the delegate add-balance endpoint to be explicitly enabled.
 
-The CLI card flags are for local development only. Read
+The CLI card flags are for local test-card development only. Read
 `docs/STRIPE-PCI-FUNDING-SCOPE.md` before any real-card attempt. The encrypted
 card channel is an operator-owned capped validation path, not the default
 production funding model.

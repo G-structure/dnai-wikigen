@@ -40,6 +40,7 @@ class PromptBillingCliTest(unittest.TestCase):
 
     def test_prompt_policy_requires_deployed_attestation_expectations(self):
         args = types.SimpleNamespace(
+            command="add-card-encrypted-prompt",
             allow_local_attestation=False,
             compose_hash="compose-ok",
             app_id="",
@@ -51,6 +52,7 @@ class PromptBillingCliTest(unittest.TestCase):
 
     def test_prompt_policy_allows_local_only_when_explicit(self):
         args = types.SimpleNamespace(
+            command="add-card-encrypted-prompt",
             allow_local_attestation=True,
             compose_hash="",
             app_id="",

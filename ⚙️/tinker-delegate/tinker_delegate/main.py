@@ -92,8 +92,9 @@ def _validate_prompt_billing_policy(args) -> None:
     ]
     if missing:
         joined = ", ".join(missing)
+        command = getattr(args, "command", "prompt billing")
         raise ValueError(
-            "add-card-encrypted-prompt requires deployed billing attestation expectations "
+            f"{command} requires deployed billing attestation expectations "
             f"({joined}) unless --allow-local-attestation is set for local development"
         )
 
@@ -322,15 +323,20 @@ def cli():
         help="Explicitly run encrypted card submission; requires card fields",
     )
     validation_packet_p.add_argument(
+        "--prompt-card",
+        action="store_true",
+        help="Prompt interactively for card fields instead of reading card fields from argv",
+    )
+    validation_packet_p.add_argument(
         "--run-add-balance-attempt",
         action="store_true",
         help="Explicitly POST amount to /billing/add-balance and bind the bounded receipt",
     )
-    validation_packet_p.add_argument("--number", default="", help="Card number; requires --run-card-attempt")
-    validation_packet_p.add_argument("--exp-month", default="", help="Expiration month; requires --run-card-attempt")
-    validation_packet_p.add_argument("--exp-year", default="", help="Expiration year; requires --run-card-attempt")
-    validation_packet_p.add_argument("--cvc", default="", help="CVC/CVV; requires --run-card-attempt")
-    validation_packet_p.add_argument("--name", default="", help="Cardholder name; requires --run-card-attempt")
+    validation_packet_p.add_argument("--number", default="", help="Test-card number; requires --run-card-attempt")
+    validation_packet_p.add_argument("--exp-month", default="", help="Test-card expiration month; requires --run-card-attempt")
+    validation_packet_p.add_argument("--exp-year", default="", help="Test-card expiration year; requires --run-card-attempt")
+    validation_packet_p.add_argument("--cvc", default="", help="Test-card CVC/CVV; requires --run-card-attempt")
+    validation_packet_p.add_argument("--name", default="", help="Test-card cardholder name; requires --run-card-attempt")
     validation_packet_p.add_argument("--address-line1", default="", help="Address line 1")
     validation_packet_p.add_argument("--address-city", default="", help="City")
     validation_packet_p.add_argument("--address-state", default="", help="State")
@@ -635,9 +641,24 @@ def cli():
         if provided_card_fields and not args.run_card_attempt:
             print("[funding-validation-packet] card fields require --run-card-attempt")
             sys.exit(1)
+        if args.prompt_card and provided_card_fields:
+            print("[funding-validation-packet] use either --prompt-card or test-card fields, not both")
+            sys.exit(1)
+        if args.prompt_card and not args.run_card_attempt:
+            print("[funding-validation-packet] --prompt-card requires --run-card-attempt")
+            sys.exit(1)
         required_card_fields = ("card_number", "exp_month", "exp_year", "cvc", "cardholder_name")
+        if args.run_card_attempt and args.prompt_card:
+            try:
+                _validate_prompt_billing_policy(args)
+            except ValueError as exc:
+                print(f"[funding-validation-packet] policy rejected: {redact_text(exc)}")
+                sys.exit(1)
+            card_fields = _prompt_billing_card_payload()
         if args.run_card_attempt and any(not card_fields[field] for field in required_card_fields):
             print("[funding-validation-packet] --run-card-attempt requires card number, expiration, CVC, and name")
+            for key in list(card_fields):
+                card_fields[key] = ""
             sys.exit(1)
         if args.run_add_balance_attempt and args.amount is None:
             print("[funding-validation-packet] --run-add-balance-attempt requires --amount")
