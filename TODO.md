@@ -339,8 +339,8 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] API-key creation mock-page tests cover selector fallback variants,
             one-time `tml-...` extraction, and bounded missing-selector /
             extraction-failure behavior without a live Tinker account.
-      - [ ] Auth and OTP mock-page tests.
-      - [ ] Onboarding mock-page tests.
+      - [x] Auth and OTP mock-page tests.
+      - [x] Onboarding mock-page tests.
       - [ ] Billing and Stripe-frame mock-page tests.
 
 ### Tinker Funding
