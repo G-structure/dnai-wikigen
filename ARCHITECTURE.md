@@ -596,6 +596,10 @@ Implementation status:
             before launching browser automation. Non-finite, non-positive, and
             over-cap requests return bounded `policy_denied` `add_balance`
             receipts at `not_started` with amount bands, not page text.
+[real]      The FastAPI `POST /billing/add-balance` mutation endpoint is
+            disabled by default behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`.
+            The lower-level CLI/internal handler remains available for
+            deliberate capped operator validation attempts.
 [real]      Stripe/PCI funding stance is documented in
             `⚙️/tinker-delegate/docs/STRIPE-PCI-FUNDING-SCOPE.md`: the
             encrypted raw-card channel is only an operator-owned capped

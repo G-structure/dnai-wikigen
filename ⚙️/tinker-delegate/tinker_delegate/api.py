@@ -259,6 +259,14 @@ async def billing_add_balance(payload: BalancePayload):
 
     Requires a payment method to already be on file.
     """
+    if not settings.allow_add_balance_endpoint:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Add-balance endpoint is disabled; use the capped operator "
+                "CLI path or explicitly enable TINKER_ALLOW_ADD_BALANCE_ENDPOINT"
+            ),
+        )
     result = await handle_add_balance(payload, settings)
     return result
 

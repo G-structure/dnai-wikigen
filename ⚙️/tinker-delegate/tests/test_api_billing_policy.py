@@ -151,6 +151,31 @@ class BillingApiPolicyTest(unittest.TestCase):
         self.assertEqual(body["receipts"][0]["outcome"], "card_declined")
         self.assertNotIn("4242424242424242", repr(body))
 
+    def test_add_balance_endpoint_disabled_by_default(self):
+        api.settings = Settings(allow_add_balance_endpoint=False)
+        client = TestClient(api.app)
+
+        with patch("tinker_delegate.api.handle_add_balance", new=AsyncMock()) as handle_add_balance:
+            response = client.post("/billing/add-balance", json={"amount_dollars": 5.0})
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("Add-balance endpoint is disabled", response.json()["detail"])
+        handle_add_balance.assert_not_called()
+
+    def test_add_balance_endpoint_can_be_explicitly_enabled(self):
+        api.settings = Settings(allow_add_balance_endpoint=True)
+        client = TestClient(api.app)
+
+        with patch(
+            "tinker_delegate.api.handle_add_balance",
+            new=AsyncMock(return_value={"success": False, "error": "stubbed"}),
+        ) as handle_add_balance:
+            response = client.post("/billing/add-balance", json={"amount_dollars": 5.0})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["error"], "stubbed")
+        handle_add_balance.assert_awaited_once()
+
 
 if __name__ == "__main__":
     unittest.main()

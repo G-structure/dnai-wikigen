@@ -372,6 +372,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Enforce `TINKER_MAX_ADD_BALANCE_USD` before launching browser
             automation so real-card top-ups cannot exceed the approved cap by
             caller input alone.
+      - [x] Disable the HTTP add-balance mutation endpoint by default behind
+            `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; keep the capped CLI/internal
+            path for deliberate operator validation attempts.
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
             attempt after receiving approved card details.
 - [x] `P0` Confirm PCI and Stripe obligations.

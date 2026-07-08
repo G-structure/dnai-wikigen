@@ -200,6 +200,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Add-balance automation enforces `TINKER_MAX_ADD_BALANCE_USD` before launching
   browser automation. Non-finite, non-positive, or over-cap requests return
   bounded `policy_denied` receipts at `not_started` with amount bands.
+- The HTTP `POST /billing/add-balance` mutation endpoint is disabled by default
+  behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; the capped CLI/internal path
+  remains available for deliberate operator validation attempts.
 - Stripe/PCI stance is recorded in
   `⚙️/tinker-delegate/docs/STRIPE-PCI-FUNDING-SCOPE.md`: the encrypted raw-card
   channel is limited to a one-off operator-owned capped validation path, while
