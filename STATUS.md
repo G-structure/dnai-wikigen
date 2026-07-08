@@ -460,6 +460,19 @@ Deployment tx:   0xa29d749517a69f868db1785c7f091ea75f60a76ef657badedb0848e44be7a
 Owner:           0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD
 ```
 
+On-chain verification reads from the deploy helper:
+
+```text
+DiligenceRoom:   0x5d8a18628b4c8427eea89aa5498d81ff5ad3f423
+  developer:     0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD
+  tx:            0xfa50ada33f0a2c9f434c58b6cadf98defa01302b7c3e444116c021370d28169e
+EmailOracleAuth: 0xf52c18a33bd172ae94282132649d80bcd4b872ff
+  owner:         0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD
+  allowAny:      true
+  delay:         172800
+  tx:            0xa29d749517a69f868db1785c7f091ea75f60a76ef657badedb0848e44be7a349
+```
+
 The historical Base Sepolia `DiligenceRoom` and `EmailOracleAuth` addresses are
 now superseded and remain useful only as legacy evidence in older runbooks and
 broadcast artifacts.
