@@ -128,8 +128,8 @@
       "mode": "tdx",
       "context": "artifact",
       "quoteSize": 5010,
-      "reportData": "c7e4b4fe296995f010afb86afaff3fa6df245be4a7f23835263ccc35ae9f05f1",
-      "encryptionPublicKey": "7daa336913f5371f92158dadaca81e0a91bddcbb4af3d75b39788b9dfffcd11b",
+      "reportData": "33d57b02408db23a2837eb271ea68a35c574865dd6fbbf1fa42e9dbaaddee80f",
+      "encryptionPublicKey": "a2c4a15149b03b2ca8dbd390861829344df4c5e7cd40268492fb1ed869752812",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -177,27 +177,56 @@
       "rawSecretEgress": false
     },
     "tinkerBootstrapEvidence": {
-      "status": "failed_closed_auth_access_blocked_then_reverted_to_normal_compose",
+      "status": "headed_neko_failed_closed_bootstrap_error_then_reverted_to_normal_compose",
       "oneShotCompose": "⚙️/tinker-delegate/docker-compose.tinker-bootstrap.phala.yaml",
-      "oneShotLocalRawComposeImagePolicyHash": "ae49a564f5b2a49a5ef4942230f293d6437a30c30f9d9e5bce1a5bc21eff6975",
-      "oneShotRenderedComposeSha256": "6a6ecc35faa323f9506b259677b4a9747c483ee7c3087f931a5b450f019b5664",
-      "oneShotAttestedComposeHash": "1a5dc7877d02f15b920736469c1fd4cde750f10f68773b74365257647629c42f",
-      "oneShotDeploymentBundle": "verified",
       "sourceDigest": "24ba5edf3b9d56429499bdcd602b3a808e37ba12",
       "githubActionsRunId": 28949229390,
       "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:447a66382c4f742c0af6ac7a53b4b521c23402e21a5a4deb342964ab5bcf7f10",
       "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:76d2f8bd1c264cffd25949820d33047b1f5874142bf7d48c55fa5d91d997d7ba",
-      "reportData": "2bdc93d432df10b42d43f706de950b35da1f00ebc00eff4cc8ba9898d653a066",
-      "encryptionPublicKey": "dda1374f0988b1f5236ead6fb39299a67a041b42f98a14345f93ba41fcf2e25d",
-      "runtimeEvidence": {
-        "apiKeyConfigured": false,
-        "apiKeyAvailable": false,
-        "apiKeySource": "bootstrap",
-        "bootstrapAttempted": true,
-        "bootstrapSuccess": false,
-        "bootstrapErrorKind": "auth_access_blocked",
-        "lastBootstrapAttemptRecord": null
-      },
+      "attempts": [
+        {
+          "browserPath": "headless_playwright_sidecar",
+          "status": "failed_closed_auth_access_blocked",
+          "oneShotLocalRawComposeImagePolicyHash": "ae49a564f5b2a49a5ef4942230f293d6437a30c30f9d9e5bce1a5bc21eff6975",
+          "oneShotRenderedComposeSha256": "6a6ecc35faa323f9506b259677b4a9747c483ee7c3087f931a5b450f019b5664",
+          "oneShotAttestedComposeHash": "1a5dc7877d02f15b920736469c1fd4cde750f10f68773b74365257647629c42f",
+          "oneShotDeploymentBundle": "verified",
+          "reportData": "2bdc93d432df10b42d43f706de950b35da1f00ebc00eff4cc8ba9898d653a066",
+          "encryptionPublicKey": "dda1374f0988b1f5236ead6fb39299a67a041b42f98a14345f93ba41fcf2e25d",
+          "runtimeEvidence": {
+            "apiKeyConfigured": false,
+            "apiKeyAvailable": false,
+            "apiKeySource": "bootstrap",
+            "bootstrapAttempted": true,
+            "bootstrapSuccess": false,
+            "bootstrapErrorKind": "auth_access_blocked",
+            "lastBootstrapAttemptRecord": null
+          }
+        },
+        {
+          "browserPath": "headed_neko_cdp",
+          "status": "failed_closed_bootstrap_error",
+          "delegateBrowserService": "absent",
+          "oneShotLocalRawComposeImagePolicyHash": "eabfc81083c93d7ba215a85f23d082641b4e13856cb1c15fe89b40ba8939465b",
+          "oneShotRenderedComposeSha256": "07d945588defbf49b1446db916c6bb5a9da1c2aaf2851bfacc6d62848bb26ea1",
+          "oneShotAttestedComposeHash": "72f91374633541d1f02e467df87473bcd4a7c6e3b539c49be905ae7867023a4c",
+          "oneShotDeploymentBundle": "verified",
+          "reportData": "e3ab1bfed20dd56ab63302b5c4dbe391868c57e7682f0dd08138919aca0070af",
+          "encryptionPublicKey": "9ccec8d6b45b70b8ee86d24ac1bad85157a39c3b415a66c8a0f12342eea43018",
+          "runtimeEvidence": {
+            "browserWsEndpoint": "",
+            "cdpUrl": "http://172.20.0.3:9223",
+            "apiKeyConfigured": false,
+            "apiKeyAvailable": false,
+            "apiKeySource": "bootstrap",
+            "bootstrapAttempted": true,
+            "bootstrapSuccess": false,
+            "bootstrapError": "",
+            "bootstrapErrorKind": "bootstrap_error",
+            "lastBootstrapAttemptRecord": null
+          }
+        }
+      ],
       "oracleHealthEvidence": {
         "status": "ok",
         "oracleEmail": "",
@@ -213,11 +242,21 @@
       "steadyStateCompose": "⚙️/tinker-delegate/docker-compose.all.phala.yaml",
       "steadyStateAttestedComposeHashAfterRevert": "df36312196dc33ea2c9a1faf772549734da7ddfffe4d100fa2193d04d8839183",
       "steadyStateRuntimeAfterRevert": {
+        "ORACLE_AUTO_GENESIS": "false",
+        "TINKER_BOOTSTRAP_SIGNUP": "false",
+        "TINKER_ALLOW_ADD_BALANCE_ENDPOINT": "false",
+        "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT": "false",
         "apiKeyConfigured": false,
-        "apiKeyAvailable": false,
         "apiKeySource": "none",
         "bootstrapAttempted": false,
-        "bootstrapSuccess": false
+        "oracleReady": true,
+        "oracleEmail": "",
+        "oracleEmailHash": "535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
+        "imapConnected": true,
+        "agentStackAvailable": true,
+        "cdpUrl": "http://172.20.0.3:9223",
+        "browserWsEndpoint": "ws://172.20.0.6:3000/",
+        "status": "ok"
       },
       "publicLogs": false,
       "publicSysinfo": false,
@@ -315,8 +354,8 @@
       "context": "oracle-credentials",
       "mode": "tdx",
       "quoteSize": null,
-      "reportData": "c2ff494d0893ccff4dbc149c9d1e11bf333630550ecd3b309aa46402b363f533",
-      "encryptionPublicKey": "ace1671590733315c7df7ac2e0c1b79058dcc1cda3272190ecdcc5ae9183647d",
+      "reportData": "9b7f3f90c4ada640467a1ffb64344ceead17935390cbfc7d837b13992574de1c",
+      "encryptionPublicKey": "796d0a5ad28815f3702604cb7e779812d36d341e7ebb2af53bdbb3f44124d31c",
       "oracleEmail": "",
       "oracleEmailHash": "535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
       "oracleReady": true,

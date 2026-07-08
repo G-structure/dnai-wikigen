@@ -79,12 +79,13 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   GHCR image is built and deployed; the record contains outcome, furthest
   stage, hashes, and `raw_secret_egress=false`, not raw mailbox, OTP, browser
   URL, page text, or API key.
-- `docker-compose.tinker-bootstrap.phala.yaml` is staged as the next one-shot
+- `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps
   `ORACLE_AUTO_GENESIS=false`, keeps credential provisioning and add-balance
-  disabled, and must be reverted to the normal compose after bounded evidence
-  is collected. It is not yet live/Phala-proven.
+  disabled, and uses the headed Neko Chrome CDP endpoint instead of a headless
+  Playwright sidecar. It has been Phala-tested and reverted to the normal
+  compose; both live attempts failed closed before API-key sealing.
 - Browser/control-plane diagnostics are redacted before egress.
 
 [real] `tinker-delegate` funding channel:
@@ -709,25 +710,38 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     `3bb385928598d63e5697f06d3c34a5ffab23ac547f0c633ac62bf921c7f73d88`.
     That refreshed one-shot profile has not been re-run live because the main
     CVM mailbox is already sealed and ready.
-  - Main-CVM Tinker bootstrap proof: a one-shot
-    `docker-compose.tinker-bootstrap.phala.yaml` update enabled only
+  - Main-CVM Tinker bootstrap proofs: one-shot
+    `docker-compose.tinker-bootstrap.phala.yaml` updates enabled only
     `TINKER_BOOTSTRAP_SIGNUP=true` while keeping `ORACLE_AUTO_GENESIS=false`,
     `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`, and credential provisioning
-    disabled. Its local raw-compose/image-policy hash was
+    disabled. The first live run used the pinned headless Playwright sidecar:
+    local raw-compose/image-policy hash
     `ae49a564f5b2a49a5ef4942230f293d6437a30c30f9d9e5bce1a5bc21eff6975`,
-    rendered compose SHA-256 was
+    rendered compose SHA-256
     `6a6ecc35faa323f9506b259677b4a9747c483ee7c3087f931a5b450f019b5664`,
-    and live attested compose hash was
+    and live attested compose hash
     `1a5dc7877d02f15b920736469c1fd4cde750f10f68773b74365257647629c42f`.
-    `verify-deployment-bundle` passed for that one-shot deployment with
-    GitHub-attested images from commit
-    `24ba5edf3b9d56429499bdcd602b3a808e37ba12`. The delegate attempted
-    bootstrap, reached the Tinker auth surface, and failed closed with
+    It reached the Tinker auth surface and failed closed with
     `bootstrap_error_kind=auth_access_blocked`; no API key was configured or
-    stored. The oracle stayed ready with `oracle_email=""` and the existing
-    mailbox hash, `/pin` still returned 401 without bearer auth,
-    `/credentials/encrypted` returned 403 while disabled, and
-    `/billing/add-balance` returned 403 while disabled. The CVM was then
+    stored. The second live run removed the Playwright sidecar from the
+    bootstrap profile and forced the delegate through headed Neko CDP:
+    local raw-compose/image-policy hash
+    `eabfc81083c93d7ba215a85f23d082641b4e13856cb1c15fe89b40ba8939465b`,
+    rendered compose SHA-256
+    `07d945588defbf49b1446db916c6bb5a9da1c2aaf2851bfacc6d62848bb26ea1`,
+    and live attested compose hash
+    `72f91374633541d1f02e467df87473bcd4a7c6e3b539c49be905ae7867023a4c`.
+    `verify-deployment-bundle` passed for both one-shot deployments with
+    GitHub-attested oracle/delegate images from commit
+    `24ba5edf3b9d56429499bdcd602b3a808e37ba12`. In the headed-Neko run,
+    `/health` showed `browser_ws_endpoint=""`,
+    `cdp_url=http://172.20.0.3:9223`, `api_key_source=bootstrap`,
+    `bootstrap_success=false`, and `bootstrap_error_kind=bootstrap_error`,
+    but no bounded stage receipt was captured
+    (`last_bootstrap_attempt_record=null`). The oracle stayed ready with
+    `oracle_email=""` and the existing mailbox hash, `/pin` still returned 401
+    without bearer auth, `/credentials/encrypted` returned 403 while disabled,
+    and `/billing/add-balance` returned 403 while disabled. The CVM was then
     redeployed back to `docker-compose.all.phala.yaml`; final health showed
     `api_key_configured=false`, `api_key_source=none`, and
     `bootstrap_attempted=false`.
@@ -739,9 +753,9 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     a usable browser-control response.
   - `verify-cvm-attestation` succeeded against delegate
     `/attestation?context=artifact`: mode `tdx`, quote size `5010`, report data
-    `c7e4b4fe296995f010afb86afaff3fa6df245be4a7f23835263ccc35ae9f05f1`,
+    `33d57b02408db23a2837eb271ea68a35c574865dd6fbbf1fa42e9dbaaddee80f`,
     encryption public key
-    `7daa336913f5371f92158dadaca81e0a91bddcbb4af3d75b39788b9dfffcd11b`,
+    `a2c4a15149b03b2ca8dbd390861829344df4c5e7cd40268492fb1ed869752812`,
     and the attested compose/app/OS-image/image-digest policy above.
   - `verify-deployment-bundle` succeeded against the same delegate endpoint:
     both deploy-critical GHCR image refs verified GitHub SLSA provenance and
@@ -752,9 +766,9 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     OS image hash, report data, public key, and quote size `5010`.
   - Oracle `/attestation?context=oracle-credentials` now returns a live TDX
     credential-ingress envelope with report data
-    `c2ff494d0893ccff4dbc149c9d1e11bf333630550ecd3b309aa46402b363f533`,
+    `9b7f3f90c4ada640467a1ffb64344ceead17935390cbfc7d837b13992574de1c`,
     encryption public key
-    `ace1671590733315c7df7ac2e0c1b79058dcc1cda3272190ecdcc5ae9183647d`,
+    `796d0a5ad28815f3702604cb7e779812d36d341e7ebb2af53bdbb3f44124d31c`,
     quote size not emitted by that bounded oracle endpoint response,
     `oracle_email_hash=535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132`,
     `oracle_ready=true`, `oracle_email=""`, and no raw credential output.
@@ -859,8 +873,9 @@ explicitly legacy.
   `--image dstack-0.5.10* --no-dev-os` attempts failed with a Phala
   `correlationId` validation error, and the latest successful compose/image
   update with `--no-dev-os` still left the CVM reporting dev OS.
-- Deployed headed Neko and Playwright sidecar containers are running, but
-  Tinker login/API-key capture inside the deployed CVM is not yet proven.
+- Deployed headed-Neko bootstrap packaging has now been Phala-tested without the
+  Playwright sidecar, but Tinker login/API-key capture inside the deployed CVM
+  is not yet proven.
 - Full Intel TDX quote-internal parsing and quote freshness checking need
   implementation; current verifier checks the public dstack envelope and
   report-data binding only.

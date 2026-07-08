@@ -14,6 +14,8 @@
 # - registry images only; no local build contexts
 # - oracle mailbox genesis remains disabled; this consumes an existing sealed
 #   mailbox rather than creating/replacing one
+# - Tinker bootstrap uses the headed Neko Chrome CDP endpoint, not the headless
+#   Playwright sidecar path that failed closed at deployed auth
 # - card/add-balance endpoints remain disabled
 # - credential provisioning endpoint remains disabled
 # - public logs/sysinfo must remain disabled at deploy time
@@ -182,8 +184,6 @@ services:
     ulimits:
       core: 0
     depends_on:
-      delegate-browser:
-        condition: service_started
       oracle:
         condition: service_started
     networks:
@@ -195,7 +195,7 @@ services:
       - delegate-data:/data
       - /var/run/dstack.sock:/var/run/dstack.sock
     environment:
-      TINKER_BROWSER_WS_ENDPOINT: ws://172.20.0.6:3000/
+      TINKER_BROWSER_WS_ENDPOINT: ""
       TINKER_CDP_URL: http://172.20.0.3:9223
       TINKER_ORACLE_URL: http://172.20.0.4:8000
       TINKER_ORACLE_AUTH_KEY_PATH: ${TINKER_ORACLE_AUTH_KEY_PATH:-oracle/runtime-auth}
@@ -222,26 +222,6 @@ services:
       retries: 40
       timeout: 5s
       start_period: 300s
-
-  delegate-browser:
-    image: mcr.microsoft.com/playwright:v1.58.0-noble@sha256:e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f
-    platform: linux/amd64
-    restart: unless-stopped
-    init: true
-    ulimits:
-      core: 0
-    ipc: host
-    working_dir: /home/pwuser
-    user: pwuser
-    networks:
-      tee-net:
-        ipv4_address: 172.20.0.6
-    command:
-      - /bin/sh
-      - -lc
-      - |
-        exec npx -y playwright@1.58.0 run-server --port 3000 --host 0.0.0.0
-
 volumes:
   oracle-data:
   delegate-data:

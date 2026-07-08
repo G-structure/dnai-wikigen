@@ -595,8 +595,20 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `bootstrap_error_kind=auth_access_blocked`; no API key was created,
             billing/add-balance and credential provisioning remained disabled,
             and the CVM was redeployed back to normal compose.
-- [ ] `P0` Replace the deployed headless Playwright sidecar with a headed browser
-      path that survives Phala packaging if browser automation remains the route.
+- [x] `P0` Replace the deployed headless Playwright sidecar in the one-shot
+      Tinker bootstrap profile with a headed browser path that survives Phala
+      packaging if browser automation remains the route.
+      Done 2026-07-08: `docker-compose.tinker-bootstrap.phala.yaml` no longer
+      includes the `delegate-browser` Playwright sidecar, points the delegate at
+      the headed Neko Chrome CDP endpoint, passed local compose/tests, was
+      deployed to the main Phala CVM, and passed `verify-deployment-bundle`.
+      The live attempt still failed closed with generic
+      `bootstrap_error_kind=bootstrap_error` before API-key sealing, so this
+      only proves the browser packaging change, not production signup.
+- [ ] `P0` Instrument pre-signup, CDP connection, navigation, and onboarding
+      exceptions with bounded stage/type receipts so the next deployed bootstrap
+      failure preserves useful evidence without raw URL, page text, OTP, email,
+      or API-key egress.
 - [ ] `P0` Capture a selector/frame/auth-flow map for:
       email input, magic-code page, OTP boxes, onboarding, keys page, billing,
       Stripe iframe, balance page, and auto-reload settings.
@@ -640,11 +652,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `delegate-data` volume for sealed API-key persistence, and keeps
             oracle genesis, credential provisioning, and add-balance disabled.
       - [ ] Resolve deployed Tinker auth access block without evasion.
-            Evidence 2026-07-08: Phala one-shot bootstrap failed closed at
-            Tinker auth with `auth_access_blocked`; local Neko still works, so
-            next work should either move the deployed path to a supportable
-            headed browser posture or obtain an official/support-approved
-            Tinker service-account/API-key route.
+            Evidence 2026-07-08: the first Phala one-shot bootstrap failed
+            closed at Tinker auth with `auth_access_blocked`. A second
+            Phala one-shot bootstrap using headed Neko CDP instead of the
+            Playwright sidecar verified the packaging and endpoint gates, but
+            failed closed with generic `bootstrap_error` before a bounded stage
+            receipt or API-key capture. Local Neko still works, so next work
+            should improve bounded failure instrumentation and either repair the
+            supportable headed-browser posture or obtain an official/support-
+            approved Tinker service-account/API-key route.
       - [ ] Complete the same flow inside the deployed CVM and seal the API key
             with the dstack-derived key path.
 - [x] `P0` Add a Tinker re-auth path for future OTP challenges.
@@ -1567,13 +1583,17 @@ vision Wiki is reaching for.
        is dstack/CVM-originated `submitResult()` broadcast and measured-code
        binding.
 8. [ ] Build a fake Tinker backend and full local synthetic room test.
-9. [ ] Rework deployed browser path to headed Neko inside Phala, or get an
-       official Tinker service-account/API route.
-10. [ ] Prove safe Tinker account funding with a low-value test.
+9. [x] Rework the one-shot deployed bootstrap browser path to headed Neko
+       inside Phala.
+       Done 2026-07-08 for `docker-compose.tinker-bootstrap.phala.yaml`; signup
+       remains blocked with generic `bootstrap_error`.
+10. [ ] Get an official Tinker service-account/API route, or complete the
+        bounded headed-Neko signup repair without evasion.
+11. [ ] Prove safe Tinker account funding with a low-value test.
        Test-card path reaches Stripe decline and add-balance fail-closed state;
        real capped funding attempt needs approved card details.
-11. [ ] Run one real tiny Tinker training session through `IsolatedTinkerSession`.
-12. [ ] Merge the `gate-health-frontend` UI and wire it to real verifier/status
+12. [ ] Run one real tiny Tinker training session through `IsolatedTinkerSession`.
+13. [ ] Merge the `gate-health-frontend` UI and wire it to real verifier/status
        APIs.
 
 ## External Alignment References

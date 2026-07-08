@@ -940,17 +940,24 @@ Implementation status:
             one-shot profile for deployed Tinker bootstrap attempts. It reuses
             the main `delegate-data` volume, keeps `ORACLE_AUTO_GENESIS=false`,
             keeps credential provisioning and add-balance disabled, enables
-            only `TINKER_BOOTSTRAP_SIGNUP=true`, and uses fail-open bounded
+            only `TINKER_BOOTSTRAP_SIGNUP=true`, uses fail-open bounded
             evidence mode so selector/posture failures can be inspected through
-            `/health` runtime state.
-[partial]   The first Phala-proven Tinker bootstrap attempt failed closed at
-            the Tinker auth surface with `bootstrap_error_kind=auth_access_blocked`.
-            The oracle mailbox stayed ready, no API key was configured or
-            stored, endpoint gates stayed closed, and the CVM was redeployed
-            back to the normal compose. Completing deployed Tinker signup now
-            requires either a supportable headed-browser posture inside Phala
-            or an official/support-approved Tinker API-key/service-account
-            route; stealth/evasion remains out of scope.
+            `/health` runtime state, and now drives the headed Neko Chrome CDP
+            endpoint instead of the headless Playwright sidecar.
+[partial]   Two Phala-proven Tinker bootstrap attempts have failed closed
+            without API-key sealing. The first, using the headless Playwright
+            sidecar, reached the Tinker auth surface with
+            `bootstrap_error_kind=auth_access_blocked`. The second, using the
+            headed Neko CDP endpoint, verified the intended browser packaging
+            but failed with a generic `bootstrap_error` before a bounded stage
+            receipt was captured. In both attempts the oracle mailbox stayed
+            ready, no API key was configured or stored, endpoint gates stayed
+            closed, and the CVM was redeployed back to the normal compose.
+            Completing deployed Tinker signup now requires better bounded
+            bootstrap instrumentation plus either a supportable headed-browser
+            posture inside Phala or an official/support-approved Tinker
+            API-key/service-account route; stealth/evasion remains out of
+            scope.
 [partial]   Production OS posture is not solved. The main CVM still reports
             `dstack-dev-0.5.9` / `is_dev=true`; earlier attempts to update the
             existing CVM to `dstack-0.5.10*` with `--no-dev-os` failed in the
@@ -1779,8 +1786,8 @@ Runtime service layout for the Tinker path:
 +---------------------------------------------------------------+
 | dstack CVM                                                    |
 |                                                               |
-|  service: neko / delegate-browser                             |
-|    - headful browser / Playwright server / CDP                |
+|  service: neko                                                |
+|    - headful browser / Chrome CDP                             |
 |    - core dumps disabled by compose ulimits                   |
 |                                                               |
 |  service: oracle                                              |
@@ -1852,8 +1859,9 @@ bounded aggregate results
 2. EmailOracleAuth's on-chain consumer registry is not yet checked by the
    FastAPI OTP endpoint; same-CVM bearer auth and scoped runtime OTP requests
    are implemented.
-3. Tinker browser automation works locally through Neko/CDP but still needs a
-   fresh deployed Phala/CVM validation run.
+3. Tinker browser automation works locally through Neko/CDP. The deployed
+   headed-Neko packaging is Phala-proven, but deployed signup still fails
+   closed before API-key sealing.
 4. Reliable Tinker account funding through Stripe browser automation is in progress:
    the test-card path reaches Stripe and declines as expected, the plaintext
    card API is disabled by default, `manual_prefund` is the default production

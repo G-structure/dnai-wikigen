@@ -146,12 +146,17 @@ class ComposeHardeningTest(unittest.TestCase):
         self.assertIn("Temporary Main-CVM Tinker Bootstrap Compose", compose)
         self.assertIn("tee-email-oracle@sha256:", oracle)
         self.assertIn("tinker-delegate@sha256:", delegate)
+        self.assertNotIn("  delegate-browser:", compose)
+        self.assertNotIn("delegate-browser:", delegate)
         self.assertIn('ORACLE_AUTO_GENESIS: "false"', oracle)
         self.assertIn('ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: "false"', oracle)
         self.assertIn('ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ""', oracle)
+        self.assertIn('TINKER_BROWSER_WS_ENDPOINT: ""', delegate)
+        self.assertIn("TINKER_CDP_URL: http://172.20.0.3:9223", delegate)
         self.assertIn('TINKER_BOOTSTRAP_SIGNUP: "true"', delegate)
         self.assertIn('TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "false"', delegate)
         self.assertIn('TINKER_BOOTSTRAP_FAIL_OPEN: "true"', delegate)
+        self.assertIn('TINKER_LOCAL_BROWSER_FALLBACK: "false"', delegate)
 
 
 if __name__ == "__main__":
