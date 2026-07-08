@@ -31,14 +31,17 @@ class CvmAttestationPolicy:
     compose_path: Path
     env_files: tuple[Path, ...] = ()
     allowed_env_file: Path | None = None
+    allowed_envs: tuple[str, ...] = ()
     context: str = "artifact"
     expected_compose_hash: str = ""
+    expected_attested_compose_hash: str = ""
     expected_app_id: str = ""
     expected_os_image_hash: str = ""
     required_images: tuple[str, ...] = ()
     required_image_digests: tuple[str, ...] = ()
     allow_local: bool = False
     allow_tags: bool = False
+    phala_raw_compose: bool = False
     max_age_seconds: float = 60.0
 
 
@@ -50,6 +53,7 @@ class CvmAttestationBundle:
     context: str
     mode: str
     compose_hash: str
+    attested_compose_hash: str
     rendered_compose_sha256: str
     images: tuple[ImageDigest, ...]
     app_id: str
@@ -66,6 +70,7 @@ class CvmAttestationBundle:
             "context": self.context,
             "mode": self.mode,
             "compose_hash": self.compose_hash,
+            "attested_compose_hash": self.attested_compose_hash,
             "rendered_compose_sha256": self.rendered_compose_sha256,
             "images": [
                 {"service": image.service, "image": image.image}
@@ -134,6 +139,8 @@ def verify_cvm_attestation(policy: CvmAttestationPolicy) -> CvmAttestationBundle
             env_files=list(policy.env_files),
             expected_hash=policy.expected_compose_hash,
             allowed_env_file=policy.allowed_env_file,
+            allowed_envs=list(policy.allowed_envs),
+            phala_raw_compose=policy.phala_raw_compose,
             allow_tags=policy.allow_tags,
         )
     except ComposeHashError as exc:
@@ -146,7 +153,7 @@ def verify_cvm_attestation(policy: CvmAttestationPolicy) -> CvmAttestationBundle
     )
 
     attestation_policy = AttestationPolicy(
-        expected_compose_hash=compose.compose_hash,
+        expected_compose_hash=policy.expected_attested_compose_hash or compose.compose_hash,
         expected_app_id=policy.expected_app_id,
         expected_os_image_hash=policy.expected_os_image_hash,
         context=policy.context,
@@ -163,6 +170,7 @@ def verify_cvm_attestation(policy: CvmAttestationPolicy) -> CvmAttestationBundle
         context=policy.context,
         mode=attestation.mode,
         compose_hash=compose.compose_hash,
+        attested_compose_hash=attestation.compose_hash,
         rendered_compose_sha256=compose.rendered_compose_sha256,
         images=compose.images,
         app_id=attestation.app_id,

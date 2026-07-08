@@ -10,6 +10,7 @@ from tinker_delegate.compose_hash import (
     _parse_env_keys,
     dump_app_compose,
     phala_compose_hash,
+    verify_compose_hash,
 )
 
 
@@ -93,6 +94,37 @@ class ComposeHashTest(unittest.TestCase):
         self.assertNotIn("docker_compose_file", public)
         self.assertEqual(public["runner"], "docker-compose")
         self.assertEqual(public["allowed_envs"], ["TINKER_API_KEY"])
+
+    def test_phala_raw_compose_hash_uses_source_text_and_allowed_envs(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            compose = Path(tmpdir) / "compose.yaml"
+            compose.write_text(
+                "\n".join(
+                    [
+                        "services:",
+                        "  app:",
+                        "    image: ${APP_IMAGE:-example/app@sha256:" + ("a" * 64) + "}",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            expected = phala_compose_hash({
+                "runner": "docker-compose",
+                "docker_compose_file": compose.read_text(encoding="utf-8"),
+                "allowed_envs": ["APP_IMAGE"],
+            })
+            result = verify_compose_hash(
+                compose,
+                expected_hash=expected,
+                allowed_envs=["APP_IMAGE"],
+                phala_raw_compose=True,
+                allow_tags=False,
+            )
+
+        self.assertEqual(result.compose_hash, expected)
+        self.assertEqual(result.images[0].image, "example/app@sha256:" + ("a" * 64))
 
 
 if __name__ == "__main__":

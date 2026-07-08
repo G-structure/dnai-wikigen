@@ -124,12 +124,13 @@ def verify_attestation_envelope(
 
     quote_report_data_value = attestation.get("quote_report_data")
     if quote_report_data_value:
-        quote_report_data = _hex_bytes(
-            quote_report_data_value,
-            "quote_report_data",
-            expected_len=32,
-        )
-        if quote_report_data != report_data:
+        quote_report_data = _hex_bytes(quote_report_data_value, "quote_report_data")
+        if len(quote_report_data) == 64:
+            if quote_report_data[:32] != report_data or quote_report_data[32:] != b"\x00" * 32:
+                raise AttestationVerificationError("quote report data mismatch")
+        elif len(quote_report_data) != 32:
+            raise AttestationVerificationError("quote_report_data must be 32 or 64 bytes")
+        elif quote_report_data != report_data:
             raise AttestationVerificationError("quote report data mismatch")
 
     return AttestationVerificationResult(

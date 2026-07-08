@@ -157,6 +157,8 @@ def verify_compose_hash(
     env_files: list[Path] | None = None,
     expected_hash: str = "",
     allowed_env_file: Path | None = None,
+    allowed_envs: list[str] | None = None,
+    phala_raw_compose: bool = False,
     allow_tags: bool = False,
 ) -> ComposeHashResult:
     """Render compose, verify image digests, and compute the Phala compose hash."""
@@ -176,15 +178,21 @@ def verify_compose_hash(
         raise ComposeHashError("docker compose JSON output could not be parsed") from exc
 
     images = _extract_digest_images(compose_config, allow_tags=allow_tags)
+    docker_compose_file = (
+        compose_path.read_text(encoding="utf-8") if phala_raw_compose else rendered_compose
+    )
     app_compose: dict[str, Any] = {
         "runner": "docker-compose",
-        "docker_compose_file": rendered_compose,
+        "docker_compose_file": docker_compose_file,
     }
+    allowed_env_names = list(allowed_envs or [])
     if allowed_env_file is not None:
         allowed_env_file = allowed_env_file.resolve()
         if not allowed_env_file.exists():
             raise ComposeHashError(f"allowed env file not found: {allowed_env_file}")
-        app_compose["allowed_envs"] = _parse_env_keys(allowed_env_file)
+        allowed_env_names.extend(_parse_env_keys(allowed_env_file))
+    if allowed_env_names:
+        app_compose["allowed_envs"] = list(dict.fromkeys(allowed_env_names))
 
     actual_hash = phala_compose_hash(app_compose)
     if expected_hash and actual_hash != expected_hash:
@@ -216,6 +224,17 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help="Runtime env file whose keys should be included as allowed_envs",
     )
+    parser.add_argument(
+        "--allowed-env",
+        action="append",
+        default=[],
+        help="Runtime env key included as an encrypted Phala allowed_env; repeatable",
+    )
+    parser.add_argument(
+        "--phala-raw-compose",
+        action="store_true",
+        help="Hash the raw compose source plus allowed_envs, matching Phala deploy",
+    )
     parser.add_argument("--expected-hash", default="", help="Expected Phala compose hash")
     parser.add_argument(
         "--allow-tags",
@@ -234,6 +253,8 @@ def main(argv: list[str] | None = None) -> int:
             env_files=[Path(path) for path in args.env_file],
             expected_hash=args.expected_hash,
             allowed_env_file=Path(args.allowed_env_file) if args.allowed_env_file else None,
+            allowed_envs=list(args.allowed_env),
+            phala_raw_compose=args.phala_raw_compose,
             allow_tags=args.allow_tags,
         )
     except ComposeHashError as exc:

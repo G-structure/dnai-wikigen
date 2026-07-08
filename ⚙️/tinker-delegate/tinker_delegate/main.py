@@ -623,9 +623,25 @@ def cli():
         help="Runtime env file whose keys should be included as allowed_envs",
     )
     verify_cvm_attestation_p.add_argument(
+        "--allowed-env",
+        action="append",
+        default=[],
+        help="Runtime env key included as an encrypted Phala allowed_env; repeatable",
+    )
+    verify_cvm_attestation_p.add_argument(
+        "--phala-raw-compose",
+        action="store_true",
+        help="Hash raw compose source plus allowed_envs, matching Phala deploy",
+    )
+    verify_cvm_attestation_p.add_argument(
         "--expected-compose-hash",
         default="",
         help="Expected Phala compose hash before checking live attestation",
+    )
+    verify_cvm_attestation_p.add_argument(
+        "--attested-compose-hash",
+        default="",
+        help="Expected live attestation compose hash when Phala's full app-compose hash differs from local image-policy hash",
     )
     verify_cvm_attestation_p.add_argument("--app-id", default="", help="Expected dstack app ID")
     verify_cvm_attestation_p.add_argument(
@@ -682,6 +698,17 @@ def cli():
         "--allowed-env-file",
         default="",
         help="Runtime env file whose keys should be included as allowed_envs",
+    )
+    verify_compose_p.add_argument(
+        "--allowed-env",
+        action="append",
+        default=[],
+        help="Runtime env key included as an encrypted Phala allowed_env; repeatable",
+    )
+    verify_compose_p.add_argument(
+        "--phala-raw-compose",
+        action="store_true",
+        help="Hash raw compose source plus allowed_envs, matching Phala deploy",
     )
     verify_compose_p.add_argument("--expected-hash", default="", help="Expected Phala compose hash")
     verify_compose_p.add_argument(
@@ -1272,14 +1299,17 @@ def cli():
             compose_path=Path(args.compose),
             env_files=tuple(Path(path) for path in args.env_file),
             allowed_env_file=Path(args.allowed_env_file) if args.allowed_env_file else None,
+            allowed_envs=tuple(args.allowed_env),
             context=args.context,
             expected_compose_hash=args.expected_compose_hash,
+            expected_attested_compose_hash=args.attested_compose_hash,
             expected_app_id=args.app_id,
             expected_os_image_hash=args.os_image_hash,
             required_images=tuple(args.require_image),
             required_image_digests=tuple(args.require_image_digest),
             allow_local=args.allow_local_attestation,
             allow_tags=args.allow_tags,
+            phala_raw_compose=args.phala_raw_compose,
             max_age_seconds=args.max_age_seconds,
         )
         try:
@@ -1302,6 +1332,8 @@ def cli():
                 env_files=[Path(path) for path in args.env_file],
                 allowed_env_file=Path(args.allowed_env_file) if args.allowed_env_file else None,
                 expected_hash=args.expected_hash,
+                allowed_envs=list(args.allowed_env),
+                phala_raw_compose=args.phala_raw_compose,
                 allow_tags=args.allow_tags,
             )
         except ComposeHashError as exc:

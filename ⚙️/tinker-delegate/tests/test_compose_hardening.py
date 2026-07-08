@@ -81,6 +81,14 @@ class ComposeHardeningTest(unittest.TestCase):
                 block = _service_block((ROOT / compose_name).read_text(), "delegate")
                 self.assertIn("TINKER_FUNDING_MODE: ${TINKER_FUNDING_MODE:-manual_prefund}", block)
 
+    def test_phala_delegate_does_not_bootstrap_signup_by_default(self):
+        block = _service_block(
+            (ROOT / "docker-compose.all.phala.yaml").read_text(),
+            "delegate",
+        )
+
+        self.assertIn("TINKER_BOOTSTRAP_SIGNUP: ${TINKER_BOOTSTRAP_SIGNUP:-false}", block)
+
 
 if __name__ == "__main__":
     unittest.main()

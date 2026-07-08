@@ -829,8 +829,12 @@ Implementation status:
             Docker Compose file with explicit env, rejects local `build:`
             services and mutable tag-only images, emits the digest-pinned image
             manifest, and computes the Phala Cloud-style compose hash over the
-            rendered app-compose object. The Phala Playwright sidecar image is
-            pinned by amd64 digest in `docker-compose.all.phala.yaml`.
+            rendered app-compose object. It also has a Phala raw-compose mode
+            for deployed CVMs where the local image-policy hash is separate
+            from Phala's attested full app-compose hash, because Phala includes
+            allowed encrypted env names and platform metadata in the live hash.
+            The Phala Playwright sidecar image is pinned by amd64 digest in
+            `docker-compose.all.phala.yaml`.
 [real]      `.github/workflows/build-tee-images.yml` builds the deploy-critical
             `tee-email-oracle` and `tinker-delegate` images on GitHub-hosted
             runners for `linux/amd64`, pushes SHA-tagged images to GHCR, asks
@@ -855,6 +859,14 @@ Implementation status:
             public key, and client freshness match policy. The emitted bundle is
             bounded public evidence and labels Intel TDX quote internals as
             not yet cryptographically parsed.
+[real]      Current Phala deployment runs the combined oracle/delegate stack in
+            CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` with app ID
+            `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, public logs/sysinfo
+            disabled, digest-pinned GHCR images verified by GitHub
+            attestations, delegate `/health` returning `ok`, oracle `/health`
+            returning degraded until credentials are sealed, and live delegate
+            attestation verification passing against Phala compose hash
+            `cb4e3a013cedb9d14db49ad745dfde44eeb7b6a57121e892bd3e51b2a1f25b71`.
 [real]      In dstack mode `/attestation` includes public dstack evidence fields
             when available: event log, VM config, instance/device IDs,
             aggregated measurement, OS image hash, compose hash, and TCB info.

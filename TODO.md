@@ -375,13 +375,20 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `scripts/verify-cvm-attestation.sh` so an operator can tie a live
             CVM attestation to the locally rendered Phala compose hash and
             required digest-pinned images from a laptop.
-      - [ ] Add cryptographic Intel TDX quote parsing and freshness checks;
-            current `dstack_sdk` helpers do not expose a complete verifier.
-      - [ ] Run `verify-cvm-attestation` against a real Phala CVM and record
+      - [ ] Add cryptographic Intel TDX quote parsing and quote-internal
+            freshness checks; current `dstack_sdk` helpers do not expose a
+            complete verifier.
+      - [x] Run `verify-cvm-attestation` against a real Phala CVM and record
             app ID, compose hash, image digest, report data, public key,
             fetched-at time, and command evidence in `STATUS.md`.
-- [ ] `P0` Deploy the combined email-oracle + tinker-delegate stack to Phala
+- [x] `P0` Deploy the combined email-oracle + tinker-delegate stack to Phala
       from registry images only, no local `build:` contexts.
+      Done 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59`
+      runs app ID `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717` from
+      digest-pinned GHCR oracle/delegate images plus digest-pinned Neko and
+      Playwright sidecars. Oracle is intentionally degraded until email
+      credentials are provisioned; delegate health is `ok` with no API key
+      configured and `bootstrap_attempted=false`.
 - [ ] `P0` Persist only sealed data under the CVM data volume:
       email creds, Tinker API key, funding token state, and run metadata.
       - [x] Persist email-oracle OTP replay hashes in an encrypted/sealed ledger
@@ -1174,19 +1181,32 @@ vision Wiki is reaching for.
       Base Sepolia ETH and can pay deployment gas; raw private key material is
       not stored in repo or `.env`.
 - [ ] `Deploy` Verify Cloudflare Wrangler login for frontend deployment.
-- [ ] `Deploy` Verify Phala CLI login and profile.
-- [ ] `Deploy` Verify Docker registry credentials and decide permanent registry.
+- [x] `Deploy` Verify Phala CLI login and profile.
+      Done 2026-07-08: `phala status` reports user `g-structure`, workspace
+      `wiki`, profile `wikigen`.
+- [x] `Deploy` Verify Docker registry credentials and decide permanent registry.
       - [x] Add GHCR as the CI image publication path for deploy-critical
             TEE images.
-      - [ ] Run the GitHub image workflow, verify published image attestations,
+      - [x] Run the GitHub image workflow, verify published image attestations,
             and record final image digests.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
-- [ ] `Deploy` Redeploy Phala CVM with final image digests.
+- [x] `Deploy` Redeploy Phala CVM with final image digests.
 - [ ] `Deploy` Verify CVM endpoints:
       `/health`, `/attestation`, oracle `/pin` auth rejection, delegate status,
       browser CDP internal-only or protected.
+      - [x] Delegate `/health` returns `status=ok`, oracle `/health` returns
+            `status=degraded` with no email credentials, and containers are
+            healthy/running.
+      - [x] Delegate `/attestation?context=artifact` verifies with
+            `verify-cvm-attestation`.
+      - [x] Oracle `/pin` rejects unauthenticated requests with `401 Bearer
+            token required`.
+      - [x] Public CDP gateway probe returns host-header rejection rather than
+            a usable `/json/version` browser-control response.
+      - [ ] Verify credential provisioning, Tinker API-key capture, and funded
+            billing flow inside the deployed CVM.
 - [x] `Deploy` Deploy or update Base Sepolia contracts with the chosen vNext
       interfaces.
       - [x] Verify the historical deployed contracts are not controlled by the

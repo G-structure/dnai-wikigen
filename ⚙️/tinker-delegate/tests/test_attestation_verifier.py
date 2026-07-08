@@ -60,6 +60,17 @@ class AttestationVerifierTest(unittest.TestCase):
 
         self.assertEqual(result.report_data, attestation["report_data"])
 
+    def test_accepts_matching_64_byte_quote_report_data_when_exposed(self):
+        attestation = _tdx_attestation()
+        attestation["quote_report_data"] = attestation["report_data"] + ("00" * 32)
+
+        result = verify_attestation_envelope(
+            attestation,
+            AttestationPolicy(expected_compose_hash="compose-ok"),
+        )
+
+        self.assertEqual(result.report_data, attestation["report_data"])
+
     def test_rejects_quote_report_data_mismatch_when_exposed(self):
         attestation = _tdx_attestation()
         attestation["quote_report_data"] = "00" * 32
@@ -74,7 +85,7 @@ class AttestationVerifierTest(unittest.TestCase):
         attestation = _tdx_attestation()
         attestation["quote_report_data"] = "aa"
 
-        with self.assertRaisesRegex(AttestationVerificationError, "quote_report_data must be 32 bytes"):
+        with self.assertRaisesRegex(AttestationVerificationError, "quote_report_data must be 32 or 64 bytes"):
             verify_attestation_envelope(
                 attestation,
                 AttestationPolicy(expected_compose_hash="compose-ok"),

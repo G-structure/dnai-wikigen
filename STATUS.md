@@ -25,11 +25,12 @@ email OTP -> Tinker login/onboarding -> bounded API-key provisioning metadata
 encrypted artifact upload -> TEE-bound attestation report_data -> hash-checked in-memory custody
 ```
 
-Production deployment, real account funding, full TDX quote verification, live
-CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
-Phala auth is configured for profile `wikigen` in workspace `wiki`, but
-`phala cvms list` currently reports no CVMs, so CVM attestation can be verified
-only locally until a deployment exists.
+Production deployment is now partially real on Phala: the combined
+email-oracle + tinker-delegate CVM is running from digest-pinned registry
+images and has live TDX envelope verification. Real account funding, full
+quote-internal TDX verification, live CVM-originated TEE-to-chain signing, and
+RLVR/bio-validation remain incomplete. Phala auth is configured for profile
+`wikigen` in workspace `wiki`.
 
 ## Built
 
@@ -513,7 +514,9 @@ only locally until a deployment exists.
 - `verify-compose-hash` renders registry-image compose files, rejects local
   `build:` services and mutable tag-only images, emits the digest-pinned image
   manifest, and computes the Phala Cloud-style compose hash over the rendered
-  app-compose object.
+  app-compose object. It also supports the Phala raw-compose/allowed-env mode
+  needed to check local image policy when Phala's full app-compose hash includes
+  platform metadata not reproduced by the public compose file alone.
 - The Phala Playwright sidecar image is pinned by amd64 digest.
 - The deploy-critical `tinker-delegate` and `tee-email-oracle` Dockerfiles now
   pin the Python runtime and `uv` helper images by versioned digest.
@@ -526,9 +529,47 @@ only locally until a deployment exists.
   source commit, SLSA provenance predicate, SPDX SBOM predicate, and
   non-self-hosted-runner policy before the image digest is allowed into Phala
   deployment inputs.
+- GitHub Actions run `28936575672` built the current deploy-critical images on
+  GitHub-hosted workers and attached GitHub-signed SLSA provenance plus SPDX
+  SBOM attestations. The local deploy gate verified both image digests with
+  `⚙️/tinker-delegate/scripts/verify-ghcr-image-attestation.sh`.
+- Current deploy-critical image digests:
+  - Oracle:
+    `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:4c90e5adf1a7f5021fe746025f9e5e57540750e9fd7338f86d745545a9a3ca89`
+  - Delegate:
+    `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c45082f939dd5788f706f6f87b2773a21a41485a5e547a32935660ab59e9678f`
 - Full reproducible container images for every side service, apt package
-  pinning, timestamp normalization, and final published digest evidence remain
-  open.
+  pinning, timestamp normalization, and published digest evidence for
+  non-critical side services remain open.
+- Current Phala deployment:
+  - CVM ID: `670b3b21-4338-4d4e-ae72-7c8922579f59`
+  - App ID: `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`
+  - Status: `running`
+  - Gateway base: `dstack-pha-prod9.phala.network`
+  - Public logs/sysinfo: `false` / `false`
+  - OS image hash:
+    `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`
+  - Attested compose hash:
+    `cb4e3a013cedb9d14db49ad745dfde44eeb7b6a57121e892bd3e51b2a1f25b71`
+  - Local raw-compose/image-policy hash:
+    `86951bb72fcff8a613760ee1c4672d97373e03558593a5f5366fd5c2b58003aa`
+  - Delegate endpoint:
+    `https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network`
+  - Oracle endpoint:
+    `https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network`
+  - Delegate `/health`: `status=ok`, `agent_stack_available=true`,
+    `api_key_configured=false`, `bootstrap_attempted=false`.
+  - Oracle `/health`: `status=degraded`, `oracle_email=""`,
+    `imap_connected=false`, `dstack_enabled=true`.
+  - Oracle `/pin` without bearer auth returns `401 Bearer token required`.
+  - Public CDP gateway `/json/version` returns host-header rejection rather than
+    a usable browser-control response.
+  - `verify-cvm-attestation` succeeded against delegate
+    `/attestation?context=artifact`: mode `tdx`, quote size `5010`, report data
+    `2f8a7a27503958ec5f4ed65e57eb149937f2ce682c406ac61c560893de16e762`,
+    encryption public key
+    `a076e8573339129a8461278ca9d049b25477755a422e40a8373365ec238cb370`,
+    and the attested compose/app/OS-image/image-digest policy above.
 - `deployments/base-sepolia.json` is now the machine-readable deployment
   manifest. It records the funded current operator deployer, current
   operator-controlled Base Sepolia contracts, and their deployment transaction
@@ -609,18 +650,18 @@ explicitly legacy.
 - Production or repeated card funding needs legal/compliance approval; raw-card
   encrypted delivery remains limited to an operator-owned capped validation
   path.
-- Deployed Phala/CVM validation for the headed Neko browser path is still
-  pending.
-- Full Intel TDX quote verification and freshness checking need implementation.
-- Registry images, pinned digests, SBOMs, and compose-hash release evidence are
-  not complete.
-- Base Sepolia deployment needs configured RPC, Foundry keystore account, and
-  verification credentials in local environment.
-- The local delegate image imports the optional Tinker SDK, but real SDK
-  training/sampling/cleanup inside a deployed CVM is not yet proven.
-- Phala auth is configured for profile `wikigen` / workspace `wiki`, but
-  `phala cvms list` currently reports no CVMs, so deployed CVM validation is
-  still pending.
+- Deployed Phala/CVM credential provisioning remains pending: the oracle has no
+  sealed email credentials, and the delegate has no Tinker API key configured.
+- Deployed headed Neko and Playwright sidecar containers are running, but
+  Tinker login/API-key capture inside the deployed CVM is not yet proven.
+- Full Intel TDX quote-internal parsing and quote freshness checking need
+  implementation; current verifier checks the public dstack envelope and
+  report-data binding only.
+- Registry images, pinned digests, SBOM/provenance attestations, and
+  compose-hash evidence are complete only for the deploy-critical oracle and
+  delegate images, not every side service.
+- Real Tinker SDK training/sampling/cleanup inside a deployed CVM is not yet
+  proven.
 - Bio-validation must remain fail-closed until risk screening, reviewer queues,
   and bounded schemas exist.
 
@@ -639,9 +680,38 @@ cd "⚙️/tinker-delegate" && docker stop dnai-tinker-delegate-agent-extra-chec
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-attestation --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-cvm-attestation --help
 cd "⚙️/tinker-delegate" && scripts/verify-cvm-attestation.sh --help
+cd "⚙️/tinker-delegate" && scripts/verify-ghcr-image-attestation.sh --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-compose-hash --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main upload-artifact --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main funding-preflight --help
+
+cd "⚙️/tinker-delegate" && \
+  scripts/verify-ghcr-image-attestation.sh \
+    ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:4c90e5adf1a7f5021fe746025f9e5e57540750e9fd7338f86d745545a9a3ca89 \
+    --source-digest c1105f639dc00426acc17587d26ebf5a5b0f535c \
+    --source-ref refs/heads/codex/wikigen-private-reward-pitch
+
+cd "⚙️/tinker-delegate" && \
+  scripts/verify-ghcr-image-attestation.sh \
+    ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c45082f939dd5788f706f6f87b2773a21a41485a5e547a32935660ab59e9678f \
+    --source-digest c1105f639dc00426acc17587d26ebf5a5b0f535c \
+    --source-ref refs/heads/codex/wikigen-private-reward-pitch
+
+cd "⚙️/tinker-delegate" && \
+  TINKER_ORACLE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:4c90e5adf1a7f5021fe746025f9e5e57540750e9fd7338f86d745545a9a3ca89 \
+  TINKER_DELEGATE_IMAGE=ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c45082f939dd5788f706f6f87b2773a21a41485a5e547a32935660ab59e9678f \
+  uv run python -m tinker_delegate.main verify-cvm-attestation \
+    https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network \
+    --compose docker-compose.all.phala.yaml \
+    --phala-raw-compose \
+    --allowed-env TINKER_ORACLE_IMAGE \
+    --allowed-env TINKER_DELEGATE_IMAGE \
+    --allowed-env TINKER_BOOTSTRAP_SIGNUP \
+    --attested-compose-hash cb4e3a013cedb9d14db49ad745dfde44eeb7b6a57121e892bd3e51b2a1f25b71 \
+    --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
+    --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
+    --require-image-digest sha256:4c90e5adf1a7f5021fe746025f9e5e57540750e9fd7338f86d745545a9a3ca89 \
+    --require-image-digest sha256:c45082f939dd5788f706f6f87b2773a21a41485a5e547a32935660ab59e9678f
 
 cd "⚙️/tee-email-oracle" && uv run python -m unittest discover -s tests -v
 cd "⚙️/tee-email-oracle" && uv run python -m compileall email_oracle

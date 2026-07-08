@@ -60,10 +60,13 @@ class CvmAttestationTest(unittest.TestCase):
                     compose_path=Path("docker-compose.all.phala.yaml"),
                     env_files=(Path(".env.phala"),),
                     allowed_env_file=Path("runtime.env"),
+                    allowed_envs=("TINKER_ORACLE_IMAGE",),
                     expected_compose_hash="c" * 64,
+                    expected_attested_compose_hash="c" * 64,
                     expected_app_id="app-ok",
                     expected_os_image_hash="os-ok",
                     required_image_digests=("sha256:" + "e" * 64,),
+                    phala_raw_compose=True,
                 )
             )
 
@@ -72,6 +75,8 @@ class CvmAttestationTest(unittest.TestCase):
         self.assertEqual(kwargs["expected_hash"], "c" * 64)
         self.assertEqual(kwargs["env_files"], [Path(".env.phala")])
         self.assertEqual(kwargs["allowed_env_file"], Path("runtime.env"))
+        self.assertEqual(kwargs["allowed_envs"], ["TINKER_ORACLE_IMAGE"])
+        self.assertTrue(kwargs["phala_raw_compose"])
 
         fetch_attestation.assert_called_once()
         _, attestation_args = fetch_attestation.call_args[0]
@@ -81,6 +86,7 @@ class CvmAttestationTest(unittest.TestCase):
 
         public = bundle.to_public_dict()
         self.assertEqual(public["mode"], "tdx")
+        self.assertEqual(public["attested_compose_hash"], "c" * 64)
         self.assertEqual(public["quote_size"], 256)
         self.assertEqual(public["images"][0]["service"], "delegate")
         self.assertNotIn("app_compose", public)
