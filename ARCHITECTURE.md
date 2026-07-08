@@ -71,6 +71,10 @@ Important current status:
 [partial]   Candidate sandboxing for arbitrary third-party code. The local
             Python sandbox is not OS/container isolation and is not sufficient
             for untrusted production candidate execution inside a CVM.
+[partial]   Deployment manifest. `deployments/base-sepolia.json` now records
+            known Base Sepolia and Phala resources, but the current funded
+            operator has not yet broadcast fresh contracts from the encrypted
+            Foundry keystore, and the historical contracts are marked legacy.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -1531,6 +1535,9 @@ bounded aggregate results
 7. Corpus policy and consent/revocation are modeled but not enforced.
 8. Per-query royalty settlement is not wired to a live chain watcher.
 9. The production frontend is not present on this branch.
+10. Historical Base Sepolia contracts are not current-operator controlled; the
+    fresh deploy helper exists, but broadcast requires an interactive Foundry
+    keystore prompt.
 ```
 
 ## Public / Web Client Layer

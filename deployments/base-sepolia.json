@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "network": {
+    "name": "Base Sepolia",
+    "chainId": 84532,
+    "rpcEnv": "BASE_SEPOLIA_RPC_URL",
+    "explorerBaseUrl": "https://sepolia.basescan.org"
+  },
+  "status": "partial",
+  "lastReviewedAt": "2026-07-08T08:52:35Z",
+  "currentOperatorDeployer": {
+    "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
+    "keystoreAccount": "dev",
+    "fundingStatus": "funded_on_base_sepolia",
+    "privateKeyMaterial": "not_recorded"
+  },
+  "contracts": {
+    "diligenceRoom": {
+      "status": "legacy_deployed_code_not_current_operator_controlled",
+      "address": "0xe51A3C5fd564c625C9D72D2283878Ab4296b3844",
+      "baseScanUrl": "https://sepolia.basescan.org/address/0xe51A3C5fd564c625C9D72D2283878Ab4296b3844",
+      "deploymentTx": "0x9407f7989c11ac1161397c85aa41bf3752ebca8124e5ecb7fafe05c6dbd899e4",
+      "developer": "0x111dB654eCD8756188e03746C1bcff74FD749791",
+      "nextDealId": "0",
+      "currentOperatorControlled": false,
+      "notes": "Bytecode exists on Base Sepolia, but developer fee recipient is not the current funded Foundry dev deployer."
+    },
+    "emailOracleAuth": {
+      "status": "legacy_deployed_code_not_current_operator_controlled",
+      "address": "0xd21706E1AfF482F1d23664be5768ceaD63ccdBfF",
+      "baseScanUrl": "https://sepolia.basescan.org/address/0xd21706E1AfF482F1d23664be5768ceaD63ccdBfF",
+      "owner": "0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38",
+      "oracleUpgradeDelaySeconds": 172800,
+      "allowAnyDevice": true,
+      "oracleCodeFrozen": false,
+      "consumerRegistryFrozen": false,
+      "currentOperatorControlled": false,
+      "notes": "Bytecode exists on Base Sepolia, but owner is the Foundry default address, not the current funded operator deployer."
+    }
+  },
+  "phala": {
+    "status": "historical_runbook_record_not_revalidated_this_cycle",
+    "cvmId": "cvm_j2kD1EZn",
+    "appId": "29d78795d77408a705d2c77c42d1bc10c59d0671",
+    "composeHash": "97818b3dbac8227ea3016e26c16886083f2fe25592fc0f33900e037c6003acd6",
+    "gatewayBaseDomain": "dstack-pha-prod5.phala.network",
+    "imageDigests": [
+      "ttl.sh/therealwiki-tinker-oracle-20260313-8b76c1d@sha256:6d521ae4da405250adbab51a8597ac83fdff4addfe930921293ccadad6d12352",
+      "ttl.sh/therealwiki-tinker-delegate-20260313-8b76c1d-r6@sha256:6563c94382f82dc43dfe4de1f615189c8c3a6806061bb366c0efd0403017e115",
+      "mcr.microsoft.com/playwright:v1.58.0-noble@sha256:e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f"
+    ],
+    "quoteEvidence": null,
+    "notes": "Recorded from the deployment runbook. Fresh Phala CLI/CVM validation remains required before marking this current."
+  },
+  "freshDeployment": {
+    "status": "ready_for_operator_broadcast",
+    "helper": "⚙️/tinker-delegate/contracts/scripts/deploy-base-sepolia.sh",
+    "requires": [
+      "BASE_SEPOLIA_RPC_URL",
+      "FOUNDRY_KEYSTORE_ACCOUNT=dev",
+      "interactive Foundry keystore password",
+      "optional ETHERSCAN_API_KEY for verification"
+    ],
+    "reasonNotBroadcastByAgent": "The Codex tool session cannot answer the interactive encrypted-keystore prompt without unsafe key handling."
+  }
+}

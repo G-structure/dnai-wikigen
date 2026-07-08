@@ -96,9 +96,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P1` Add a `docs/DECISIONS.md` log for irreversible architecture choices:
       one CVM vs split CVMs, quote verification model, funding rails, data
       locality policy, and frontend deployment target.
-- [ ] `P1` Add a machine-readable manifest of deployed resources:
+- [x] `P1` Add a machine-readable manifest of deployed resources:
       contract addresses, Phala CVM IDs, app IDs, compose hashes, image digests,
       BaseScan links, and gateway endpoints.
+      Done in `deployments/base-sepolia.json`: the manifest records the current
+      funded operator deployer, legacy Base Sepolia contracts with on-chain
+      owner/developer reads, historical Phala/CVM evidence from the runbook, and
+      the fresh-deployment helper/status without storing secrets.
 - [ ] `P1` Add a one-command local verification script that runs:
       contract tests, Python imports, compile checks, lint where available,
       Docker compose config validation, and docs stale-phrase checks.
@@ -245,8 +249,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             explicit debug flags.
       - [x] Add trace/HAR/video/card-screenshot deletion for configured browser
             debug artifact directories after card submission attempts.
-- [ ] `P0` Add a deployment runbook section for rollback:
+- [x] `P0` Add a deployment runbook section for rollback:
       what is safe to redeploy, what must be frozen, what requires user notice.
+      Done in `⚙️/tinker-delegate/docs/DEPLOYMENT-RUNBOOK.md`: rollback rules
+      now distinguish safe test redeploys from frozen policy roots, funded
+      contracts, published compose/image/app trust roots, and sealed state.
 - [ ] `P1` Add health endpoints that separate:
       service up, oracle ready, browser ready, Tinker authenticated, funded,
       evaluator ready, chain signer ready, quote verifiable.
@@ -974,8 +981,11 @@ vision Wiki is reaching for.
 
 - [ ] `Deploy` Create/fill `.env` locally from `example.env` without committing
       secrets.
-- [ ] `Deploy` Verify Foundry keystore account `dev` exists and is funded for
+- [x] `Deploy` Verify Foundry keystore account `dev` exists and is funded for
       Base Sepolia.
+      Done 2026-07-08: `0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD` has
+      Base Sepolia ETH and can pay deployment gas; raw private key material is
+      not stored in repo or `.env`.
 - [ ] `Deploy` Verify Cloudflare Wrangler login for frontend deployment.
 - [ ] `Deploy` Verify Phala CLI login and profile.
 - [ ] `Deploy` Verify Docker registry credentials and decide permanent registry.
@@ -988,6 +998,16 @@ vision Wiki is reaching for.
       browser CDP internal-only or protected.
 - [ ] `Deploy` Deploy or update Base Sepolia contracts with the chosen vNext
       interfaces.
+      - [x] Verify the historical deployed contracts are not controlled by the
+            current funded operator deployer and record that evidence in the
+            deployment manifest.
+      - [x] Add a no-raw-key deploy helper at
+            `⚙️/tinker-delegate/contracts/scripts/deploy-base-sepolia.sh` that
+            builds, tests, dry-runs, broadcasts with Foundry `--account dev`,
+            performs on-chain reads, and rewrites the manifest.
+      - [ ] Broadcast fresh current-operator `DiligenceRoom` and
+            `EmailOracleAuth` contracts from an interactive terminal so Foundry
+            can prompt for the encrypted keystore password.
 - [ ] `Deploy` Verify contracts on BaseScan.
 - [ ] `Deploy` Register compose hashes in `EmailOracleAuth`.
 - [ ] `Deploy` Register consumer app/compose hash for Tinker delegate.

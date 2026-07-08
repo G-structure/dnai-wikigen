@@ -387,10 +387,16 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   app-compose object.
 - The Phala Playwright sidecar image is pinned by amd64 digest.
 - Full reproducible container images, SBOMs, and build provenance remain open.
-- Phala CVM deployment with recorded CVM ID, app ID, compose hash, image digest,
-  gateway endpoint, and quote evidence.
-- Base Sepolia or mainnet deployments with BaseScan verification links.
-- Machine-readable deployment manifest.
+- `deployments/base-sepolia.json` is now the machine-readable deployment
+  manifest. It records the funded current operator deployer, historical Base
+  Sepolia contracts and why they are not current-operator controlled,
+  historical Phala/CVM evidence from the runbook, and the fresh-deployment
+  helper/status.
+- Fresh current-operator Base Sepolia contract deployment is ready to broadcast
+  through `⚙️/tinker-delegate/contracts/scripts/deploy-base-sepolia.sh`, but
+  the actual broadcast requires the interactive Foundry keystore password.
+- Phala CVM deployment with current recorded CVM ID, app ID, compose hash, image
+  digest, gateway endpoint, and quote evidence still needs revalidation.
 - One-command local verification script.
 
 [planned] Security hardening:
@@ -403,7 +409,7 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 
 ## Deployed Resources
 
-Final deployed-resource manifest: none yet.
+Deployment manifest: `deployments/base-sepolia.json`.
 
 `example.env` intentionally leaves these deployment outputs blank:
 
@@ -413,11 +419,18 @@ JUDGE_ADDRESS=
 PHALA_CVM_ID=
 ```
 
-Historical local broadcast artifacts or scratch deployment outputs must not be
-treated as final production evidence. A deploy is considered real only when a
-manifest records the chain, transaction hashes, verified contract links, Phala
-CVM ID, app ID, compose hash, image digest, endpoint, quote evidence, and the
-commands used to reproduce or verify them.
+The manifest currently marks the old Base Sepolia `DiligenceRoom` and
+`EmailOracleAuth` addresses as legacy deployed code, not current operator trust
+roots. On-chain reads showed the historical `DiligenceRoom` developer is
+`0x111dB654eCD8756188e03746C1bcff74FD749791`, and the historical
+`EmailOracleAuth` owner is `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`, while
+the current funded Foundry deployer is
+`0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`.
+
+A fresh deploy is considered current only after the manifest records chain,
+transaction hashes, verified contract links, Phala CVM ID, app ID, compose hash,
+image digest, endpoint, quote evidence, and the commands used to reproduce or
+verify them. Missing values must stay `null`, `partial`, or explicitly legacy.
 
 ## Current Blockers
 
