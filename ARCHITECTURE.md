@@ -49,6 +49,10 @@ Important current status:
             Artifact ingress decrypts quote-key-encrypted artifact uploads and
             verifies Ethereum keccak256 against the committed artifactHash
             before storing the upload in memory.
+[real]      PrivateRewardEnvironment interface and leakage accounting types.
+            The base contract exposes public problem/schema metadata, query
+            budget, reward precision policy, bounded feedback, transcript hash,
+            leakage hash, and attestable environment metadata.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -620,12 +624,25 @@ TTT/RL evaluator inside TEE
 bounded proof of utility / safety / validation result
 ```
 
-The repo currently includes Tinker RL docs and an evaluator shape, but the real
-TTT/RL bio-validation loop is not implemented. The current evaluator code is:
+The repo currently includes Tinker RL docs, an evaluator shape, and the
+`tinker_delegate.private_reward` environment contract. The real TTT/RL
+bio-validation loop is not implemented. The current evaluator code is:
 
 ```
 stub_evaluate()       deterministic synthetic result for testing
 sft_evaluate()        LoRA/SFT-oriented evaluator shape using Tinker SDK
+```
+
+The private reward contract is:
+
+```
+PrivateRewardEnvironment.problem()          public problem text
+PrivateRewardEnvironment.candidate_schema   allowed candidate envelope
+PrivateRewardEnvironment.reward()           exact internal reward, TEE-only
+PrivateRewardEnvironment.output_reducer()   approved bounded feedback
+PrivateRewardEnvironment.query_budget       max queries and reward precision
+PrivateRewardEnvironment.finalize()         bounded result and hashes
+PrivateRewardEnvironment.attest()           environment/transcript metadata
 ```
 
 Target architecture:
@@ -664,10 +681,14 @@ score band, pass/hold/deny, confidence, result hash
 Implementation status:
 
 ```
+[real]      PrivateRewardEnvironment base interface, LeakageBudget,
+            QueryLeakageRecord, transcript hash, leakage hash, bounded
+            feedback/result dataclasses, and toy unit tests.
 [modeled]   TTT/RL bio-validation concept.
 [partial]   SFT evaluator scaffold.
 [real]      Output banding and offer computation.
-[planned]   Domain-specific bio benchmark, risk classifier, and validation report schema.
+[planned]   Candidate sandbox, domain-specific bio benchmark, risk classifier,
+            and validation report schema.
 ```
 
 ### 4. DNAI

@@ -259,6 +259,12 @@ The environment owns:
 - attestation payload
 - settlement payload
 
+Implementation note: `tinker_delegate.private_reward` now contains the base
+`PrivateRewardEnvironment`, leakage-budget, bounded-feedback, transcript-hash,
+leakage-hash, and attestation dataclasses. This is the interface layer only;
+real RLVR, TTT, bio-validation, and candidate-sandbox environments are still
+separate implementation work.
+
 ## Security Goal
 
 The informal goal:
@@ -767,14 +773,13 @@ That is the project.
 
 The next concrete build should be:
 
-1. Define `PrivateRewardEnvironment` and the leakage model in code.
-2. Build a synthetic hidden-data reward environment.
-3. Add candidate sandboxing and transcript hashing.
-4. Prove the reducer prevents exact reward egress in public mode.
-5. Wire the environment into the existing `control_plane`.
-6. Run one end-to-end local test:
+1. Build a synthetic hidden-data reward environment.
+2. Add candidate sandboxing.
+3. Prove the reducer prevents exact reward egress in public mode.
+4. Wire the environment into the existing `control_plane`.
+5. Run one end-to-end local test:
    candidate -> private reward -> bounded result -> result hash.
-7. Only then connect a real Tinker/TTT loop.
+6. Only then connect a real Tinker/TTT loop.
 
 This order keeps the security claim ahead of the optimizer hype. The optimizer
 can be swapped later. The private reward boundary is the product.

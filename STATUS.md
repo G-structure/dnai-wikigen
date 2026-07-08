@@ -94,6 +94,22 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   training/sampling/cleanup, gated by `TINKER_RUN_REAL_SDK_TESTS=1`,
   `TINKER_API_KEY`, and `TINKER_REAL_SDK_MAX_USD <= 0.50`.
 
+[real] Private reward interface:
+
+- `tinker_delegate.private_reward.PrivateRewardEnvironment` defines the core
+  sealed-reward contract: public problem text, candidate schema, acceptance
+  policy, internal reward, output reducer, query budget, final bounded result,
+  and environment attestation metadata.
+- `LeakageBudget` records max queries, feedback mode, reward precision policy,
+  candidate-payload release policy, timing bands, and cost bands.
+- Public evaluation returns `BoundedFeedback` and appends
+  `QueryLeakageRecord` entries containing candidate hashes, decisions, reward
+  bands or withheld feedback, timing bands, and transcript hashes.
+- Exact `InternalReward` values remain in the environment; tests cover bounded
+  feedback, budget exhaustion, policy rejection, pass/hold/deny precision
+  reduction, reducer hash mismatch fail-closed behavior, and final
+  transcript/leakage hashes.
+
 ## Partial
 
 [partial] Deployed Tinker automation:
@@ -142,6 +158,16 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   full no-disk/no-egress audit.
 - Sealed retention keys are not implemented for long-lived artifact custody.
 
+[partial] Private reward environments:
+
+- The base interface and leakage accounting are real, but only a toy test
+  environment exists.
+- Real RLVR, TTT, computational-bio, code-audit, or model-evaluation
+  environments are not implemented.
+- Candidate sandboxing, side-channel normalization beyond timing bands,
+  hidden-holdout separation, and external optimizer policy enforcement remain
+  open P0 work.
+
 [partial] Frontend and product surface:
 
 - The project has service and contract surfaces, but no production-ready
@@ -157,6 +183,8 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   boundary, while agents and optimizers receive bounded outputs only.
 - The optimizer is intentionally swappable: RL, TTT, LLM repair loops,
   evolutionary search, or hybrids.
+- `PrivateRewardEnvironment` is the real code-level interface for this model,
+  while concrete production environments remain partial or planned.
 
 [modeled] RLVR and bio-validation:
 

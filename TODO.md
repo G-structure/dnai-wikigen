@@ -405,7 +405,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 ### Private Verified Reward / RLVR Environments
 
-- [ ] `P0` Treat the project as building a private verified-reward substrate, not
+- [x] `P0` Treat the project as building a private verified-reward substrate, not
       only a one-shot evaluator.
       Done when docs and APIs name the abstraction directly: sealed data defines
       a reward oracle; agents optimize candidates against that oracle; only
@@ -416,11 +416,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Keep `PROJECT.md` synchronized with implementation.
       Any environment that releases more than the documented leakage must update
       the theorem assumptions, leakage function, and safety labels before merge.
-- [ ] `P0` Define the core `PrivateRewardEnvironment` interface:
+- [x] `P0` Define the core `PrivateRewardEnvironment` interface:
       `problem()`, `candidate_schema`, `reward(candidate)`,
       `acceptance_policy`, `output_reducer`, `query_budget`, `finalize()`, and
       `attest()`.
-- [ ] `P0` Define the leakage function for every environment:
+- [x] `P0` Define the leakage function for every environment:
       public problem text, accepted candidate count, reward bands or no reward
       egress, final bounded result, timing/cost bands, hashes, and attestations.
 - [ ] `P0` Decide where the optimizer lives for each security tier:
@@ -436,9 +436,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Add an external-optimizer-safe mode.
       External LLMs or code generators can propose candidates, but they receive
       only public prompts and approved bounded feedback.
-- [ ] `P0` Add a reward-query budget and transcript hash for every private
+- [x] `P0` Add a reward-query budget and transcript hash for every private
       reward environment.
-- [ ] `P0` Add a reward precision budget.
+- [x] `P0` Add a reward precision budget.
       Exact continuous rewards are internal-only; any released reward must be
       quantized, thresholded, noised, or withheld.
 - [ ] `P0` Add candidate sandboxing:
@@ -937,7 +937,7 @@ vision Wiki is reaching for.
 
 1. [x] Track `PROJECT.md`, `ARCHITECTURE.md`, and this `TODO.md`.
 2. [x] Fix stale Tinker status in `⚙️/tinker-delegate/SPEC.md`.
-3. [ ] Define the `PrivateRewardEnvironment` interface and leakage model.
+3. [x] Define the `PrivateRewardEnvironment` interface and leakage model.
 4. [ ] Build a fake private-reward environment with a synthetic hidden dataset.
 5. [ ] Fix `tinker-delegate` Docker install so the Tinker SDK path is present in
        the deployed image.
