@@ -121,7 +121,7 @@ services:
       timeout: 5s
 
   oracle:
-    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:688b8b48a6621072b99fe9d515998f9bc4313215163c4d689a927da853926a23
+    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:8aeae979242de7377b51dc2bc33f5527457c5255584ce9b77d101ca37796f4a4
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -160,7 +160,7 @@ services:
       start_period: 180s
 
   delegate:
-    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c072442365abe4e2ca6b0823c460563e1b8870a503e31a65eb88a6f59cc5bb70
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3a9987a7a821307f0979c66a33ed0b102547a5756a433dfd285c5fd4bfacf4c1
     platform: linux/amd64
     restart: unless-stopped
     ulimits:

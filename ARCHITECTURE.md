@@ -901,18 +901,20 @@ Implementation status:
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning degraded until credentials are sealed, and live delegate
             attestation verification passing against local raw compose hash
-            `de5564a93b9996c8b21efc74b5295458c2972a2d588806a9d3935d48a8000392`
+            `03285bc9c80307cf1c0f4012fa38fbd11d2fcbf6bcf462081bad325c666eeaa8`
             and live Phala attested compose hash
-            `72af30d23b5bbd42606204d5ead2dc33b2b90e3c7093fc7929bab1f23014e97c`.
+            `f941a2f9b0f00446be0c90859a3acee7d45c88d82ba40be4db0124168e454ff3`.
 [real]      The temporary public-log debug exception has been reverted on the
             current main Phala CVM. Public logs and public sysinfo are disabled
             while runtime guards keep `ORACLE_AUTO_GENESIS=false`,
             `TINKER_BOOTSTRAP_SIGNUP=false`, `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`,
             and credential provisioning disabled.
 [partial]   Production OS posture is not solved. The main CVM still reports
-            `dstack-dev-0.5.9` / `is_dev=true`; attempts to update the existing
-            CVM to `dstack-0.5.10*` with `--no-dev-os` currently fail in the
-            Phala CLI/API with a required `correlationId` validation error.
+            `dstack-dev-0.5.9` / `is_dev=true`; earlier attempts to update the
+            existing CVM to `dstack-0.5.10*` with `--no-dev-os` failed in the
+            Phala CLI/API with a required `correlationId` validation error, and
+            a later successful compose/image update with `--no-dev-os` still
+            left the live CVM reporting the dev OS.
 [real]      The email-oracle source now tracks cock.li's current registration
             form contract: `password_confinm` is filled as the real password
             confirmation field, `password_confirm` is treated as a honeypot and

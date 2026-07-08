@@ -42,12 +42,12 @@
     }
   },
   "phala": {
-    "status": "running_log_hardened_pinned_compose_private_logs_revalidated_by_deployment_bundle",
+    "status": "running_bounded_oracle_delegate_pinned_compose_private_logs_revalidated_by_deployment_bundle",
     "cvmId": "670b3b21-4338-4d4e-ae72-7c8922579f59",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "72af30d23b5bbd42606204d5ead2dc33b2b90e3c7093fc7929bab1f23014e97c",
-    "localRawComposeImagePolicyHash": "de5564a93b9996c8b21efc74b5295458c2972a2d588806a9d3935d48a8000392",
-    "renderedComposeSha256": "c0cda10f40e4049acbdd24f4bccc6690940f6253f6b47f94b5c4b9f6e8f6d074",
+    "composeHash": "f941a2f9b0f00446be0c90859a3acee7d45c88d82ba40be4db0124168e454ff3",
+    "localRawComposeImagePolicyHash": "03285bc9c80307cf1c0f4012fa38fbd11d2fcbf6bcf462081bad325c666eeaa8",
+    "renderedComposeSha256": "7fbe678e1e85055b5fc3af34c5ca6b37778a8d87ab610bdfb1e9e5791ec4d327",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -74,7 +74,7 @@
       "publicSysinfo": false,
       "devOs": true,
       "devOsRevertStatus": "main_cvm_still_reports_dstack_dev_0_5_9_is_dev_true_after_no_dev_os_update_attempts",
-      "devOsUpdateError": "phala deploy --image dstack-0.5.10* --no-dev-os failed with required correlationId validation error",
+      "devOsUpdateError": "phala deploy --image dstack-0.5.10* --no-dev-os failed with required correlationId validation error; later compose/image update with --no-dev-os succeeded but live CVM still reports dstack-dev-0.5.9 is_dev true",
       "mustRevertBeforeProduction": true,
       "revertTarget": {
         "publicLogs": false,
@@ -88,10 +88,10 @@
         "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "b49ff2ca678d8860cccd69fb38a385dbc853bfbc",
+    "sourceDigest": "81e3188591aadba26ab124217624e6341d2def74",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 28941069823,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28941069823",
+    "githubActionsRunId": 28945611577,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28945611577",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -101,13 +101,13 @@
     "imageDigests": [
       {
         "service": "oracle",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:688b8b48a6621072b99fe9d515998f9bc4313215163c4d689a927da853926a23",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:8aeae979242de7377b51dc2bc33f5527457c5255584ce9b77d101ca37796f4a4",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c072442365abe4e2ca6b0823c460563e1b8870a503e31a65eb88a6f59cc5bb70",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3a9987a7a821307f0979c66a33ed0b102547a5756a433dfd285c5fd4bfacf4c1",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
@@ -128,8 +128,8 @@
       "mode": "tdx",
       "context": "artifact",
       "quoteSize": 5010,
-      "reportData": "87993d2370f5391c4d1b452b12925d6f21c0f61ad12e4eed1c18204aab396d9e",
-      "encryptionPublicKey": "ac1fc21a4998ecded67c9e2490bfd0fa9e6a5b3b9308618d9036084a356ea70f",
+      "reportData": "862dc5bfb08061e35a8ea2da6a160e40f83ace0d0ba615f65c05aa5e9faf1901",
+      "encryptionPublicKey": "40c8257b4c589c180409ed18728bcf1b46687c657124c9a93504f857a433d823",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "oracleGenesisDebugEvidence": {
@@ -224,9 +224,11 @@
       "context": "oracle-credentials",
       "mode": "tdx",
       "quoteSize": 5010,
-      "reportData": "c581305bf86e83450ec3eb18798796468b56e44dc9f77f1581ed563ea4c2609b",
-      "encryptionPublicKey": "7f4f97bbb16d87d6b411fa4bf59f472ede8b7305443a76745973522ea7ffde25",
+      "reportData": "00bddaeffaeb8b0ba838c9f86694fce477e78eca4d0d193c7713f3e1620cbe3f",
+      "encryptionPublicKey": "3339fecff787f0ad27d3c294bbb83df61874bf005648e811a847f167e2cef631",
       "oracleEmail": "",
+      "oracleEmailHash": "",
+      "oracleReady": false,
       "postWithoutProvisioningToken": "403_disabled",
       "rawSecretEgress": false
     }

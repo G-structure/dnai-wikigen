@@ -1273,19 +1273,24 @@ vision Wiki is reaching for.
             Refreshed 2026-07-08 for commit
             `b49ff2ca678d8860cccd69fb38a385dbc853bfbc` with GitHub Actions run
             `28941069823`.
+            Refreshed again 2026-07-08 for bounded oracle/delegate commit
+            `81e3188591aadba26ab124217624e6341d2def74` with GitHub Actions run
+            `28945611577`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:688b8b48a6621072b99fe9d515998f9bc4313215163c4d689a927da853926a23`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:8aeae979242de7377b51dc2bc33f5527457c5255584ce9b77d101ca37796f4a4`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c072442365abe4e2ca6b0823c460563e1b8870a503e31a65eb88a6f59cc5bb70`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3a9987a7a821307f0979c66a33ed0b102547a5756a433dfd285c5fd4bfacf4c1`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
-      image refs change.
+      image refs change. Live update with `--no-public-logs`,
+      `--no-public-sysinfo`, and `--no-dev-os` succeeded, but Phala still
+      reports `dstack-dev-0.5.9` / `is_dev=true`.
 - [ ] `Deploy` Verify CVM endpoints:
       `/health`, `/attestation`, oracle `/pin` auth rejection, delegate status,
       browser CDP internal-only or protected.
@@ -1304,9 +1309,9 @@ vision Wiki is reaching for.
       - [x] `verify-deployment-bundle` passes against the live log-hardened
             Phala deployment with GitHub image provenance/SBOM checks, required
             sidecar digests, local raw compose hash
-            `de5564a93b9996c8b21efc74b5295458c2972a2d588806a9d3935d48a8000392`,
+            `03285bc9c80307cf1c0f4012fa38fbd11d2fcbf6bcf462081bad325c666eeaa8`,
             and live attested compose hash
-            `72af30d23b5bbd42606204d5ead2dc33b2b90e3c7093fc7929bab1f23014e97c`.
+            `f941a2f9b0f00446be0c90859a3acee7d45c88d82ba40be4db0124168e454ff3`.
       - [x] Revert temporary Phala public-log debug posture on the main CVM
             before any real mailbox, OTP, Tinker API-key, or card material is
             handled.
@@ -1318,7 +1323,9 @@ vision Wiki is reaching for.
             `dstack-dev-0.5.9` / `is_dev=true`; attempts to update with
             `--image dstack-0.5.10-4c9bd024 --no-dev-os` and
             `--image dstack-0.5.10 --no-dev-os --prepare-only` failed in the
-            Phala CLI/API with a required `correlationId` validation error.
+            Phala CLI/API with a required `correlationId` validation error. A
+            later compose/image update using `--no-dev-os` succeeded, but the
+            live CVM still reported the dev OS afterward.
       - [ ] Before production wrap-up, remove or disable every temporary
             Phala debug posture used during oracle genesis work: public logs,
             public sysinfo, SSH/dev OS access, exposed browser/CDP debug ports,
