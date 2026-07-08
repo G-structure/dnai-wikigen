@@ -12,7 +12,7 @@ The email oracle is still required. It is not just a disposable inbox: it is the
 
 The oracle's `/pin` and `/inbox` endpoints are now protected by runtime bearer auth when enabled. In the combined dstack/Phala deployment, the oracle and delegate derive the bearer token from the same dstack key path (`oracle/runtime-auth`). Local development can use an explicit `ORACLE_RUNTIME_AUTH_TOKEN` / `TINKER_ORACLE_AUTH_TOKEN` pair instead. `/pin` requests are scoped: the delegate sends target service, expected sender, caller identity, reason, nonce, max age, and bounded extraction pattern. The oracle persists released OTP hashes in an encrypted/sealed replay ledger so one-time-use survives restart, and logs only bounded metadata, not the OTP value.
 
-Tinker account funding remains in progress. The intended payment path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code now reach Stripe in the local Neko session: a Stripe test card filled the live payment form and was rejected with `Your card was declined.` Adding balance correctly fails closed with `Payment method required before adding balance` when no real card is on file. On 2026-07-08, the same local session produced bounded `payment_method` and `add_balance` attempt records with outcome classes, furthest-stage markers, timestamps, evidence hashes, amount bands, and card-payload destruction status. The encrypted client harness verifies `/attestation?context=billing`, encrypts locally, posts only ciphertext to `/billing/card/encrypted`, and locally reproduced the same bounded test-card decline with a persisted receipt. The plaintext card API endpoint is disabled by default and unavailable in dstack mode; it can only be enabled as a local-development test hook with `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. A capped real-card funding attempt is still required before funding can be called production-complete.
+Tinker account funding remains in progress. The current validation path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code now reach Stripe in the local Neko session: a Stripe test card filled the live payment form and was rejected with `Your card was declined.` Adding balance correctly fails closed with `Payment method required before adding balance` when no real card is on file. On 2026-07-08, the same local session produced bounded `payment_method` and `add_balance` attempt records with outcome classes, furthest-stage markers, timestamps, evidence hashes, amount bands, and card-payload destruction status. The encrypted client harness verifies `/attestation?context=billing`, encrypts locally, posts only ciphertext to `/billing/card/encrypted`, and locally reproduced the same bounded test-card decline with a persisted receipt. The plaintext card API endpoint is disabled by default and unavailable in dstack mode; it can only be enabled as a local-development test hook with `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. The Stripe/PCI stance is recorded in `docs/STRIPE-PCI-FUNDING-SCOPE.md`: raw-card encrypted delivery is limited to a capped operator-owned validation path, while production/repeated funding should use an official Tinker route, Stripe-hosted/tokenized collection, SetupIntent / PaymentMethod reuse with consent, or manual/developer prefunding until compliance review approves otherwise. A capped real-card validation attempt is still required before funding can be called end-to-end proven.
 
 ## How It Works
 
@@ -138,8 +138,10 @@ uv venv && uv pip install playwright httpx pydantic pydantic-settings
 .venv/bin/python -m tinker_delegate.main serve --port 8080
 ```
 
-The CLI card flags are for local development only. Production funding should use
-the encrypted card channel after verifying the TEE attestation.
+The CLI card flags are for local development only. Read
+`docs/STRIPE-PCI-FUNDING-SCOPE.md` before any real-card attempt. The encrypted
+card channel is an operator-owned capped validation path, not the default
+production funding model.
 
 ### Artifact Upload
 
@@ -349,6 +351,10 @@ contracts/
   `tinker_delegate.billing_uploader` fetch `/attestation?context=billing`,
   verify policy, encrypt card JSON, wipe the local plaintext buffer, and post
   only ciphertext to `/billing/card/encrypted`.
+- **Stripe/PCI stance**: see `docs/STRIPE-PCI-FUNDING-SCOPE.md`; production or
+  repeated funding should use an official Tinker route, Stripe-hosted/tokenized
+  collection, SetupIntent / PaymentMethod reuse with consent, or
+  manual/developer prefunding until compliance review approves otherwise.
 - **Auto-reload**: Configurable threshold + amount
 - **Pricing** (USD/million tokens): Llama-3.2-1B $0.03-$0.09, Llama-3.1-8B $0.13-$0.40, Qwen3-235B $0.68-$2.04
 - **Trust model**: Developer encrypts card to TEE's TDX key → TEE fills Stripe form → zeroes memory → card never persisted

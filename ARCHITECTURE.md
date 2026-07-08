@@ -596,6 +596,14 @@ Implementation status:
             before launching browser automation. Non-finite, non-positive, and
             over-cap requests return bounded `policy_denied` `add_balance`
             receipts at `not_started` with amount bands, not page text.
+[real]      Stripe/PCI funding stance is documented in
+            `⚙️/tinker-delegate/docs/STRIPE-PCI-FUNDING-SCOPE.md`: the
+            encrypted raw-card channel is only an operator-owned capped
+            validation path, while production or repeated funding should use an
+            official Tinker route, Stripe-hosted/tokenized collection,
+            SetupIntent / PaymentMethod style reuse with consent, or
+            manual/developer prefunding until compliance review approves
+            otherwise.
 [real]      Plaintext card API is disabled by default and unavailable in dstack mode.
 [real]      Central redaction helpers scrub bearer, OTP/password, card, API-key,
             and artifact-shaped values from bounded errors and high-risk logs.
@@ -659,7 +667,8 @@ Implementation status:
 [partial]   Funding is in progress: card data can be encrypted to the TEE and
             bounded attempt receipts are returned/persisted, but payment-method
             token/reference capture and a capped real-card funding attempt still
-            need to be proven.
+            need to be proven. Production or repeated card funding also needs
+            legal/compliance approval.
 [partial]   The real SDK harness must still be run inside the deployed CVM
             before claiming real evaluator execution.
 [partial]   Cleanup attestations are generated locally, but deployed Tinker

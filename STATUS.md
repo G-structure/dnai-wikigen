@@ -200,6 +200,13 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Add-balance automation enforces `TINKER_MAX_ADD_BALANCE_USD` before launching
   browser automation. Non-finite, non-positive, or over-cap requests return
   bounded `policy_denied` receipts at `not_started` with amount bands.
+- Stripe/PCI stance is recorded in
+  `⚙️/tinker-delegate/docs/STRIPE-PCI-FUNDING-SCOPE.md`: the encrypted raw-card
+  channel is limited to a one-off operator-owned capped validation path, while
+  production/repeated funding should use an official Tinker route,
+  Stripe-hosted/tokenized collection, SetupIntent / PaymentMethod style reuse
+  with consent, or manual/developer prefunding until compliance review approves
+  otherwise.
 - The encrypted card client/harness verifies context-bound billing attestation,
   posts only ciphertext to `/billing/card/encrypted`, and was locally exercised
   against the Neko/Tinker/Stripe test-card path. It returned bounded
@@ -215,6 +222,7 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   browser path.
 - Real card funding is intentionally not attempted until real payment details
   are provided out of band.
+- Production or repeated card funding still needs legal/compliance approval.
 - Payment-method token/reference handling and the sealed long-lived funding
   token/session state still need production retention and rotation policy.
 
@@ -330,6 +338,9 @@ commands used to reproduce or verify them.
 
 - Real-card Tinker funding requires real payment details and an explicit capped
   attempt.
+- Production or repeated card funding needs legal/compliance approval; raw-card
+  encrypted delivery remains limited to an operator-owned capped validation
+  path.
 - Deployed Phala/CVM validation for the headed Neko browser path is still
   pending.
 - Full Intel TDX quote verification and freshness checking need implementation.

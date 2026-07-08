@@ -374,10 +374,21 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             caller input alone.
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
             attempt after receiving approved card details.
-- [ ] `P0` Confirm PCI and Stripe obligations.
+- [x] `P0` Confirm PCI and Stripe obligations.
       Research whether the current encrypted-card-to-TEE flow is acceptable or
       whether the system must use Stripe-hosted tokenization / SetupIntent /
       PaymentMethod flows.
+      Done in `⚙️/tinker-delegate/docs/STRIPE-PCI-FUNDING-SCOPE.md`: raw-card
+      encrypted delivery is limited to a one-off operator-owned capped
+      validation path, while production/repeated funding should use an official
+      Tinker route, Stripe-hosted/tokenized collection, SetupIntent /
+      PaymentMethod style reuse with consent, or manual/developer prefunding
+      until compliance review approves otherwise.
+- [ ] `P0` Obtain legal/compliance approval before enabling production or
+      repeated card funding, especially any third-party/customer card funding.
+      Until approved, keep raw-card encrypted delivery limited to the
+      operator-owned capped validation path in
+      `⚙️/tinker-delegate/docs/STRIPE-PCI-FUNDING-SCOPE.md`.
 - [ ] `P0` Ensure no card details appear in:
       browser traces, Playwright logs, screenshots, API logs, exception messages,
       crash dumps, or Phala console output.
@@ -819,7 +830,12 @@ vision Wiki is reaching for.
 - [ ] `P0` Decide HIPAA/PHI stance:
       not supported, supported only with BAA/compliant infra, or supported only
       for de-identified data.
-- [ ] `P0` Decide Stripe/PCI stance before real card funding.
+- [x] `P0` Decide Stripe/PCI stance before real card funding.
+      Stance recorded in
+      `⚙️/tinker-delegate/docs/STRIPE-PCI-FUNDING-SCOPE.md`: no production or
+      repeated raw-card funding path without compliance review; only a capped
+      operator-owned validation attempt is allowed before tokenized/official
+      funding exists.
 - [ ] `P0` Decide Tinker Terms-of-Service stance for browser automation and
       delegated account use.
 - [ ] `P0` Add abuse policy for:
