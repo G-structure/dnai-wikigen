@@ -165,6 +165,18 @@ def cli():
         help="Live-fetch and verify /attestation?context=billing",
     )
 
+    funding_manifest_p = sub.add_parser(
+        "funding-manifest",
+        help="Build a bounded funding validation manifest from preflight and receipt JSON",
+    )
+    funding_manifest_p.add_argument("--preflight-json", required=True, help="Path to saved funding-preflight JSON")
+    funding_manifest_p.add_argument("--receipt-json", required=True, help="Path to bounded funding receipt JSON")
+    funding_manifest_p.add_argument("--validation-id", default="", help="Operator-local validation run ID to hash")
+    funding_manifest_p.add_argument("--compose-hash", default="", help="Expected compose hash to bind by hash")
+    funding_manifest_p.add_argument("--app-id", default="", help="Expected app ID to bind by hash")
+    funding_manifest_p.add_argument("--os-image-hash", default="", help="Expected OS image hash to bind by hash")
+    funding_manifest_p.add_argument("--output", default="", help="Optional output path for manifest JSON")
+
     add_card_p = sub.add_parser("add-card", help="Add payment method (card) to Tinker account")
     add_card_p.add_argument("--number", required=True, help="Card number")
     add_card_p.add_argument("--exp-month", required=True, help="Expiration month (01-12)")
@@ -344,6 +356,30 @@ def cli():
         )
         print(json.dumps(result.to_public_dict(), indent=2))
         sys.exit(0 if result.ready else 1)
+
+    elif args.command == "funding-manifest":
+        from pathlib import Path
+
+        from tinker_delegate.funding_manifest import build_funding_validation_manifest
+
+        preflight = json.loads(Path(args.preflight_json).read_text(encoding="utf-8"))
+        receipt = json.loads(Path(args.receipt_json).read_text(encoding="utf-8"))
+        manifest = build_funding_validation_manifest(
+            preflight=preflight,
+            receipt=receipt,
+            validation_id=args.validation_id,
+            attestation_policy={
+                "compose_hash": args.compose_hash,
+                "app_id": args.app_id,
+                "os_image_hash": args.os_image_hash,
+            },
+        ).to_public_dict()
+        rendered = json.dumps(manifest, indent=2)
+        if args.output:
+            Path(args.output).write_text(rendered + "\n", encoding="utf-8")
+        else:
+            print(rendered)
+        sys.exit(0 if manifest["no_raw_card_retained"] else 1)
 
     elif args.command == "add-card":
         from tinker_delegate.card_channel import CardPayload, handle_card_update

@@ -232,6 +232,11 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   funding-preflight`; it checks validation mode, amount cap, optional
   add-balance endpoint flag, encrypted receipt-store availability, and billing
   attestation policy without card material or browser launch.
+- `python -m tinker_delegate.main funding-manifest` builds a bounded audit
+  manifest from saved funding-preflight and funding-receipt JSON. It publishes
+  only hashes, bands, outcome, TDX quote hash, card-destruction /
+  no-raw-egress booleans, and an optional attestation-policy hash, and rejects
+  raw card/API-key/secret-shaped inputs.
 - The HTTP `POST /billing/add-balance` mutation endpoint is disabled by default
   behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; the capped CLI/internal path also
   requires `TINKER_FUNDING_MODE=operator_capped_validation` for deliberate

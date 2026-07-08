@@ -392,6 +392,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             checks funding mode, amount cap, optional add-balance endpoint flag,
             encrypted receipt-store availability, and billing attestation policy
             before any card payload or browser launch.
+      - [x] Add a bounded funding validation manifest via the
+            `funding-manifest` CLI: hashes saved preflight and receipt JSON,
+            binds expected compose/app/OS-image policy by hash, and rejects raw
+            card/API-key/secret-shaped inputs.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
@@ -447,6 +451,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Persist bounded funding receipts in encrypted/sealed delegate
             storage and expose only bounded records through
             `GET /billing/funding-receipts`.
+      - [x] Build a bounded funding validation manifest from preflight and
+            receipt records so a capped operator validation attempt can publish
+            hashes, bands, outcome, TDX quote hash, and card-destruction /
+            no-raw-egress booleans without card material.
       - [ ] Add payment-method token/reference to funding receipts once the
             live funding path exposes a safe non-card reference.
 - [ ] `P1` Add budget enforcement:

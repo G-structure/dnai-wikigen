@@ -71,6 +71,25 @@ The preflight checks funding mode, amount cap, optional add-balance endpoint
 flag, encrypted receipt-store availability, and billing attestation policy. It
 does not accept card material and does not launch browser automation.
 
+After an approved validation attempt, build a bounded public manifest from the
+saved preflight and bounded receipt:
+
+```bash
+python -m tinker_delegate.main funding-manifest \
+  --preflight-json ./preflight.json \
+  --receipt-json ./receipt.json \
+  --validation-id operator-run-1 \
+  --compose-hash EXPECTED_COMPOSE_HASH \
+  --app-id EXPECTED_APP_ID \
+  --os-image-hash EXPECTED_OS_IMAGE_HASH \
+  --output ./funding-manifest.json
+```
+
+The manifest publishes only hashes, bands, outcome, TDX quote hash,
+card-destruction/no-raw-egress booleans, and the attestation-policy hash. It
+rejects raw card, API-key, and secret-shaped inputs and does not prove funding
+by itself; it is the audit envelope around the preflight/receipt pair.
+
 ## Validation Boundary
 
 What is real:
@@ -83,6 +102,8 @@ What is real:
   launching browser automation.
 - Operator funding preflight returns bounded readiness checks before card
   payloads or browser automation.
+- Funding validation manifests can be built from already-bounded preflight and
+  receipt JSON.
 
 What remains partial:
 

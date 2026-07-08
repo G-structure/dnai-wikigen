@@ -621,6 +621,11 @@ Implementation status:
             It checks funding mode, requested amount cap, optional add-balance
             endpoint flag, encrypted receipt-store availability, and billing
             attestation policy before any card payload or browser launch.
+[real]      Bounded funding validation manifests can be built from saved
+            preflight and receipt JSON through the `funding-manifest` CLI. The
+            manifest stores hashes, bands, outcome, TDX quote hash, and
+            card-destruction/no-raw-egress booleans; it rejects raw card,
+            API-key, and secret-shaped inputs and does not store card material.
 [real]      The FastAPI `POST /billing/add-balance` mutation endpoint is
             disabled by default behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`.
             The lower-level CLI/internal handler still requires
@@ -704,7 +709,9 @@ Implementation status:
 [partial]   Funding is in progress: card data can be encrypted to the TEE and
             bounded attempt receipts are returned/persisted, but payment-method
             token/reference capture and a capped real-card funding attempt still
-            need to be proven. Production or repeated card funding also needs
+            need to be proven. A bounded manifest can now summarize a saved
+            preflight/receipt pair for audit, but it does not prove account
+            funding by itself. Production or repeated card funding also needs
             legal/compliance approval.
 [partial]   The real SDK harness must still be run inside the deployed CVM
             before claiming real evaluator execution.
