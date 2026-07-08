@@ -468,6 +468,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
         reward-query tracking, and one-shot final-validation gating.
   - [x] `P0` Wire hidden-holdout checks into a synthetic private-reward
         environment with bounded reward feedback and final-validation gating.
+  - [x] `P0` Add generic anti-overfitting guards for adaptive query attacks:
+        per-candidate repeat caps, minimum unique reward candidates before
+        final validation, and public aggregate repeat accounting.
   - [ ] `P0` Wire hidden-holdout checks into concrete private-reward
         environments and add domain-specific anti-overfitting rules.
 - [ ] `P1` Implement a toy `private_reward_envs/` package with:

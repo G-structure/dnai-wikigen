@@ -62,7 +62,9 @@ Important current status:
 [real]      HiddenHoldoutSet split/accounting contract for private reward
             datasets. It creates train/reward/final-validation partitions,
             exposes public counts and split commitments, tracks reward-query
-            counts, and gates final validation to bounded use.
+            counts, caps repeated candidate probes, requires minimum unique
+            candidates before final validation, and gates final validation to
+            bounded use.
 [real]      SyntheticHiddenKeywordEnvironment toy private-reward environment.
             It wires HiddenHoldoutSet into bounded reward feedback and
             one-shot final validation over sealed synthetic records.
@@ -689,7 +691,8 @@ HiddenHoldoutSet(records, policy)
   internal: raw records and record IDs
   split:    train / reward / final_validation
   public:   split commitment, partition counts, query counts, seed hash
-  guard:    reward-query budget and one-shot final validation gate
+  guard:    reward-query budget, per-candidate repeat cap, minimum unique
+            reward candidates, and one-shot final validation gate
 ```
 
 Public holdout manifests intentionally do not include record IDs, payloads, raw
@@ -760,8 +763,9 @@ Implementation status:
             normalization, capped output, best-effort memory limits, and
             policy/syntax/runtime/timeout failure codes.
 [real]      HiddenHoldoutSet with deterministic private split, public split
-            commitment, reward-query accounting, and one-shot final-validation
-            gating.
+            commitment, reward-query accounting, per-candidate repeat caps,
+            minimum unique candidates before final validation, and one-shot
+            final-validation gating.
 [real]      SyntheticHiddenKeywordEnvironment with bounded reward bands,
             hidden reward partition queries, final-validation gating, and
             public manifests that omit record IDs and payloads.

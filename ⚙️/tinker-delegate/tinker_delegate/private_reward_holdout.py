@@ -34,6 +34,8 @@ class HoldoutSplitPolicy:
     min_reward_records: int = 1
     min_final_validation_records: int = 1
     max_reward_queries: int = 32
+    max_reward_queries_per_candidate: int = 3
+    min_unique_reward_candidates_before_final: int = 1
     max_final_validations: int = 1
     split_seed: str = "dnai-hidden-holdout-v1"
 
@@ -55,6 +57,10 @@ class HoldoutSplitPolicy:
             raise ValueError("min_final_validation_records must be non-negative")
         if self.max_reward_queries < 0:
             raise ValueError("max_reward_queries must be non-negative")
+        if self.max_reward_queries_per_candidate < 1:
+            raise ValueError("max_reward_queries_per_candidate must be positive")
+        if self.min_unique_reward_candidates_before_final < 0:
+            raise ValueError("min_unique_reward_candidates_before_final must be non-negative")
         if self.max_final_validations < 1:
             raise ValueError("max_final_validations must be positive")
 
@@ -67,6 +73,8 @@ class HoldoutSplitPolicy:
             "min_reward_records": self.min_reward_records,
             "min_final_validation_records": self.min_final_validation_records,
             "max_reward_queries": self.max_reward_queries,
+            "max_reward_queries_per_candidate": self.max_reward_queries_per_candidate,
+            "min_unique_reward_candidates_before_final": self.min_unique_reward_candidates_before_final,
             "max_final_validations": self.max_final_validations,
             "split_seed_hash": _sha256_hex(self.split_seed.encode("utf-8")),
         }
@@ -79,6 +87,7 @@ class HoldoutPublicManifest:
     partition_counts: dict[str, int]
     reward_query_count: int
     unique_reward_candidates: int
+    max_reward_queries_for_single_candidate: int
     final_validation_count: int
     closed_to_reward_queries: bool
 
@@ -89,6 +98,7 @@ class HoldoutPublicManifest:
             "partition_counts": _stable_public(self.partition_counts),
             "reward_query_count": self.reward_query_count,
             "unique_reward_candidates": self.unique_reward_candidates,
+            "max_reward_queries_for_single_candidate": self.max_reward_queries_for_single_candidate,
             "final_validation_count": self.final_validation_count,
             "closed_to_reward_queries": self.closed_to_reward_queries,
         }
@@ -150,6 +160,15 @@ class HiddenHoldoutSet:
         return len(set(self._reward_candidate_hashes))
 
     @property
+    def max_reward_queries_for_single_candidate(self) -> int:
+        if not self._reward_candidate_hashes:
+            return 0
+        return max(
+            self._reward_candidate_hashes.count(candidate_hash)
+            for candidate_hash in set(self._reward_candidate_hashes)
+        )
+
+    @property
     def final_validation_count(self) -> int:
         return len(self._final_candidate_hashes)
 
@@ -162,11 +181,15 @@ class HiddenHoldoutSet:
             raise RuntimeError("reward queries are closed after final validation starts")
         if self.reward_query_count >= self.policy.max_reward_queries:
             raise RuntimeError("reward query budget exhausted for hidden holdout")
+        if self._reward_candidate_hashes.count(candidate_hash) >= self.policy.max_reward_queries_per_candidate:
+            raise RuntimeError("candidate repeat limit exhausted for hidden holdout")
         self._reward_candidate_hashes.append(candidate_hash)
 
     def record_final_validation(self, candidate_hash: str) -> None:
         if self.final_validation_count >= self.policy.max_final_validations:
             raise RuntimeError("final validation budget exhausted for hidden holdout")
+        if self.unique_reward_candidates < self.policy.min_unique_reward_candidates_before_final:
+            raise RuntimeError("not enough unique reward candidates for final validation")
         self._final_validation_started = True
         self._final_candidate_hashes.append(candidate_hash)
 
@@ -177,6 +200,7 @@ class HiddenHoldoutSet:
             partition_counts=self.partition_counts,
             reward_query_count=self.reward_query_count,
             unique_reward_candidates=self.unique_reward_candidates,
+            max_reward_queries_for_single_candidate=self.max_reward_queries_for_single_candidate,
             final_validation_count=self.final_validation_count,
             closed_to_reward_queries=self.closed_to_reward_queries,
         )

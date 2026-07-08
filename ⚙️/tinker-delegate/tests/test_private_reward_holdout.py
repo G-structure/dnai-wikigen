@@ -52,6 +52,7 @@ class HiddenHoldoutSetTest(unittest.TestCase):
         self.assertEqual(public["partition_counts"]["train"], 6)
         self.assertEqual(public["reward_query_count"], 1)
         self.assertEqual(public["unique_reward_candidates"], 1)
+        self.assertEqual(public["max_reward_queries_for_single_candidate"], 1)
         public_text = str(public)
         for record_id, payload in records.items():
             self.assertNotIn(record_id, public_text)
@@ -90,6 +91,30 @@ class HiddenHoldoutSetTest(unittest.TestCase):
         manifest = holdout.public_manifest().to_public_dict()
         self.assertEqual(manifest["reward_query_count"], 3)
         self.assertEqual(manifest["unique_reward_candidates"], 2)
+        self.assertEqual(manifest["max_reward_queries_for_single_candidate"], 2)
+
+    def test_repeated_candidate_queries_fail_closed(self):
+        policy = HoldoutSplitPolicy(max_reward_queries_per_candidate=2)
+        holdout = HiddenHoldoutSet(_records(8), policy)
+
+        holdout.record_reward_query("candidate-a")
+        holdout.record_reward_query("candidate-a")
+
+        with self.assertRaisesRegex(RuntimeError, "repeat limit"):
+            holdout.record_reward_query("candidate-a")
+
+    def test_final_validation_requires_minimum_unique_candidates(self):
+        policy = HoldoutSplitPolicy(min_unique_reward_candidates_before_final=2)
+        holdout = HiddenHoldoutSet(_records(8), policy)
+
+        holdout.record_reward_query("candidate-a")
+
+        with self.assertRaisesRegex(RuntimeError, "unique reward candidates"):
+            holdout.record_final_validation("candidate-final")
+
+        holdout.record_reward_query("candidate-b")
+        holdout.record_final_validation("candidate-final")
+        self.assertEqual(holdout.final_validation_count, 1)
 
     def test_records_for_is_internal_and_returns_payloads(self):
         holdout = HiddenHoldoutSet(_records(8))
@@ -104,6 +129,10 @@ class HiddenHoldoutSetTest(unittest.TestCase):
             HoldoutSplitPolicy(train_fraction=0.5, reward_fraction=0.2, final_validation_fraction=0.2)
         with self.assertRaisesRegex(ValueError, "positive"):
             HoldoutSplitPolicy(final_validation_fraction=0)
+        with self.assertRaisesRegex(ValueError, "max_reward_queries_per_candidate"):
+            HoldoutSplitPolicy(max_reward_queries_per_candidate=0)
+        with self.assertRaisesRegex(ValueError, "min_unique_reward_candidates"):
+            HoldoutSplitPolicy(min_unique_reward_candidates_before_final=-1)
         with self.assertRaisesRegex(ValueError, "not enough records"):
             HiddenHoldoutSet(_records(2))
         with self.assertRaisesRegex(ValueError, "mapping key"):
