@@ -87,7 +87,8 @@ class ComposeHardeningTest(unittest.TestCase):
             "delegate",
         )
 
-        self.assertIn("TINKER_BOOTSTRAP_SIGNUP: ${TINKER_BOOTSTRAP_SIGNUP:-false}", block)
+        self.assertIn('TINKER_BOOTSTRAP_SIGNUP: "false"', block)
+        self.assertIn('TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "false"', block)
 
     def test_phala_oracle_credential_provisioning_is_disabled_by_default(self):
         block = _service_block(
@@ -95,14 +96,19 @@ class ComposeHardeningTest(unittest.TestCase):
             "oracle",
         )
 
-        self.assertIn(
-            "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: ${ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT:-false}",
-            block,
-        )
-        self.assertIn(
-            "ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ${ORACLE_CREDENTIAL_PROVISIONING_TOKEN:-}",
-            block,
-        )
+        self.assertIn('ORACLE_AUTO_GENESIS: "false"', block)
+        self.assertIn('ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: "false"', block)
+        self.assertIn('ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ""', block)
+
+    def test_phala_deploy_critical_images_are_quote_bound_literals(self):
+        compose = (ROOT / "docker-compose.all.phala.yaml").read_text()
+        oracle = _service_block(compose, "oracle")
+        delegate = _service_block(compose, "delegate")
+
+        self.assertIn("tee-email-oracle@sha256:", oracle)
+        self.assertIn("tinker-delegate@sha256:", delegate)
+        self.assertNotIn("${TINKER_ORACLE_IMAGE", oracle)
+        self.assertNotIn("${TINKER_DELEGATE_IMAGE", delegate)
 
 
 if __name__ == "__main__":

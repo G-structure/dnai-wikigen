@@ -301,16 +301,18 @@ separate verifier task.
 ```
 
 Use `verify-compose-hash` before registering or comparing a compose hash. It
-renders the selected compose file with explicit image env values, rejects local
-`build:` services and mutable tag-only images, emits the digest-pinned image
-manifest, and computes the Phala Cloud-style compose hash over the rendered
-app-compose object.
+renders the selected compose file, rejects local `build:` services and mutable
+tag-only images, emits the digest-pinned image manifest, and computes the Phala
+Cloud-style compose hash over the rendered app-compose object. For deploy-critical
+TEE images, prefer literal digest-pinned `image:` entries in the Phala compose
+over encrypted-env image substitutions; the live quote binds the compose
+template and Phala app metadata, not a human-readable record of encrypted env
+values.
 
 ```bash
-TINKER_ORACLE_IMAGE=registry.example/oracle@sha256:... \
-TINKER_DELEGATE_IMAGE=registry.example/delegate@sha256:... \
 .venv/bin/python -m tinker_delegate.main verify-compose-hash \
   --compose docker-compose.all.phala.yaml \
+  --phala-raw-compose \
   --expected-hash EXPECTED_PHALA_COMPOSE_HASH
 ```
 

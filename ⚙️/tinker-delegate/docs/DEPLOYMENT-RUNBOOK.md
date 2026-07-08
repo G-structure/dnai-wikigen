@@ -202,12 +202,16 @@ forge test --gas-report
 
 ```bash
 cd "⚙️/tinker-delegate"
-TINKER_ORACLE_IMAGE='ttl.sh/...@sha256:...' \
-TINKER_DELEGATE_IMAGE='ttl.sh/...@sha256:...' \
 uv run python -m tinker_delegate.main verify-compose-hash \
   --compose docker-compose.all.phala.yaml \
+  --phala-raw-compose \
   --expected-hash EXPECTED_PHALA_COMPOSE_HASH
 ```
+
+For deploy-critical TEE images, keep digest-pinned image refs literal in the
+Phala compose. Do not treat encrypted-env image substitutions as quote-bound
+deployment evidence unless a separate verifier proves the encrypted env values
+that Phala applied.
 
 ### Deploy DiligenceRoom
 

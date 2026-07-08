@@ -852,6 +852,16 @@ Implementation status:
             allowed encrypted env names and platform metadata in the live hash.
             The Phala Playwright sidecar image is pinned by amd64 digest in
             `docker-compose.all.phala.yaml`.
+[real]      Current Phala deploy-critical image references are literal
+            digest-pinned `image:` entries in `docker-compose.all.phala.yaml`,
+            not encrypted-env substitutions. The current deployment also binds
+            `ORACLE_AUTO_GENESIS=false`, `TINKER_BOOTSTRAP_SIGNUP=false`,
+            `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`, and
+            `ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=false` directly in
+            that compose file. This avoids treating encrypted env values as
+            quote-bound trust roots; a 2026-07-08 intermediate redeploy showed
+            changing only image env values did not by itself change the live
+            attested compose hash.
 [real]      `.github/workflows/build-tee-images.yml` builds the deploy-critical
             `tee-email-oracle` and `tinker-delegate` images on GitHub-hosted
             runners for `linux/amd64`, pushes SHA-tagged images to GHCR, asks
@@ -890,8 +900,10 @@ Implementation status:
             images verified by GitHub
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning degraded until credentials are sealed, and live delegate
-            attestation verification passing against Phala compose hash
-            `c6d5f83fedfb259fcadaf227e0de6cdc6a8154990bdcc4e68610b81ef26abf53`.
+            attestation verification passing against local raw compose hash
+            `de5564a93b9996c8b21efc74b5295458c2972a2d588806a9d3935d48a8000392`
+            and live Phala attested compose hash
+            `c05f35dd942da46f6c2d0df263c646a9aef54d756e310effa432aad794d5e291`.
 [partial]   Temporary debug exception active: public logs are enabled on the
             current Phala CVM to inspect startup behavior, public sysinfo and
             dev OS/SSH are disabled, and runtime guards keep

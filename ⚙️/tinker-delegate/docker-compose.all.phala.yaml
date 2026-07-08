@@ -121,7 +121,7 @@ services:
       timeout: 5s
 
   oracle:
-    image: ${TINKER_ORACLE_IMAGE:?TINKER_ORACLE_IMAGE is required}
+    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:688b8b48a6621072b99fe9d515998f9bc4313215163c4d689a927da853926a23
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -142,7 +142,7 @@ services:
       ORACLE_CRED_STORE_KEY: ${ORACLE_CRED_STORE_KEY:-}
       ORACLE_CDP_URL: http://172.20.0.3:9223
       ORACLE_USE_BROWSER_FALLBACK: ${ORACLE_USE_BROWSER_FALLBACK:-true}
-      ORACLE_AUTO_GENESIS: ${ORACLE_AUTO_GENESIS:-false}
+      ORACLE_AUTO_GENESIS: "false"
       ORACLE_COCKLI_DOMAIN: ${ORACLE_DOMAIN:-cock.email}
       ORACLE_API_HOST: 0.0.0.0
       ORACLE_API_PORT: "8000"
@@ -150,8 +150,8 @@ services:
       ORACLE_DSTACK_KEY_PATH: ${ORACLE_DSTACK_KEY_PATH:-email/creds}
       ORACLE_RUNTIME_AUTH_REQUIRED: "true"
       ORACLE_RUNTIME_AUTH_KEY_PATH: ${ORACLE_RUNTIME_AUTH_KEY_PATH:-oracle/runtime-auth}
-      ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: ${ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT:-false}
-      ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ${ORACLE_CREDENTIAL_PROVISIONING_TOKEN:-}
+      ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: "false"
+      ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ""
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
@@ -160,7 +160,7 @@ services:
       start_period: 180s
 
   delegate:
-    image: ${TINKER_DELEGATE_IMAGE:?TINKER_DELEGATE_IMAGE is required}
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c072442365abe4e2ca6b0823c460563e1b8870a503e31a65eb88a6f59cc5bb70
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -191,8 +191,8 @@ services:
       TINKER_RUN_METADATA_KEY_PATH: ${TINKER_RUN_METADATA_KEY_PATH:-tinker/run_metadata}
       TINKER_FUNDING_MODE: ${TINKER_FUNDING_MODE:-manual_prefund}
       TINKER_MAX_ADD_BALANCE_USD: ${TINKER_MAX_ADD_BALANCE_USD:-5.0}
-      TINKER_ALLOW_ADD_BALANCE_ENDPOINT: ${TINKER_ALLOW_ADD_BALANCE_ENDPOINT:-false}
-      TINKER_BOOTSTRAP_SIGNUP: ${TINKER_BOOTSTRAP_SIGNUP:-false}
+      TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "false"
+      TINKER_BOOTSTRAP_SIGNUP: "false"
       TINKER_BOOTSTRAP_FAIL_OPEN: "true"
       TINKER_BOOTSTRAP_ORACLE_TIMEOUT: ${TINKER_BOOTSTRAP_ORACLE_TIMEOUT:-300}
       TINKER_BOOTSTRAP_ORACLE_POLL_INTERVAL: ${TINKER_BOOTSTRAP_ORACLE_POLL_INTERVAL:-5}

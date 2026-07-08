@@ -418,7 +418,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             Tinker/Stripe payment-method token or reusable funding reference is
             captured, persist only opaque/token hashes or bounded status under
             sealed delegate storage and never expose raw card material.
-- [ ] `P0` Add log scrubbing for OTPs, API keys, card data, bearer tokens, and
+- [x] `P0` Add log scrubbing for OTPs, API keys, card data, bearer tokens, and
       raw artifacts.
       - [x] Stop logging extracted OTP values in the email oracle and Tinker
             delegate, and stop binding raw OTP values into quote report data.
@@ -1223,17 +1223,21 @@ vision Wiki is reaching for.
       - [x] Run the GitHub image workflow, verify published image attestations,
             and record final image digests.
             Refreshed 2026-07-08 for commit
-            `378bda387a76da252b862b4e1094496850be8eb4` with GitHub Actions run
-            `28938983027`.
+            `b49ff2ca678d8860cccd69fb38a385dbc853bfbc` with GitHub Actions run
+            `28941069823`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:53f6d8e0e180210f4bccc0682cf3f72f814217574a6df6c87d4f3a2938f8ea55`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:688b8b48a6621072b99fe9d515998f9bc4313215163c4d689a927da853926a23`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:ac2617341d56023da207340eb2219608710bf67beb05cb28688a68d755b8ae3f`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c072442365abe4e2ca6b0823c460563e1b8870a503e31a65eb88a6f59cc5bb70`.
+      The Phala compose now hardcodes these digests and the disabled
+      secret-bearing gates rather than passing them through encrypted env
+      values, so the live attested compose hash changes when the deploy-critical
+      image refs change.
 - [ ] `Deploy` Verify CVM endpoints:
       `/health`, `/attestation`, oracle `/pin` auth rejection, delegate status,
       browser CDP internal-only or protected.
@@ -1249,6 +1253,12 @@ vision Wiki is reaching for.
       - [x] Oracle `/attestation?context=oracle-credentials` returns a live
             TDX credential-ingress envelope, and `POST /credentials/encrypted`
             rejects while disabled by default.
+      - [x] `verify-deployment-bundle` passes against the live log-hardened
+            Phala deployment with GitHub image provenance/SBOM checks, required
+            sidecar digests, local raw compose hash
+            `de5564a93b9996c8b21efc74b5295458c2972a2d588806a9d3935d48a8000392`,
+            and live attested compose hash
+            `c05f35dd942da46f6c2d0df263c646a9aef54d756e310effa432aad794d5e291`.
       - [ ] Revert temporary Phala public-log debug posture before production
             wrap-up or before any real mailbox, OTP, Tinker API-key, or card
             material is handled. Current debug redeploy intentionally has
