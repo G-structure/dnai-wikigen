@@ -736,10 +736,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `connect_over_cdp` still timing out. The selector probe still
             returned bounded `browser_unavailable`, and the CVM was restored to
             normal compose where the readiness and selector endpoints return
-            403. Next step: build and deploy the raw-CDP target/frame fallback,
-            then retry deployed selector/frame inventory capture. DOM selector
-            match counts remain open until the fallback grows bounded Runtime
-            evaluation or Playwright attachment is repaired.
+            403. Later subitems added and Phala-measured the raw-CDP
+            target/page fallback. DOM selector match counts remain open until
+            the fallback grows bounded Runtime evaluation or Playwright
+            attachment is repaired.
       - [x] Add a bounded post-upgrade DevTools-protocol probe.
             Done in source/tests and Phala-proven 2026-07-08:
             `browser-readiness` now includes
@@ -773,17 +773,34 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             returning bounded target count `2+` and page count `1`. It still
             timed out before `Page.getFrameTree`, so frame inventory and DOM
             selector counting remain open.
-      - [ ] Preserve bounded page-target inventory when raw-CDP frame-tree
+      - [x] Preserve bounded page-target inventory when raw-CDP frame-tree
             probing times out.
-            Done in source/tests 2026-07-08: per-page attach/frame-tree errors
-            now stay inside the page observation, preserving page URL
-            classes/hashes, target/page count bands, `attached`,
-            `attach_error_kind`, `frame_tree_error_kind`, `partial_error_kind`,
-            and zero frame observations when frame traversal times out. It
-            still avoids DOM text, raw URLs, cookies, account identifiers, OTPs,
-            API keys, and card material. Next step: build GitHub-attested images
-            and measure the new timeout-preserving receipt on Phala before
-            checking this item off.
+            Done in source/tests and Phala-proven 2026-07-08: per-page
+            attach/frame-tree errors now stay inside the page observation,
+            preserving page URL classes/hashes, target/page count bands,
+            `attached`, `attach_error_kind`, `frame_tree_error_kind`,
+            `partial_error_kind`, and zero frame observations when frame
+            traversal times out. A GitHub Actions build for `a384db2` produced
+            signed GHCR provenance/SBOM attestations for
+            `tinker-delegate@sha256:7ddea52df75ab0392defbb35d568649ab21bb67352e6cc55ce1aeb154470c83e`
+            and
+            `tee-email-oracle@sha256:15085c1dadb2f771f8fa1faeb463413adc9351a5433d939b5155c602d229c9ca`.
+            A one-shot Phala diagnostic compose returned
+            `probe_backend=raw_cdp`, `success=true`, target count `2+`, page
+            count `1`, `pages_observed=1`, one page observation with
+            `attached=true`, `frame_tree_error_kind=timeout`,
+            `partial_error_kind=frame_tree_timeout`, and
+            `raw_secret_egress=false`. Normal compose was restored afterward
+            and both diagnostic endpoints returned 403. It still avoids DOM
+            text, raw URLs, cookies, account identifiers, OTPs, API keys, and
+            card material. Frame inventory and DOM selector counting remain
+            open.
+- [ ] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
+      needed by each compose profile.
+      Evidence 2026-07-08: `scripts/redeploy-phala-cvm.mjs` encrypted the
+      broad `.env` runtime file into the TEE and printed 90 env key names while
+      redeploying diagnostic and normal profiles. No values were printed, but
+      the deployment surface should be reduced before production.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to

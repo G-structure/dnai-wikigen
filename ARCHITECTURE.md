@@ -780,10 +780,17 @@ Implementation status:
             metadata succeeded, WebSocket Upgrade returned status band `101`,
             `Target.getTargets` succeeded, and the bounded receipt reported
             target count `2+` and page count `1` with no raw URL/page text
-            egress. `Page.getFrameTree` still timed out, so actual frame
-            inventory and DOM selector match evidence remain open. Source/tests
-            now preserve page target observations through per-page frame-tree
-            timeout receipts, but that refinement is not yet Phala-proven.
+            egress. The timeout-preserving page observation path is also
+            Phala-proven with GitHub-attested `a384db2` images: the one-shot
+            selector probe returned `probe_backend=raw_cdp`, `success=true`,
+            target count `2+`, page count `1`, `pages_observed=1`, a bounded
+            page URL class/hash, `attached=true`,
+            `frame_tree_error_kind=timeout`,
+            `partial_error_kind=frame_tree_timeout`, empty frame observations,
+            and `raw_secret_egress=false`. The CVM was restored to normal
+            compose afterward, and both diagnostic endpoints returned 403.
+            `Page.getFrameTree` still times out, so actual frame inventory and
+            DOM selector match evidence remain open.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,

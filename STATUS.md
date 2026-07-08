@@ -105,20 +105,29 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   `f63dd18` deployment reached CDP metadata, WebSocket status `101`, and
   `Target.getTargets`, returning bounded target count `2+` and page count `1`.
   It does not yet run DOM selector counting, and `Page.getFrameTree` still
-  times out before frame inventory. Source/tests now preserve page URL
-  classes/hashes, target/page count bands, attach status, and per-page
-  frame-tree timeout kinds instead of dropping `pages[]` when frame traversal
-  times out; that timeout-preserving refinement still needs a GitHub-attested
-  Phala measurement. The matching `GET /browser/selector-probe` endpoint
-  is now Phala-proven as a
+  times out before frame inventory. The timeout-preserving page observation
+  refinement is now Phala-proven with GitHub-attested `a384db2` images:
+  `selector-probe` returned `probe_backend=raw_cdp`, `success=true`, target
+  count `2+`, page count `1`, `pages_observed=1`, one bounded page URL
+  class/hash, `attached=true`, `frame_tree_error_kind=timeout`,
+  `partial_error_kind=frame_tree_timeout`, empty frame observations, and
+  `raw_secret_egress=false`. Normal compose was restored afterward at compose
+  hash `b63af8f92f7a65dd0f7b22fc7955e23c0adf075bfbdd53bcdd0673420169b487`,
+  with public logs/sysinfo still disabled; both diagnostic endpoints return
+  403. The restored deployment-bundle verifier ties the new normal compose to
+  `tinker-delegate@sha256:7ddea52df75ab0392defbb35d568649ab21bb67352e6cc55ce1aeb154470c83e`,
+  `tee-email-oracle@sha256:15085c1dadb2f771f8fa1faeb463413adc9351a5433d939b5155c602d229c9ca`,
+  GitHub-signed provenance/SBOM attestations for source `a384db2`, app ID
+  `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, OS image hash
+  `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`,
+  and live attested compose hash `b63af8f92f7a65dd0f7b22fc7955e23c0adf075bfbdd53bcdd0673420169b487`.
+  The matching `GET /browser/selector-probe` endpoint is now Phala-proven as a
   deployed gate/fail-closed path: one-shot compose with GitHub-attested
   `7973b27` images enabled it on top of the bounded bootstrap profile, the live
   response returned bounded `browser_unavailable` JSON with
   `raw_secret_egress=false`, and the restored normal compose returns 403.
-  Deployed selector/frame match capture remains open because CDP metadata and
-  raw WebSocket upgrade succeeded but Playwright/CDP protocol connection timed
-  out during that probe; the next Phala attempt should measure the raw-CDP
-  fallback with GitHub-attested images.
+  Deployed frame traversal and selector match capture remain open because
+  `Page.getFrameTree` and Playwright/CDP attachment time out.
 - `tinker-delegate browser-readiness` and disabled-by-default
   `GET /browser/readiness` now provide a bounded way to diagnose that deployed
   browser-control failure without logs, SSH, screenshots, page text, cookies,
