@@ -73,6 +73,18 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
 - Signup/signin stdout and return payloads expose mailbox and browser-route
   hashes rather than raw account email or Tinker URLs; regression tests cover
   stdout and result egress before the deployed-CVM bootstrap path is retried.
+- Startup bootstrap now preserves the last bounded `api_key_provisioning`
+  attempt record in `/health.runtime.last_bootstrap_attempt_record` on success
+  or selector/API-key-capture failure. This is local/tested code until the next
+  GHCR image is built and deployed; the record contains outcome, furthest
+  stage, hashes, and `raw_secret_egress=false`, not raw mailbox, OTP, browser
+  URL, page text, or API key.
+- `docker-compose.tinker-bootstrap.phala.yaml` is staged as the next one-shot
+  main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
+  `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps
+  `ORACLE_AUTO_GENESIS=false`, keeps credential provisioning and add-balance
+  disabled, and must be reverted to the normal compose after bounded evidence
+  is collected. It is not yet live/Phala-proven.
 - Browser/control-plane diagnostics are redacted before egress.
 
 [real] `tinker-delegate` funding channel:

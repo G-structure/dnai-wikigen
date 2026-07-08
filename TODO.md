@@ -602,6 +602,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Add replayable mock-page tests for API-key creation selectors,
             including aria-label/data-testid fallback variants, successful key
             extraction, missing-create-selector, and extraction-failure paths.
+      - [x] Preserve bounded deployed-bootstrap selector evidence in runtime
+            health state.
+            Done locally: startup bootstrap now stores the last bounded
+            `api_key_provisioning` attempt record in
+            `/health.runtime.last_bootstrap_attempt_record` on success or
+            selector/API-key-capture failure, without raw mailbox, OTP, URL,
+            page text, or API-key egress.
       - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
@@ -620,6 +627,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             returning or logging the raw key.
       - [x] Remove raw mailbox and browser URL egress from signup/signin logs
             and return payloads before enabling deployed-CVM bootstrap.
+      - [x] Add a bounded one-shot Phala bootstrap profile for the deployed-CVM
+            attempt.
+            Done locally: `docker-compose.tinker-bootstrap.phala.yaml` enables
+            only `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main
+            `delegate-data` volume for sealed API-key persistence, and keeps
+            oracle genesis, credential provisioning, and add-balance disabled.
       - [ ] Complete the same flow inside the deployed CVM and seal the API key
             with the dstack-derived key path.
 - [x] `P0` Add a Tinker re-auth path for future OTP challenges.

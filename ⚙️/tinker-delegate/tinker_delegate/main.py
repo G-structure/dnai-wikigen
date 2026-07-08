@@ -188,6 +188,7 @@ async def _ensure_api_key(settings: Settings) -> None:
             bootstrap_success=False,
             bootstrap_error="",
             bootstrap_error_kind="",
+            last_bootstrap_attempt_record=None,
         )
         return
 
@@ -206,6 +207,7 @@ async def _ensure_api_key(settings: Settings) -> None:
                 bootstrap_success=False,
                 bootstrap_error="",
                 bootstrap_error_kind="",
+                last_bootstrap_attempt_record=None,
             )
             return
 
@@ -218,6 +220,7 @@ async def _ensure_api_key(settings: Settings) -> None:
             bootstrap_success=False,
             bootstrap_error="",
             bootstrap_error_kind="",
+            last_bootstrap_attempt_record=None,
         )
         return
 
@@ -232,10 +235,22 @@ async def _ensure_api_key(settings: Settings) -> None:
         bootstrap_success=False,
         bootstrap_error="",
         bootstrap_error_kind="",
+        last_bootstrap_attempt_record=None,
     )
 
     result = await signup(settings)
     if not result.get("stored"):
+        update_runtime_state(
+            api_key_available=False,
+            api_key_source="bootstrap",
+            bootstrap_attempted=True,
+            bootstrap_success=False,
+            bootstrap_error="signup bootstrap did not store an API key",
+            bootstrap_error_kind=str(
+                result.get("attempt_record", {}).get("outcome", "bootstrap_error")
+            ),
+            last_bootstrap_attempt_record=result.get("attempt_record"),
+        )
         raise RuntimeError("signup bootstrap did not store an API key")
 
     print(f"[serve] bootstrap complete, API key stored at {settings.api_key_store_path}")
@@ -246,6 +261,7 @@ async def _ensure_api_key(settings: Settings) -> None:
         bootstrap_success=True,
         bootstrap_error="",
         bootstrap_error_kind="",
+        last_bootstrap_attempt_record=result.get("attempt_record"),
     )
 
 

@@ -679,6 +679,12 @@ Implementation status:
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
 [real]      Signup/bootstrap stores captured Tinker API keys in encrypted
             storage and returns only bounded hash/status metadata.
+[real]      Startup bootstrap runtime state preserves the bounded
+            `api_key_provisioning` attempt record from signup success or
+            selector/API-key-capture failure. Public `/health` can therefore
+            report `last_bootstrap_attempt_record` with outcome, furthest
+            stage, hashes, and `raw_secret_egress=false` without exposing the
+            mailbox, OTP, browser URL, page text, or API key.
 [real]      Signup/signin observable egress is bounded before deployed bootstrap:
             stdout and return payloads expose `email_hash` / `url_hash` rather
             than raw mailbox addresses or Tinker browser URLs, and shared
@@ -929,6 +935,15 @@ Implementation status:
             a non-empty `oracle_email_hash`; unauthenticated `/email` returned
             401. The CVM was then redeployed back to the normal compose with
             `ORACLE_AUTO_GENESIS=false`, and the sealed mailbox remained ready.
+[partial]   `docker-compose.tinker-bootstrap.phala.yaml` is the explicit
+            one-shot profile for the next deployed Tinker bootstrap attempt. It
+            reuses the main `delegate-data` volume, keeps
+            `ORACLE_AUTO_GENESIS=false`, keeps credential provisioning and
+            add-balance disabled, enables only `TINKER_BOOTSTRAP_SIGNUP=true`,
+            and uses fail-open bounded evidence mode so selector/posture
+            failures can be inspected through `/health` runtime state. It is
+            not yet Phala-proven and must be redeployed back to the normal
+            compose after collecting success/failure evidence.
 [partial]   Production OS posture is not solved. The main CVM still reports
             `dstack-dev-0.5.9` / `is_dev=true`; earlier attempts to update the
             existing CVM to `dstack-0.5.10*` with `--no-dev-os` failed in the
@@ -1613,7 +1628,8 @@ serve startup
   | if TINKER_API_KEY exists, use it
   | else if encrypted API key exists, decrypt it
   | else if bootstrap enabled, run signup automation
-  |   and persist captured key before returning bounded metadata
+  |   and persist captured key before returning bounded metadata,
+  |   or preserve bounded selector/failure receipt in runtime state
   | else run with control plane unavailable
   v
 FastAPI app

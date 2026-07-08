@@ -26,7 +26,7 @@ We need:
 | **Fee structure** | 1% surcharge on top of raw Tinker API costs, paid to the developer account. |
 | **Evaluation protocol** | Up to the agent and its owner (the buyer). The agent decides base model, steps, benchmarks autonomously. |
 | **`ttl_seconds` on checkpoints** | Mandatory on every save. Dead man's switch — Tinker auto-deletes even if our cleanup never runs. |
-| **Tinker console automation** | **PARTIAL**: Local Neko/CDP + Playwright works for passwordless magic-code auth, onboarding, and API-key provisioning as of 2026-07-08. API-key provisioning now has selector fallback families, aria-label/data-testid variants, bounded `api_key_provisioning` attempt records, and replayable mock-page tests for successful extraction and selector failures. A bounded local `reauth` path can refresh OTP auth and returns only `tinker_auth` receipt metadata. The delegate Docker image now installs the optional Tinker SDK and a local image run reports `/health.agent_stack_available=true`; the packaged Phala/deployed browser posture still needs a fresh probe before production bootstrap is called solved. |
+| **Tinker console automation** | **PARTIAL**: Local Neko/CDP + Playwright works for passwordless magic-code auth, onboarding, and API-key provisioning as of 2026-07-08. API-key provisioning now has selector fallback families, aria-label/data-testid variants, bounded `api_key_provisioning` attempt records, and replayable mock-page tests for successful extraction and selector failures. Startup bootstrap preserves the last bounded API-key provisioning attempt record in `/health.runtime.last_bootstrap_attempt_record` so a deployed selector/posture failure can be inspected without raw mailbox, OTP, URL, page text, or API-key egress. A bounded local `reauth` path can refresh OTP auth and returns only `tinker_auth` receipt metadata. The delegate Docker image now installs the optional Tinker SDK and a local image run reports `/health.agent_stack_available=true`; the packaged Phala/deployed browser posture still needs a fresh probe before production bootstrap is called solved. |
 | **Plaintext card API** | Disabled by default and unavailable in dstack mode. The normal API path is `/billing/card/encrypted` after quote verification; plaintext card JSON is only an explicit local-development test hook. |
 | **Oracle boot authorization** | Governed on-chain by oracle compose hash policy. The oracle's own code authorization is frozen permanently after production sign-off; fresh TDX quotes continue to verify against that frozen policy. |
 | **OTP consumer authorization** | Managed separately from oracle code authorization. Current same-CVM runtime enforcement uses a bearer token derived from the shared dstack key path; full on-chain consumer-registry checks remain pending. |
@@ -130,6 +130,11 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   capture. The main CVM now has a sealed mailbox ready for OTPs, but the Tinker
   OTP/login/API-key bootstrap has not been revalidated in the deployed CVM, so
   deployed browser posture remains pending.
+  NEXT PROFILE: `docker-compose.tinker-bootstrap.phala.yaml` is the bounded
+  one-shot profile for that deployed probe. It keeps oracle genesis, credential
+  provisioning, and add-balance disabled, enables only
+  `TINKER_BOOTSTRAP_SIGNUP=true`, and should be reverted to the normal compose
+  after bounded success/failure evidence is collected.
 
 PHASE 2: READY
   Control plane starts listening for on-chain deal events
