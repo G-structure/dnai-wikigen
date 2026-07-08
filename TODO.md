@@ -88,7 +88,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       local Neko auth/API-key provisioning works, deployed CVM validation is
       pending, and funding reaches test-card decline but not real account
       funding.
-- [ ] `P0` Add a `STATUS.md` or status block in `README.md` with:
+- [x] `P0` Add a `STATUS.md` or status block in `README.md` with:
       built, partial, modeled, planned, deployed addresses, current blockers,
       and test commands.
 - [ ] `P0` Sync `.claude/skills/`, `.codex/skills/`, and `.agents/skills/` if any

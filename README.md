@@ -4,6 +4,9 @@
 
 Built for the [Shape Rotator Hackathon](https://www.encodeclub.com/programmes/shape-rotator-virtual-hackathon) (March 9–23, 2026) by Wiki Leks.
 
+Current implementation status: see [STATUS.md](STATUS.md)
+for what is built, partial, modeled, planned, deployed, blocked, and validated.
+
 ---
 
 ## What is this?
