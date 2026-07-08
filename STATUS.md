@@ -96,6 +96,11 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 
 - `python -m tinker_delegate.main verify-attestation`
 - `python -m tinker_delegate.main upload-artifact`
+- `scripts/verify-local.sh` runs the current local quality gate:
+  secret-shaped material scan, Foundry build/tests, frozen `uv` sync,
+  Python compile checks, and Python unit tests for implemented suites.
+- `.github/workflows/ci.yml` runs the same secret scan, Foundry, and Python
+  gates in CI for pushes and pull requests.
 - Python unit tests for Tinker delegate and email oracle services.
 - Mocked-SDK `IsolatedTinkerSession` tests cover one training run per deal,
   TTL on checkpoint save paths, path-checked sampling, cleanup deletion, and
@@ -388,16 +393,18 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - The Phala Playwright sidecar image is pinned by amd64 digest.
 - Full reproducible container images, SBOMs, and build provenance remain open.
 - `deployments/base-sepolia.json` is now the machine-readable deployment
-  manifest. It records the funded current operator deployer, historical Base
-  Sepolia contracts and why they are not current-operator controlled,
-  historical Phala/CVM evidence from the runbook, and the fresh-deployment
-  helper/status.
-- Fresh current-operator Base Sepolia contract deployment is ready to broadcast
-  through `⚙️/tinker-delegate/contracts/scripts/deploy-base-sepolia.sh`, but
-  the actual broadcast requires the interactive Foundry keystore password.
+  manifest. It records the funded current operator deployer, current
+  operator-controlled Base Sepolia contracts, and their deployment transaction
+  hashes.
+- Current operator-controlled Base Sepolia contracts are deployed:
+  `DiligenceRoom` at `0x5d8a18628b4c8427eea89aa5498d81ff5ad3f423` and
+  `EmailOracleAuth` at `0xf52c18a33bd172ae94282132649d80bcd4b872ff`.
+  On-chain reads confirm the current funded Foundry deployer is the
+  `DiligenceRoom` developer and `EmailOracleAuth` owner.
 - Phala CVM deployment with current recorded CVM ID, app ID, compose hash, image
   digest, gateway endpoint, and quote evidence still needs revalidation.
-- One-command local verification script.
+- Docker compose validation, docs stale-phrase checks, and broader container
+  build CI remain open beyond the current local/CI verification gate.
 
 [planned] Security hardening:
 
@@ -419,18 +426,27 @@ JUDGE_ADDRESS=
 PHALA_CVM_ID=
 ```
 
-The manifest currently marks the old Base Sepolia `DiligenceRoom` and
-`EmailOracleAuth` addresses as legacy deployed code, not current operator trust
-roots. On-chain reads showed the historical `DiligenceRoom` developer is
-`0x111dB654eCD8756188e03746C1bcff74FD749791`, and the historical
-`EmailOracleAuth` owner is `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`, while
-the current funded Foundry deployer is
-`0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`.
+Current Base Sepolia contracts:
 
-A fresh deploy is considered current only after the manifest records chain,
-transaction hashes, verified contract links, Phala CVM ID, app ID, compose hash,
-image digest, endpoint, quote evidence, and the commands used to reproduce or
-verify them. Missing values must stay `null`, `partial`, or explicitly legacy.
+```text
+DiligenceRoom:   0x5d8a18628b4c8427eea89aa5498d81ff5ad3f423
+Deployment tx:   0xfa50ada33f0a2c9f434c58b6cadf98defa01302b7c3e444116c021370d28169e
+Developer:       0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD
+
+EmailOracleAuth: 0xf52c18a33bd172ae94282132649d80bcd4b872ff
+Deployment tx:   0xa29d749517a69f868db1785c7f091ea75f60a76ef657badedb0848e44be7a349
+Owner:           0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD
+```
+
+The historical Base Sepolia `DiligenceRoom` and `EmailOracleAuth` addresses are
+now superseded and remain useful only as legacy evidence in older runbooks and
+broadcast artifacts.
+
+A deployment is considered production-current only after the manifest records
+chain, transaction hashes, verified contract links, Phala CVM ID, app ID,
+compose hash, image digest, endpoint, quote evidence, and the commands used to
+reproduce or verify them. Missing values must stay `null`, `partial`, or
+explicitly legacy.
 
 ## Current Blockers
 

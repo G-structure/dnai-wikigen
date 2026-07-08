@@ -103,9 +103,14 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       funded operator deployer, legacy Base Sepolia contracts with on-chain
       owner/developer reads, historical Phala/CVM evidence from the runbook, and
       the fresh-deployment helper/status without storing secrets.
-- [ ] `P1` Add a one-command local verification script that runs:
+- [x] `P1` Add a one-command local verification script that runs:
       contract tests, Python imports, compile checks, lint where available,
       Docker compose config validation, and docs stale-phrase checks.
+      Done for the current implemented gates in `scripts/verify-local.sh`: it
+      runs the repo secret scan, Foundry build/tests, frozen `uv` sync,
+      Python compile checks, and Python unit tests where test suites exist.
+      Docker compose validation and docs stale-phrase checks remain candidates
+      for a later broader verification pass.
 
 ## Milestone 1: Contract And Settlement Foundation
 
@@ -953,13 +958,25 @@ vision Wiki is reaching for.
 
 ## Milestone 10: CI, Testing, And Quality Gates
 
-- [ ] `P0` Add CI for Foundry contracts:
+- [x] `P0` Add CI for Foundry contracts:
       `forge build`, `forge test`, gas snapshot, coverage if feasible.
-- [ ] `P0` Add CI for Python packages:
+      Done in `.github/workflows/ci.yml`: the Foundry job installs Foundry and
+      runs `scripts/verify-local.sh foundry`, which executes `forge build
+      --sizes` and `forge test`.
+- [x] `P0` Add CI for Python packages:
       `uv sync`, import checks, unit tests, compileall, type checks where set up.
+      Done in `.github/workflows/ci.yml`: the Python job installs `uv` and runs
+      `scripts/verify-local.sh python` across `tinker-delegate`,
+      `tee-email-oracle`, `props-room`, `whatsapp-delegate`, and
+      `cdp-playground`. Stub packages now have `uv.lock` so CI can use
+      `uv sync --frozen`.
 - [ ] `P0` Add CI for frontend once merged:
       `npm ci`, `npm test`, `npm run build`, `npm audit --omit=dev`.
-- [ ] `P0` Add secret scanning in CI.
+- [x] `P0` Add secret scanning in CI.
+      Done in `.github/workflows/ci.yml` and `scripts/ci-secret-scan.sh`.
+      The scanner excludes read-only reference material and generated lock/build
+      outputs, allows only explicit fake test fixtures, and fails on common
+      Phala/Tinker/GitHub/OpenAI/token/private-key/card-shaped material.
 - [ ] `P0` Add Docker build checks for every service.
 - [ ] `P0` Add integration test for local simulator:
       Anvil + Phala simulator + email oracle + tinker fake backend + frontend.
@@ -996,7 +1013,7 @@ vision Wiki is reaching for.
 - [ ] `Deploy` Verify CVM endpoints:
       `/health`, `/attestation`, oracle `/pin` auth rejection, delegate status,
       browser CDP internal-only or protected.
-- [ ] `Deploy` Deploy or update Base Sepolia contracts with the chosen vNext
+- [x] `Deploy` Deploy or update Base Sepolia contracts with the chosen vNext
       interfaces.
       - [x] Verify the historical deployed contracts are not controlled by the
             current funded operator deployer and record that evidence in the
@@ -1005,9 +1022,17 @@ vision Wiki is reaching for.
             `⚙️/tinker-delegate/contracts/scripts/deploy-base-sepolia.sh` that
             builds, tests, dry-runs, broadcasts with Foundry `--account dev`,
             performs on-chain reads, and rewrites the manifest.
-      - [ ] Broadcast fresh current-operator `DiligenceRoom` and
+      - [x] Broadcast fresh current-operator `DiligenceRoom` and
             `EmailOracleAuth` contracts from an interactive terminal so Foundry
             can prompt for the encrypted keystore password.
+            Done 2026-07-08: `DiligenceRoom` deployed at
+            `0x5d8a18628b4c8427eea89aa5498d81ff5ad3f423`
+            (`0xfa50ada33f0a2c9f434c58b6cadf98defa01302b7c3e444116c021370d28169e`)
+            and `EmailOracleAuth` deployed at
+            `0xf52c18a33bd172ae94282132649d80bcd4b872ff`
+            (`0xa29d749517a69f868db1785c7f091ea75f60a76ef657badedb0848e44be7a349`).
+            On-chain reads confirm the funded `dev` deployer is the
+            DiligenceRoom developer and EmailOracleAuth owner.
 - [ ] `Deploy` Verify contracts on BaseScan.
 - [ ] `Deploy` Register compose hashes in `EmailOracleAuth`.
 - [ ] `Deploy` Register consumer app/compose hash for Tinker delegate.

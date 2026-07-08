@@ -6,8 +6,8 @@
     "rpcEnv": "BASE_SEPOLIA_RPC_URL",
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
-  "status": "partial",
-  "lastReviewedAt": "2026-07-08T08:52:35Z",
+  "status": "current_operator_contracts_deployed",
+  "lastReviewedAt": "2026-07-08T08:56:38Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -16,51 +16,39 @@
   },
   "contracts": {
     "diligenceRoom": {
-      "status": "legacy_deployed_code_not_current_operator_controlled",
-      "address": "0xe51A3C5fd564c625C9D72D2283878Ab4296b3844",
-      "baseScanUrl": "https://sepolia.basescan.org/address/0xe51A3C5fd564c625C9D72D2283878Ab4296b3844",
-      "deploymentTx": "0x9407f7989c11ac1161397c85aa41bf3752ebca8124e5ecb7fafe05c6dbd899e4",
-      "developer": "0x111dB654eCD8756188e03746C1bcff74FD749791",
-      "nextDealId": "0",
-      "currentOperatorControlled": false,
-      "notes": "Bytecode exists on Base Sepolia, but developer fee recipient is not the current funded Foundry dev deployer."
+      "status": "deployed_current_operator_controlled",
+      "address": "0x5d8a18628b4c8427eea89aa5498d81ff5ad3f423",
+      "baseScanUrl": "https://sepolia.basescan.org/address/0x5d8a18628b4c8427eea89aa5498d81ff5ad3f423",
+      "deploymentTx": "0xfa50ada33f0a2c9f434c58b6cadf98defa01302b7c3e444116c021370d28169e",
+      "transactionUrl": "https://sepolia.basescan.org/tx/0xfa50ada33f0a2c9f434c58b6cadf98defa01302b7c3e444116c021370d28169e",
+      "developer": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
+      "currentOperatorControlled": true
     },
     "emailOracleAuth": {
-      "status": "legacy_deployed_code_not_current_operator_controlled",
-      "address": "0xd21706E1AfF482F1d23664be5768ceaD63ccdBfF",
-      "baseScanUrl": "https://sepolia.basescan.org/address/0xd21706E1AfF482F1d23664be5768ceaD63ccdBfF",
-      "owner": "0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38",
+      "status": "deployed_current_operator_controlled",
+      "address": "0xf52c18a33bd172ae94282132649d80bcd4b872ff",
+      "baseScanUrl": "https://sepolia.basescan.org/address/0xf52c18a33bd172ae94282132649d80bcd4b872ff",
+      "deploymentTx": "0xa29d749517a69f868db1785c7f091ea75f60a76ef657badedb0848e44be7a349",
+      "transactionUrl": "https://sepolia.basescan.org/tx/0xa29d749517a69f868db1785c7f091ea75f60a76ef657badedb0848e44be7a349",
+      "owner": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
       "oracleUpgradeDelaySeconds": 172800,
       "allowAnyDevice": true,
       "oracleCodeFrozen": false,
       "consumerRegistryFrozen": false,
-      "currentOperatorControlled": false,
-      "notes": "Bytecode exists on Base Sepolia, but owner is the Foundry default address, not the current funded operator deployer."
+      "currentOperatorControlled": true
     }
   },
   "phala": {
-    "status": "historical_runbook_record_not_revalidated_this_cycle",
-    "cvmId": "cvm_j2kD1EZn",
-    "appId": "29d78795d77408a705d2c77c42d1bc10c59d0671",
-    "composeHash": "97818b3dbac8227ea3016e26c16886083f2fe25592fc0f33900e037c6003acd6",
-    "gatewayBaseDomain": "dstack-pha-prod5.phala.network",
-    "imageDigests": [
-      "ttl.sh/therealwiki-tinker-oracle-20260313-8b76c1d@sha256:6d521ae4da405250adbab51a8597ac83fdff4addfe930921293ccadad6d12352",
-      "ttl.sh/therealwiki-tinker-delegate-20260313-8b76c1d-r6@sha256:6563c94382f82dc43dfe4de1f615189c8c3a6806061bb366c0efd0403017e115",
-      "mcr.microsoft.com/playwright:v1.58.0-noble@sha256:e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f"
-    ],
-    "quoteEvidence": null,
-    "notes": "Recorded from the deployment runbook. Fresh Phala CLI/CVM validation remains required before marking this current."
+    "status": "not_revalidated_by_this_contract_deploy",
+    "cvmId": null,
+    "appId": null,
+    "composeHash": null,
+    "gatewayBaseDomain": null,
+    "imageDigests": [],
+    "quoteEvidence": null
   },
   "freshDeployment": {
-    "status": "ready_for_operator_broadcast",
-    "helper": "⚙️/tinker-delegate/contracts/scripts/deploy-base-sepolia.sh",
-    "requires": [
-      "BASE_SEPOLIA_RPC_URL",
-      "FOUNDRY_KEYSTORE_ACCOUNT=dev",
-      "interactive Foundry keystore password",
-      "optional ETHERSCAN_API_KEY for verification"
-    ],
-    "reasonNotBroadcastByAgent": "The Codex tool session cannot answer the interactive encrypted-keystore prompt without unsafe key handling."
+    "status": "broadcast_complete",
+    "helper": "⚙️/tinker-delegate/contracts/scripts/deploy-base-sepolia.sh"
   }
 }
