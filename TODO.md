@@ -437,6 +437,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             without placing card fields in command-line arguments; prompt mode
             rejects missing deployed attestation expectations before asking for
             card material.
+      - [x] Run a fresh local FastAPI encrypted-card smoke with local billing
+            attestation and a Stripe test card: `$5` operator preflight returns
+            ready, `$10` with add-balance endpoint required returns not ready,
+            encrypted `/billing/card/encrypted` reaches bounded
+            `payment_submitted` receipt output, and the temp encrypted receipt
+            file does not contain the test card number, CVC, name, postal code,
+            or raw card field names.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
@@ -452,6 +459,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; the capped CLI/internal path
             also requires `TINKER_FUNDING_MODE=operator_capped_validation` for
             deliberate operator validation attempts.
+      - [x] Locally verify `POST /billing/add-balance` rejects with 403 while
+            `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`, even when
+            `operator_capped_validation` mode is enabled.
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
             attempt after receiving approved card details.
 - [x] `P0` Confirm PCI and Stripe obligations.

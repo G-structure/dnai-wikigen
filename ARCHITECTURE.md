@@ -634,6 +634,15 @@ Implementation status:
             endpoint flag, encrypted receipt-store availability, and billing
             attestation policy before any card payload or browser launch. The
             CLI can write the bounded preflight JSON directly with `--output`.
+[real]      A local FastAPI funding smoke on 2026-07-08 verified the current
+            operator guardrails without real card material: `$5` preflight
+            passed under `operator_capped_validation`, `$10` preflight failed
+            the cap and disabled add-balance endpoint checks, `/attestation`
+            returned a context-bound local billing key, encrypted
+            `/billing/card/encrypted` posted only ciphertext and returned a
+            bounded `payment_method` receipt at `payment_submitted`, and the
+            encrypted temp receipt file did not contain the test card number,
+            CVC, cardholder name, postal code, or raw card field names.
 [real]      Bounded funding validation manifests can be built from saved
             preflight and receipt JSON through the `funding-manifest` CLI. The
             manifest stores hashes, bands, outcome, TDX quote hash, and

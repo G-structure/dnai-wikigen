@@ -290,6 +290,17 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   posts only ciphertext to `/billing/card/encrypted`, and was locally exercised
   against the Neko/Tinker/Stripe test-card path. It returned bounded
   `card_declined` and persisted one funding receipt.
+- A fresh local FastAPI smoke on 2026-07-08 used
+  `TINKER_FUNDING_MODE=operator_capped_validation`,
+  `TINKER_MAX_ADD_BALANCE_USD=5`, local billing attestation, and a Stripe test
+  card. `GET /billing/funding-preflight` returned ready for `$5`; `$10` plus
+  `require_add_balance_endpoint=true` returned not ready because the amount was
+  over cap and the HTTP add-balance mutation was disabled. The encrypted
+  test-card submission reached `payment_submitted`, returned only a bounded
+  `payment_method` receipt, set `card_payload_destroyed=true` and
+  `raw_secret_egress=false`, and persisted one encrypted receipt. A binary
+  string scan of that temp receipt did not find the test card number, CVC,
+  cardholder name, postal code, or raw card field names.
 - `python -m tinker_delegate.main add-card-encrypted-prompt` prompts for card
   fields interactively instead of taking them as command-line flags, requires
   deployed compose/app/OS-image attestation expectations unless explicitly run
