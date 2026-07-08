@@ -129,6 +129,27 @@ uv venv && uv pip install playwright httpx pydantic pydantic-settings
 The CLI card flags are for local development only. Production funding should use
 the encrypted card channel after verifying the TEE attestation.
 
+### Artifact Upload
+
+Use `upload-artifact` from the seller/controller side after a deal exists. The
+command fetches `/attestation`, refuses local/default attestation unless
+explicitly allowed, checks the expected compose hash/app ID and report-data-bound
+public key, then encrypts the artifact to `POST /deal/{id}/artifact/encrypted`.
+It prints only bounded metadata: deal ID, artifact hash, size, status code, and
+server response.
+
+```bash
+.venv/bin/python -m tinker_delegate.main upload-artifact \
+  https://delegate.example \
+  1 \
+  ./artifact.jsonl \
+  --compose-hash 0xEXPECTED_COMPOSE_HASH \
+  --app-id 0xEXPECTED_APP_ID
+```
+
+Local development can pass `--allow-local-attestation`, but production uploads
+must use the dstack/TDX attestation path.
+
 ### API Server
 
 The `serve` command starts a FastAPI server for programmatic access:

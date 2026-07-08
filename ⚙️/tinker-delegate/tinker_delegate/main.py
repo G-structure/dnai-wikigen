@@ -134,6 +134,25 @@ def cli():
     add_bal_p = sub.add_parser("add-balance", help="Add credit balance to Tinker account")
     add_bal_p.add_argument("amount", type=float, help="Amount in USD to add")
 
+    upload_artifact_p = sub.add_parser(
+        "upload-artifact",
+        help="Verify attestation, encrypt an artifact, and upload it to a deal",
+    )
+    upload_artifact_p.add_argument("api_url", help="Tinker delegate API base URL")
+    upload_artifact_p.add_argument("deal_id", help="Deal ID to receive the artifact")
+    upload_artifact_p.add_argument("artifact_path", help="Path to artifact file")
+    upload_artifact_p.add_argument(
+        "--compose-hash",
+        default="",
+        help="Expected dstack compose hash; required unless --allow-local-attestation is set",
+    )
+    upload_artifact_p.add_argument("--app-id", default="", help="Expected dstack app ID")
+    upload_artifact_p.add_argument(
+        "--allow-local-attestation",
+        action="store_true",
+        help="Allow local-mode attestation for development only",
+    )
+
     # API server
     serve_p = sub.add_parser("serve", help="Start the FastAPI server")
     serve_p.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
@@ -189,6 +208,40 @@ def cli():
         result = asyncio.run(handle_add_balance(payload, settings))
         print(result.model_dump_json(indent=2))
         sys.exit(0 if result.success else 1)
+
+    elif args.command == "upload-artifact":
+        from tinker_delegate.artifact_uploader import (
+            ArtifactUploadPolicy,
+            AttestationVerificationError,
+            upload_artifact_file,
+        )
+
+        policy = ArtifactUploadPolicy(
+            expected_compose_hash=args.compose_hash,
+            expected_app_id=args.app_id,
+            allow_local=args.allow_local_attestation,
+        )
+        try:
+            result = upload_artifact_file(
+                args.api_url,
+                args.deal_id,
+                args.artifact_path,
+                policy,
+            )
+        except AttestationVerificationError as exc:
+            print(f"[upload-artifact] attestation rejected: {redact_text(exc)}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"[upload-artifact] upload failed: {redact_text(exc)}")
+            sys.exit(1)
+
+        print(json.dumps({
+            "deal_id": result.deal_id,
+            "artifact_hash": result.artifact_hash,
+            "size": result.size,
+            "status_code": result.status_code,
+            "response": result.response,
+        }, indent=2))
 
     elif args.command == "serve":
         import uvicorn

@@ -203,6 +203,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Add a TDX quote verifier script for the running CVM.
       Done when a user can verify app ID, compose hash, image digest, report
       data, freshness, and public keys from a laptop.
+      - [x] Add an artifact uploader gate that refuses local/default
+            attestation, compose-hash mismatch, app-ID mismatch, malformed
+            quote/public-key fields, and report-data/key mismatch before
+            encryption.
+      - [ ] Add cryptographic Intel TDX quote parsing and freshness checks;
+            current `dstack_sdk` helpers do not expose a complete verifier.
 - [ ] `P0` Deploy the combined email-oracle + tinker-delegate stack to Phala
       from registry images only, no local `build:` contexts.
 - [ ] `P0` Persist only sealed data under the CVM data volume:
@@ -523,7 +529,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Disable plaintext artifact upload by default and in dstack mode.
       - [x] Bind the TEE encryption public key and operation context into
             attestation report data.
-      - [ ] Add a client-side quote verifier/uploader that refuses to encrypt or
+      - [x] Add a client-side quote verifier/uploader that refuses to encrypt or
             upload until the live TDX quote, compose hash, and report data pass.
 - [x] `P0` Verify `keccak256(rawArtifact) == artifactHash` inside the TEE before
       a deal can proceed.

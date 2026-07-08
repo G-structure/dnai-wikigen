@@ -851,8 +851,11 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] `docker-compose.yaml` — delegate service with Dockerfile
 - [x] `docker-compose.dstack.yaml` — dstack overlay (neko + oracle network, TDX sock)
 - [x] Encryption channel: X25519 + AES-256-GCM for card delivery — `tinker_delegate/crypto.py`
+- [x] Encrypted artifact ingress: quote-key channel, deal/hash-bound AES-GCM,
+      disabled plaintext production path, client-side attestation envelope gate
 - [x] TDX quote stubs (local) / real generation (dstack) in attestation endpoints
 - [x] Key-store code path uses `dstack_sdk.TappdClient.derive_key()` in dstack mode
+- [ ] Full cryptographic Intel TDX quote parsing/freshness verification
 - [ ] Validate dstack-derived key sealing in a deployed CVM
 - [ ] Local testing with `/phala-simulator`
 - [ ] Deploy to Phala Cloud via `/phala-deploy`

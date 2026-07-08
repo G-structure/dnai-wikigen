@@ -551,12 +551,14 @@ Implementation status:
             associated data; plaintext artifact upload is disabled by default.
 [real]      Attestation report data binds operation context plus the TEE
             encryption public key so verifiers can detect key substitution.
+[real]      Client-side artifact uploader fetches `/attestation` and refuses to
+            encrypt or upload unless mode, quote presence, compose hash, app ID,
+            public-key shape, and report data match policy.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE, but a capped real-card funding attempt still needs to be proven.
 [partial]   Optional Tinker SDK dependency must be installed for real evaluator execution.
-[partial]   Artifact upload still needs a client-side live quote verifier/uploader
-            that refuses to encrypt until compose hash and report data pass;
-            evaluator-side raw-byte copies still need a lifetime audit.
+[partial]   Artifact upload still needs full cryptographic Intel TDX quote
+            parsing/freshness validation and evaluator-side raw-byte lifetime audit.
 [planned]   Dedicated Tinker account encumbrance contract / funding-rail policy contract.
 ```
 
