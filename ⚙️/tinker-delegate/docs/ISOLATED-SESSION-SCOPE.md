@@ -62,6 +62,7 @@ The current implementation (`session.py`) covers the critical path -- single tra
 | `get_info()` | NO | -- | Returns training_run_id, model metadata. Low risk but not needed. |
 | `get_tokenizer()` | YES | `get_tokenizer()` | Safe -- returns HuggingFace tokenizer, no secrets |
 | `create_sampling_client(model_path, retry_config)` | NO | -- | Bypasses session path checking. Use `create_sampler()` instead. |
+| `create_sampling_client(base_model=...)` | YES | `create_base_sampler(base_model)` | Scoped to this deal's training model for tuned-vs-base evaluation |
 
 **Gaps identified:**
 - `forward()` (inference-only pass) is not exposed. Evaluator might need this for computing eval loss without gradients. Should be added with metering.
@@ -250,6 +251,7 @@ The IsolatedTinkerSession defends against a **malicious evaluator agent** (or co
 | Cross-deal access | `list_training_runs`, `list_sessions` blocked | IMPLEMENTED | |
 | State loading | `load_state`, `create_training_client_from_state` blocked | IMPLEMENTED | |
 | Path traversal | `create_sampler` path-checked against `_allowed_paths` | IMPLEMENTED | |
+| Raw client bypass in first-party evaluator | `sft_evaluate()` uses wrapper methods only | IMPLEMENTED | Source regression test blocks `_sc`, REST, list, download, publish, delete |
 | Unbounded cost | `CostMeter` tracks all operations | PARTIAL | **Generation tokens not metered** |
 | Unbounded training | One training run per deal | IMPLEMENTED | |
 | Checkpoint persistence | Mandatory TTL on all saves (1h-24h) | IMPLEMENTED | |
@@ -279,7 +281,17 @@ stores that attestation on the deal context.
 
 **GAP 5: Methodology summary free-text.** The evaluator's returned `methodology` string passes through to `EvaluationResult.methodology_summary`. A malicious evaluator could steganographically encode exact quality values in this text. Fix: validate/truncate the methodology string, or generate it from structured data in the control plane.
 
-**GAP 6: Base model sampler in evaluator.** The current `sft_evaluate()` function creates a base model sampler via `session._sc.create_sampling_client(base_model=base_model)`, bypassing the session's path-checking. This is used for A/B comparison (tuned vs. base). The session should expose a controlled method for creating a base-model-only sampler.
+**RESOLVED: base model sampler in evaluator.** `sft_evaluate()` now calls
+`session.create_base_sampler(base_model)`, which only creates a base sampler for
+the model scoped to the current deal. Source regression tests fail if the
+first-party evaluator reaches `session._sc`, REST/list/download/publish/delete
+APIs, or arbitrary sampling paths.
+
+**GAP 6: In-process Python introspection.** The wrapper blocks the first-party
+evaluator path and ordinary method access, but an arbitrary malicious evaluator
+running in the same Python process could still attempt object introspection.
+Before accepting third-party evaluator code, move evaluator execution behind a
+process or sandbox capability boundary.
 
 **GAP 7: No budget cap enforcement.** The session meters costs but does not enforce a maximum spend. If `compute_cost_wei` exceeds the deal's `budget_cap`, training should be halted. The control plane passes `budget_cap` to the evaluator but the session does not enforce it.
 
@@ -537,7 +549,9 @@ Larger RL evaluation on Qwen3-235B:
 | `test_closed_session_rejects` | N/A | All methods raise after `cleanup()` |
 | `test_ttl_clamping` | Mock `TrainingClient.save_weights_for_sampler` | TTL arg is clamped to [3600, 86400] |
 | `test_path_checking` | N/A | `create_sampler("tinker://other/...")` raises `PermissionError` |
+| `test_base_sampler_is_scoped_to_training_model` | Mock `ServiceClient.create_sampling_client` | Base sampler must match the training model |
 | `test_allowed_path_tracking` | Mock save response with path | Path added to `_allowed_paths`; `create_sampler` succeeds |
+| `test_sft_evaluator_does_not_reach_raw_tinker_client_or_admin_apis` | Source inspection | Evaluator does not use raw client/admin APIs |
 | `test_cost_metering_train` | Mock `forward_backward` | `meter.train_tokens` incremented by datum token count |
 | `test_cost_metering_prefill` | Mock `sample` | `meter.prefill_tokens` incremented by prompt length |
 | `test_cost_metering_sample` | Mock `sample` result | `meter.sample_tokens` incremented by generated token count |

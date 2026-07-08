@@ -577,6 +577,11 @@ Implementation status:
 [real]      Deal resolution stores a bounded cleanup attestation with counts,
             success flag, attempts, error type, and checkpoint-ID hash; raw
             checkpoint IDs are not included in the public record.
+[real]      First-party SFT evaluator no longer reaches the raw Tinker
+            ServiceClient. It uses wrapper methods only, including a scoped
+            base-model sampler for tuned-vs-base comparison, and tests reject
+            raw ServiceClient/REST/list/download/publish API usage in evaluator
+            source.
 [real]      Real Tinker SDK smoke-test harness exists but is disabled by
             default. It requires `TINKER_RUN_REAL_SDK_TESTS=1`,
             `TINKER_API_KEY`, and `TINKER_REAL_SDK_MAX_USD <= 0.50` before it
@@ -589,6 +594,10 @@ Implementation status:
             evaluator execution.
 [partial]   Cleanup attestations are generated locally, but deployed Tinker
             deletion and TTL-expiry behavior still need real SDK/CVM evidence.
+[partial]   Arbitrary third-party evaluator code is not yet isolated from
+            Python introspection. Before accepting untrusted evaluator code, run
+            it behind a process/sandbox capability boundary rather than passing
+            an in-process Python object.
 [partial]   Artifact upload still needs full cryptographic Intel TDX quote
             parsing/freshness validation, downstream evaluator/Tinker/browser
             no-disk audit, sealed-retention key hierarchy if retention is added,

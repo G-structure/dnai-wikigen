@@ -385,7 +385,16 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [x] `P0` Enforce checkpoint TTL on every save.
 - [x] `P0` Enforce path-checked sampling:
       no arbitrary model path, no cross-deal checkpoint access.
-- [ ] `P0` Block download/publish/list-all operations from evaluator agents.
+- [x] `P0` Block download/publish/list-all operations from first-party evaluator
+      paths.
+      Done when `sft_evaluate()` uses only wrapper methods, the wrapper exposes
+      no REST/list/download/publish methods, base-model sampling is scoped, and
+      tests fail on raw `ServiceClient`/admin API usage in evaluator code.
+- [ ] `P0` Put arbitrary third-party evaluator code behind a process or sandbox
+      capability boundary.
+      Done when untrusted evaluator code cannot use Python introspection to
+      recover the raw `ServiceClient`, Tinker API key, checkpoint paths, or
+      artifact bytes outside the approved wrapper calls.
 - [x] `P0` Implement cleanup with retries and a cleanup attestation.
 - [ ] `P1` Add cost metering that reconciles:
       Tinker reported cost, estimated tokens/steps, chain computeCost, and buyer

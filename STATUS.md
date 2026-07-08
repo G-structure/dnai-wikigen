@@ -87,6 +87,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Cleanup now returns a bounded attestation with deletion counts, retry
   attempts, success/error status, and a hash of checkpoint IDs instead of raw
   IDs; the control plane stores it on deal resolution.
+- First-party SFT evaluator code uses wrapper methods only. Its base-model
+  sampler path is scoped, and tests reject raw ServiceClient, REST,
+  list/download, publish, and delete API usage in evaluator source.
 - Skip-by-default real Tinker SDK smoke harness exists for tiny
   training/sampling/cleanup, gated by `TINKER_RUN_REAL_SDK_TESTS=1`,
   `TINKER_API_KEY`, and `TINKER_REAL_SDK_MAX_USD <= 0.50`.
@@ -104,6 +107,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   remain gated on credentials, budget cap, and deployed CVM validation.
 - Cleanup attestations are local wrapper/control-plane evidence; deployed
   Tinker deletion and TTL expiry are still unproven.
+- Arbitrary third-party evaluator code is not yet sandboxed against Python
+  introspection; that remains a separate P0 before untrusted evaluators are
+  accepted.
 
 [partial] Account funding:
 

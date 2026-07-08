@@ -126,6 +126,7 @@ class FakeServiceClient:
     def __init__(self):
         self.created_training_clients = []
         self.sampling_paths = []
+        self.base_sampling_models = []
         self.rest_client = FakeRestClient()
 
     def create_lora_training_client(self, **kwargs):
@@ -134,7 +135,10 @@ class FakeServiceClient:
         self.created_training_clients.append((kwargs, client))
         return client
 
-    def create_sampling_client(self, model_path):
+    def create_sampling_client(self, model_path=None, base_model=None):
+        if base_model:
+            self.base_sampling_models.append(base_model)
+            return FakeSampler()
         self.sampling_paths.append(model_path)
         return FakeSampler()
 
@@ -195,6 +199,16 @@ class IsolatedTinkerSessionTest(unittest.TestCase):
         self.assertEqual(service_client.sampling_paths, [allowed_path])
         with self.assertRaisesRegex(PermissionError, "only models trained in deal deal-123"):
             session.create_sampler("tinker://other-run/sampler/secret")
+
+    def test_base_sampler_is_scoped_to_training_model(self):
+        session, service_client, _training_client = self.make_session()
+
+        sampler = session.create_base_sampler("meta-llama/Llama-3.1-8B")
+
+        self.assertIsInstance(sampler, FakeSampler)
+        self.assertEqual(service_client.base_sampling_models, ["meta-llama/Llama-3.1-8B"])
+        with self.assertRaisesRegex(PermissionError, "scoped to meta-llama/Llama-3.1-8B"):
+            session.create_base_sampler("meta-llama/Llama-3.3-70B-Instruct")
 
     def test_state_checkpoint_is_not_sampleable(self):
         session, _service_client, _training_client = self.make_session()

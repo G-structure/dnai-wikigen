@@ -308,6 +308,20 @@ class IsolatedTinkerSession:
             )
         return self._sc.create_sampling_client(model_path=model_path)
 
+    def create_base_sampler(self, base_model: str) -> tinker.SamplingClient:
+        """Create a sampler for the immutable base model used by this deal.
+
+        This supports tuned-vs-base evaluation without exposing the raw
+        ServiceClient or arbitrary checkpoint paths to evaluator code.
+        """
+        self._ensure_open()
+        if self._meter.model and base_model != self._meter.model:
+            raise PermissionError(
+                f"Cannot sample from base model {base_model}; "
+                f"deal {self._deal_id} is scoped to {self._meter.model}"
+            )
+        return self._sc.create_sampling_client(base_model=base_model)
+
     def sample(self, sampler: tinker.SamplingClient, prompt, sampling_params, num_samples: int = 1):
         """Metered sampling.
 
@@ -518,4 +532,5 @@ class IsolatedTinkerSession:
     # - publish_checkpoint()                    → no making weights public
     # - unpublish_checkpoint()                  → n/a
     # - create_sampling_client() with any path  → path-checked above
+    # - create_sampling_client() for arbitrary base models → create_base_sampler is scoped
     # - create_training_client_from_state()     → no loading other runs

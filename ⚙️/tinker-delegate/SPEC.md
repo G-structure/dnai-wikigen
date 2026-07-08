@@ -684,7 +684,7 @@ This maps directly to the NDAI paper (Section 5): A_B is the buyer's agent, and 
 | # | Threat | Attacker | Impact | Mitigation |
 |---|--------|----------|--------|------------|
 | T1 | Extract Tinker API key from TEE memory | Cloud provider / host root | Full account takeover, access to all past training runs | TDX memory encryption. API key sealed via KMS. Host reads cause page faults. |
-| T2 | Agent accesses models from other deals | Buggy or malicious agent code | Cross-deal data leakage | IsolatedTinkerSession path-checks every operation. Agent never receives raw ServiceClient. |
+| T2 | Agent accesses models from other deals | Buggy or malicious agent code | Cross-deal data leakage | First-party evaluator code uses only IsolatedTinkerSession wrapper methods, which path-check sampling and expose no REST/list/download/publish methods. Arbitrary third-party evaluator code still needs a process/sandbox capability boundary before it is trusted. |
 | T3 | Trained model persists after deal resolves | Cleanup failure (crash, network) | Seller's data-derivative persists on Tinker servers | TTL on all checkpoint saves (auto-delete). Cleanup-on-boot. No download path exposed. |
 | T4 | Agent emits raw quality scores instead of bands | Agent implementation bug | Buyer learns exact value, gains bargaining leverage | Output bounding is in the control plane, not the agent. Agent returns raw numbers, control plane maps to bands before egress. |
 | T5 | Buyer reverse-engineers artifact from bounded output | Sophisticated buyer | Partial disclosure beyond intended band | Score bands are coarse by design. Offer price derived from band, not raw delta. Paper's analysis shows bounded outputs preserve seller leverage. |
@@ -830,11 +830,14 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 
 - [x] Implement `IsolatedTinkerSession` — `tinker_delegate/session.py`
 - [x] Path-checked sampling (only models from this session's training run)
+- [x] Scoped base-model sampling for first-party tuned-vs-base comparison
 - [x] Mandatory TTL on all checkpoint saves (MIN_TTL=1h, MAX_TTL=24h)
 - [x] Cost metering: per-token tracking with model-specific pricing
 - [x] Cleanup: retries deletes for all checkpoints from this deal's training run
       and returns a bounded cleanup attestation
 - [x] Unit tests: session isolation (cannot access other paths)
+- [x] Unit tests: first-party evaluator source does not reach raw ServiceClient,
+      REST/list/download/publish/delete APIs, or arbitrary sampling paths
 - [x] Unit tests: mandatory cleanup (all checkpoints deleted)
 - [x] Unit tests: cleanup retries and bounded cleanup attestation without raw
       checkpoint IDs
