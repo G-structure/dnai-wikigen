@@ -959,6 +959,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             comparing Chrome/supervisord flags or deploying a marked
             public-logs/dev-access diagnostic profile, then restore the
             locked-down compose again.
+            Follow-up source/tests 2026-07-08: the raw-CDP probe now sends a
+            bounded `Page.enable` command before `Runtime.enable` on both the
+            attached page session and the direct page-target WebSocket. It
+            emits only `page_enable_command_success` at the top level and
+            `page_enable_success` / `page_enable_error_kind` on each page and
+            nested `direct_page_runtime` receipt. This should distinguish
+            "page-session commands work but Runtime-domain enable hangs" from
+            "all page-target commands hang" in the next Phala measurement,
+            without exposing page text, raw URLs, selectors, cookies, OTPs, API
+            keys, or card material. Next step: build GitHub-attested images,
+            run the one-shot selector-probe, record the Page-vs-Runtime result,
+            then restore normal compose.
 - [x] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
       needed by each compose profile.
       Done 2026-07-08: `scripts/redeploy-phala-cvm.mjs` now defaults to

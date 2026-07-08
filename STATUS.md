@@ -189,6 +189,13 @@ return 403 in normal mode.
   `raw_secret_egress=false`. The blocker is now below attached-session routing:
   the deployed page Runtime domain itself does not complete `Runtime.enable`
   through either the attached session or the direct page target WebSocket.
+  Source/tests now add a bounded `Page.enable` discriminator before
+  `Runtime.enable` on both attached-session and direct page-target paths. The
+  new output fields are limited to `page_enable_command_success`,
+  `page_enable_success`, and `page_enable_error_kind`, so the next Phala run
+  can tell whether page-domain CDP commands work while Runtime-domain enable
+  hangs. This emits no page text, raw URLs, selectors, cookies, OTPs, API keys,
+  card material, event payloads, frame IDs, or execution-context IDs.
   `Page.getFrameTree` still times out before frame inventory. The
   timeout-preserving page observation refinement is now Phala-proven with
   GitHub-attested `a384db2` images:

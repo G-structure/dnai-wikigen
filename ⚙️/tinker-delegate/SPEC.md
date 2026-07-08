@@ -251,7 +251,14 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   `/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
   returned 403 with the current request schema. Selector-family match capture
   remains not Phala-proven; the remaining deployed blocker is Neko/Chrome
-  Runtime-domain behavior itself, not just attached-session routing.
+  Runtime-domain behavior itself, not just attached-session routing. Source/tests
+  now add a bounded `Page.enable` discriminator before `Runtime.enable` on both
+  attached-session and direct page-target paths. It emits only
+  `page_enable_command_success`, `page_enable_success`, and
+  `page_enable_error_kind`, so the next Phala run can distinguish page-domain
+  command delivery from Runtime-domain enablement without exposing page text,
+  raw URLs, selectors, cookies, OTPs, API keys, card material, event payloads,
+  frame IDs, or execution-context IDs.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,

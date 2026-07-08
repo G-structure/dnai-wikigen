@@ -804,6 +804,17 @@ Implementation status:
             micro-probe, no selector-family matrix, empty `flow_observations`,
             and `raw_secret_egress=false`. The current deployed blocker is the
             page Runtime domain itself, not just the attached-session routing.
+            Source/tests now add one more bounded discriminator before that
+            Runtime step: both the attached-session path and direct page-target
+            path send `Page.enable` before `Runtime.enable` and emit only
+            `page_enable_command_success`,
+            `page_enable_success`, and `page_enable_error_kind`. These fields
+            reveal whether page-domain CDP commands succeed before the Runtime
+            domain hangs, without emitting page text, raw URLs, selectors,
+            cookies, OTPs, API keys, card material, event payloads, frame IDs,
+            or execution-context IDs. This Page-vs-Runtime discriminator is
+            source/test-real until a GitHub-attested image is remeasured on
+            Phala.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed
             one-shot evidence capture. It is disabled by default and returns
             403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
@@ -892,6 +903,10 @@ Implementation status:
             proved `/json/list` and page-WebSocket availability, but direct
             page `Runtime.enable` also timed out, so deployed selector-family
             evidence remains blocked on Neko/Chrome Runtime-domain behavior.
+            Source/tests now add a bounded `Page.enable` discriminator before
+            `Runtime.enable`; it still needs Phala measurement to determine
+            whether the deployed page target can execute non-Runtime CDP
+            commands.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,

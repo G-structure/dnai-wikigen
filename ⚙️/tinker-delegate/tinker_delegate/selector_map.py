@@ -60,7 +60,7 @@ from tinker_delegate.signup import (
 SELECTOR_MAP_VERSION = "2026-07-08.1"
 DEPLOYED_SELECTOR_EVIDENCE_STATUS = "pending_deployed_cvm_capture"
 PROBE_VERSION = "2026-07-08.1"
-RAW_CDP_PROBE_VERSION = "2026-07-08.3"
+RAW_CDP_PROBE_VERSION = "2026-07-08.4"
 COUNT_BAND_CAP = 2
 MATCH_BANDS = {"0", "1", "2+", "probe_error"}
 
@@ -585,6 +585,8 @@ def _empty_direct_page_runtime_result() -> dict[str, Any]:
         "attempted": False,
         "page_list_success": False,
         "page_websocket_available": False,
+        "page_enable_success": False,
+        "page_enable_error_kind": "",
         "runtime_enable_success": False,
         "runtime_enable_error_kind": "",
         "runtime_event_before_enable_response": False,
@@ -638,6 +640,13 @@ def _probe_direct_page_runtime(
     try:
         normalized_websocket_url = _normalize_target_websocket_url(settings.cdp_url, websocket_url)
         with _RawCdpClient(normalized_websocket_url, timeout_seconds) as client:
+            try:
+                client.command("Page.enable")
+            except Exception as exc:
+                result["page_enable_error_kind"] = _raw_cdp_error_kind(exc)
+                result["error_kind"] = f"page_enable_{result['page_enable_error_kind']}"
+                return result
+            result["page_enable_success"] = True
             try:
                 runtime_enable_response = client.command("Runtime.enable")
             except Exception as exc:
@@ -736,6 +745,7 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
         "metadata_success": False,
         "upgrade_success": False,
         "target_command_success": False,
+        "page_enable_command_success": False,
         "runtime_enable_command_success": False,
         "runtime_execution_context_event_observed": False,
         "direct_page_runtime_attempted": False,
@@ -796,6 +806,8 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                     "target_type": "page",
                     "attached": False,
                     "attach_error_kind": "",
+                    "page_enable_success": False,
+                    "page_enable_error_kind": "",
                     "runtime_enable_success": False,
                     "runtime_enable_error_kind": "",
                     "runtime_event_before_enable_response": False,
@@ -830,14 +842,16 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                     page_result["attached"] = bool(session_id)
                     if session_id:
                         try:
-                            runtime_enable_response = client.command(
-                                "Runtime.enable",
-                                session_id=session_id,
-                            )
+                            client.command("Page.enable", session_id=session_id)
                         except Exception as exc:
                             error_kind = _raw_cdp_error_kind(exc)
-                            page_result["runtime_enable_error_kind"] = error_kind
-                            partial_errors.append(f"runtime_enable_{error_kind}")
+                            page_result["page_enable_error_kind"] = error_kind
+                            partial_errors.append(f"page_enable_{error_kind}")
+                            stop_after_page = True
+                        else:
+                            page_result["page_enable_success"] = True
+                            result["page_enable_command_success"] = True
+                        if stop_after_page:
                             direct_page_runtime = _probe_direct_page_runtime(
                                 settings,
                                 target_id,
@@ -861,25 +875,60 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                                 result["direct_page_runtime_selector_success"]
                                 or direct_page_runtime["runtime_selector_success"]
                             )
-                            stop_after_page = True
-                        else:
-                            page_result["runtime_enable_success"] = True
-                            page_result["runtime_event_before_enable_response"] = bool(
-                                runtime_enable_response.get("_saw_event_before_response")
-                            )
-                            page_result["runtime_event_count_band"] = _count_band(
-                                int(runtime_enable_response.get("_runtime_event_count_before_response") or 0)
-                            )
-                            page_result["runtime_execution_context_created"] = bool(
-                                runtime_enable_response.get(
-                                    "_saw_runtime_execution_context_created_before_response"
+                        if not stop_after_page:
+                            try:
+                                runtime_enable_response = client.command("Runtime.enable", session_id=session_id)
+                            except Exception as exc:
+                                error_kind = _raw_cdp_error_kind(exc)
+                                page_result["runtime_enable_error_kind"] = error_kind
+                                partial_errors.append(f"runtime_enable_{error_kind}")
+                                direct_page_runtime = _probe_direct_page_runtime(
+                                    settings,
+                                    target_id,
+                                    selector_map,
+                                    timeout_seconds,
                                 )
-                            )
-                            result["runtime_enable_command_success"] = True
-                            result["runtime_execution_context_event_observed"] = bool(
-                                result["runtime_execution_context_event_observed"]
-                                or page_result["runtime_execution_context_created"]
-                            )
+                                page_result["direct_page_runtime"] = direct_page_runtime
+                                result["direct_page_runtime_attempted"] = bool(
+                                    result["direct_page_runtime_attempted"]
+                                    or direct_page_runtime["attempted"]
+                                )
+                                result["direct_page_runtime_enable_success"] = bool(
+                                    result["direct_page_runtime_enable_success"]
+                                    or direct_page_runtime["runtime_enable_success"]
+                                )
+                                result["direct_page_runtime_micro_probe_success"] = bool(
+                                    result["direct_page_runtime_micro_probe_success"]
+                                    or direct_page_runtime["runtime_micro_probe_success"]
+                                )
+                                result["direct_page_runtime_selector_success"] = bool(
+                                    result["direct_page_runtime_selector_success"]
+                                    or direct_page_runtime["runtime_selector_success"]
+                                )
+                                stop_after_page = True
+                            else:
+                                page_result["runtime_enable_success"] = True
+                                page_result["runtime_event_before_enable_response"] = bool(
+                                    runtime_enable_response.get("_saw_event_before_response")
+                                )
+                                page_result["runtime_event_count_band"] = _count_band(
+                                    int(
+                                        runtime_enable_response.get(
+                                            "_runtime_event_count_before_response"
+                                        )
+                                        or 0
+                                    )
+                                )
+                                page_result["runtime_execution_context_created"] = bool(
+                                    runtime_enable_response.get(
+                                        "_saw_runtime_execution_context_created_before_response"
+                                    )
+                                )
+                                result["runtime_enable_command_success"] = True
+                                result["runtime_execution_context_event_observed"] = bool(
+                                    result["runtime_execution_context_event_observed"]
+                                    or page_result["runtime_execution_context_created"]
+                                )
                         if not stop_after_page:
                             try:
                                 micro_probe_response = client.command(
