@@ -8,6 +8,10 @@ As of 2026-03-17, the Phala deployment is live, the email oracle is healthy, and
 
 The old recon notes below that claim `cock.email` alone solves signup are stale. A headed real Chrome session still reaches the magic-code page, so the open problem is browser posture, not just email domain selection.
 
+The email oracle is still required. It is not just a disposable inbox: it is the no-human-access OTP and confirmation channel for a TEE-owned Tinker account. Operators should not hold the Tinker account credentials or the email credentials; the TEE requests the magic-code email, reads it through the oracle, and completes auth inside the browser session.
+
+Tinker account funding remains in progress. The intended payment path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code exist, but the end-to-end funding rail is not production-complete until the Stripe/Tinker browser flow and bot-check posture are reliably handled.
+
 ## How It Works
 
 ```
@@ -119,6 +123,9 @@ uv venv && uv pip install playwright httpx pydantic pydantic-settings
 # Start API server (for TEE deployment)
 .venv/bin/python -m tinker_delegate.main serve --port 8080
 ```
+
+The CLI card flags are for local development only. Production funding should use
+the encrypted card channel after verifying the TEE attestation.
 
 ### API Server
 

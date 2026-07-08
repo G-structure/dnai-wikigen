@@ -1,0 +1,277 @@
+{"kind":"deck","id":"pr/8ydn6h","name":"Deck"}
+{"kind":"layout","layoutId":"be6ea421-81f6-4706-a3e4-4e07bf510142","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"fae5e12f-408f-438d-9148-6322ce04ff4a","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/k5or8r","slide":1,"title":"wikigen","textShapes":6}
+{"kind":"shape","id":"sh/orytsvu9","slide":1,"bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/hcrmhk3q","slide":1,"bbox":[0,0,575,720]}
+{"kind":"textbox","id":"sh/a9w3m94f","slide":1,"text":"wikigen","textPreview":"wikigen","textChars":7,"textLines":1,"bbox":[78,86,420,84]}
+{"kind":"textbox","id":"sh/zupwb2hw","slide":1,"text":"Private data can become verified reward without becoming public data.","textPreview":"Private data can become verified reward without becoming public data.","textChars":69,"textLines":1,"bbox":[78,190,515,166]}
+{"kind":"textbox","id":"sh/sfil0rqd","slide":1,"text":"A project under wikigen.me for the Shape Rotator cohort, Flashbots-aligned TEE builders, and the ETH community.","textPreview":"A project under wikigen.me for the Shape Rotator cohort, Flashbots-aligned TEE builders, and the ETH community.","textChars":111,"textLines":1,"bbox":[78,392,500,96]}
+{"kind":"shape","id":"sh/h0fepkzu","slide":1,"bbox":[78,532,272,34]}
+{"kind":"textbox","id":"sh/65wjudg7","slide":1,"text":"project pitch, not a startup pitch","textPreview":"project pitch, not a startup pitch","textChars":34,"textLines":1,"bbox":[91,539,246,20]}
+{"kind":"textbox","id":"sh/zqtcj6to","slide":1,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/zupwb2hw","slide":1,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/uxc3ylc7","slide":1,"name":"","alt":"DNA helix entering a secure compute vault","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/k5or8r","slide":1,"text":""}
+{"kind":"slide","id":"sl/gi23lq","slide":2,"title":"THE PROBLEM","textShapes":8}
+{"kind":"shape","id":"sh/pkzupwb2","slide":2,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/0z61032l","slide":2,"text":"THE PROBLEM","textPreview":"THE PROBLEM","textChars":11,"textLines":1,"bbox":[78,44,720,28]}
+{"kind":"textbox","id":"sh/72x4nap4","slide":2,"text":"The most valuable data cannot be shared like ordinary data.","textPreview":"The most valuable data cannot be shared like ordinary data.","textChars":59,"textLines":1,"bbox":[78,70,970,104]}
+{"kind":"textbox","id":"sh/ih4byhgn","slide":2,"text":"Bio datasets, private benchmarks, reward functions, source accounts, and proprietary tests all have value because they can evaluate something. Direct disclosure destroys that leverage.","textPreview":"Bio datasets, private benchmarks, reward functions, source accounts, and proprietary tests all have value because they can evaluate somet...","textChars":184,"textLines":1,"bbox":[80,186,690,118]}
+{"kind":"shape","id":"sh/p8nqxs72","slide":2,"bbox":[88,353,8,8]}
+{"kind":"textbox","id":"sh/0nuxc3yl","slide":2,"text":"Data owners need proof of utility without handing over the data.","textPreview":"Data owners need proof of utility without handing over the data.","textChars":64,"textLines":1,"bbox":[110,344,538,58]}
+{"kind":"shape","id":"sh/7y1kre1w","slide":2,"bbox":[88,419,8,8]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":2,"text":"Optimizers need reward signals, but raw reward data can leak the verifier.","textPreview":"Optimizers need reward signals, but raw reward data can leak the verifier.","textChars":74,"textLines":1,"bbox":[110,410,588,58]}
+{"kind":"shape","id":"sh/8v6psfil","slide":2,"bbox":[88,485,8,8]}
+{"kind":"textbox","id":"sh/xczed8v6","slide":2,"text":"Buyers need trust that the evaluation actually ran, not a PDF promise.","textPreview":"Buyers need trust that the evaluation actually ran, not a PDF promise.","textChars":70,"textLines":1,"bbox":[110,476,568,58]}
+{"kind":"textbox","id":"sh/qpg3ex0n","slide":2,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/fa9w3m94","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/jqh0fepk","slide":2,"name":"","alt":"Private reward oracle concept","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/gi23lq","slide":2,"text":""}
+{"kind":"slide","id":"sl/mx5v8g","slide":3,"title":"THE THESIS","textShapes":11}
+{"kind":"shape","id":"sh/cfa9w3m9","slide":3,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/1032lszq","slide":3,"text":"THE THESIS","textPreview":"THE THESIS","textChars":10,"textLines":1,"bbox":[78,44,720,28]}
+{"kind":"textbox","id":"sh/u18jqh0f","slide":3,"text":"Interaction with private data is not the same as disclosure.","textPreview":"Interaction with private data is not the same as disclosure.","textChars":60,"textLines":1,"bbox":[78,70,970,104]}
+{"kind":"textbox","id":"sh/jm1cfa9w","slide":3,"text":"The interface matters. A TEE can hold the private verifier, run measured code, and expose only budgeted rewards, bands, hashes, attestations, and settlement events.","textPreview":"The interface matters. A TEE can hold the private verifier, run measured code, and expose only budgeted rewards, bands, hashes, attestati...","textChars":164,"textLines":1,"bbox":[78,184,680,116]}
+{"kind":"shape","id":"sh/c7u54zid","slide":3,"bbox":[90,370,205,110]}
+{"kind":"textbox","id":"sh/1orytsvu","slide":3,"text":"sealed data","textPreview":"sealed data","textChars":11,"textLines":1,"bbox":[108,388,169,30]}
+{"kind":"textbox","id":"sh/upwb2hwf","slide":3,"text":"raw bio data, tests, source accounts","textPreview":"raw bio data, tests, source accounts","textChars":36,"textLines":1,"bbox":[108,424,169,42]}
+{"kind":"shape","id":"sh/nap4r65w","slide":3,"bbox":[314,406,88,38]}
+{"kind":"shape","id":"sh/7u54zido","slide":3,"bbox":[422,370,220,110]}
+{"kind":"textbox","id":"sh/ed8bat47","slide":3,"text":"reward oracle","textPreview":"reward oracle","textChars":13,"textLines":1,"bbox":[440,388,184,30]}
+{"kind":"textbox","id":"sh/l0rqd4vm","slide":3,"text":"measured verifier inside TEE","textPreview":"measured verifier inside TEE","textChars":28,"textLines":1,"bbox":[440,424,184,42]}
+{"kind":"shape","id":"sh/wfyxobm5","slide":3,"bbox":[662,406,88,38]}
+{"kind":"shape","id":"sh/36hcrmhk","slide":3,"bbox":[770,370,220,110]}
+{"kind":"textbox","id":"sh/eloj2t83","slide":3,"text":"bounded proof","textPreview":"bounded proof","textChars":13,"textLines":1,"bbox":[788,388,184,30]}
+{"kind":"textbox","id":"sh/lc7u54zi","slide":3,"text":"bands, hashes, quote, settlement","textPreview":"bands, hashes, quote, settlement","textChars":32,"textLines":1,"bbox":[788,424,184,42]}
+{"kind":"textbox","id":"sh/wra5gbq1","slide":3,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/7adsji5s","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/6dcbulwv","slide":3,"name":"","alt":"Private data vaults connected to a verified reward engine","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/mx5v8g","slide":3,"text":""}
+{"kind":"slide","id":"sl/0p2x9p","slide":4,"title":"WHAT WIKIGEN IS BUILDING","textShapes":13}
+{"kind":"shape","id":"sh/orytsvu9","slide":4,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/hcrmhk3q","slide":4,"text":"WHAT WIKIGEN IS BUILDING","textPreview":"WHAT WIKIGEN IS BUILDING","textChars":24,"textLines":1,"bbox":[78,44,720,28]}
+{"kind":"textbox","id":"sh/a9w3m94f","slide":4,"text":"A diligence room and a private reward lab share the same core.","textPreview":"A diligence room and a private reward lab share the same core.","textChars":62,"textLines":1,"bbox":[78,70,970,104]}
+{"kind":"shape","id":"sh/zupwb2hw","slide":4,"bbox":[84,210,238,130]}
+{"kind":"textbox","id":"sh/sfil0rqd","slide":4,"text":"NDAI room","textPreview":"NDAI room","textChars":9,"textLines":1,"bbox":[102,228,202,30]}
+{"kind":"textbox","id":"sh/h0fepkzu","slide":4,"text":"reserve price, budget cap, bounded disclosure","textPreview":"reserve price, budget cap, bounded disclosure","textChars":45,"textLines":1,"bbox":[102,264,202,62]}
+{"kind":"shape","id":"sh/65wjudg7","slide":4,"bbox":[378,210,238,130]}
+{"kind":"textbox","id":"sh/zqtcj6to","slide":4,"text":"TEE custody","textPreview":"TEE custody","textChars":11,"textLines":1,"bbox":[396,228,202,30]}
+{"kind":"textbox","id":"sh/zupwb2hw","slide":4,"text":"data, credentials, verifier, account keys","textPreview":"data, credentials, verifier, account keys","textChars":41,"textLines":1,"bbox":[396,264,202,62]}
+{"kind":"shape","id":"sh/a9w3m94f","slide":4,"bbox":[672,210,238,130]}
+{"kind":"textbox","id":"sh/h0fepkzu","slide":4,"text":"private reward","textPreview":"private reward","textChars":14,"textLines":1,"bbox":[690,228,202,30]}
+{"kind":"textbox","id":"sh/sfil0rqd","slide":4,"text":"RLVR, TTT, LLM loop, code search","textPreview":"RLVR, TTT, LLM loop, code search","textChars":32,"textLines":1,"bbox":[690,264,202,62]}
+{"kind":"shape","id":"sh/z61032ls","slide":4,"bbox":[966,210,238,130]}
+{"kind":"textbox","id":"sh/al87ed8b","slide":4,"text":"ETH settlement","textPreview":"ETH settlement","textChars":14,"textLines":1,"bbox":[984,228,202,30]}
+{"kind":"textbox","id":"sh/hcrmhk3q","slide":4,"text":"escrow, result hash, public audit trail","textPreview":"escrow, result hash, public audit trail","textChars":39,"textLines":1,"bbox":[984,264,202,62]}
+{"kind":"shape","id":"sh/orytsvu9","slide":4,"bbox":[324,256,50,36]}
+{"kind":"shape","id":"sh/zed8v6ps","slide":4,"bbox":[618,256,50,36]}
+{"kind":"shape","id":"sh/6xkf6dcb","slide":4,"bbox":[912,256,50,36]}
+{"kind":"textbox","id":"sh/e1w7mp0b","slide":4,"text":"The same protected interface can value private artifacts, score generated code, route human review, and settle payments without publishing the underlying data.","textPreview":"The same protected interface can value private artifacts, score generated code, route human review, and settle payments without publishin...","textChars":159,"textLines":1,"bbox":[142,432,996,72]}
+{"kind":"textbox","id":"sh/7mp0bi9s","slide":4,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/w7mp0bi9","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/upwb2hwf","slide":4,"name":"","alt":"Attested compute network with sealed capsules","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/0p2x9p","slide":4,"text":""}
+{"kind":"slide","id":"sl/s7a69u","slide":5,"title":"CONCRETE EXAMPLE","textShapes":10}
+{"kind":"shape","id":"sh/4fu18jqh","slide":5,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/x0nuxc3y","slide":5,"text":"CONCRETE EXAMPLE","textPreview":"CONCRETE EXAMPLE","textChars":16,"textLines":1,"bbox":[78,44,720,28]}
+{"kind":"textbox","id":"sh/qxs72x4n","slide":5,"text":"TTT-Discover-style biology becomes a private reward environment.","textPreview":"TTT-Discover-style biology becomes a private reward environment.","textChars":64,"textLines":1,"bbox":[78,70,970,104]}
+{"kind":"shape","id":"sh/fil0rqd4","slide":5,"bbox":[78,188,510,350]}
+{"kind":"textbox","id":"sh/83itgfml","slide":5,"text":"Private bio verifier","textPreview":"Private bio verifier","textChars":20,"textLines":1,"bbox":[108,224,430,32]}
+{"kind":"shape","id":"sh/xobm58z2","slide":5,"bbox":[116,297,8,8]}
+{"kind":"textbox","id":"sh/mtwra5gb","slide":5,"text":"Candidate computational-bio code is proposed by an optimizer.","textPreview":"Candidate computational-bio code is proposed by an optimizer.","textChars":61,"textLines":1,"bbox":[138,288,388,58]}
+{"kind":"shape","id":"sh/fepkzupw","slide":5,"bbox":[116,369,8,8]}
+{"kind":"textbox","id":"sh/7adsji5s","slide":5,"text":"The TEE evaluates it against sealed data and hidden holdouts.","textPreview":"The TEE evaluates it against sealed data and hidden holdouts.","textChars":61,"textLines":1,"bbox":[138,360,388,58]}
+{"kind":"shape","id":"sh/epkzupwb","slide":5,"bbox":[116,441,8,8]}
+{"kind":"textbox","id":"sh/pg3ex0nu","slide":5,"text":"Exact rewards can drive learning internally; public outputs are reduced.","textPreview":"Exact rewards can drive learning internally; public outputs are reduced.","textChars":72,"textLines":1,"bbox":[138,432,388,58]}
+{"kind":"shape","id":"sh/wval87ed","slide":5,"bbox":[660,218,446,230]}
+{"kind":"textbox","id":"sh/7mp0bi9s","slide":5,"text":"The optimizer is swappable","textPreview":"The optimizer is swappable","textChars":26,"textLines":1,"bbox":[696,254,374,34]}
+{"kind":"textbox","id":"sh/e1w7mp0b","slide":5,"text":"RLVR  •  test-time training  •  LLM repair loop  •  evolutionary search","textPreview":"RLVR  •  test-time training  •  LLM repair loop  •  evolutionary search","textChars":71,"textLines":1,"bbox":[704,322,360,70]}
+{"kind":"textbox","id":"sh/psfil0rq","slide":5,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/w7mp0bi9","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/q1orytsv","slide":5,"name":"","alt":"Candidate code streams entering a private verifier","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/s7a69u","slide":5,"text":""}
+{"kind":"slide","id":"sl/mfuo8p","slide":6,"title":"SECURITY CLAIM","textShapes":21}
+{"kind":"shape","id":"sh/c7u54zid","slide":6,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/1orytsvu","slide":6,"text":"SECURITY CLAIM","textPreview":"SECURITY CLAIM","textChars":14,"textLines":1,"bbox":[78,44,720,28]}
+{"kind":"textbox","id":"sh/u9knih4b","slide":6,"text":"Only the chosen reward transcript leaves the TEE.","textPreview":"Only the chosen reward transcript leaves the TEE.","textChars":49,"textLines":1,"bbox":[78,78,1040,58]}
+{"kind":"textbox","id":"sh/judg7ads","slide":6,"text":"Private data can be queried, but every query passes through one measured interface.","textPreview":"Private data can be queried, but every query passes through one measured interface.","textChars":83,"textLines":1,"bbox":[80,152,930,50]}
+{"kind":"shape","id":"sh/cfa9w3m9","slide":6,"bbox":[324,340,36,28]}
+{"kind":"shape","id":"sh/1032lszq","slide":6,"bbox":[612,340,36,28]}
+{"kind":"shape","id":"sh/udg7adsj","slide":6,"bbox":[900,340,36,28]}
+{"kind":"shape","id":"sh/nyd0z610","slide":6,"bbox":[78,248,240,226]}
+{"kind":"textbox","id":"sh/v6psfil0","slide":6,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[96,266,46,26]}
+{"kind":"textbox","id":"sh/2lszqtcj","slide":6,"text":"Seal D","textPreview":"Seal D","textChars":6,"textLines":1,"bbox":[96,303,204,34]}
+{"kind":"textbox","id":"sh/d8bat47y","slide":6,"text":"Private data and verifier code live inside the attested TEE.","textPreview":"Private data and verifier code live inside the attested TEE.","textChars":60,"textLines":1,"bbox":[100,360,196,80]}
+{"kind":"shape","id":"sh/knih4byh","slide":6,"bbox":[366,248,240,226]}
+{"kind":"textbox","id":"sh/vu9knih4","slide":6,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[384,266,46,26]}
+{"kind":"textbox","id":"sh/29gr2p8n","slide":6,"text":"Run R_D(c)","textPreview":"Run R_D(c)","textChars":10,"textLines":1,"bbox":[384,303,204,34]}
+{"kind":"textbox","id":"sh/d0z61032","slide":6,"text":"Candidate code is sandboxed and scored against hidden data.","textPreview":"Candidate code is sandboxed and scored against hidden data.","textChars":59,"textLines":1,"bbox":[388,360,196,80]}
+{"kind":"shape","id":"sh/kf6dcbul","slide":6,"bbox":[654,248,240,226]}
+{"kind":"textbox","id":"sh/vixczed8","slide":6,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[672,266,46,26]}
+{"kind":"textbox","id":"sh/2x4nap4r","slide":6,"text":"Release Q(...)","textPreview":"Release Q(...)","textChars":14,"textLines":1,"bbox":[672,303,204,34]}
+{"kind":"textbox","id":"sh/ex0nuxc3","slide":6,"text":"Only reduced feedback leaves: band, hash, hold, or final result.","textPreview":"Only reduced feedback leaves: band, hash, hold, or final result.","textChars":64,"textLines":1,"bbox":[676,360,196,80]}
+{"kind":"shape","id":"sh/3itgfmlk","slide":6,"bbox":[942,248,240,226]}
+{"kind":"textbox","id":"sh/w3m94fu1","slide":6,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[960,266,46,26]}
+{"kind":"textbox","id":"sh/loj2t83i","slide":6,"text":"Account for leakage","textPreview":"Account for leakage","textChars":19,"textLines":1,"bbox":[960,303,204,34]}
+{"kind":"textbox","id":"sh/e9cvixcz","slide":6,"text":"The public transcript is counted before the system is trusted.","textPreview":"The public transcript is counted before the system is trusted.","textChars":62,"textLines":1,"bbox":[964,360,196,80]}
+{"kind":"shape","id":"sh/3q5o7qpg","slide":6,"bbox":[116,520,1048,116]}
+{"kind":"textbox","id":"sh/wb2hwfyx","slide":6,"text":"Simulation claim","textPreview":"Simulation claim","textChars":16,"textLines":1,"bbox":[150,544,258,28]}
+{"kind":"textbox","id":"sh/lwval87e","slide":6,"text":"Any outside view can be generated from L(D), the declared leakage. If a fact is not in L(D), it should not appear outside the TEE.","textPreview":"Any outside view can be generated from L(D), the declared leakage. If a fact is not in L(D), it should not appear outside the TEE.","textChars":130,"textLines":1,"bbox":[150,578,610,44]}
+{"kind":"textbox","id":"sh/ahoza1gv","slide":6,"text":"I(D ; transcript) ≤ n·k + b","textPreview":"I(D ; transcript) ≤ n·k + b","textChars":27,"textLines":1,"bbox":[790,548,342,34]}
+{"kind":"textbox","id":"sh/32lszqtc","slide":6,"text":"n reward queries x k visible bits + b final-result bits","textPreview":"n reward queries x k visible bits + b final-result bits","textChars":55,"textLines":1,"bbox":[782,588,362,34]}
+{"kind":"textbox","id":"sh/t47y1kre","slide":6,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/0je9cvix","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/u18jqh0f","slide":6,"name":"","alt":"Private reward proof concept","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/mfuo8p","slide":6,"text":""}
+{"kind":"slide","id":"sl/bit9bq","slide":7,"title":"WHAT EXISTS NOW","textShapes":13}
+{"kind":"shape","id":"sh/83itgfml","slide":7,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/xobm58z2","slide":7,"text":"WHAT EXISTS NOW","textPreview":"WHAT EXISTS NOW","textChars":15,"textLines":1,"bbox":[78,44,720,28]}
+{"kind":"textbox","id":"sh/m94fu18j","slide":7,"text":"This is already more than a concept deck.","textPreview":"This is already more than a concept deck.","textChars":41,"textLines":1,"bbox":[78,70,970,104]}
+{"kind":"shape","id":"sh/fu18jqh0","slide":7,"bbox":[82,210,250,112]}
+{"kind":"textbox","id":"sh/4fu18jqh","slide":7,"text":"real","textPreview":"real","textChars":4,"textLines":1,"bbox":[100,228,214,36]}
+{"kind":"textbox","id":"sh/x0nuxc3y","slide":7,"text":"DiligenceRoom escrow + settlement tests","textPreview":"DiligenceRoom escrow + settlement tests","textChars":39,"textLines":1,"bbox":[100,272,214,34]}
+{"kind":"shape","id":"sh/mlkjm1cf","slide":7,"bbox":[362,210,250,112]}
+{"kind":"textbox","id":"sh/f6dcbulw","slide":7,"text":"real","textPreview":"real","textChars":4,"textLines":1,"bbox":[380,228,214,36]}
+{"kind":"textbox","id":"sh/vixczed8","slide":7,"text":"EmailOracleAuth app policy + tests","textPreview":"EmailOracleAuth app policy + tests","textChars":34,"textLines":1,"bbox":[380,272,214,34]}
+{"kind":"shape","id":"sh/2x4nap4r","slide":7,"bbox":[642,210,250,112]}
+{"kind":"textbox","id":"sh/donyd0z6","slide":7,"text":"real","textPreview":"real","textChars":4,"textLines":1,"bbox":[660,228,214,36]}
+{"kind":"textbox","id":"sh/k3q5o7qp","slide":7,"text":"TEE email oracle service and sealed store","textPreview":"TEE email oracle service and sealed store","textChars":41,"textLines":1,"bbox":[660,272,214,34]}
+{"kind":"shape","id":"sh/val87ed8","slide":7,"bbox":[922,210,250,112]}
+{"kind":"textbox","id":"sh/6psfil0r","slide":7,"text":"partial","textPreview":"partial","textChars":7,"textLines":1,"bbox":[940,228,214,36]}
+{"kind":"textbox","id":"sh/dcbulwva","slide":7,"text":"tinker-delegate control plane and billing scaffold","textPreview":"tinker-delegate control plane and billing scaffold","textChars":50,"textLines":1,"bbox":[940,272,214,34]}
+{"kind":"shape","id":"sh/kre1w7mp","slide":7,"bbox":[118,390,1044,124]}
+{"kind":"textbox","id":"sh/v6psfil0","slide":7,"text":"The repo includes deployed Base Sepolia contracts, 39 passing Foundry tests, Phala deployment runbooks, an isolated Tinker session wrapper, encrypted card-channel code, and a full architecture/proof roadmap.","textPreview":"The repo includes deployed Base Sepolia contracts, 39 passing Foundry tests, Phala deployment runbooks, an isolated Tinker session wrappe...","textChars":207,"textLines":1,"bbox":[158,428,964,58]}
+{"kind":"textbox","id":"sh/2lszqtcj","slide":7,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/ap4r65wj","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/ahoza1gv","slide":7,"name":"","alt":"Attested compute capsules","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/bit9bq","slide":7,"text":""}
+{"kind":"slide","id":"sl/yvv2jm","slide":8,"title":"HONEST CURRENT STATE","textShapes":14}
+{"kind":"shape","id":"sh/gn29gr2p","slide":8,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/n29gr2p8","slide":8,"text":"HONEST CURRENT STATE","textPreview":"HONEST CURRENT STATE","textChars":20,"textLines":1,"bbox":[78,44,720,28]}
+{"kind":"textbox","id":"sh/yhgn29gr","slide":8,"text":"The hard parts are named, not hidden.","textPreview":"The hard parts are named, not hidden.","textChars":37,"textLines":1,"bbox":[78,70,970,104]}
+{"kind":"shape","id":"sh/5wjudg7a","slide":8,"bbox":[100,190,1080,72]}
+{"kind":"textbox","id":"sh/gbq1oryt","slide":8,"text":"Tinker auth and browser posture","textPreview":"Tinker auth and browser posture","textChars":31,"textLines":1,"bbox":[132,208,330,28]}
+{"kind":"textbox","id":"sh/nuxc3ylc","slide":8,"text":"blocked by current bot/fingerprint checks in deployed headless mode","textPreview":"blocked by current bot/fingerprint checks in deployed headless mode","textChars":67,"textLines":1,"bbox":[500,207,620,32]}
+{"kind":"shape","id":"sh/y90je9cv","slide":8,"bbox":[100,274,1080,72]}
+{"kind":"textbox","id":"sh/5sneloj2","slide":8,"text":"Tinker account funding","textPreview":"Tinker account funding","textChars":22,"textLines":1,"bbox":[132,292,330,28]}
+{"kind":"textbox","id":"sh/cbulwval","slide":8,"text":"card channel exists; Stripe/Tinker completion still needs a safe verified path","textPreview":"card channel exists; Stripe/Tinker completion still needs a safe verified path","textChars":78,"textLines":1,"bbox":[500,291,620,32]}
+{"kind":"shape","id":"sh/e9cvixcz","slide":8,"bbox":[100,358,1080,72]}
+{"kind":"textbox","id":"sh/3q5o7qpg","slide":8,"text":"Quote verification","textPreview":"Quote verification","textChars":18,"textLines":1,"bbox":[132,376,330,28]}
+{"kind":"textbox","id":"sh/wb2hwfyx","slide":8,"text":"contracts trust a submitter address today; vNext must bind measured code","textPreview":"contracts trust a submitter address today; vNext must bind measured code","textChars":72,"textLines":1,"bbox":[500,375,620,32]}
+{"kind":"shape","id":"sh/lwval87e","slide":8,"bbox":[100,442,1080,72]}
+{"kind":"textbox","id":"sh/ex0nuxc3","slide":8,"text":"Private reward environments","textPreview":"Private reward environments","textChars":27,"textLines":1,"bbox":[132,460,330,28]}
+{"kind":"textbox","id":"sh/3itgfmlk","slide":8,"text":"formalized in docs; implementation and sandbox tests still to build","textPreview":"formalized in docs; implementation and sandbox tests still to build","textChars":67,"textLines":1,"bbox":[500,459,620,32]}
+{"kind":"shape","id":"sh/w3m94fu1","slide":8,"bbox":[100,526,1080,72]}
+{"kind":"textbox","id":"sh/loj2t83i","slide":8,"text":"Frontend","textPreview":"Frontend","textChars":8,"textLines":1,"bbox":[132,544,330,28]}
+{"kind":"textbox","id":"sh/at47y1kr","slide":8,"text":"gate-health UI exists on a separate branch; needs integration with real APIs","textPreview":"gate-health UI exists on a separate branch; needs integration with real APIs","textChars":76,"textLines":1,"bbox":[500,543,620,32]}
+{"kind":"textbox","id":"sh/3ex0nuxc","slide":8,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/z25kb6xk","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"notes","id":"nt/yvv2jm","slide":8,"text":""}
+{"kind":"slide","id":"sl/5bg26w","slide":9,"title":"WHY THIS BELONGS IN THE ETH CONVERSATION","textShapes":8}
+{"kind":"shape","id":"sh/y90je9cv","slide":9,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/nuxc3ylc","slide":9,"text":"WHY THIS BELONGS IN THE ETH CONVERSATION","textPreview":"WHY THIS BELONGS IN THE ETH CONVERSATION","textChars":40,"textLines":1,"bbox":[78,44,720,28]}
+{"kind":"textbox","id":"sh/gn29gr2p","slide":9,"text":"The trust boundary becomes public infrastructure.","textPreview":"The trust boundary becomes public infrastructure.","textChars":49,"textLines":1,"bbox":[78,70,970,104]}
+{"kind":"shape","id":"sh/58z25kb6","slide":9,"bbox":[106,219,8,8]}
+{"kind":"textbox","id":"sh/yhgn29gr","slide":9,"text":"Attestations turn private computation into something users can verify.","textPreview":"Attestations turn private computation into something users can verify.","textChars":70,"textLines":1,"bbox":[128,210,578,58]}
+{"kind":"shape","id":"sh/n29gr2p8","slide":9,"bbox":[106,301,8,8]}
+{"kind":"textbox","id":"sh/czed8v6p","slide":9,"text":"Contracts enforce reserve prices, budget caps, result hashes, and settlement.","textPreview":"Contracts enforce reserve prices, budget caps, result hashes, and settlement.","textChars":77,"textLines":1,"bbox":[128,292,618,58]}
+{"kind":"shape","id":"sh/5kb6xkf6","slide":9,"bbox":[106,383,8,8]}
+{"kind":"textbox","id":"sh/x4nap4r6","slide":9,"text":"Private rewards create markets for benchmarks, biology, audits, and data without dumping raw assets on-chain.","textPreview":"Private rewards create markets for benchmarks, biology, audits, and data without dumping raw assets on-chain.","textChars":109,"textLines":1,"bbox":[128,374,688,58]}
+{"kind":"shape","id":"sh/8jqh0fep","slide":9,"bbox":[106,465,8,8]}
+{"kind":"textbox","id":"sh/fyxobm58","slide":9,"text":"The Flashbots/DevProof lesson applies: define the roles, freeze the measurements, and publish the verification path.","textPreview":"The Flashbots/DevProof lesson applies: define the roles, freeze the measurements, and publish the verification path.","textChars":116,"textLines":1,"bbox":[128,456,688,58]}
+{"kind":"textbox","id":"sh/qd4vmtwr","slide":9,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/xczed8v6","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/4byhgn29","slide":9,"name":"","alt":"Sealed dataset with reduced rewards leaving","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/5bg26w","slide":9,"text":""}
+{"kind":"slide","id":"sl/26gy64","slide":10,"title":"APPLICATIONS","textShapes":14}
+{"kind":"shape","id":"sh/fyxobm58","slide":10,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/qd4vmtwr","slide":10,"text":"APPLICATIONS","textPreview":"APPLICATIONS","textChars":12,"textLines":1,"bbox":[78,44,720,28]}
+{"kind":"textbox","id":"sh/xczed8v6","slide":10,"text":"The same primitive opens several high-value use cases.","textPreview":"The same primitive opens several high-value use cases.","textChars":54,"textLines":1,"bbox":[78,70,970,104]}
+{"kind":"shape","id":"sh/8v6psfil","slide":10,"bbox":[88,214,340,132]}
+{"kind":"textbox","id":"sh/fa9w3m94","slide":10,"text":"Bio validation","textPreview":"Bio validation","textChars":14,"textLines":1,"bbox":[110,234,296,28]}
+{"kind":"textbox","id":"sh/qpg3ex0n","slide":10,"text":"private reward over assays, single-cell data, QC, hidden holdouts","textPreview":"private reward over assays, single-cell data, QC, hidden holdouts","textChars":65,"textLines":1,"bbox":[110,274,296,52]}
+{"kind":"shape","id":"sh/1gvy90je","slide":10,"bbox":[464,214,340,132]}
+{"kind":"textbox","id":"sh/8z25kb6x","slide":10,"text":"Private benchmarks","textPreview":"Private benchmarks","textChars":18,"textLines":1,"bbox":[486,234,296,28]}
+{"kind":"textbox","id":"sh/a9w3m94f","slide":10,"text":"evaluate code or models against proprietary tests without releasing tests","textPreview":"evaluate code or models against proprietary tests without releasing tests","textChars":73,"textLines":1,"bbox":[486,274,296,52]}
+{"kind":"shape","id":"sh/zupwb2hw","slide":10,"bbox":[840,214,340,132]}
+{"kind":"textbox","id":"sh/sfil0rqd","slide":10,"text":"Diligence rooms","textPreview":"Diligence rooms","textChars":15,"textLines":1,"bbox":[862,234,296,28]}
+{"kind":"textbox","id":"sh/h0fepkzu","slide":10,"text":"price research, datasets, SOPs, bug reports, and model artifacts","textPreview":"price research, datasets, SOPs, bug reports, and model artifacts","textChars":64,"textLines":1,"bbox":[862,274,296,52]}
+{"kind":"shape","id":"sh/al87ed8b","slide":10,"bbox":[178,398,510,132]}
+{"kind":"textbox","id":"sh/z61032ls","slide":10,"text":"Source custody","textPreview":"Source custody","textChars":14,"textLines":1,"bbox":[200,418,466,28]}
+{"kind":"textbox","id":"sh/orytsvu9","slide":10,"text":"browser-held accounts and private sources become sealed assets","textPreview":"browser-held accounts and private sources become sealed assets","textChars":62,"textLines":1,"bbox":[200,458,466,52]}
+{"kind":"shape","id":"sh/hcrmhk3q","slide":10,"bbox":[724,398,510,132]}
+{"kind":"textbox","id":"sh/6xkf6dcb","slide":10,"text":"Multi-owner science","textPreview":"Multi-owner science","textChars":19,"textLines":1,"bbox":[746,418,466,28]}
+{"kind":"textbox","id":"sh/zed8v6ps","slide":10,"text":"fan-out gates, consent, reviewer holds, joint attestations","textPreview":"fan-out gates, consent, reviewer holds, joint attestations","textChars":58,"textLines":1,"bbox":[746,458,466,52]}
+{"kind":"textbox","id":"sh/nih4byhg","slide":10,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/yxobm58z","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/54zidony","slide":10,"name":"","alt":"Many sealed data vaults feeding a central engine","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/26gy64","slide":10,"text":""}
+{"kind":"slide","id":"sl/yh988x","slide":11,"title":"BUILD PLAN","textShapes":19}
+{"kind":"shape","id":"sh/d8v6psfi","slide":11,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/onyd0z61","slide":11,"text":"BUILD PLAN","textPreview":"BUILD PLAN","textChars":10,"textLines":1,"bbox":[78,44,720,28]}
+{"kind":"textbox","id":"sh/vahoza1g","slide":11,"text":"The next work turns the proof model into a demo people can verify.","textPreview":"The next work turns the proof model into a demo people can verify.","textChars":66,"textLines":1,"bbox":[78,70,970,104]}
+{"kind":"shape","id":"sh/6tovahoz","slide":11,"bbox":[80,222,206,264]}
+{"kind":"textbox","id":"sh/dg7adsji","slide":11,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[98,244,50,42]}
+{"kind":"textbox","id":"sh/ovahoza1","slide":11,"text":"PrivateRewardEnvironment","textPreview":"PrivateRewardEnvironment","textChars":24,"textLines":1,"bbox":[98,312,168,52]}
+{"kind":"textbox","id":"sh/vmtwra5g","slide":11,"text":"synthetic hidden data, leakage model, transcript hash","textPreview":"synthetic hidden data, leakage model, transcript hash","textChars":53,"textLines":1,"bbox":[98,388,168,74]}
+{"kind":"shape","id":"sh/61032lsz","slide":11,"bbox":[306,222,206,264]}
+{"kind":"textbox","id":"sh/wval87ed","slide":11,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[324,244,50,42]}
+{"kind":"textbox","id":"sh/pg3ex0nu","slide":11,"text":"TEE enforcement","textPreview":"TEE enforcement","textChars":15,"textLines":1,"bbox":[324,312,168,52]}
+{"kind":"textbox","id":"sh/epkzupwb","slide":11,"text":"oracle auth, quote verification, candidate sandbox","textPreview":"oracle auth, quote verification, candidate sandbox","textChars":50,"textLines":1,"bbox":[324,388,168,74]}
+{"kind":"shape","id":"sh/7adsji5s","slide":11,"bbox":[532,222,206,264]}
+{"kind":"textbox","id":"sh/w7mp0bi9","slide":11,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[550,244,50,42]}
+{"kind":"textbox","id":"sh/psfil0rq","slide":11,"text":"End-to-end room","textPreview":"End-to-end room","textChars":15,"textLines":1,"bbox":[550,312,168,52]}
+{"kind":"textbox","id":"sh/e1w7mp0b","slide":11,"text":"encrypted artifact, chain watcher, TEE signer, bounded result","textPreview":"encrypted artifact, chain watcher, TEE signer, bounded result","textChars":61,"textLines":1,"bbox":[550,388,168,74]}
+{"kind":"shape","id":"sh/7mp0bi9s","slide":11,"bbox":[758,222,206,264]}
+{"kind":"textbox","id":"sh/wfyxobm5","slide":11,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[776,244,50,42]}
+{"kind":"textbox","id":"sh/l0rqd4vm","slide":11,"text":"Tinker path","textPreview":"Tinker path","textChars":11,"textLines":1,"bbox":[776,312,168,52]}
+{"kind":"textbox","id":"sh/pwb2hwfy","slide":11,"text":"safe account custody, funding, tiny training run","textPreview":"safe account custody, funding, tiny training run","textChars":48,"textLines":1,"bbox":[776,388,168,74]}
+{"kind":"shape","id":"sh/0bi9s36h","slide":11,"bbox":[984,222,206,264]}
+{"kind":"textbox","id":"sh/7qpg3ex0","slide":11,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[1002,244,50,42]}
+{"kind":"textbox","id":"sh/i5sneloj","slide":11,"text":"Public verifier","textPreview":"Public verifier","textChars":15,"textLines":1,"bbox":[1002,312,168,52]}
+{"kind":"textbox","id":"sh/p4r65wju","slide":11,"text":"Cloudflare frontend, compose hash, quote, tx trail","textPreview":"Cloudflare frontend, compose hash, quote, tx trail","textChars":50,"textLines":1,"bbox":[1002,388,168,74]}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":11,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/7y1kre1w","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/bi9s36hc","slide":11,"name":"","alt":"Secure network of TEE capsules","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/yh988x","slide":11,"text":""}
+{"kind":"slide","id":"sl/ofs7mf","slide":12,"title":"WHAT SUPPORT UNLOCKS","textShapes":12}
+{"kind":"shape","id":"sh/1032lszq","slide":12,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/cfa9w3m9","slide":12,"text":"WHAT SUPPORT UNLOCKS","textPreview":"WHAT SUPPORT UNLOCKS","textChars":20,"textLines":1,"bbox":[78,44,720,28]}
+{"kind":"textbox","id":"sh/jm1cfa9w","slide":12,"text":"This cohort can help make the project legible, verified, and real.","textPreview":"This cohort can help make the project legible, verified, and real.","textChars":66,"textLines":1,"bbox":[78,70,970,104]}
+{"kind":"shape","id":"sh/u18jqh0f","slide":12,"bbox":[84,194,514,330]}
+{"kind":"textbox","id":"sh/1orytsvu","slide":12,"text":"What we need","textPreview":"What we need","textChars":12,"textLines":1,"bbox":[124,232,430,34]}
+{"kind":"shape","id":"sh/c7u54zid","slide":12,"bbox":[132,309,8,8]}
+{"kind":"textbox","id":"sh/nap4r65w","slide":12,"text":"cryptographic critique of the leakage and attestation model","textPreview":"cryptographic critique of the leakage and attestation model","textChars":59,"textLines":1,"bbox":[154,300,358,58]}
+{"kind":"shape","id":"sh/upwb2hwf","slide":12,"bbox":[132,375,8,8]}
+{"kind":"textbox","id":"sh/orytsvu9","slide":12,"text":"TEE / Flashbots / DevProof review of deployment assumptions","textPreview":"TEE / Flashbots / DevProof review of deployment assumptions","textChars":59,"textLines":1,"bbox":[154,366,368,58]}
+{"kind":"shape","id":"sh/hcrmhk3q","slide":12,"bbox":[132,441,8,8]}
+{"kind":"textbox","id":"sh/al87ed8b","slide":12,"text":"compute, funding rails, and Tinker account-path support","textPreview":"compute, funding rails, and Tinker account-path support","textChars":55,"textLines":1,"bbox":[154,432,368,58]}
+{"kind":"shape","id":"sh/z61032ls","slide":12,"bbox":[680,194,514,330]}
+{"kind":"textbox","id":"sh/sfil0rqd","slide":12,"text":"What it unlocks","textPreview":"What it unlocks","textChars":15,"textLines":1,"bbox":[720,232,430,34]}
+{"kind":"shape","id":"sh/h0fepkzu","slide":12,"bbox":[728,309,8,8]}
+{"kind":"textbox","id":"sh/a9w3m94f","slide":12,"text":"a verifiable demo of private reward over sealed data","textPreview":"a verifiable demo of private reward over sealed data","textChars":52,"textLines":1,"bbox":[750,300,368,58]}
+{"kind":"shape","id":"sh/zupwb2hw","slide":12,"bbox":[728,375,8,8]}
+{"kind":"textbox","id":"sh/obm58z25","slide":12,"text":"an ETH-native template for private benchmarks and data markets","textPreview":"an ETH-native template for private benchmarks and data markets","textChars":62,"textLines":1,"bbox":[750,366,368,58]}
+{"kind":"shape","id":"sh/hwfyxobm","slide":12,"bbox":[728,441,8,8]}
+{"kind":"textbox","id":"sh/18jqh0fe","slide":12,"text":"a stronger path for bio diligence without raw disclosure","textPreview":"a stronger path for bio diligence without raw disclosure","textChars":56,"textLines":1,"bbox":[750,432,368,58]}
+{"kind":"textbox","id":"sh/8nqxs72x","slide":12,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/j2t83itg","slide":12,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/nyd0z610","slide":12,"name":"","alt":"Secure DNA vault","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/ofs7mf","slide":12,"text":""}
+{"kind":"slide","id":"sl/9239mt","slide":13,"title":"wikigen.me","textShapes":8}
+{"kind":"shape","id":"sh/rqd4vmtw","slide":13,"bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/25kb6xkf","slide":13,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/9knih4by","slide":13,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,72,420,60]}
+{"kind":"textbox","id":"sh/kzupwb2h","slide":13,"text":"Help us make private rewards verifiable public infrastructure.","textPreview":"Help us make private rewards verifiable public infrastructure.","textChars":62,"textLines":1,"bbox":[78,178,860,150]}
+{"kind":"textbox","id":"sh/re1w7mp0","slide":13,"text":"The vision is not to sell private data. It is to let private data prove, reward, validate, and settle under a boundary the ETH community can inspect.","textPreview":"The vision is not to sell private data. It is to let private data prove, reward, validate, and settle under a boundary the ETH community ...","textChars":149,"textLines":1,"bbox":[82,380,760,92]}
+{"kind":"shape","id":"sh/2t83itgf","slide":13,"bbox":[82,536,210,34]}
+{"kind":"textbox","id":"sh/9gr2p8nq","slide":13,"text":"Shape Rotator project","textPreview":"Shape Rotator project","textChars":21,"textLines":1,"bbox":[95,543,184,20]}
+{"kind":"shape","id":"sh/gvy90je9","slide":13,"bbox":[314,536,270,34]}
+{"kind":"textbox","id":"sh/yd0z6103","slide":13,"text":"Flashbots-aligned trust model","textPreview":"Flashbots-aligned trust model","textChars":29,"textLines":1,"bbox":[327,543,244,20]}
+{"kind":"shape","id":"sh/rytsvu9k","slide":13,"bbox":[606,536,236,34]}
+{"kind":"textbox","id":"sh/gfmlkjm1","slide":13,"text":"ETH-verifiable settlement","textPreview":"ETH-verifiable settlement","textChars":25,"textLines":1,"bbox":[619,543,210,20]}
+{"kind":"textbox","id":"sh/90je9cvi","slide":13,"text":"wikigen.me","textPreview":"wikigen.me","textChars":10,"textLines":1,"bbox":[78,676,180,22]}
+{"kind":"textbox","id":"sh/y1kre1w7","slide":13,"text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[1160,676,42,22]}
+{"kind":"image","id":"im/t83itgfm","slide":13,"name":"","alt":"Wikigen private data vision engine","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/9239mt","slide":13,"text":""}
