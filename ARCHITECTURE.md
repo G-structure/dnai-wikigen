@@ -831,6 +831,21 @@ Implementation status:
             manifest, and computes the Phala Cloud-style compose hash over the
             rendered app-compose object. The Phala Playwright sidecar image is
             pinned by amd64 digest in `docker-compose.all.phala.yaml`.
+[real]      `.github/workflows/build-tee-images.yml` builds the deploy-critical
+            `tee-email-oracle` and `tinker-delegate` images on GitHub-hosted
+            runners for `linux/amd64`, pushes SHA-tagged images to GHCR, asks
+            BuildKit to attach SBOM/provenance attestations, generates an SPDX
+            SBOM with Syft, and emits GitHub-native signed provenance and SBOM
+            attestations bound to the pushed image digest. The Dockerfiles for
+            those two services pin the Python runtime image and `uv` helper
+            image by versioned digest.
+[real]      `scripts/verify-ghcr-image-attestation.sh` is the pre-Phala image
+            gate: it accepts only digest-pinned GHCR image references and uses
+            `gh attestation verify` against OCI-attached attestations to enforce
+            this repository, `.github/workflows/build-tee-images.yml`, the
+            expected source commit, GitHub-hosted runner provenance, SLSA
+            provenance predicate, and SPDX SBOM predicate before a digest is
+            allowed into the Phala compose file.
 [real]      Standalone `verify-cvm-attestation` CLI and
             `scripts/verify-cvm-attestation.sh` combine those two checks for
             operators: render the Phala compose file, enforce required

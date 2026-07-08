@@ -515,7 +515,20 @@ only locally until a deployment exists.
   manifest, and computes the Phala Cloud-style compose hash over the rendered
   app-compose object.
 - The Phala Playwright sidecar image is pinned by amd64 digest.
-- Full reproducible container images, SBOMs, and build provenance remain open.
+- The deploy-critical `tinker-delegate` and `tee-email-oracle` Dockerfiles now
+  pin the Python runtime and `uv` helper images by versioned digest.
+- `.github/workflows/build-tee-images.yml` builds those two images on
+  GitHub-hosted runners, pushes `linux/amd64` images to GHCR, attaches
+  BuildKit SBOM/provenance attestations, generates SPDX SBOMs, and emits
+  GitHub-signed provenance and SBOM attestations.
+- `⚙️/tinker-delegate/scripts/verify-ghcr-image-attestation.sh` verifies a
+  digest-pinned GHCR image against this repo, the TEE image workflow, expected
+  source commit, SLSA provenance predicate, SPDX SBOM predicate, and
+  non-self-hosted-runner policy before the image digest is allowed into Phala
+  deployment inputs.
+- Full reproducible container images for every side service, apt package
+  pinning, timestamp normalization, and final published digest evidence remain
+  open.
 - `deployments/base-sepolia.json` is now the machine-readable deployment
   manifest. It records the funded current operator deployer, current
   operator-controlled Base Sepolia contracts, and their deployment transaction

@@ -336,6 +336,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Make every service Dockerfile reproducible:
       pin base images by digest, pin package manager versions, normalize
       timestamps, avoid mutable tags, and generate SBOMs.
+      - [x] Pin the deploy-critical `tinker-delegate` and `tee-email-oracle`
+            Dockerfile Python and `uv` image sources by versioned digest.
+      - [x] Add GitHub-hosted image builds for the deploy-critical services
+            that push `linux/amd64` GHCR images with BuildKit SBOM/provenance
+            attestations plus GitHub-signed provenance and SPDX SBOM
+            attestations.
+      - [x] Add `scripts/verify-ghcr-image-attestation.sh` to fail deployment
+            unless a digest-pinned GHCR image verifies against the expected
+            GitHub repo, signer workflow, source commit, SLSA provenance
+            predicate, and SPDX SBOM predicate.
+      - [ ] Pin apt package versions, normalize timestamps, and generate
+            release SBOM evidence for every remaining service Dockerfile.
 - [x] `P0` Fix the `tinker-delegate` Dockerfile to install the optional Tinker
       agent dependency, not only the base package.
       Done when the CVM image reports `agent_stack_available=true`.
@@ -1164,6 +1176,10 @@ vision Wiki is reaching for.
 - [ ] `Deploy` Verify Cloudflare Wrangler login for frontend deployment.
 - [ ] `Deploy` Verify Phala CLI login and profile.
 - [ ] `Deploy` Verify Docker registry credentials and decide permanent registry.
+      - [x] Add GHCR as the CI image publication path for deploy-critical
+            TEE images.
+      - [ ] Run the GitHub image workflow, verify published image attestations,
+            and record final image digests.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
