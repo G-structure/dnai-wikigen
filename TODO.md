@@ -287,9 +287,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 ### Tinker Browser Auth
 
-- [ ] `P0` Decide the acceptable route for Tinker automation:
+- [x] `P0` Decide the acceptable route for Tinker automation:
       official API/support path, approved service-account flow, or compliant
       browser automation for an account this project controls.
+      Done in `⚙️/tinker-delegate/docs/TINKER-AUTOMATION-ROUTE.md`: prefer an
+      official/support-approved Tinker route; allow browser automation only as
+      bounded TEE custody for this project's own account, with no evasion.
 - [ ] `P0` Reproduce the current Tinker auth blocker in a controlled probe:
       local headed Chrome, local Neko, Phala headed Neko, headless Playwright
       sidecar, same email, same IP class where possible.
@@ -312,10 +315,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             including aria-label/data-testid fallback variants, successful key
             extraction, missing-create-selector, and extraction-failure paths.
       - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
-- [ ] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
+- [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to
       Tinker/Stripe if asked.
+      Current policy: fail closed on blocks, do not use stealth plugins,
+      automation-control masking, rotating proxies, user-agent spoofing, or
+      CAPTCHA-solving services for Tinker/Stripe account and billing flows.
+      `test_automation_route_policy.py` rejects common evasion dependencies and
+      flags in the runtime package, dependency manifest, and compose files.
 - [ ] `P0` Complete Tinker signup inside the CVM:
       email OTP, onboarding, API key creation, encrypted key sealing.
       - [x] Complete local Neko signup/sign-in path through OTP, onboarding, and

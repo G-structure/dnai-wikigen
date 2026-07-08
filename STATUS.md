@@ -180,6 +180,12 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   `dnai-tinker-delegate-agent-extra:local` returned
   `/health.agent_stack_available=true`.
 - The same flow still needs fresh validation inside a deployed Phala CVM.
+- `⚙️/tinker-delegate/docs/TINKER-AUTOMATION-ROUTE.md` records the acceptable
+  automation route: prefer official/support-approved Tinker workflows; allow
+  browser automation only as bounded TEE custody for this project's own account.
+- Runtime policy tests reject common stealth, CAPTCHA-solving, rotating-proxy,
+  and automation-control masking dependencies or flags in the Tinker delegate
+  runtime package, dependency manifest, and compose files.
 - Real Tinker SDK training/sampling/cleanup tests have not been run here; they
   remain gated on credentials, budget cap, and deployed CVM validation.
 - Cleanup attestations are local wrapper/control-plane evidence; deployed

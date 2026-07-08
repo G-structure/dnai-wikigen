@@ -573,6 +573,12 @@ Implementation status:
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
             OTP, browser URL, API key, or page text.
+[real]      `⚙️/tinker-delegate/docs/TINKER-AUTOMATION-ROUTE.md` records the
+            acceptable Tinker automation route: prefer official/support-approved
+            workflows; use browser automation only as bounded TEE custody for
+            this project's own account; fail closed rather than add stealth,
+            CAPTCHA-solving, rotating-proxy, or automation-control masking.
+            Static tests enforce those no-evasion runtime dependencies/flags.
 [real]      Local Stripe test-card billing path reaches submission and returns a bounded decline.
 [real]      Billing automation returns bounded payment-method and add-balance
             attempt records: outcome class, furthest stage, issued timestamp,
