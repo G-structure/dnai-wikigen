@@ -9,13 +9,15 @@ Endpoints:
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+import hashlib
+import hmac
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 from email_oracle.config import Settings
 from email_oracle.cred_store import CredentialStore, EmailCredentials
-from email_oracle.dstack_utils import get_attestation
+from email_oracle.dstack_utils import derive_storage_key, get_attestation
 from email_oracle.imap_client import IMAPClient
 
 
@@ -69,6 +71,51 @@ class OracleState:
 state = OracleState()
 
 
+def _runtime_auth_enabled() -> bool:
+    settings = state.settings
+    if not settings:
+        return False
+    return settings.runtime_auth_required or bool(settings.runtime_auth_token)
+
+
+def _runtime_auth_token() -> str:
+    settings = state.settings
+    if not settings:
+        return ""
+    if settings.runtime_auth_token:
+        return settings.runtime_auth_token
+    if settings.dstack_enabled:
+        key = derive_storage_key(settings.runtime_auth_key_path)
+        return hashlib.sha256(b"email-oracle-runtime-auth:" + key).hexdigest()
+    return ""
+
+
+def require_runtime_auth(authorization: str = Header(default="")) -> None:
+    """Protect OTP and inbox egress with same-CVM bearer auth."""
+    if not _runtime_auth_enabled():
+        return
+
+    expected = _runtime_auth_token()
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Oracle runtime auth is required but no token is configured",
+        )
+
+    scheme, _, supplied = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not supplied:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bearer token required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not hmac.compare_digest(supplied, expected):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid bearer token",
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize oracle on startup."""
@@ -116,7 +163,7 @@ app = FastAPI(
 )
 
 
-@app.post("/pin", response_model=PinResponse)
+@app.post("/pin", response_model=PinResponse, dependencies=[Depends(require_runtime_auth)])
 async def extract_pin(req: PinRequest):
     """Extract a verification pin from the oracle's inbox."""
     if not state.creds or not state.imap:
@@ -174,7 +221,7 @@ async def health():
     )
 
 
-@app.get("/inbox")
+@app.get("/inbox", dependencies=[Depends(require_runtime_auth)])
 async def list_inbox(max_age: int = 3600, limit: int = 20):
     """List recent emails (debug endpoint)."""
     if not state.imap:

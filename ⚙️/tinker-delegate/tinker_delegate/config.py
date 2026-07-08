@@ -22,6 +22,8 @@ class Settings(BaseSettings):
 
     # Email oracle
     oracle_url: str = "http://localhost:8000"
+    oracle_auth_token: str = ""
+    oracle_auth_key_path: str = "oracle/runtime-auth"
 
     # Tinker auth
     tinker_console_url: str = "https://tinker-console.thinkingmachines.ai"
@@ -44,3 +46,4 @@ class Settings(BaseSettings):
     bootstrap_fail_open: bool = False
     bootstrap_oracle_timeout: float = 300.0
     bootstrap_oracle_poll_interval: float = 5.0
+    debug_screenshots: bool = False

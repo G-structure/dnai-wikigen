@@ -143,6 +143,8 @@ services:
       ORACLE_API_PORT: "8000"
       ORACLE_DSTACK_ENABLED: "true"
       ORACLE_DSTACK_KEY_PATH: ${ORACLE_DSTACK_KEY_PATH:-email/creds}
+      ORACLE_RUNTIME_AUTH_REQUIRED: "true"
+      ORACLE_RUNTIME_AUTH_KEY_PATH: ${ORACLE_RUNTIME_AUTH_KEY_PATH:-oracle/runtime-auth}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
@@ -171,6 +173,7 @@ services:
       TINKER_BROWSER_WS_ENDPOINT: ws://172.20.0.6:3000/
       TINKER_CDP_URL: http://172.20.0.3:9223
       TINKER_ORACLE_URL: http://172.20.0.4:8000
+      TINKER_ORACLE_AUTH_KEY_PATH: ${TINKER_ORACLE_AUTH_KEY_PATH:-oracle/runtime-auth}
       TINKER_API_KEY_STORE_PATH: /data/tinker_api_key.enc
       TINKER_DSTACK_KEY_PATH: ${TINKER_DSTACK_KEY_PATH:-tinker/api_key}
       TINKER_BOOTSTRAP_SIGNUP: ${TINKER_BOOTSTRAP_SIGNUP:-true}

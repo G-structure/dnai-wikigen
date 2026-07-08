@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # --- API ---
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    runtime_auth_required: bool = False
+    runtime_auth_token: str = ""
+    runtime_auth_key_path: str = "oracle/runtime-auth"
 
     # --- dstack (no-op locally, used in TEE) ---
     dstack_socket: str = "/var/run/dstack.sock"
