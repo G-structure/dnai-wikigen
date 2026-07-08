@@ -646,14 +646,18 @@ Implementation status:
             `TINKER_API_KEY`, and `TINKER_REAL_SDK_MAX_USD <= 0.50` before it
             will create a tiny training run, save a TTL checkpoint, sample, and
             cleanup.
+[real]      The `tinker-delegate` Dockerfile copies `uv.lock` and installs with
+            `uv sync --frozen --no-dev --extra agent`, so the packaged delegate
+            image includes the optional Tinker SDK. A local build/run of
+            `dnai-tinker-delegate-agent-extra:local` returned
+            `/health.agent_stack_available=true`.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE and
             bounded attempt receipts are returned/persisted, but payment-method
             token/reference capture and a capped real-card funding attempt still
             need to be proven.
-[partial]   Optional Tinker SDK dependency must be installed and the real SDK
-            harness must be run inside the deployed CVM before claiming real
-            evaluator execution.
+[partial]   The real SDK harness must still be run inside the deployed CVM
+            before claiming real evaluator execution.
 [partial]   Cleanup attestations are generated locally, but deployed Tinker
             deletion and TTL-expiry behavior still need real SDK/CVM evidence.
 [partial]   Arbitrary third-party evaluator code is not yet isolated from

@@ -175,9 +175,11 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Tinker re-auth now has a bounded local helper/CLI and opt-in API endpoint for
   future OTP challenges. It returns `tinker_auth` attempt records only and does
   not return account email, OTP, browser URL, API key, or raw page text.
+- The `tinker-delegate` Dockerfile now copies `uv.lock` and installs with
+  `uv sync --frozen --no-dev --extra agent`; a local build/run of
+  `dnai-tinker-delegate-agent-extra:local` returned
+  `/health.agent_stack_available=true`.
 - The same flow still needs fresh validation inside a deployed Phala CVM.
-- The optional Tinker SDK dependency and runtime behavior inside the final CVM
-  image are not yet proven.
 - Real Tinker SDK training/sampling/cleanup tests have not been run here; they
   remain gated on credentials, budget cap, and deployed CVM validation.
 - Cleanup attestations are local wrapper/control-plane evidence; deployed
@@ -332,7 +334,8 @@ commands used to reproduce or verify them.
   not complete.
 - Base Sepolia deployment needs configured RPC, Foundry keystore account, and
   verification credentials in local environment.
-- Tinker SDK availability inside the final CVM image is not yet proven.
+- The local delegate image imports the optional Tinker SDK, but real SDK
+  training/sampling/cleanup inside a deployed CVM is not yet proven.
 - Bio-validation must remain fail-closed until risk screening, reviewer queues,
   and bounded schemas exist.
 
@@ -344,6 +347,10 @@ Focused commands used for the currently built surfaces:
 cd "⚙️/tinker-delegate" && uv run python -m unittest discover -s tests -v
 cd "⚙️/tinker-delegate" && uv run python -m compileall tinker_delegate
 cd "⚙️/tinker-delegate" && uv lock --check
+cd "⚙️/tinker-delegate" && docker build -t dnai-tinker-delegate-agent-extra:local .
+cd "⚙️/tinker-delegate" && docker run --rm -d --name dnai-tinker-delegate-agent-extra-check -p 18080:8080 dnai-tinker-delegate-agent-extra:local
+cd "⚙️/tinker-delegate" && curl --retry 12 --retry-delay 1 --retry-connrefused --silent --show-error http://127.0.0.1:18080/health
+cd "⚙️/tinker-delegate" && docker stop dnai-tinker-delegate-agent-extra-check
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-attestation --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main upload-artifact --help
 

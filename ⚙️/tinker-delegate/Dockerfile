@@ -9,12 +9,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock ./
 COPY tinker_delegate/ tinker_delegate/
 
 RUN uv venv /app/.venv && \
-    . /app/.venv/bin/activate && \
-    uv pip install . && \
+    uv sync --frozen --no-dev --extra agent && \
     rm -rf /root/.cache /tmp/*
 
 ENV PATH="/app/.venv/bin:$PATH"

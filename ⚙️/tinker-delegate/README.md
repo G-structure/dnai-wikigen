@@ -386,6 +386,7 @@ All core components are implemented. Remaining integration work:
 - **Deployment record** — see `docs/DEPLOYMENT-RUNBOOK.md` for the live Base Sepolia contract addresses, verification links, and current Phala CVM state
 - **Deploy DiligenceRoom.sol** to Base Sepolia via `/forge-deploy`
 - **On-chain watcher** — listen for DiligenceRoom events, call control plane API
-- **Test SFT evaluator** end-to-end with real Tinker API key
+- **Docker packaging** — the delegate image installs the `agent` extra from `uv.lock`; a local image run returns `/health.agent_stack_available=true`
+- **Test SFT evaluator** end-to-end with real Tinker API key inside a deployed CVM
 - **TEE deployment** — merge docker-compose with email oracle, deploy to Phala Cloud
 - **API key sealing** — code uses the encrypted key store locally and `dstack_sdk.TappdClient.derive_key("tinker/api_key")` in dstack mode; deployed CVM validation is still pending

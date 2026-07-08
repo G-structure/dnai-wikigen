@@ -195,7 +195,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Make every service Dockerfile reproducible:
       pin base images by digest, pin package manager versions, normalize
       timestamps, avoid mutable tags, and generate SBOMs.
-- [ ] `P0` Fix the `tinker-delegate` Dockerfile to install the optional Tinker
+- [x] `P0` Fix the `tinker-delegate` Dockerfile to install the optional Tinker
       agent dependency, not only the base package.
       Done when the CVM image reports `agent_stack_available=true`.
 - [ ] `P0` Add a compose-hash verification script that reproduces the Phala
