@@ -277,10 +277,10 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   FUNDING VALIDATION PROFILE: on 2026-07-08 the temporary
   `docker-compose.tinker-funding-validation.phala.yaml` profile was deployed to
   Phala with GitHub-attested source
-  `355b8aa7959118f887c2e4a498edee200114c152` images, local raw compose hash
-  `1c47353da2d84f73dbd208b1a556cd72b13e123e731e78c2c7dce7e3416b2865`, and
+  `f553a13da7276d56b5284bb55706887c5766455d` images, local raw compose hash
+  `4365f1d16482eeac1ad5441847d18487955afdf5eb8f4736b799e3a3e9bf7924`, and
   live attested compose hash
-  `34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09`.
+  `f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8`.
   Health is OK, the email oracle is ready, IMAP is connected, public logs remain
   disabled, and unauthenticated funding mutations return `401 Bearer token
   required`. `$5` preflight with live billing attestation is ready, but real-card
@@ -293,8 +293,14 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   payment-method/add-balance selector searches: sign-in or magic-code surfaces
   return `auth_required`, and Tinker's access-blocked surface returns
   `auth_access_blocked`, both without exposing page text or clicking billing
-  controls. This classifier is now Phala-proven with GitHub-attested images; the
-  remaining blocker is deployed Tinker auth/session continuity before billing.
+  controls. This classifier is now Phala-proven with GitHub-attested images.
+  Browser-session persistence is also source/test-real and Phala-deployed:
+  successful auth will save Playwright `storage_state` into encrypted
+  `/data/browser_session.enc` under the separate `tinker/browser_session`
+  dstack key path, and billing will load that sealed state for fresh contexts.
+  No useful live session has been saved yet because deployed reauth still fails
+  before OTP with bounded `auth_access_blocked`; the remaining blocker is
+  Tinker's auth access-blocked posture before billing.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,

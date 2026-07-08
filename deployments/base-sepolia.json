@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-08T21:59:08Z",
+  "lastReviewedAt": "2026-07-08T22:19:53Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -45,9 +45,9 @@
     "status": "running_tinker_funding_validation_profile_auth_gated_billing_auth_required_real_card_blocked",
     "cvmId": "670b3b21-4338-4d4e-ae72-7c8922579f59",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09",
-    "localRawComposeImagePolicyHash": "1c47353da2d84f73dbd208b1a556cd72b13e123e731e78c2c7dce7e3416b2865",
-    "renderedComposeSha256": "55f4b58773574a8584740aff24f181a45fbf84ab890eca43405041a8f03fb107",
+    "composeHash": "f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8",
+    "localRawComposeImagePolicyHash": "4365f1d16482eeac1ad5441847d18487955afdf5eb8f4736b799e3a3e9bf7924",
+    "renderedComposeSha256": "2874b7227e308b611860f141fd661df7b11147746403b1c5d08faf7201fcf0e4",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -90,10 +90,10 @@
         "TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "355b8aa7959118f887c2e4a498edee200114c152",
+    "sourceDigest": "f553a13da7276d56b5284bb55706887c5766455d",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 28977917896,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28977917896",
+    "githubActionsRunId": 28979167606,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28979167606",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -103,13 +103,13 @@
     "imageDigests": [
       {
         "service": "oracle",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:9ef71de5e39456b52a76890e2eab64938f9801975576170d55cb5929016fdc67",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ac5d30a8150d840dcbef28f87444fa1916e99fc301c4287db281a9f0d3d48401",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:2f3a071d0046cbb4c0f47082d151e314d6210780801100160520d92fad259e59",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:359b67f68e50e4ceb68052eb123a25811106a5ee6f8de0b7d4b87b4470895fd4",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
@@ -122,8 +122,8 @@
       "mode": "tdx",
       "context": "artifact",
       "quoteSize": 5010,
-      "reportData": "7ba2e30e4e44ff1302ddccdcc913bee9a9e494bd1b4430de3fb9539bd51776e1",
-      "encryptionPublicKey": "27760e60034bda73eb9b4e8c1a159485efab1503acbd64488fe3607ae1e4277b",
+      "reportData": "2f893a68d499c304749a0e525498f7370c5538b29156cb41aac53902a2a2694c",
+      "encryptionPublicKey": "cff9b903fba9ac2c6fab4a7340b7b2df0eab11d9ee6a9d1e4145e52956956a3a",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -1048,17 +1048,17 @@
     "fundingValidationEvidence": {
       "status": "live_auth_gated_profile_billing_auth_required_real_card_blocked",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
-      "sourceDigest": "355b8aa7959118f887c2e4a498edee200114c152",
-      "githubActionsRunId": 28977917896,
-      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:9ef71de5e39456b52a76890e2eab64938f9801975576170d55cb5929016fdc67",
-      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:2f3a071d0046cbb4c0f47082d151e314d6210780801100160520d92fad259e59",
-      "localRawComposeImagePolicyHash": "1c47353da2d84f73dbd208b1a556cd72b13e123e731e78c2c7dce7e3416b2865",
-      "renderedComposeSha256": "55f4b58773574a8584740aff24f181a45fbf84ab890eca43405041a8f03fb107",
-      "attestedComposeHash": "34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09",
+      "sourceDigest": "f553a13da7276d56b5284bb55706887c5766455d",
+      "githubActionsRunId": 28979167606,
+      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ac5d30a8150d840dcbef28f87444fa1916e99fc301c4287db281a9f0d3d48401",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:359b67f68e50e4ceb68052eb123a25811106a5ee6f8de0b7d4b87b4470895fd4",
+      "localRawComposeImagePolicyHash": "4365f1d16482eeac1ad5441847d18487955afdf5eb8f4736b799e3a3e9bf7924",
+      "renderedComposeSha256": "2874b7227e308b611860f141fd661df7b11147746403b1c5d08faf7201fcf0e4",
+      "attestedComposeHash": "f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8",
       "deploymentBundleVerification": "verified",
       "billingAttestation": {
-        "reportData": "dcf4070c8a8fece9f3f6c5236dc61207c2b5cbdd040192b6cfdcc7a4fa5bf00b",
-        "encryptionPublicKey": "27760e60034bda73eb9b4e8c1a159485efab1503acbd64488fe3607ae1e4277b",
+        "reportData": "d3f783599a5db219a7370cacb7955ff1d2288899c7539620aef069516b08d5d4",
+        "encryptionPublicKey": "cff9b903fba9ac2c6fab4a7340b7b2df0eab11d9ee6a9d1e4145e52956956a3a",
         "quoteSize": 10020
       },
       "runtimeEnv": {
@@ -1088,6 +1088,7 @@
         "success": false,
         "outcome": "auth_access_blocked",
         "furthestStage": "not_started",
+        "sessionStateSaved": false,
         "rawSecretEgress": false
       },
       "testCardAttempt": {
@@ -1105,7 +1106,13 @@
         "amountBand": "5_25_usd",
         "rawSecretEgress": false
       },
-      "nextStep": "repair deployed Tinker auth/session route so /auth/reauth reaches OTP and billing page is authenticated before approved real-card prompt"
+      "browserSessionStore": {
+        "status": "source_test_and_phala_deployed_waiting_for_successful_auth",
+        "path": "/data/browser_session.enc",
+        "dstackKeyPath": "tinker/browser_session",
+        "storesRawCookiesOrLocalStorageInPlaintext": false
+      },
+      "nextStep": "repair deployed Tinker auth access-blocked posture so /auth/reauth reaches OTP, saves browser session state, and billing page is authenticated before approved real-card prompt"
     }
   },
   "freshDeployment": {

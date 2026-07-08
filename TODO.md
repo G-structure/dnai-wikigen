@@ -1064,9 +1064,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             billing creates a fresh browser context. Tests prove the encrypted
             file does not contain raw cookie/localStorage values and compose
             files keep the store under `/data`.
-      - [ ] Rebuild/pin/deploy the browser-session store slice to Phala and
+      - [x] Rebuild/pin/deploy the browser-session store slice to Phala and
             rerun `/auth/reauth`, encrypted test-card, and `$5` add-balance
-            probes against the new attested compose hash.
+            probes against the new attested compose hash. Done 2026-07-08:
+            source `f553a13da7276d56b5284bb55706887c5766455d` images were
+            built by GitHub Actions run `28979167606`, provenance/SBOM checks
+            passed, compose was digest-pinned and redeployed to live attested
+            hash `f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8`,
+            deployment-bundle verification passed, and live probes still fail
+            closed with `auth_access_blocked` on reauth plus `auth_required` on
+            test-card/add-balance because no successful auth session has been
+            saved yet.
       - [ ] Add bounded stale-session and login-loop classifications before
             deciding whether to refresh OTP or fail closed.
 - [ ] `P1` Add a `cdp-playground` recipe specifically for Tinker auth and
@@ -1207,6 +1215,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             - [ ] Repair the deployed Tinker auth/session route so
                   `/auth/reauth` reaches OTP and billing navigation reuses an
                   authenticated session before any approved real-card prompt.
+                  The encrypted browser-session store is now deployed and ready
+                  to persist the session after auth succeeds; the remaining
+                  blocker is Tinker's access-blocked auth posture.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
       account and a safe test card or approved real card.
       - [x] Stripe test card reaches live Tinker/Stripe submission and returns

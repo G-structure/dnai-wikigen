@@ -33,29 +33,29 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
 `wikigen` in workspace `wiki`.
 
 Latest Phala evidence, 2026-07-08: GitHub Actions built source commit
-`355b8aa7959118f887c2e4a498edee200114c152` into GHCR digest-pinned
-`tee-email-oracle@sha256:9ef71de5e39456b52a76890e2eab64938f9801975576170d55cb5929016fdc67`
+`f553a13da7276d56b5284bb55706887c5766455d` into GHCR digest-pinned
+`tee-email-oracle@sha256:ac5d30a8150d840dcbef28f87444fa1916e99fc301c4287db281a9f0d3d48401`
 and
-`tinker-delegate@sha256:2f3a071d0046cbb4c0f47082d151e314d6210780801100160520d92fad259e59`
+`tinker-delegate@sha256:359b67f68e50e4ceb68052eb123a25811106a5ee6f8de0b7d4b87b4470895fd4`
 images. Local `verify-ghcr-image-attestation` checks passed for both SLSA
 provenance and SPDX SBOM attestations. The current CVM `cvm_1w85mGjo` is
 temporarily running the auth-gated funding-validation profile for app ID
 `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, not the normal locked-down compose.
 The live Phala attested compose hash is
-`34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09`; the local
+`f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8`; the local
 raw compose/image-policy hash is
-`1c47353da2d84f73dbd208b1a556cd72b13e123e731e78c2c7dce7e3416b2865`, and the
+`4365f1d16482eeac1ad5441847d18487955afdf5eb8f4736b799e3a3e9bf7924`, and the
 rendered compose SHA-256 is
-`55f4b58773574a8584740aff24f181a45fbf84ab890eca43405041a8f03fb107`.
+`2874b7227e308b611860f141fd661df7b11147746403b1c5d08faf7201fcf0e4`.
 `verify-deployment-bundle` passed against the live endpoint with OS image hash
 `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`, artifact
 context report data
-`7ba2e30e4e44ff1302ddccdcc913bee9a9e494bd1b4430de3fb9539bd51776e1`,
+`2f893a68d499c304749a0e525498f7370c5538b29156cb41aac53902a2a2694c`,
 encryption public key
-`27760e60034bda73eb9b4e8c1a159485efab1503acbd64488fe3607ae1e4277b`, and quote
+`cff9b903fba9ac2c6fab4a7340b7b2df0eab11d9ee6a9d1e4145e52956956a3a`, and quote
 size `5010`; billing-context attestation returned the same compose/app/OS-image
 with report data
-`dcf4070c8a8fece9f3f6c5236dc61207c2b5cbdd040192b6cfdcc7a4fa5bf00b` and quote
+`d3f783599a5db219a7370cacb7955ff1d2288899c7539620aef069516b08d5d4` and quote
 size `10020`. Public logs remain disabled. Health is OK, the oracle is ready,
 IMAP is connected, and unauthenticated `/auth/reauth` plus
 `/billing/add-balance` fail closed with `401 Bearer token required`.
@@ -78,9 +78,18 @@ before payment-method or add-balance controls are touched. Billing navigation
 that lands on sign-in or magic-code surfaces returns bounded `auth_required` at
 `billing_page_loaded`; Tinker's access-blocked surface returns bounded
 `auth_access_blocked`. The classifier does not expose page text and does not
-click billing controls before classifying auth-state failures. The next push is
-to repair the deployed Tinker auth/session route so `/auth/reauth` reaches OTP
-and the billing page is authenticated before any approved real-card prompt.
+click billing controls before classifying auth-state failures.
+
+Browser-session follow-up, 2026-07-08: the funding-validation profile now also
+includes source/test and Phala-deployed encrypted browser session persistence.
+Successful signup/signin/reauth saves Playwright `storage_state` into
+`/data/browser_session.enc` using the separate `tinker/browser_session` dstack
+key path, and billing loads that sealed state for fresh contexts. The deployed
+profile is verified, but the store has not yet captured a useful live session
+because `/auth/reauth` still fails with bounded `auth_access_blocked` before
+OTP. The next push is to repair the Tinker auth access-blocked posture so
+reauth can reach OTP, save session state, and authenticate billing before any
+approved real-card prompt.
 
 ## Built
 
@@ -544,15 +553,16 @@ and the billing page is authenticated before any approved real-card prompt.
   require a bearer token; the funding CLIs read it from
   `TINKER_RUNTIME_AUTH_TOKEN` by default so the secret does not have to appear
   in command-line arguments.
-- Reauth/session continuity is now source/test-real: successful
+- Reauth/session continuity is now source/test-real and Phala-deployed: successful
   signup/signin/reauth saves Playwright `storage_state` into an encrypted
   browser-session store under `/data/browser_session.enc`, using the separate
   `tinker/browser_session` dstack key path. Billing loads that sealed state when
   it must create a fresh browser context, so the operator can run `/auth/reauth`
   before encrypted-card/add-balance attempts without relying on a throwaway
   browser context. Tests prove the encrypted file does not contain raw
-  cookie/localStorage values. This still needs GitHub-attested images, digest
-  pinning, Phala redeploy, and live probes before it updates deployed evidence.
+  cookie/localStorage values. Phala redeploy and live probes are complete, but
+  no useful live session has been saved yet because Tinker currently returns
+  `auth_access_blocked` before OTP.
 - Funding validation packets can include a separate add-balance evidence lane:
   `--add-balance-receipt-json` binds an existing bounded top-up receipt, and
   `--run-add-balance-attempt` posts only the amount to `/billing/add-balance`
@@ -565,9 +575,9 @@ and the billing page is authenticated before any approved real-card prompt.
   `operator_capped_validation` with `TINKER_MAX_ADD_BALANCE_USD=5.0`, and uses
   the Playwright sidecar rather than the currently blocked Phala Neko CDP path.
   This profile is live deployed evidence for the current auth/session blocker:
-  GitHub-attested source `355b8aa7959118f887c2e4a498edee200114c152` images are
+  GitHub-attested source `f553a13da7276d56b5284bb55706887c5766455d` images are
   pinned by digest, the live Phala attested compose hash is
-  `34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09`, and
+  `f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8`, and
   authenticated payment-method plus `$5` add-balance probes return bounded
   `auth_required` without raw secret egress.
 - `python -m tinker_delegate.main check-funding-validation-packet` replay-checks

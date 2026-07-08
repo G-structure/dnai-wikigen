@@ -929,8 +929,11 @@ Implementation status:
             state when no reusable context exists, so `/auth/reauth` can
             prepare the later encrypted-card/add-balance request without
             exposing cookies, localStorage, raw URLs, OTPs, page text, or card
-            data. Compose hardening tests keep the store under `/data`; this
-            slice still needs GitHub-attested images and a Phala repro.
+            data. Compose hardening tests keep the store under `/data`. The
+            slice is now Phala-deployed in the funding-validation profile, but
+            no useful live session has been saved yet because deployed
+            `/auth/reauth` still fails before OTP with bounded
+            `auth_access_blocked`.
 [real]      `⚙️/tinker-delegate/docs/TINKER-AUTOMATION-ROUTE.md` records the
             acceptable Tinker automation route: prefer official/support-approved
             workflows; use browser automation only as bounded TEE custody for
@@ -1047,13 +1050,13 @@ Implementation status:
             than the currently blocked Neko CDP path.
 [real]      The funding-validation profile was deployed to Phala on 2026-07-08
             with GitHub-attested source
-            `355b8aa7959118f887c2e4a498edee200114c152` images, local raw
+            `f553a13da7276d56b5284bb55706887c5766455d` images, local raw
             compose/image-policy hash
-            `1c47353da2d84f73dbd208b1a556cd72b13e123e731e78c2c7dce7e3416b2865`,
+            `4365f1d16482eeac1ad5441847d18487955afdf5eb8f4736b799e3a3e9bf7924`,
             rendered compose SHA-256
-            `55f4b58773574a8584740aff24f181a45fbf84ab890eca43405041a8f03fb107`,
+            `2874b7227e308b611860f141fd661df7b11147746403b1c5d08faf7201fcf0e4`,
             and live attested compose hash
-            `34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09`.
+            `f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8`.
             Health is OK, the email oracle is ready, IMAP is connected, public
             logs remain disabled, and unauthenticated reauth/add-balance calls
             fail closed with `401 Bearer token required`.
