@@ -468,11 +468,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             so credentials can enter the oracle only after the client verifies
             attestation and encrypts to the oracle's context-bound key.
       - [x] Debug current captcha/local-vs-Phala state.
-            Done 2026-07-08: local cock.li captcha fetch/parse/solve still
-            works for live registration pages, but the deployed Phala oracle is
-            configured with `ORACLE_AUTO_GENESIS=false` and has
-            `oracle_email=""` / `imap_connected=false`; the current Phala gap is
-            no sealed mailbox credentials, not a proven captcha-solver failure.
+            Done 2026-07-08: local cock.li captcha fetch/parse/solve previously
+            worked against live registration pages, but an explicit Phala
+            `dnai-wikigen-oracle-genesis-debug` CVM with auto-genesis enabled
+            proved a Phala/runtime-specific failure: three HTTP signup attempts
+            parsed and solved captchas but cock.li rejected each solution as
+            incorrect; the browser fallback then reached the CDP WebSocket but
+            timed out in `BrowserType.connect_over_cdp`. The debug CVM used
+            public logs/dev OS only for this test and was deleted afterward.
+      - [ ] Fix Phala oracle genesis before treating generated TEE mailbox
+            custody as real: make captcha solving reproducible inside the
+            deployed linux/amd64 image, and repair or replace the Neko/CDP
+            browser fallback timeout.
       - [ ] Run the encrypted provisioning path against the deployed Phala CVM
             with real mailbox credentials and record only bounded hashes/status.
 - [ ] `P0` Prove the email TEE can receive Tinker magic-code OTPs in the running
@@ -1258,13 +1265,19 @@ vision Wiki is reaching for.
             sidecar digests, local raw compose hash
             `de5564a93b9996c8b21efc74b5295458c2972a2d588806a9d3935d48a8000392`,
             and live attested compose hash
-            `c05f35dd942da46f6c2d0df263c646a9aef54d756e310effa432aad794d5e291`.
-      - [ ] Revert temporary Phala public-log debug posture before production
-            wrap-up or before any real mailbox, OTP, Tinker API-key, or card
-            material is handled. Current debug redeploy intentionally has
-            public logs on, public sysinfo off, dev OS/SSH off, and
-            `ORACLE_AUTO_GENESIS=false`, `TINKER_BOOTSTRAP_SIGNUP=false`, and
-            credential provisioning disabled.
+            `72af30d23b5bbd42606204d5ead2dc33b2b90e3c7093fc7929bab1f23014e97c`.
+      - [x] Revert temporary Phala public-log debug posture on the main CVM
+            before any real mailbox, OTP, Tinker API-key, or card material is
+            handled.
+            Done 2026-07-08: redeployed the log-hardened pinned compose with
+            public logs off, public sysinfo off, and secret-bearing gates still
+            disabled.
+      - [ ] Move the main Phala CVM off dev OS before production wrap-up.
+            Evidence 2026-07-08: `phala cvms get` still reports
+            `dstack-dev-0.5.9` / `is_dev=true`; attempts to update with
+            `--image dstack-0.5.10-4c9bd024 --no-dev-os` and
+            `--image dstack-0.5.10 --no-dev-os --prepare-only` failed in the
+            Phala CLI/API with a required `correlationId` validation error.
       - [ ] Verify credential provisioning with real mailbox credentials,
             Tinker API-key capture, and funded billing flow inside the
             deployed CVM.

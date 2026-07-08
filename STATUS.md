@@ -579,19 +579,25 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   - App ID: `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`
   - Status: `running`
   - Gateway base: `dstack-pha-prod9.phala.network`
-  - Public logs/sysinfo: `true` / `false`.
-  - TEMPORARY DEBUG EXCEPTION: public logs were enabled on 2026-07-08 to debug
-    Phala oracle/delegate startup behavior. Dev OS/SSH remains disabled.
-    `ORACLE_AUTO_GENESIS=false`, `TINKER_BOOTSTRAP_SIGNUP=false`, and
-    `ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=false` are active so no
-    mailbox genesis, Tinker login, or credential provisioning should write
-    secrets to logs. Public logs must be turned back off before production
-    wrap-up or before any real mailbox, Tinker API-key, OTP, or card-bearing
-    flow is attempted.
+  - Public logs/sysinfo: `false` / `false`.
+  - Temporary public-log debug exception on the main CVM: reverted on
+    2026-07-08. Public logs and public sysinfo are disabled.
+    `ORACLE_AUTO_GENESIS=false`,
+    `TINKER_BOOTSTRAP_SIGNUP=false`,
+    `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`, and
+    `ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT=false` are still bound
+    directly in compose so no mailbox genesis, Tinker login, credential
+    provisioning, or add-balance endpoint is active.
+  - OS posture: still partial. `phala cvms get` reports
+    `dstack-dev-0.5.9`, `is_dev=true`, and OS image hash
+    `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`
+    after the public-log revert. Attempts to update the existing CVM to
+    `dstack-0.5.10-4c9bd024` or `dstack-0.5.10` with `--no-dev-os` failed in
+    the Phala CLI/API with a required `correlationId` validation error.
   - OS image hash:
     `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`
   - Attested compose hash:
-    `c05f35dd942da46f6c2d0df263c646a9aef54d756e310effa432aad794d5e291`
+    `72af30d23b5bbd42606204d5ead2dc33b2b90e3c7093fc7929bab1f23014e97c`
   - Local raw-compose/image-policy hash:
     `de5564a93b9996c8b21efc74b5295458c2972a2d588806a9d3935d48a8000392`
   - Rendered compose SHA-256:
@@ -604,33 +610,40 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     `api_key_configured=false`, `bootstrap_attempted=false`.
   - Oracle `/health`: `status=degraded`, `oracle_email=""`,
     `imap_connected=false`, `dstack_enabled=true`.
-  - Current captcha/genesis finding: local cock.li captcha fetch/parse/solve
-    still works against live registration pages, but the deployed Phala oracle
-    is configured with `ORACLE_AUTO_GENESIS=false`, credential provisioning is
-    disabled by default, and the health endpoint shows no sealed mailbox
-    credentials. The current Phala failure is therefore at credential genesis or
-    provisioning not being run, not evidence that the captcha solver failed in
-    the CVM.
-  - With temporary public logs enabled, sanitized Phala logs confirm the oracle
-    derives the dstack storage key, finds no credentials, starts in degraded
-    mode, and loads zero OTP replay entries; delegate logs confirm no Tinker API
-    key is configured. No genesis, captcha, OTP, Tinker login, API-key capture,
-    or billing flow ran in the current Phala CVM.
+  - Current captcha/genesis finding: an explicit temporary
+    `dnai-wikigen-oracle-genesis-debug` Phala CVM was deployed with the
+    log-hardened oracle image, `ORACLE_AUTO_GENESIS=true`, public logs, public
+    sysinfo, and dev OS access, while Tinker bootstrap, billing, and credential
+    provisioning were absent/disabled. Its app ID was
+    `8958416343d338e1e95f1c0a78a1747970d57cb5` and compose hash was
+    `2cf555237c0e3ed7dee2fbced583721cb00cb75bfdced14cd9cf6a155c4e43b0`.
+    The oracle derived a dstack key at `email/creds-debug`, found no
+    credentials, ran auto-genesis, parsed/solved three HTTP cock.li captchas,
+    and cock.li rejected all three as incorrect. Browser fallback then reached
+    `ws://172.20.0.3:9223/devtools/browser/...` but timed out in
+    `BrowserType.connect_over_cdp`. The debug CVM was deleted after collecting
+    this bounded evidence, so no temporary public-log/dev-OS debug CVM is left
+    running.
+  - Historical temporary-public-log evidence from before the 2026-07-08 revert
+    confirmed the oracle derived the dstack storage key, found no credentials,
+    started in degraded mode, and loaded zero OTP replay entries; delegate logs
+    confirmed no Tinker API key was configured. No genesis, captcha, OTP, Tinker
+    login, API-key capture, or billing flow ran during that debug window.
   - Source-level email-oracle log hardening now hashes generated mailbox
     identifiers, sender filters, and inbound mail subject/sender headers in
     genesis/signup/check/IMAP diagnostics, and the live Phala CVM has been
     redeployed to the GitHub-built, attested log-hardened oracle image digest.
-    Public logs are still a temporary debug exception and remain inappropriate
-    for real mailbox, OTP, Tinker API-key, or card-bearing flows until reverted
-    or explicitly re-reviewed.
+    Public logs are now disabled again; real mailbox, OTP, Tinker API-key, or
+    card-bearing flows must still use only bounded interfaces and the disabled
+    endpoint gates must be intentionally reopened with fresh evidence.
   - Oracle `/pin` without bearer auth returns `401 Bearer token required`.
   - Public CDP gateway `/json/version` returns host-header rejection rather than
     a usable browser-control response.
   - `verify-cvm-attestation` succeeded against delegate
     `/attestation?context=artifact`: mode `tdx`, quote size `5010`, report data
-    `d80d4a7c4a38c0209267d94b5292395c3bec790a55051d1a81cddf2d5bdcd064`,
+    `87993d2370f5391c4d1b452b12925d6f21c0f61ad12e4eed1c18204aab396d9e`,
     encryption public key
-    `d6e382ee92b6d61f60f62ffd1406b1dab3f8baa0ed856f5baf43f8c0ba41bb54`,
+    `ac1fc21a4998ecded67c9e2490bfd0fa9e6a5b3b9308618d9036084a356ea70f`,
     and the attested compose/app/OS-image/image-digest policy above.
   - `verify-deployment-bundle` succeeded against the same delegate endpoint:
     both deploy-critical GHCR image refs verified GitHub SLSA provenance and
@@ -641,9 +654,9 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
     OS image hash, report data, public key, and quote size `5010`.
   - Oracle `/attestation?context=oracle-credentials` now returns a live TDX
     credential-ingress envelope with report data
-    `a7551f5c7c894628cb92400d2bbcaf9c13cb0003c55d503665ab60b653833335`,
+    `c581305bf86e83450ec3eb18798796468b56e44dc9f77f1581ed563ea4c2609b`,
     encryption public key
-    `e175845fea1e40ea71c748f3e02ccc2ebc187b1b13ef35bc2074d951841d2314`,
+    `7f4f97bbb16d87d6b411fa4bf59f472ede8b7305443a76745973522ea7ffde25`,
     quote size `5010`, `oracle_email=""`, and no raw credential output.
     `POST /credentials/encrypted` rejects while disabled by default.
 - `deployments/base-sepolia.json` is now the machine-readable deployment
@@ -732,15 +745,16 @@ explicitly legacy.
   intentionally disabled by default. It has not been run with real mailbox
   credentials; the oracle has no sealed email credentials, and the delegate has
   no Tinker API key configured.
-- The current Phala CVM cannot prove cock.li captcha/account genesis because
-  `ORACLE_AUTO_GENESIS=false` keeps the oracle in degraded wait-for-credentials
-  mode. To debug captcha inside Phala, deploy a separate explicit debug CVM or
-  redeploy with auto-genesis enabled and secret-safe log/SSH access; otherwise
-  use the attested encrypted provisioning path for an existing mailbox.
-- Temporary public-log debug posture is active on the current Phala CVM. Revert
-  to `--no-public-logs --no-public-sysinfo` before production wrap-up and before
-  any run that could handle mailbox credentials, OTPs, Tinker API keys, or card
-  material.
+- Cock.li account genesis inside Phala is not working yet: a temporary
+  auto-genesis debug CVM proved HTTP captcha submissions are rejected as
+  incorrect and the browser fallback times out in Playwright CDP connection.
+  Fix the linux/amd64 captcha solver reproducibility and the Neko/CDP fallback
+  before relying on generated TEE mailbox custody.
+- The main Phala CVM still runs a dev OS image (`dstack-dev-0.5.9`,
+  `is_dev=true`). Public logs and public sysinfo are off, but production wrap-up
+  must move to a non-dev dstack OS image or record a Phala-side blocker; the
+  attempted `--image dstack-0.5.10* --no-dev-os` update currently fails with a
+  Phala `correlationId` validation error.
 - Deployed headed Neko and Playwright sidecar containers are running, but
   Tinker login/API-key capture inside the deployed CVM is not yet proven.
 - Full Intel TDX quote-internal parsing and quote freshness checking need
@@ -796,7 +810,7 @@ cd "⚙️/tinker-delegate" && \
     --compose docker-compose.all.phala.yaml \
     --phala-raw-compose \
     --expected-compose-hash de5564a93b9996c8b21efc74b5295458c2972a2d588806a9d3935d48a8000392 \
-    --attested-compose-hash c05f35dd942da46f6c2d0df263c646a9aef54d756e310effa432aad794d5e291 \
+    --attested-compose-hash 72af30d23b5bbd42606204d5ead2dc33b2b90e3c7093fc7929bab1f23014e97c \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
     --require-image ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:688b8b48a6621072b99fe9d515998f9bc4313215163c4d689a927da853926a23 \
@@ -814,7 +828,7 @@ cd "⚙️/tinker-delegate" && \
     --source-ref refs/heads/codex/wikigen-private-reward-pitch \
     --phala-raw-compose \
     --expected-compose-hash de5564a93b9996c8b21efc74b5295458c2972a2d588806a9d3935d48a8000392 \
-    --attested-compose-hash c05f35dd942da46f6c2d0df263c646a9aef54d756e310effa432aad794d5e291 \
+    --attested-compose-hash 72af30d23b5bbd42606204d5ead2dc33b2b90e3c7093fc7929bab1f23014e97c \
     --app-id f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717 \
     --os-image-hash de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9 \
     --require-image-digest sha256:320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea \

@@ -110,6 +110,20 @@ class ComposeHardeningTest(unittest.TestCase):
         self.assertNotIn("${TINKER_ORACLE_IMAGE", oracle)
         self.assertNotIn("${TINKER_DELEGATE_IMAGE", delegate)
 
+    def test_oracle_genesis_debug_compose_has_bounded_scope(self):
+        compose = (ROOT / "docker-compose.oracle-genesis-debug.phala.yaml").read_text()
+        oracle = _service_block(compose, "oracle")
+        neko = _service_block(compose, "neko")
+
+        self.assertIn("TEMPORARY DEBUG ONLY", compose)
+        self.assertIn("tee-email-oracle@sha256:", oracle)
+        self.assertIn("google-chrome@sha256:", neko)
+        self.assertNotIn("  delegate:", compose)
+        self.assertNotIn("  delegate-browser:", compose)
+        self.assertIn('ORACLE_AUTO_GENESIS: "true"', oracle)
+        self.assertIn('ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: "false"', oracle)
+        self.assertIn('ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ""', oracle)
+
 
 if __name__ == "__main__":
     unittest.main()

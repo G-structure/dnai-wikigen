@@ -903,15 +903,24 @@ Implementation status:
             attestation verification passing against local raw compose hash
             `de5564a93b9996c8b21efc74b5295458c2972a2d588806a9d3935d48a8000392`
             and live Phala attested compose hash
-            `c05f35dd942da46f6c2d0df263c646a9aef54d756e310effa432aad794d5e291`.
-[partial]   Temporary debug exception active: public logs are enabled on the
-            current Phala CVM to inspect startup behavior, public sysinfo and
-            dev OS/SSH are disabled, and runtime guards keep
-            `ORACLE_AUTO_GENESIS=false`, `TINKER_BOOTSTRAP_SIGNUP=false`, and
-            credential provisioning disabled. This must be reverted before
-            production wrap-up or any real mailbox/Tinker/card secret enters
-            the deployment.
-            Oracle credential-ingress attestation is live for
+            `72af30d23b5bbd42606204d5ead2dc33b2b90e3c7093fc7929bab1f23014e97c`.
+[real]      The temporary public-log debug exception has been reverted on the
+            current main Phala CVM. Public logs and public sysinfo are disabled
+            while runtime guards keep `ORACLE_AUTO_GENESIS=false`,
+            `TINKER_BOOTSTRAP_SIGNUP=false`, `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`,
+            and credential provisioning disabled.
+[partial]   Production OS posture is not solved. The main CVM still reports
+            `dstack-dev-0.5.9` / `is_dev=true`; attempts to update the existing
+            CVM to `dstack-0.5.10*` with `--no-dev-os` currently fail in the
+            Phala CLI/API with a required `correlationId` validation error.
+[partial]   Phala mailbox genesis is not real yet. A separate temporary
+            `dnai-wikigen-oracle-genesis-debug` CVM enabled
+            `ORACLE_AUTO_GENESIS=true` with public logs/dev OS, then was deleted
+            after bounded evidence collection. Inside Phala, the oracle parsed
+            and solved cock.li captchas, but cock.li rejected three HTTP signup
+            submissions as incorrect; the browser fallback reached the Neko CDP
+            WebSocket and then timed out in `BrowserType.connect_over_cdp`.
+[partial]   Oracle credential-ingress attestation is live for
             `context=oracle-credentials`, but credential provisioning is
             disabled by default and no real mailbox credentials have been
             sealed into the running CVM.

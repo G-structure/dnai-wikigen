@@ -42,33 +42,49 @@
     }
   },
   "phala": {
-    "status": "running_log_hardened_pinned_compose_temporary_public_logs_debug_revalidated_by_deployment_bundle",
+    "status": "running_log_hardened_pinned_compose_private_logs_revalidated_by_deployment_bundle",
     "cvmId": "670b3b21-4338-4d4e-ae72-7c8922579f59",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "c05f35dd942da46f6c2d0df263c646a9aef54d756e310effa432aad794d5e291",
+    "composeHash": "72af30d23b5bbd42606204d5ead2dc33b2b90e3c7093fc7929bab1f23014e97c",
     "localRawComposeImagePolicyHash": "de5564a93b9996c8b21efc74b5295458c2972a2d588806a9d3935d48a8000392",
     "renderedComposeSha256": "c0cda10f40e4049acbdd24f4bccc6690940f6253f6b47f94b5c4b9f6e8f6d074",
+    "osName": "dstack-dev-0.5.9",
+    "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
     "gatewayBaseDomain": "dstack-pha-prod9.phala.network",
-    "publicLogs": true,
+    "publicLogs": false,
     "publicSysinfo": false,
+    "publicTcbinfo": true,
     "deployCriticalImageRefsBoundInCompose": true,
-    "allowedEnvKeys": [],
+    "allowedEnvKeys": [
+      "TINKER_ORACLE_IMAGE",
+      "TINKER_DELEGATE_IMAGE",
+      "TINKER_BOOTSTRAP_SIGNUP",
+      "ORACLE_AUTO_GENESIS",
+      "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT",
+      "ORACLE_CREDENTIAL_PROVISIONING_TOKEN"
+    ],
+    "allowedEnvKeysNote": "Phala metadata still lists stale allowed env names, but the current docker_compose_file hardcodes deploy-critical oracle/delegate image refs and disabled secret-bearing gates directly.",
     "temporaryDebugException": {
-      "active": true,
+      "active": false,
       "enabledAt": "2026-07-08T11:50:13Z",
+      "revertedAt": "2026-07-08T12:27:00Z",
       "reason": "Short-lived Phala debugging of oracle/delegate startup logs while genesis, credential provisioning, and Tinker bootstrap are disabled.",
-      "publicLogs": true,
+      "publicLogs": false,
       "publicSysinfo": false,
-      "devOs": false,
+      "devOs": true,
+      "devOsRevertStatus": "main_cvm_still_reports_dstack_dev_0_5_9_is_dev_true_after_no_dev_os_update_attempts",
+      "devOsUpdateError": "phala deploy --image dstack-0.5.10* --no-dev-os failed with required correlationId validation error",
       "mustRevertBeforeProduction": true,
       "revertTarget": {
         "publicLogs": false,
-        "publicSysinfo": false
+        "publicSysinfo": false,
+        "osIsDev": false
       },
       "safeRuntimeGuards": {
         "ORACLE_AUTO_GENESIS": "false",
         "TINKER_BOOTSTRAP_SIGNUP": "false",
+        "TINKER_ALLOW_ADD_BALANCE_ENDPOINT": "false",
         "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT": "false"
       }
     },
@@ -112,17 +128,41 @@
       "mode": "tdx",
       "context": "artifact",
       "quoteSize": 5010,
-      "reportData": "d80d4a7c4a38c0209267d94b5292395c3bec790a55051d1a81cddf2d5bdcd064",
-      "encryptionPublicKey": "d6e382ee92b6d61f60f62ffd1406b1dab3f8baa0ed856f5baf43f8c0ba41bb54",
+      "reportData": "87993d2370f5391c4d1b452b12925d6f21c0f61ad12e4eed1c18204aab396d9e",
+      "encryptionPublicKey": "ac1fc21a4998ecded67c9e2490bfd0fa9e6a5b3b9308618d9036084a356ea70f",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
+    },
+    "oracleGenesisDebugEvidence": {
+      "status": "debug_cvm_deleted_after_bounded_evidence",
+      "cvmName": "dnai-wikigen-oracle-genesis-debug",
+      "cvmId": "2b2f6e7f-eebf-4d55-80bc-0fe2c59c598c",
+      "appId": "8958416343d338e1e95f1c0a78a1747970d57cb5",
+      "composeHash": "2cf555237c0e3ed7dee2fbced583721cb00cb75bfdced14cd9cf6a155c4e43b0",
+      "publicLogs": true,
+      "publicSysinfo": true,
+      "osName": "dstack-dev-0.5.9",
+      "osIsDev": true,
+      "guards": {
+        "ORACLE_AUTO_GENESIS": "true",
+        "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT": "false",
+        "tinkerDelegateService": "absent",
+        "billingService": "absent"
+      },
+      "boundedLogEvidence": [
+        "oracle derived dstack storage key email/creds-debug",
+        "HTTP signup attempts 1-3 parsed/solved captchas but failed with Captcha solution was incorrect",
+        "browser fallback reached ws://172.20.0.3:9223/devtools/browser/... and timed out in BrowserType.connect_over_cdp"
+      ],
+      "rawSecretEgress": false,
+      "deletedAt": "2026-07-08T12:43:00Z"
     },
     "credentialProvisioningEvidence": {
       "status": "endpoint_deployed_disabled_by_default",
       "context": "oracle-credentials",
       "mode": "tdx",
       "quoteSize": 5010,
-      "reportData": "a7551f5c7c894628cb92400d2bbcaf9c13cb0003c55d503665ab60b653833335",
-      "encryptionPublicKey": "e175845fea1e40ea71c748f3e02ccc2ebc187b1b13ef35bc2074d951841d2314",
+      "reportData": "c581305bf86e83450ec3eb18798796468b56e44dc9f77f1581ed563ea4c2609b",
+      "encryptionPublicKey": "7f4f97bbb16d87d6b411fa4bf59f472ede8b7305443a76745973522ea7ffde25",
       "oracleEmail": "",
       "postWithoutProvisioningToken": "403_disabled",
       "rawSecretEgress": false
