@@ -170,8 +170,10 @@ class IsolatedTinkerSession:
         **kwargs,
     ) -> tinker.TrainingClient:
         """Start a LoRA training run. One per deal, enforced."""
-        assert not self._closed, "Session closed"
-        assert self._training_run_id is None, "Only one training run per deal"
+        if self._closed:
+            raise RuntimeError("Session closed")
+        if self._training_run_id is not None:
+            raise RuntimeError("Only one training run per deal")
 
         tc = self._sc.create_lora_training_client(
             base_model=base_model,
@@ -195,8 +197,11 @@ class IsolatedTinkerSession:
 
         TTL is mandatory — auto-cleanup backstop even if cleanup() never runs.
         """
-        assert not self._closed, "Session closed"
-        assert self._training_client is not None, "No training run"
+        if self._closed:
+            raise RuntimeError("Session closed")
+        if self._training_client is None:
+            raise RuntimeError("No training run")
+        ttl_seconds = max(MIN_TTL, min(ttl_seconds, MAX_TTL))
 
         resp = self._training_client.save_weights_for_sampler(
             name=name,
@@ -207,7 +212,8 @@ class IsolatedTinkerSession:
 
     def create_sampler(self, model_path: str) -> tinker.SamplingClient:
         """Create a sampling client. Path MUST be from this session."""
-        assert not self._closed, "Session closed"
+        if self._closed:
+            raise RuntimeError("Session closed")
         if model_path not in self._allowed_paths:
             raise PermissionError(
                 f"Cannot sample from {model_path} — "
@@ -215,11 +221,24 @@ class IsolatedTinkerSession:
             )
         return self._sc.create_sampling_client(model_path=model_path)
 
+    def save_and_get_sampler(
+        self,
+        name: str = "eval",
+        ttl_seconds: int = 3600,
+    ) -> tinker.SamplingClient:
+        """Convenience path that still enforces TTL and path checks."""
+        model_path = self.save_for_sampling(name, ttl_seconds)
+        return self.create_sampler(model_path)
+
     # --- State (scoped to this run) ---
 
     def save_state(self, name: str, ttl_seconds: int = 3600) -> str:
         """Save training state (weights + optimizer) for resumption."""
-        assert not self._closed and self._training_client is not None
+        if self._closed:
+            raise RuntimeError("Session closed")
+        if self._training_client is None:
+            raise RuntimeError("No training run")
+        ttl_seconds = max(MIN_TTL, min(ttl_seconds, MAX_TTL))
         resp = self._training_client.save_state(
             name=name,
             ttl_seconds=ttl_seconds,
@@ -814,9 +833,13 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] Mandatory TTL on all checkpoint saves (MIN_TTL=1h, MAX_TTL=24h)
 - [x] Cost metering: per-token tracking with model-specific pricing
 - [x] Cleanup: deletes all checkpoints from this deal's training run
-- [ ] Unit tests: session isolation (cannot access other paths)
-- [ ] Unit tests: mandatory cleanup (all checkpoints deleted)
-- [ ] Integration test: create training run → train → sample → cleanup → verify deletion
+- [x] Unit tests: session isolation (cannot access other paths)
+- [x] Unit tests: mandatory cleanup (all checkpoints deleted)
+- [x] Mocked-SDK integration tests: create run, enforce one-run guard, clamp TTL
+      on every save path, sample only approved paths, meter calls, cleanup
+      checkpoints
+- [ ] Real SDK integration test: create training run → train → sample → cleanup
+      → verify deletion
 
 ### Phase 3: Evaluator Agent ✅ IMPLEMENTED (stub + SFT)
 

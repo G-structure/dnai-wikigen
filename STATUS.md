@@ -81,6 +81,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - `python -m tinker_delegate.main verify-attestation`
 - `python -m tinker_delegate.main upload-artifact`
 - Python unit tests for Tinker delegate and email oracle services.
+- Mocked-SDK `IsolatedTinkerSession` tests cover one training run per deal,
+  TTL on checkpoint save paths, path-checked sampling, cleanup deletion, and
+  cost metering without calling real Tinker.
 
 ## Partial
 
@@ -91,6 +94,8 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - The same flow still needs fresh validation inside a deployed Phala CVM.
 - The optional Tinker SDK dependency and runtime behavior inside the final CVM
   image are not yet proven.
+- Real Tinker SDK training/sampling/cleanup tests remain gated on credentials,
+  budget cap, and deployed CVM validation.
 
 [partial] Account funding:
 

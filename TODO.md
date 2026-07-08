@@ -378,12 +378,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Run a real Tinker SDK smoke test from inside the deployed CVM.
       Done when the service starts a tiny training job, saves a TTL checkpoint,
       samples from it, and deletes/lets it expire.
-- [ ] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
+- [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
 - [ ] `P0` Add real SDK integration tests gated by an env var and budget cap.
-- [ ] `P0` Enforce one training run per deal in runtime, not only by convention.
-- [ ] `P0` Enforce checkpoint TTL on every save.
-- [ ] `P0` Enforce path-checked sampling:
+- [x] `P0` Enforce one training run per deal in runtime, not only by convention.
+- [x] `P0` Enforce checkpoint TTL on every save.
+- [x] `P0` Enforce path-checked sampling:
       no arbitrary model path, no cross-deal checkpoint access.
 - [ ] `P0` Block download/publish/list-all operations from evaluator agents.
 - [ ] `P0` Implement cleanup with retries and a cleanup attestation.

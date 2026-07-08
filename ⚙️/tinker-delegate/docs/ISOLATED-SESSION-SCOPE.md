@@ -55,7 +55,8 @@ The current implementation (`session.py`) covers the critical path -- single tra
 | `optim_step(adam_params)` | YES | `optim_step(adam_params)` | No token cost, but counts as API usage |
 | `save_state(name, ttl_seconds)` | YES | `save_state(name, ttl_seconds)` | TTL clamped to [1h, 24h]; path NOT added to allowed sampling paths |
 | `save_weights_for_sampler(name, ttl_seconds)` | YES | `save_for_sampling(name, ttl_seconds)` | TTL enforced; path added to allowed set |
-| `save_weights_and_get_sampling_client(name, retry_config)` | YES | `save_and_get_sampler(name)` | Convenience method; ephemeral save |
+| `save_weights_and_get_sampling_client(name, retry_config)` | NO | -- | Direct ephemeral save bypasses explicit TTL policy |
+| explicit save + sampling client | YES | `save_and_get_sampler(name, ttl_seconds)` | Convenience wrapper calls `save_for_sampling()` with clamped TTL, then path-checked `create_sampler()` |
 | `load_state(path)` | NO | -- | Could load weights from other deals. **BLOCKED.** |
 | `load_state_with_optimizer(path)` | NO | -- | Same risk. **BLOCKED.** |
 | `get_info()` | NO | -- | Returns training_run_id, model metadata. Low risk but not needed. |
@@ -260,11 +261,15 @@ The IsolatedTinkerSession defends against a **malicious evaluator agent** (or co
 
 **GAP 1: Generated token metering.** The `sample()` method meters prefill tokens but not generated tokens. After `sampler.sample()` returns, the output tokens in `result.sequences[i].tokens` are not counted toward cost. Fix: await the result inside the wrapper and count output tokens before returning.
 
-**GAP 2: `save_and_get_sampler()` does not enforce TTL.** The `save_weights_and_get_sampling_client()` method uses an ephemeral save (no named path), but we have no control over its TTL. The SDK's internal implementation creates a transient sampler session, but the underlying weights may persist. Fix: use explicit `save_for_sampling()` with TTL, then `create_sampler()` instead. OR verify that ephemeral saves are truly transient in the Tinker backend.
+**RESOLVED: `save_and_get_sampler()` TTL enforcement.** The wrapper no longer
+calls `save_weights_and_get_sampling_client()` directly. It uses explicit
+`save_for_sampling()` with clamped TTL, then path-checked `create_sampler()`.
+Mocked-SDK tests verify that the convenience path uses the same TTL policy as
+named sampler checkpoints.
 
-**GAP 3: `forward_backward_custom()` security.** This method executes a user-provided Python callable locally (in the TEE), receiving logprob tensors from the server. The callable itself never leaves the TEE, but it has access to the `TrainingClient` internals through the closure. If exposed, it should be wrapped to prevent the callable from accessing `self._training_client` or `self._sc` directly.
+**GAP 2: `forward_backward_custom()` security.** This method executes a user-provided Python callable locally (in the TEE), receiving logprob tensors from the server. The callable itself never leaves the TEE, but it has access to the `TrainingClient` internals through the closure. If exposed, it should be wrapped to prevent the callable from accessing `self._training_client` or `self._sc` directly.
 
-**GAP 4: `**kwargs` passthrough in `create_training()`.** Currently, `**kwargs` is passed to `create_lora_training_client`, which could allow injecting unexpected parameters. The session should explicitly whitelist: `seed`, `train_mlp`, `train_attn`, `train_unembed`.
+**GAP 3: `**kwargs` passthrough in `create_training()`.** Currently, `**kwargs` is passed to `create_lora_training_client`, which could allow injecting unexpected parameters. The session should explicitly whitelist: `seed`, `train_mlp`, `train_attn`, `train_unembed`.
 
 **GAP 5: Methodology summary free-text.** The evaluator's returned `methodology` string passes through to `EvaluationResult.methodology_summary`. A malicious evaluator could steganographically encode exact quality values in this text. Fix: validate/truncate the methodology string, or generate it from structured data in the control plane.
 
@@ -646,12 +651,11 @@ The NDAI paper's Section 5 analyzes robustness when agents make random errors. I
 
 | # | Question | Owner | Impact |
 |---|----------|-------|--------|
-| 1 | **Do ephemeral sampler weights auto-expire?** When using `save_weights_and_get_sampling_client()` without a name, does Tinker auto-delete the underlying weights? | Tinker team / integration test | If not, weights persist indefinitely -- a security hole |
-| 2 | **What is the checkpoint count limit per training run?** Can an evaluator create unlimited checkpoints, exhausting storage? | Tinker team | DoS vector if unlimited |
-| 3 | **Rate limits on training API?** Are there per-user or per-model concurrency limits? | Tinker team | Could affect evaluation speed and timeout behavior |
-| 4 | **How is the Tinker API key scoped?** Can we create a key that is limited to create + train + sample but cannot list/download/publish? | Tinker team | Would provide defense-in-depth beyond session wrapper |
-| 5 | **ETH/USD price oracle integration** | Smart contract team | Needed for accurate cost-to-wei conversion |
-| 6 | **Evaluator code pinning** | Control plane team | TDX quote must include evaluator code hash |
+| 1 | **What is the checkpoint count limit per training run?** Can an evaluator create unlimited checkpoints, exhausting storage? | Tinker team | DoS vector if unlimited |
+| 2 | **Rate limits on training API?** Are there per-user or per-model concurrency limits? | Tinker team | Could affect evaluation speed and timeout behavior |
+| 3 | **How is the Tinker API key scoped?** Can we create a key that is limited to create + train + sample but cannot list/download/publish? | Tinker team | Would provide defense-in-depth beyond session wrapper |
+| 4 | **ETH/USD price oracle integration** | Smart contract team | Needed for accurate cost-to-wei conversion |
+| 5 | **Evaluator code pinning** | Control plane team | TDX quote must include evaluator code hash |
 
 ### 10.2 Should Resolve Before Production
 

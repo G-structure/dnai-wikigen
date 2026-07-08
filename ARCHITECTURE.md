@@ -44,9 +44,11 @@ Important current status:
             test-card billing rejection are validated; deployed CVM validation
             and real funding remain open.
 [partial]   IsolatedTinkerSession and bounded control plane. Artifact ingress
-            now decrypts quote-key-encrypted artifact uploads and verifies
-            Ethereum keccak256 against the committed artifactHash before
-            storing the upload in memory.
+            now has mocked-SDK coverage for one-run enforcement, mandatory
+            checkpoint TTL, path-checked sampling, cleanup, and metering.
+            Artifact ingress decrypts quote-key-encrypted artifact uploads and
+            verifies Ethereum keccak256 against the committed artifactHash
+            before storing the upload in memory.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -567,6 +569,10 @@ Implementation status:
 [real]      Encrypted FastAPI artifact ingress and control-plane evaluation
             dispatch have regression tests that fail on Python file open/write
             calls while raw artifact buffers are in scope.
+[real]      IsolatedTinkerSession has mocked-SDK tests for explicit one training
+            run per deal enforcement, TTL clamping on every checkpoint save
+            path including save-and-sample, path-checked sampling, state
+            checkpoints not being sampleable, cleanup deletion, and metering.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE, but a capped real-card funding attempt still needs to be proven.
 [partial]   Optional Tinker SDK dependency must be installed for real evaluator execution.

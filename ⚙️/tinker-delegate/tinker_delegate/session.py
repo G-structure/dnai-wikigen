@@ -137,6 +137,20 @@ class IsolatedTinkerSession:
     def training_run_id(self) -> str | None:
         return self._training_run_id
 
+    def _ensure_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("Session closed")
+
+    def _require_training_client(self) -> tinker.TrainingClient:
+        self._ensure_open()
+        if self._training_client is None:
+            raise RuntimeError("No training run")
+        return self._training_client
+
+    @staticmethod
+    def _clamp_ttl(ttl_seconds: int) -> int:
+        return max(MIN_TTL, min(ttl_seconds, MAX_TTL))
+
     # --- Training ---
 
     def create_training(
@@ -146,8 +160,9 @@ class IsolatedTinkerSession:
         **kwargs,
     ) -> tinker.TrainingClient:
         """Start a LoRA training run. One per deal, enforced."""
-        assert not self._closed, "Session closed"
-        assert self._training_run_id is None, "Only one training run per deal"
+        self._ensure_open()
+        if self._training_run_id is not None:
+            raise RuntimeError("Only one training run per deal")
 
         # Force deal_id into user_metadata for orphan detection
         metadata = kwargs.pop("user_metadata", None) or {}
@@ -177,14 +192,13 @@ class IsolatedTinkerSession:
             loss_fn: "cross_entropy", "importance_sampling", "ppo", "cispo", "dro"
             loss_fn_config: optional dict of loss-specific config
         """
-        assert not self._closed, "Session closed"
-        assert self._training_client is not None, "No training run"
+        training_client = self._require_training_client()
 
         # Count tokens in the data batch
         tokens = self._count_tokens_from_data(data)
         self._meter.record_train(tokens)
 
-        return self._training_client.forward_backward(
+        return training_client.forward_backward(
             data=data, loss_fn=loss_fn, loss_fn_config=loss_fn_config,
         )
 
@@ -194,9 +208,8 @@ class IsolatedTinkerSession:
         Args:
             adam_params: tinker.AdamParams(learning_rate=1e-4, beta1=0.9, beta2=0.95, ...)
         """
-        assert not self._closed, "Session closed"
-        assert self._training_client is not None, "No training run"
-        return self._training_client.optim_step(adam_params)
+        training_client = self._require_training_client()
+        return training_client.optim_step(adam_params)
 
     # --- Checkpoint saves (TTL enforced) ---
 
@@ -209,12 +222,10 @@ class IsolatedTinkerSession:
 
         TTL is mandatory — auto-cleanup backstop even if cleanup() never runs.
         """
-        assert not self._closed, "Session closed"
-        assert self._training_client is not None, "No training run"
+        training_client = self._require_training_client()
+        ttl = self._clamp_ttl(ttl_seconds)
 
-        ttl = max(MIN_TTL, min(ttl_seconds, MAX_TTL))
-
-        resp = self._training_client.save_weights_for_sampler(
+        resp = training_client.save_weights_for_sampler(
             name=name,
             ttl_seconds=ttl,
         ).result()
@@ -223,11 +234,10 @@ class IsolatedTinkerSession:
 
     def save_state(self, name: str, ttl_seconds: int = DEFAULT_TTL) -> str:
         """Save training state (weights + optimizer) for resumption."""
-        assert not self._closed and self._training_client is not None
+        training_client = self._require_training_client()
+        ttl = self._clamp_ttl(ttl_seconds)
 
-        ttl = max(MIN_TTL, min(ttl_seconds, MAX_TTL))
-
-        resp = self._training_client.save_state(
+        resp = training_client.save_state(
             name=name,
             ttl_seconds=ttl,
         ).result()
@@ -236,19 +246,22 @@ class IsolatedTinkerSession:
 
     # --- Sampling (path-checked) ---
 
-    def save_and_get_sampler(self, name: str = "eval") -> tinker.SamplingClient:
+    def save_and_get_sampler(
+        self,
+        name: str = "eval",
+        ttl_seconds: int = DEFAULT_TTL,
+    ) -> tinker.SamplingClient:
         """Save current weights and immediately get a sampling client.
 
-        Convenience method combining save_for_sampling + create_sampler.
+        Convenience method combining TTL-enforced save_for_sampling() with
+        path-checked create_sampler().
         """
-        assert not self._closed, "Session closed"
-        assert self._training_client is not None, "No training run"
-        sampler = self._training_client.save_weights_and_get_sampling_client(name=name)
-        return sampler
+        model_path = self.save_for_sampling(name=name, ttl_seconds=ttl_seconds)
+        return self.create_sampler(model_path)
 
     def create_sampler(self, model_path: str) -> tinker.SamplingClient:
         """Create a sampling client. Path MUST be from this session."""
-        assert not self._closed, "Session closed"
+        self._ensure_open()
         if model_path not in self._allowed_paths:
             raise PermissionError(
                 f"Cannot sample from {model_path} — "
@@ -265,7 +278,7 @@ class IsolatedTinkerSession:
             sampling_params: tinker.SamplingParams(max_tokens=..., temperature=..., ...)
             num_samples: number of completions to generate
         """
-        assert not self._closed, "Session closed"
+        self._ensure_open()
 
         # Count prompt tokens for metering
         if hasattr(prompt, 'length'):
@@ -289,7 +302,7 @@ class IsolatedTinkerSession:
         Returns:
             list of floats (logprob per token position, first is None)
         """
-        assert not self._closed, "Session closed"
+        self._ensure_open()
 
         if hasattr(prompt, 'length'):
             self._meter.record_prefill(prompt.length)
@@ -334,8 +347,7 @@ class IsolatedTinkerSession:
 
     def get_tokenizer(self):
         """Get the tokenizer for the base model."""
-        assert self._training_client is not None, "No training run"
-        return self._training_client.get_tokenizer()
+        return self._require_training_client().get_tokenizer()
 
     # --- Internal helpers ---
 
