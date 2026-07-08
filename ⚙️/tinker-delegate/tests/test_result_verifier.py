@@ -1,4 +1,7 @@
+import subprocess
+import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from eth_account import Account
@@ -202,6 +205,28 @@ class ResultVerifierTest(unittest.TestCase):
         with patch("tinker_delegate.result_verifier.is_dstack_enabled", return_value=False):
             with self.assertRaisesRegex(VerifierSignerUnavailable, "dstack mode"):
                 DstackResultVerifierSigner.from_settings(Settings())
+
+    def test_cli_authorize_result_has_no_private_key_flag(self):
+        project_dir = Path(__file__).resolve().parents[1]
+        for command in ("authorize-result", "result-verifier-address"):
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    command,
+                    "--help",
+                ],
+                check=True,
+                cwd=project_dir,
+                text=True,
+                capture_output=True,
+            )
+            help_body = result.stdout.lower()
+            self.assertIn(command, help_body)
+            self.assertNotIn("private-key", help_body)
+            self.assertNotIn("mnemonic", help_body)
+            self.assertNotIn("seed", help_body)
 
 
 if __name__ == "__main__":

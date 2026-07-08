@@ -225,9 +225,19 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   digest. Tests cover accepted authorization, policy mismatch,
                   quote-context mismatch, revocation, self-approval rejection,
                   and dstack-only verifier key custody.
-            - [ ] Wrap the verifier module as a deployed service or operator
+            - [x] Wrap the verifier module as a deployed service or operator
                   path that receives bounded quote evidence from the submitter
                   and returns only authorization metadata/signature.
+                  Done as the `result-verifier-address` and `authorize-result`
+                  CLIs. `authorize-result` accepts bounded signer-attestation
+                  JSON plus explicit compose/app/OS-image allowlists and
+                  revocation lists, derives the verifier key from dstack, emits
+                  only bounded authorization metadata plus the public verifier
+                  signature needed by the contract, and has no raw-private-key
+                  flags. The dstack-simulator Anvil proof now deploys
+                  `DiligenceRoom` with the dstack-derived verifier address and
+                  obtains authorization via this CLI path instead of Anvil
+                  `eth_sign`.
             - [ ] Add cryptographic Intel TDX quote parsing/freshness once the
                   production quote evidence format is available.
       - [ ] Repeat the verifier-authorized submitter proof from a deployed Phala

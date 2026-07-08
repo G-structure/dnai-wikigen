@@ -380,6 +380,13 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   `DiligenceRoom` authorization digest. Tests cover accepted authorization and
   fail-closed policy, context, revocation, self-approval, and non-dstack custody
   cases.
+- The verifier path is exposed through bounded operator CLIs:
+  `result-verifier-address` prints the dstack-derived verifier address for
+  deployment, and `authorize-result` consumes bounded signer-attestation JSON
+  plus explicit compose/app/OS-image allowlists and revocation lists before
+  emitting authorization metadata and the public verifier signature needed by
+  the contract. CLI help tests assert these commands do not expose
+  raw-private-key, seed, or mnemonic flags.
 - The `submit-result` path now uses a pre-broadcast off-chain verifier gate:
   it fetches dstack signer quote evidence whose report data binds the signer
   address, chain ID, and contract address; rejects signer/chain/contract/report
@@ -390,19 +397,19 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
 - `⚙️/tinker-delegate/scripts/prove-chain-submitter-dstack-anvil.py` proves the
   submitter against Phala/dstack simulator key derivation and real local Anvil:
   it derives the signer through the same dstack path used by the CLI, funds that
-  signer on ephemeral Anvil, deploys `DiligenceRoom` with an unlocked local
-  verifier account, creates and funds a deal whose `teeIdentity` is the derived
-  address, obtains a verifier signature through JSON-RPC `eth_sign`, runs
-  `tinker-delegate submit-result`, and verifies the real `EvaluationSubmitted`
-  event carries the replay-bound submission commitment, not the raw payload
-  hash, with signer attestation metadata, verifier-signature hash, and
-  `raw_secret_egress=false`.
+  signer on ephemeral Anvil, derives the result verifier through the
+  `result-verifier-address` CLI, deploys `DiligenceRoom` with that verifier,
+  creates and funds a deal whose `teeIdentity` is the derived signer, obtains a
+  verifier signature through `authorize-result`, runs `tinker-delegate
+  submit-result`, and verifies the real `EvaluationSubmitted` event carries the
+  replay-bound submission commitment, not the raw payload hash, with signer
+  attestation metadata, verifier-signature hash, and `raw_secret_egress=false`.
 - The watcher is not yet deployed as a Phala/CVM process and does not include
   chain-lag alerting or deep-reorg rollback beyond the configured confirmation
   policy.
 - A deployed-CVM proof of verifier-authorized `submitResult()` broadcast has
-  not yet been run. The verifier policy/signature module is real, but it has
-  not yet been wrapped as a deployed verifier service or operator path, and full
+  not yet been run. The verifier policy/signature module and operator CLI path
+  are real, but they have not yet been deployed as a verifier service and full
   cryptographic Intel TDX quote parsing/freshness is still incomplete. Full
   settlement-event integration is still incomplete.
 

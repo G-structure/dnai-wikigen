@@ -38,10 +38,15 @@ Decision:
    report data, quote report data, approved compose hash, approved app ID,
    optional OS image hash, revocation policy, distinct verifier/TEE keys, and a
    short authorization TTL; then it signs the exact contract digest.
-5. `[planned]` The production verifier service/path must wrap this module,
-   consume live Phala quote evidence from the submitter, and add cryptographic
-   Intel TDX quote parsing/freshness before the repo can claim complete
-   production quote verification.
+5. `[real]` The operator CLI path wraps this module:
+   `result-verifier-address` emits the dstack-derived verifier address, and
+   `authorize-result` consumes bounded signer-attestation JSON plus explicit
+   allowlists/revocations before returning authorization metadata and the public
+   verifier signature needed by the contract.
+6. `[planned]` A production verifier service must expose the same bounded
+   authorization path in a deployed CVM and add cryptographic Intel TDX quote
+   parsing/freshness before the repo can claim complete production quote
+   verification.
 
 Rationale:
 
@@ -64,7 +69,8 @@ Open follow-ups:
   without a verifier authorization.
 - `[real]` Add the bounded policy/signature core for the production verifier
   path.
-- `[planned]` Wrap the verifier module as a deployed service/operator path.
+- `[real]` Wrap the verifier module as a bounded operator CLI path.
+- `[planned]` Deploy the verifier path as a service inside the Phala/CVM stack.
 - `[planned]` Add full cryptographic quote parsing/freshness once production
   Phala quote evidence is available.
 - `[planned]` Repeat the proof from a deployed Phala CVM, not only the local

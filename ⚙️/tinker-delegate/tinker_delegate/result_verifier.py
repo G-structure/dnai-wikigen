@@ -233,6 +233,38 @@ def authorize_result_submission(
     )
 
 
+def signer_attestation_from_public_dict(payload: dict[str, Any]) -> SignerAttestationEvidence:
+    """Parse bounded signer-attestation evidence from JSON-safe fields."""
+
+    required = (
+        "mode",
+        "signer_address",
+        "chain_id",
+        "contract_address",
+        "report_data",
+        "quote_report_data",
+        "quote_hash",
+        "quote_size",
+        "compose_hash",
+    )
+    missing = [field for field in required if field not in payload]
+    if missing:
+        raise ResultVerifierError(f"signer attestation missing fields: {', '.join(missing)}")
+    return SignerAttestationEvidence(
+        mode=str(payload["mode"]),
+        signer_address=normalize_address(str(payload["signer_address"])),
+        chain_id=int(payload["chain_id"]),
+        contract_address=normalize_address(str(payload["contract_address"])),
+        report_data=normalize_bytes32(str(payload["report_data"])),
+        quote_report_data=normalize_bytes32(str(payload["quote_report_data"])),
+        quote_hash=normalize_bytes32(str(payload["quote_hash"])),
+        quote_size=int(payload["quote_size"]),
+        compose_hash=normalize_optional_bytes32(str(payload["compose_hash"])),
+        app_id=str(payload.get("app_id") or ""),
+        os_image_hash=str(payload.get("os_image_hash") or ""),
+    )
+
+
 def _require_allowed_compose(policy: ResultVerifierPolicy, compose_hash: str) -> None:
     allowed = {normalize_optional_bytes32(value) for value in policy.allowed_compose_hashes}
     if compose_hash not in allowed:

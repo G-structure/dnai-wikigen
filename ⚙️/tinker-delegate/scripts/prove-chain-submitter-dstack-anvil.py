@@ -3,10 +3,11 @@
 
 This script uses the Phala/dstack simulator as the TEE key source, starts an
 ephemeral Anvil chain, deploys DiligenceRoom, creates/funds a deal whose
-teeIdentity is the dstack-derived Ethereum address, and invokes the real
-``tinker-delegate submit-result`` CLI. It verifies that Anvil accepts the raw
-signed transaction and emits ``EvaluationSubmitted``. It never accepts or prints
-raw private keys.
+teeIdentity is the dstack-derived Ethereum address, authorizes the result
+through the real ``tinker-delegate authorize-result`` verifier CLI, and invokes
+the real ``tinker-delegate submit-result`` CLI. It verifies that Anvil accepts
+the raw signed transaction and emits ``EvaluationSubmitted``. It never accepts
+or prints raw private keys.
 """
 
 from __future__ import annotations
@@ -27,7 +28,6 @@ from tinker_delegate.chain_submitter import (
     DstackEthereumSigner,
     ResultCommitment,
     get_dstack_signer_attestation,
-    result_authorization_digest,
 )
 from tinker_delegate.chain_watcher import JsonRpcLogSource
 from tinker_delegate.config import Settings
@@ -43,7 +43,6 @@ DEFAULT_DSTACK_SOCKET = (
 
 ANVIL_SELLER = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 ANVIL_BUYER = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-ANVIL_VERIFIER = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
 ARTIFACT_HASH = "0x" + "ab" * 32
 RESULT_HASH = "0x" + "cd" * 32
 
@@ -57,14 +56,15 @@ def main() -> int:
     try:
         dstack_endpoint, simulator_started = _ensure_dstack_simulator()
         signer_address = _derive_dstack_signer_address(dstack_endpoint)
+        verifier_address = _derive_result_verifier_address(dstack_endpoint)
 
         _wait_for_rpc(rpc_url)
-        contract_address = _deploy_diligence_room(rpc_url)
+        contract_address = _deploy_diligence_room(rpc_url, verifier_address)
         start_block = _block_number(rpc_url)
         fund_signer_tx = _fund_signer(rpc_url, signer_address)
         create_tx, deal_expiry = _create_deal(rpc_url, contract_address, signer_address)
         fund_deal_tx = _fund_deal(rpc_url, contract_address)
-        authorization_expiry, verifier_signature = _sign_result_authorization(
+        authorization = _authorize_result_via_cli(
             rpc_url=rpc_url,
             contract_address=contract_address,
             signer_address=signer_address,
@@ -77,8 +77,8 @@ def main() -> int:
             rpc_url=rpc_url,
             contract_address=contract_address,
             dstack_endpoint=dstack_endpoint,
-            authorization_expiry=authorization_expiry,
-            verifier_signature=verifier_signature,
+            authorization_expiry=int(authorization["authorization_expiry"]),
+            verifier_signature=str(authorization["verifier_signature"]),
         )
         after_submit_block = _block_number(rpc_url)
         submitted_event = _find_evaluation_submitted(
@@ -98,6 +98,8 @@ def main() -> int:
             "dstack": {
                 "endpoint_kind": "unix_socket" if str(dstack_endpoint).endswith(".sock") else "http",
                 "signer_address": signer_address,
+                "result_verifier_address": verifier_address,
+                "result_verifier_custody": authorization.get("verifier_custody"),
                 "custody": receipt.get("custody"),
                 "signer_attestation_hash": receipt.get("signer_attestation_hash"),
                 "signer_attestation_quote_size": receipt.get("signer_attestation_quote_size"),
@@ -107,7 +109,7 @@ def main() -> int:
                 "rpc": "ephemeral_anvil",
                 "chain_id": receipt.get("chain_id"),
                 "contract_address": contract_address,
-                "result_verifier": ANVIL_VERIFIER,
+                "result_verifier": verifier_address,
                 "start_block": start_block,
                 "before_submit_block": before_submit_block,
                 "after_submit_block": after_submit_block,
@@ -128,6 +130,8 @@ def main() -> int:
                 "compose_hash": receipt.get("compose_hash"),
                 "authorization_expiry": receipt.get("authorization_expiry"),
                 "verifier_signature_hash": receipt.get("verifier_signature_hash"),
+                "authorization_policy_hash": authorization.get("policy_hash"),
+                "authorization_digest": authorization.get("authorization_digest"),
                 "nonce": receipt.get("nonce"),
                 "event_name": submitted_event.name,
                 "event_fields": submitted_event.fields,
@@ -201,6 +205,20 @@ def _derive_dstack_signer_address(dstack_endpoint: str) -> str:
         os.environ.update(old_env)
 
 
+def _derive_result_verifier_address(dstack_endpoint: str) -> str:
+    output = _run([
+        sys.executable,
+        "-m",
+        "tinker_delegate.main",
+        "result-verifier-address",
+    ], cwd=TINKER_DIR, env=_proof_env(dstack_endpoint))
+    body = json.loads(output)
+    address = body.get("verifier_address")
+    if not isinstance(address, str) or not address.startswith("0x"):
+        raise RuntimeError("result-verifier-address did not return a verifier address")
+    return address
+
+
 def _start_anvil(port: int) -> subprocess.Popen:
     return subprocess.Popen(
         ["anvil", "--port", str(port), "--chain-id", "31337"],
@@ -211,7 +229,7 @@ def _start_anvil(port: int) -> subprocess.Popen:
     )
 
 
-def _deploy_diligence_room(rpc_url: str) -> str:
+def _deploy_diligence_room(rpc_url: str, verifier_address: str) -> str:
     output = _run_json([
         "forge",
         "create",
@@ -224,7 +242,7 @@ def _deploy_diligence_room(rpc_url: str) -> str:
         "--broadcast",
         "--json",
         "--constructor-args",
-        ANVIL_VERIFIER,
+        verifier_address,
     ], cwd=CONTRACTS_DIR)
     address = output.get("deployedTo") or output.get("contractAddress")
     if not address:
@@ -318,14 +336,14 @@ def _submit_result_via_cli(
     return json.loads(output)
 
 
-def _sign_result_authorization(
+def _authorize_result_via_cli(
     *,
     rpc_url: str,
     contract_address: str,
     signer_address: str,
     dstack_endpoint: str,
     deal_expiry: int,
-) -> tuple[int, str]:
+) -> dict[str, Any]:
     chain_id = int(_run(["cast", "chain-id", "--rpc-url", rpc_url]).strip())
     nonce = int(_run(["cast", "nonce", signer_address, "--rpc-url", rpc_url]).strip())
     env = _proof_env(dstack_endpoint)
@@ -352,34 +370,47 @@ def _sign_result_authorization(
         compute_cost_wei=10**15,
         expiry=deal_expiry,
     ).digest()
-    authorization_expiry = int(time.time()) + 600
-    digest = result_authorization_digest(
-        chain_id=chain_id,
-        contract_address=contract_address,
-        deal_id=0,
-        tee_identity=signer_address,
-        compose_hash=attestation.compose_hash,
-        score_band=3,
-        compute_cost_wei=10**15,
-        result_hash=commitment,
-        authorization_expiry=authorization_expiry,
-    )
-    signature_output = _run([
-        "cast",
-        "rpc",
-        "eth_sign",
-        ANVIL_VERIFIER,
-        digest,
-        "--rpc-url",
-        rpc_url,
-    ]).strip()
-    try:
-        signature = json.loads(signature_output)
-    except json.JSONDecodeError:
-        signature = signature_output
-    if not isinstance(signature, str) or not signature.startswith("0x"):
-        raise RuntimeError("eth_sign did not return a hex signature")
-    return authorization_expiry, signature
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json") as attestation_file:
+        json.dump(attestation.to_public_dict(), attestation_file)
+        attestation_file.flush()
+        output = _run([
+            sys.executable,
+            "-m",
+            "tinker_delegate.main",
+            "authorize-result",
+            "0",
+            "high",
+            "1000000000000000",
+            commitment,
+            "--chain-id",
+            str(chain_id),
+            "--contract-address",
+            contract_address,
+            "--tee-identity",
+            signer_address,
+            "--compose-hash",
+            attestation.compose_hash,
+            "--signer-attestation-json",
+            attestation_file.name,
+            "--allow-compose-hash",
+            attestation.compose_hash,
+            "--allow-app-id",
+            attestation.app_id,
+            "--allow-os-image-hash",
+            attestation.os_image_hash,
+            "--ttl-seconds",
+            "600",
+        ], cwd=TINKER_DIR, env=_proof_env(dstack_endpoint))
+    authorization = json.loads(output)
+    if authorization.get("authorized") is not True:
+        raise RuntimeError("authorize-result did not authorize submission")
+    if authorization.get("result_hash") != commitment:
+        raise RuntimeError("authorize-result did not authorize the replay-bound commitment")
+    if str(authorization.get("tee_identity", "")).lower() != signer_address.lower():
+        raise RuntimeError("authorize-result tee identity mismatch")
+    if str(authorization.get("contract_address", "")).lower() != contract_address.lower():
+        raise RuntimeError("authorize-result contract mismatch")
+    return authorization
 
 
 def _proof_env(dstack_endpoint: str) -> dict[str, str]:
@@ -389,6 +420,7 @@ def _proof_env(dstack_endpoint: str) -> dict[str, str]:
         "DSTACK_ENABLED": "true",
         "TINKER_DSTACK_ENABLED": "true",
         "TINKER_CHAIN_SIGNER_KEY_PATH": "tinker/chain_signer/proof",
+        "TINKER_CHAIN_RESULT_VERIFIER_KEY_PATH": "tinker/chain_result_verifier/proof",
     })
     env.pop("ETH_PRIVATE_KEY", None)
     env.pop("PRIVATE_KEY", None)

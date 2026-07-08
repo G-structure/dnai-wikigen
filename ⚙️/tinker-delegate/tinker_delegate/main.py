@@ -22,10 +22,18 @@ def _render_bounded_json(
     payload: Any,
     *,
     forbidden_values: tuple[str, ...] = (),
+    public_hex_fields: tuple[str, ...] = (),
+    public_decimal_fields: tuple[str, ...] = (),
 ) -> str:
     """Render JSON only if it does not contain obvious secret-shaped material."""
     rendered = json.dumps(payload, indent=2, default=str)
-    if redact_text(rendered) != rendered:
+    redaction_payload = _mask_public_fields(
+        payload,
+        public_hex_fields=public_hex_fields,
+        public_decimal_fields=public_decimal_fields,
+    )
+    redaction_rendered = json.dumps(redaction_payload, indent=2, default=str)
+    if redact_text(redaction_rendered) != redaction_rendered:
         raise ValueError("bounded CLI output contains secret-like material")
     for value in forbidden_values:
         if value and len(value) >= 4 and value in rendered:
@@ -33,13 +41,61 @@ def _render_bounded_json(
     return rendered
 
 
+def _mask_public_fields(
+    payload: Any,
+    *,
+    public_hex_fields: tuple[str, ...],
+    public_decimal_fields: tuple[str, ...],
+) -> Any:
+    """Mask explicitly public fields before generic secret-shape checks."""
+
+    if not public_hex_fields and not public_decimal_fields:
+        return payload
+    hex_allowed = set(public_hex_fields)
+    decimal_allowed = set(public_decimal_fields)
+    if isinstance(payload, dict):
+        return {
+            key: (
+                f"__public_hex_{key}__"
+                if key in hex_allowed and isinstance(value, str) and value.startswith("0x")
+                else (
+                    f"__public_decimal_{key}__"
+                    if key in decimal_allowed and isinstance(value, int)
+                    else _mask_public_fields(
+                        value,
+                        public_hex_fields=public_hex_fields,
+                        public_decimal_fields=public_decimal_fields,
+                    )
+                )
+            )
+            for key, value in payload.items()
+        }
+    if isinstance(payload, list):
+        return [
+            _mask_public_fields(
+                item,
+                public_hex_fields=public_hex_fields,
+                public_decimal_fields=public_decimal_fields,
+            )
+            for item in payload
+        ]
+    return payload
+
+
 def _emit_bounded_json(
     payload: Any,
     *,
     output_path: str = "",
     forbidden_values: tuple[str, ...] = (),
+    public_hex_fields: tuple[str, ...] = (),
+    public_decimal_fields: tuple[str, ...] = (),
 ) -> None:
-    rendered = _render_bounded_json(payload, forbidden_values=forbidden_values)
+    rendered = _render_bounded_json(
+        payload,
+        forbidden_values=forbidden_values,
+        public_hex_fields=public_hex_fields,
+        public_decimal_fields=public_decimal_fields,
+    )
     if output_path:
         Path(output_path).write_text(rendered + "\n", encoding="utf-8")
     else:
@@ -594,6 +650,70 @@ def cli():
         help="Optional gas limit override; defaults to TINKER_CHAIN_SUBMIT_GAS_LIMIT or eth_estimateGas",
     )
 
+    verifier_address_p = sub.add_parser(
+        "result-verifier-address",
+        help="Print the dstack-derived DiligenceRoom result verifier address",
+    )
+    verifier_address_p.add_argument("--output", default="", help="Optional JSON output path")
+
+    authorize_result_p = sub.add_parser(
+        "authorize-result",
+        help="Issue a bounded verifier authorization for DiligenceRoom.submitResult",
+    )
+    authorize_result_p.add_argument("deal_id", type=int, help="DiligenceRoom deal ID")
+    authorize_result_p.add_argument(
+        "score_band",
+        help="Bounded score band: negligible, low, medium, high, or exceptional",
+    )
+    authorize_result_p.add_argument("compute_cost_wei", type=int, help="Bounded compute cost in wei")
+    authorize_result_p.add_argument("result_hash", help="Replay-bound result commitment bytes32")
+    authorize_result_p.add_argument("--chain-id", type=int, required=True, help="Target chain ID")
+    authorize_result_p.add_argument("--contract-address", required=True, help="DiligenceRoom address")
+    authorize_result_p.add_argument("--tee-identity", required=True, help="TEE signer address for the deal")
+    authorize_result_p.add_argument("--compose-hash", required=True, help="Approved compose hash for this result")
+    authorize_result_p.add_argument(
+        "--signer-attestation-json",
+        required=True,
+        help="Path to bounded signer-attestation JSON, not raw quote material",
+    )
+    authorize_result_p.add_argument(
+        "--allow-compose-hash",
+        action="append",
+        default=[],
+        help="Allowed compose hash; repeat for multiple approved measurements",
+    )
+    authorize_result_p.add_argument(
+        "--allow-app-id",
+        action="append",
+        default=[],
+        help="Allowed Phala app ID; repeat for multiple approved apps",
+    )
+    authorize_result_p.add_argument(
+        "--allow-os-image-hash",
+        action="append",
+        default=[],
+        help="Optional allowed OS image hash; repeat for multiple approved images",
+    )
+    authorize_result_p.add_argument(
+        "--revoke-quote-hash",
+        action="append",
+        default=[],
+        help="Revoked signer quote hash; repeat for multiple revoked quotes",
+    )
+    authorize_result_p.add_argument(
+        "--revoke-signer-address",
+        action="append",
+        default=[],
+        help="Revoked TEE signer address; repeat for multiple revoked signers",
+    )
+    authorize_result_p.add_argument(
+        "--ttl-seconds",
+        type=int,
+        default=None,
+        help="Authorization TTL; defaults to TINKER_CHAIN_RESULT_AUTHORIZATION_TTL_SECONDS",
+    )
+    authorize_result_p.add_argument("--output", default="", help="Optional JSON output path")
+
     # API server
     serve_p = sub.add_parser("serve", help="Start the FastAPI server")
     serve_p.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
@@ -1060,6 +1180,93 @@ def cli():
                 dispatcher.close()
             if source is not None:
                 source.close()
+
+    elif args.command == "result-verifier-address":
+        from tinker_delegate.result_verifier import (
+            DstackResultVerifierSigner,
+            ResultVerifierError,
+            VerifierSignerUnavailable,
+        )
+
+        try:
+            signer = DstackResultVerifierSigner.from_settings(settings)
+            _emit_bounded_json(
+                {
+                    "verifier_address": signer.address,
+                    "custody": signer.custody,
+                    "raw_secret_egress": False,
+                },
+                output_path=args.output,
+            )
+        except VerifierSignerUnavailable as exc:
+            print(f"[result-verifier-address] signer unavailable: {redact_text(exc)}")
+            sys.exit(1)
+        except ResultVerifierError as exc:
+            print(f"[result-verifier-address] rejected: {redact_text(exc)}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"[result-verifier-address] failed: {redact_text(exc)}")
+            sys.exit(1)
+
+    elif args.command == "authorize-result":
+        from tinker_delegate.result_verifier import (
+            DstackResultVerifierSigner,
+            ResultAuthorizationRequest,
+            ResultVerifierError,
+            ResultVerifierPolicy,
+            VerifierSignerUnavailable,
+            authorize_result_submission,
+            signer_attestation_from_public_dict,
+        )
+
+        try:
+            attestation_payload = json.loads(
+                Path(args.signer_attestation_json).read_text(encoding="utf-8")
+            )
+            signer_attestation = signer_attestation_from_public_dict(attestation_payload)
+            policy = ResultVerifierPolicy(
+                allowed_compose_hashes=tuple(args.allow_compose_hash),
+                allowed_app_ids=tuple(args.allow_app_id),
+                allowed_os_image_hashes=tuple(args.allow_os_image_hash),
+                revoked_quote_hashes=tuple(args.revoke_quote_hash),
+                revoked_signer_addresses=tuple(args.revoke_signer_address),
+                authorization_ttl_seconds=(
+                    args.ttl_seconds
+                    if args.ttl_seconds is not None
+                    else settings.chain_result_authorization_ttl_seconds
+                ),
+            )
+            request = ResultAuthorizationRequest(
+                chain_id=args.chain_id,
+                contract_address=args.contract_address,
+                deal_id=args.deal_id,
+                tee_identity=args.tee_identity,
+                compose_hash=args.compose_hash,
+                score_band=args.score_band,
+                compute_cost_wei=args.compute_cost_wei,
+                result_hash=args.result_hash,
+            )
+            authorization = authorize_result_submission(
+                request,
+                signer_attestation=signer_attestation,
+                policy=policy,
+                verifier_signer=DstackResultVerifierSigner.from_settings(settings),
+            )
+            _emit_bounded_json(
+                authorization.to_public_dict(),
+                output_path=args.output,
+                public_hex_fields=("verifier_signature",),
+                public_decimal_fields=("compute_cost_wei",),
+            )
+        except VerifierSignerUnavailable as exc:
+            print(f"[authorize-result] signer unavailable: {redact_text(exc)}")
+            sys.exit(1)
+        except ResultVerifierError as exc:
+            print(f"[authorize-result] rejected: {redact_text(exc)}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"[authorize-result] failed: {redact_text(exc)}")
+            sys.exit(1)
 
     elif args.command == "submit-result":
         from tinker_delegate.chain_submitter import (
