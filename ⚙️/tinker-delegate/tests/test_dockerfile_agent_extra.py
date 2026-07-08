@@ -21,6 +21,15 @@ class DockerfileAgentExtraTest(unittest.TestCase):
 
         self.assertIsNone(base_only_install.search(dockerfile))
 
+    def test_agent_image_verifier_builds_and_runs_import_check(self):
+        verifier = (PROJECT_ROOT / "scripts" / "verify-agent-image.sh").read_text(encoding="utf-8")
+
+        self.assertIn("docker build", verifier)
+        self.assertIn("docker run --rm -i", verifier)
+        self.assertIn("import tinker", verifier)
+        self.assertIn("agent_stack_available", verifier)
+        self.assertIn("raw_secret_egress", verifier)
+
 
 if __name__ == "__main__":
     unittest.main()

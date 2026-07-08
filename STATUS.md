@@ -219,6 +219,10 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   `uv sync --frozen --no-dev --extra agent`; a local build/run of
   `dnai-tinker-delegate-agent-extra:local` returned
   `/health.agent_stack_available=true`.
+- `⚙️/tinker-delegate/scripts/verify-agent-image.sh` is the repeatable local
+  proof command for this packaging path: it rebuilds the image and runs an
+  in-image `import tinker` plus `agent_stack_available` check with bounded JSON
+  output.
 - The same flow still needs fresh validation inside a deployed Phala CVM.
 - Reusable payment-method token/reference capture is not implemented; if an
   official or tokenized funding path becomes available, that state still needs
@@ -592,6 +596,9 @@ explicitly legacy.
   verification credentials in local environment.
 - The local delegate image imports the optional Tinker SDK, but real SDK
   training/sampling/cleanup inside a deployed CVM is not yet proven.
+- Phala auth is configured for profile `wikigen` / workspace `wiki`, but
+  `phala cvms list` currently reports no CVMs, so deployed CVM validation is
+  still pending.
 - Bio-validation must remain fail-closed until risk screening, reviewer queues,
   and bounded schemas exist.
 

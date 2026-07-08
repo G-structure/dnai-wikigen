@@ -860,6 +860,9 @@ Implementation status:
             image includes the optional Tinker SDK. A local build/run of
             `dnai-tinker-delegate-agent-extra:local` returned
             `/health.agent_stack_available=true`.
+[real]      `scripts/verify-agent-image.sh` rebuilds the delegate image and
+            verifies `import tinker` plus the `agent_stack_available` probe
+            inside the image, emitting bounded JSON only.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE and
             bounded attempt receipts are returned/persisted, but payment-method

@@ -339,6 +339,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [x] `P0` Fix the `tinker-delegate` Dockerfile to install the optional Tinker
       agent dependency, not only the base package.
       Done when the CVM image reports `agent_stack_available=true`.
+      `⚙️/tinker-delegate/scripts/verify-agent-image.sh` now rebuilds the image
+      and verifies `import tinker` plus the `agent_stack_available` probe inside
+      the packaged image.
 - [x] `P0` Add a compose-hash verification script that reproduces the Phala
       compose hash from local source and deployed image digests.
 - [ ] `P0` Add a TDX quote verifier script for the running CVM.
@@ -1311,8 +1314,12 @@ vision Wiki is reaching for.
        `SyntheticHiddenKeywordEnvironment` plus
        `synthetic-private-reward-demo` now provide a replayable local bounded
        private-reward proof over a synthetic hidden dataset.
-5. [ ] Fix `tinker-delegate` Docker install so the Tinker SDK path is present in
+5. [x] Fix `tinker-delegate` Docker install so the Tinker SDK path is present in
        the deployed image.
+       Dockerfile installs `uv sync --frozen --no-dev --extra agent`, and
+       `scripts/verify-agent-image.sh` verifies the optional Tinker SDK import
+       inside the built delegate image. Fresh Phala CVM validation remains
+       separate because no CVMs are currently deployed.
 6. [x] Enforce oracle auth on `/pin` and `/inbox`.
        Runtime bearer auth and optional on-chain `EmailOracleAuth` consumer
        registry enforcement are implemented locally. Base Sepolia compose-hash
