@@ -341,10 +341,15 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   `DealCreated` context, and calls `/deal/{deal_id}/resolve` for accepted,
   rejected, or expired events. The `watch-chain` CLI exposes the same path for
   operator/CVM use.
-- The watcher slice is tested with mocked JSON-RPC/API transports and bounded
-  control-plane metadata tests, but it has not yet been proven against a live
-  Anvil or Base Sepolia contract event and does not yet persist cursors or
-  handle reorg recovery.
+- `⚙️/tinker-delegate/scripts/prove-chain-watcher-anvil.py` proves the watcher
+  against a real local Anvil contract log: it starts ephemeral Anvil, deploys
+  `DiligenceRoom` through an unlocked local account, emits `DealCreated` and
+  `DealFunded`, runs the watcher over JSON-RPC, and verifies a bounded
+  control-plane stub receives funded state for deal `0` without manual curl
+  calls or raw private-key flags.
+- The watcher slice is tested with mocked JSON-RPC/API transports, bounded
+  control-plane metadata tests, and the local Anvil proof, but it does not yet
+  persist cursors or handle reorg recovery.
 - TEE-derived transaction signing, on-chain quote verification, compose/app
   identity binding, and full settlement-event integration are not built.
 

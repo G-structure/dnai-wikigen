@@ -126,8 +126,14 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             proving `DealCreated` + `DealFunded` dispatch can call
             `/deal/notify-funded` while resolution events call
             `/deal/{deal_id}/resolve`.
-      - [ ] Prove the watcher against a local Anvil or Base Sepolia event so a
+      - [x] Prove the watcher against a local Anvil or Base Sepolia event so a
             real contract log creates/updates matching control-plane state.
+            Done with `⚙️/tinker-delegate/scripts/prove-chain-watcher-anvil.py`:
+            it starts ephemeral Anvil, deploys `DiligenceRoom` through an
+            unlocked local account, emits real `DealCreated`/`DealFunded`
+            logs, runs the watcher over JSON-RPC, and verifies a bounded
+            control-plane stub receives deal `0` funded state without manual
+            curl calls or raw private-key flags.
       - [ ] Add durable cursor storage, restart recovery, and reorg/confirmation
             policy before production use.
 - [ ] `P0` Implement TEE-to-chain transaction signing using a dstack-derived

@@ -81,9 +81,10 @@ Important current status:
             `/deal/chain-event` audit markers, call `/deal/notify-funded` when
             a funded event has matching created-deal context, and call
             `/deal/{deal_id}/resolve` for accept/reject/expire events. It has
-            mocked JSON-RPC/API coverage and a `watch-chain` CLI, but still
-            needs live Anvil/Base-Sepolia proof, durable cursor storage, and
-            reorg recovery.
+            mocked JSON-RPC/API coverage, a `watch-chain` CLI, and a local
+            Anvil proof script that emits real `DealCreated`/`DealFunded` logs
+            and verifies bounded control-plane state updates. Durable cursor
+            storage and reorg recovery remain open.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -1562,8 +1563,8 @@ bounded aggregate results
 6. DLP/egress enforcement is not implemented.
 7. Corpus policy and consent/revocation are modeled but not enforced.
 8. Chain watcher wiring is partial: JSON-RPC decoding, API dispatch, bounded
-   chain-event audit metadata, and CLI entrypoint exist, but live
-   Anvil/Base-Sepolia proof, durable cursors, and reorg recovery are open.
+   chain-event audit metadata, CLI entrypoint, and local Anvil proof exist, but
+   durable cursors and reorg recovery are open.
 9. Per-query royalty settlement is not wired to a live chain watcher.
 10. The production frontend is not present on this branch.
 11. Current-operator Base Sepolia contracts are deployed, but source
