@@ -10,7 +10,8 @@
 # - no Tinker bootstrap
 # - no credential provisioning endpoint
 # - no card, API-key, artifact, or OTP-bearing workflow
-# - log-hardened oracle image only; generated mailbox identifiers are hashed
+# - debug-only image pin; public health/attestation must be re-checked before
+#   this compose is used to claim bounded mailbox egress
 ###############################################################################
 
 services:
@@ -117,7 +118,7 @@ services:
       timeout: 5s
 
   oracle:
-    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:688b8b48a6621072b99fe9d515998f9bc4313215163c4d689a927da853926a23
+    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:19c4aae35b0e9ab2758b7f680c2638f838c8c5a08da1c37f7f1b3bd192bfa1e2
     platform: linux/amd64
     restart: unless-stopped
     ulimits:

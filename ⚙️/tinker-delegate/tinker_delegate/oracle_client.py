@@ -34,7 +34,9 @@ class OracleClient:
 
     def get_email(self) -> str:
         """Get the oracle's email address."""
-        data = self.health()
+        resp = self._client.get(f"{self.base_url}/email", headers=self._headers())
+        resp.raise_for_status()
+        data = resp.json()
         return data["oracle_email"]
 
     def get_pin(

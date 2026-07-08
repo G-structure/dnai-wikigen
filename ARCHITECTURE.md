@@ -913,19 +913,20 @@ Implementation status:
             `dstack-dev-0.5.9` / `is_dev=true`; attempts to update the existing
             CVM to `dstack-0.5.10*` with `--no-dev-os` currently fail in the
             Phala CLI/API with a required `correlationId` validation error.
-[partial]   Phala mailbox genesis is not real yet. A separate temporary
-            `dnai-wikigen-oracle-genesis-debug` CVM enabled
-            `ORACLE_AUTO_GENESIS=true` with public logs/dev OS, then was deleted
-            after bounded evidence collection. Inside Phala, the oracle parsed
-            and solved cock.li captchas, but cock.li rejected three HTTP signup
-            submissions as incorrect; the browser fallback reached the Neko CDP
-            WebSocket and then timed out in `BrowserType.connect_over_cdp`.
 [real]      The email-oracle source now tracks cock.li's current registration
             form contract: `password_confinm` is filled as the real password
             confirmation field, `password_confirm` is treated as a honeypot and
             left empty, and `csrf_valid` mirrors `csrf` on HTTP submissions.
-[partial]   That form-contract fix is not yet rebuilt into a pinned oracle
-            image or verified in a fresh Phala auto-genesis debug CVM.
+[real]      A temporary Phala auto-genesis debug CVM using a GitHub-attested
+            image from that form-contract fix reached IMAP verification and
+            loaded sealed oracle credentials. The temporary public-log/dev-OS
+            CVM was deleted after bounded evidence collection.
+[partial]   Public successful-genesis surfaces needed further tightening: that
+            debug proof showed `/health` exposed a raw generated mailbox address.
+            Source now bounds public `/health` and `/attestation` to readiness
+            plus `oracle_email_hash`, and moves raw address retrieval to
+            runtime-authenticated `/email`; this bounded-health contract still
+            needs a rebuilt image and fresh Phala proof.
 [partial]   Oracle credential-ingress attestation is live for
             `context=oracle-credentials`, but credential provisioning is
             disabled by default and no real mailbox credentials have been

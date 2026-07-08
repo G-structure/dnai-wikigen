@@ -57,6 +57,9 @@ class FakeIMAP:
     def delete_email(self, email_id: str) -> None:
         self.deleted.append(email_id)
 
+    def _ensure_connected(self) -> None:
+        return None
+
 
 class FakeReplayStore:
     def __init__(self, fail_save: bool = False):
@@ -283,6 +286,36 @@ class ApiAuthTest(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn("IMAP not connected", response.json()["detail"])
 
+    def test_health_returns_bounded_email_status_only(self):
+        _reset_state(Settings())
+        state.creds = EmailCredentials("oracle", "example.com", "secret-password")
+        state.imap = FakeIMAP()
+
+        response = self.client.get("/health")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertTrue(body["oracle_ready"])
+        self.assertTrue(body["imap_connected"])
+        self.assertEqual(body["oracle_email"], "")
+        self.assertEqual(len(body["oracle_email_hash"]), 64)
+        self.assertNotIn("oracle@example.com", response.text)
+
+    def test_email_address_requires_runtime_auth_when_enabled(self):
+        _reset_state(Settings(runtime_auth_required=True, runtime_auth_token="shared-secret"))
+        state.creds = EmailCredentials("oracle", "example.com", "secret-password")
+
+        denied = self.client.get("/email")
+        self.assertEqual(denied.status_code, 401)
+
+        response = self.client.get("/email", headers={"Authorization": "Bearer shared-secret"})
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["oracle_email"], "oracle@example.com")
+        self.assertEqual(len(body["oracle_email_hash"]), 64)
+
     def test_attestation_exposes_context_bound_credential_ingress_key(self):
         _reset_state(Settings())
 
@@ -295,7 +328,22 @@ class ApiAuthTest(unittest.TestCase):
         self.assertEqual(len(body["encryption_public_key"]), 64)
         self.assertEqual(len(body["report_data"]), 64)
         self.assertEqual(body["oracle_email"], "")
+        self.assertEqual(body["oracle_email_hash"], "")
+        self.assertFalse(body["oracle_ready"])
         self.assertNotIn("password", body)
+
+    def test_attestation_returns_bounded_email_status_only(self):
+        _reset_state(Settings())
+        state.creds = EmailCredentials("oracle", "example.com", "secret-password")
+
+        response = self.client.get("/attestation?context=attestation")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["oracle_email"], "")
+        self.assertEqual(len(body["oracle_email_hash"]), 64)
+        self.assertTrue(body["oracle_ready"])
+        self.assertNotIn("oracle@example.com", response.text)
 
     def test_encrypted_credential_provisioning_is_disabled_by_default(self):
         _reset_state(Settings())

@@ -163,8 +163,8 @@ def _wait_for_oracle(settings: Settings) -> None:
     while time.time() < deadline:
         try:
             health = oracle.health()
-            if health.get("imap_connected") and health.get("oracle_email"):
-                print(f"[serve] oracle ready: {health['oracle_email']}")
+            if health.get("imap_connected") and health.get("oracle_ready"):
+                print(f"[serve] oracle ready email_hash={health.get('oracle_email_hash', '')}")
                 return
             print(f"[serve] oracle not ready yet: {health}")
         except Exception as exc:

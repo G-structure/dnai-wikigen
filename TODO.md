@@ -485,10 +485,28 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   `password_confinm`, while `password_confirm` is a tabindex
                   `-1` honeypot that must stay empty; HTTP payloads also mirror
                   `csrf_valid`.
-            - [ ] Build/push a new oracle image, pin the debug/Phala compose to
+            - [x] Build/push a new oracle image, pin the debug/Phala compose to
                   it, and re-run the explicit auto-genesis debug CVM to prove
                   whether HTTP signup now reaches IMAP verification.
-            - [ ] If HTTP signup still fails, repair the Neko/CDP browser
+                  Done 2026-07-08: image
+                  `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:19c4aae35b0e9ab2758b7f680c2638f838c8c5a08da1c37f7f1b3bd192bfa1e2`
+                  from commit `ca1b17c` verified GitHub provenance/SBOM,
+                  Phala debug app `4c92eec94e2d7b6e8c8a7940cb0b6eb4a0e8e1bd`
+                  reached IMAP verification and healthy oracle state, and the
+                  temporary public-log/dev-OS debug CVM was deleted afterward.
+            - [x] Stop public `/health` and `/attestation` from exposing the raw
+                  generated oracle mailbox when credentials exist; expose
+                  readiness plus `oracle_email_hash` publicly and move raw email
+                  address retrieval to runtime-authenticated `/email`.
+            - [ ] Build/push the bounded-health oracle image and re-run the
+                  explicit debug proof to confirm public health/attestation do
+                  not expose raw mailbox identifiers after successful genesis.
+                  Temporary Phala redeploys for this proof may use public logs,
+                  SSH, public sysinfo, and dev OS access for observability only
+                  while Tinker bootstrap, billing, API-key provisioning, OTP
+                  retrieval, and card handling remain disabled; record each use
+                  here and delete/revert it before production wrap-up.
+            - [ ] If HTTP signup regresses, repair the Neko/CDP browser
                   fallback timeout separately.
       - [ ] Run the encrypted provisioning path against the deployed Phala CVM
             with real mailbox credentials and record only bounded hashes/status.
@@ -1288,6 +1306,10 @@ vision Wiki is reaching for.
             `--image dstack-0.5.10-4c9bd024 --no-dev-os` and
             `--image dstack-0.5.10 --no-dev-os --prepare-only` failed in the
             Phala CLI/API with a required `correlationId` validation error.
+      - [ ] Before production wrap-up, remove or disable every temporary
+            Phala debug posture used during oracle genesis work: public logs,
+            public sysinfo, SSH/dev OS access, exposed browser/CDP debug ports,
+            and the standalone oracle-genesis debug compose.
       - [ ] Verify credential provisioning with real mailbox credentials,
             Tinker API-key capture, and funded billing flow inside the
             deployed CVM.

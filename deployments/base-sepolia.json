@@ -133,11 +133,40 @@
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "oracleGenesisDebugEvidence": {
-      "status": "debug_cvm_deleted_after_bounded_evidence",
-      "cvmName": "dnai-wikigen-oracle-genesis-debug",
-      "cvmId": "2b2f6e7f-eebf-4d55-80bc-0fe2c59c598c",
-      "appId": "8958416343d338e1e95f1c0a78a1747970d57cb5",
-      "composeHash": "2cf555237c0e3ed7dee2fbced583721cb00cb75bfdced14cd9cf6a155c4e43b0",
+      "status": "source_fixed_and_phala_genesis_proven_but_public_health_bounding_pending_deployment",
+      "attempts": [
+        {
+          "status": "failed_before_form_fix",
+          "cvmName": "dnai-wikigen-oracle-genesis-debug",
+          "cvmId": "2b2f6e7f-eebf-4d55-80bc-0fe2c59c598c",
+          "appId": "8958416343d338e1e95f1c0a78a1747970d57cb5",
+          "composeHash": "2cf555237c0e3ed7dee2fbced583721cb00cb75bfdced14cd9cf6a155c4e43b0",
+          "boundedLogEvidence": [
+            "oracle derived dstack storage key email/creds-debug",
+            "HTTP signup attempts 1-3 parsed/solved captchas but failed with Captcha solution was incorrect",
+            "browser fallback reached ws://172.20.0.3:9223/devtools/browser/... and timed out in BrowserType.connect_over_cdp"
+          ],
+          "deletedAt": "2026-07-08T12:43:00Z"
+        },
+        {
+          "status": "succeeded_after_form_fix",
+          "cvmName": "dnai-wikigen-oracle-genesis-debug",
+          "cvmId": "1717a1eb-5b0b-406d-974c-364ef7b79657",
+          "appId": "4c92eec94e2d7b6e8c8a7940cb0b6eb4a0e8e1bd",
+          "composeHash": "142408b66a30aecac87cb172b615ca12675de1f764a0eaa71d7cc8bc30197a58",
+          "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:19c4aae35b0e9ab2758b7f680c2638f838c8c5a08da1c37f7f1b3bd192bfa1e2",
+          "sourceDigest": "ca1b17cd5d7478e54020fa91065ce9ebcef49223",
+          "githubProvenanceAttestation": "verified",
+          "githubSbomAttestation": "verified",
+          "boundedLogEvidence": [
+            "HTTP signup attempt 3 reached IMAP verification",
+            "credentials loaded with email_hash a97ad16221ab3a550c42be406ff01638b68659c18eaf507461a399fe8874edd3",
+            "oracle health became ok and imap_connected true"
+          ],
+          "publicHealthRawEmailLeak": "observed_then_debug_cvm_deleted",
+          "deletedAt": "2026-07-08T13:01:00Z"
+        }
+      ],
       "publicLogs": true,
       "publicSysinfo": true,
       "osName": "dstack-dev-0.5.9",
@@ -148,18 +177,13 @@
         "tinkerDelegateService": "absent",
         "billingService": "absent"
       },
-      "boundedLogEvidence": [
-        "oracle derived dstack storage key email/creds-debug",
-        "HTTP signup attempts 1-3 parsed/solved captchas but failed with Captcha solution was incorrect",
-        "browser fallback reached ws://172.20.0.3:9223/devtools/browser/... and timed out in BrowserType.connect_over_cdp"
-      ],
-      "rawSecretEgress": false,
-      "deletedAt": "2026-07-08T12:43:00Z"
+      "rawSecretEgress": false
     },
     "oracleGenesisSourceFixPendingDeployment": {
-      "status": "implemented_not_deployed",
-      "finding": "cock.li real password confirmation field is password_confinm; password_confirm is a honeypot and must stay empty; csrf_valid mirrors csrf",
-      "nextVerification": "build and pin a new tee-email-oracle image, then rerun the oracle-genesis debug CVM"
+      "status": "bounded_health_implemented_not_deployed",
+      "finding": "cock.li form fix is Phala-proven; successful genesis exposed raw mailbox through public health before the debug CVM was deleted",
+      "implementedSourceFix": "public health and attestation expose oracle_email_hash/readiness only; raw email moved to runtime-authenticated /email",
+      "nextVerification": "build and pin a new tee-email-oracle image, then rerun the oracle-genesis debug CVM and confirm public health/attestation contain no raw mailbox"
     },
     "credentialProvisioningEvidence": {
       "status": "endpoint_deployed_disabled_by_default",

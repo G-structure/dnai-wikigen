@@ -106,9 +106,17 @@ class PinResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
-    oracle_email: str
+    oracle_ready: bool
+    oracle_email: str = ""
+    oracle_email_hash: str = ""
     imap_connected: bool
     dstack_enabled: bool
+    timestamp: str
+
+
+class EmailAddressResponse(BaseModel):
+    oracle_email: str
+    oracle_email_hash: str
     timestamp: str
 
 
@@ -116,7 +124,9 @@ class AttestationResponse(BaseModel):
     tdx_quote: str
     app_id: str
     compose_hash: str
-    oracle_email: str
+    oracle_email: str = ""
+    oracle_email_hash: str = ""
+    oracle_ready: bool = False
     timestamp: str
     mode: str = "local"
     encryption_public_key: str = ""
@@ -290,14 +300,14 @@ def _attestation_payload(context: str) -> dict:
         context,
         keypair.public_key_bytes,
     )
-    oracle_email = ""
-    if context != "oracle-credentials" and state.creds:
-        oracle_email = state.creds.email
+    oracle_email_hash = _hash_text(state.creds.email) if state.creds else ""
     base = {
         "encryption_public_key": keypair.public_key_bytes.hex(),
         "report_context": context,
         "report_data": report_data.hex(),
-        "oracle_email": oracle_email,
+        "oracle_email": "",
+        "oracle_email_hash": oracle_email_hash,
+        "oracle_ready": bool(state.creds),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     if not state.settings or not state.settings.dstack_enabled:
@@ -544,11 +554,26 @@ async def health():
         except Exception:
             pass
 
+    oracle_email_hash = _hash_text(state.creds.email) if state.creds else ""
     return HealthResponse(
         status="ok" if state.creds and imap_ok else "degraded",
-        oracle_email=state.creds.email if state.creds else "",
+        oracle_ready=bool(state.creds and imap_ok),
+        oracle_email="",
+        oracle_email_hash=oracle_email_hash,
         imap_connected=imap_ok,
         dstack_enabled=state.settings.dstack_enabled if state.settings else False,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+@app.get("/email", response_model=EmailAddressResponse, dependencies=[Depends(require_runtime_auth)])
+async def email_address():
+    """Return the oracle address only to same-runtime authenticated callers."""
+    if not state.creds:
+        raise HTTPException(503, "Oracle not initialized — no credentials")
+    return EmailAddressResponse(
+        oracle_email=state.creds.email,
+        oracle_email_hash=_hash_text(state.creds.email),
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 

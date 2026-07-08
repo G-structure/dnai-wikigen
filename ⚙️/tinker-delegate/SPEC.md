@@ -109,13 +109,14 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
 
   HISTORICAL FINDING: cock.li and firemail.cc domains were blocked by Thinking
   Machines while cock.email was previously observed to pass the blocklist.
-  CAPTCHA FINDING: an explicit Phala oracle-genesis debug CVM with
-  ORACLE_AUTO_GENESIS=true parsed/solved three cock.li captchas, but signup was
-  rejected as incorrect and browser fallback timed out in Playwright CDP
-  connection. A source-level fix now tracks cock.li's current form contract:
-  fill `password_confinm`, leave the `password_confirm` honeypot empty, and
-  mirror `csrf_valid`; this still needs a rebuilt/pinned oracle image and a
-  fresh Phala debug proof.
+  CAPTCHA FINDING: a source-level fix now tracks cock.li's current form
+  contract: fill `password_confinm`, leave the `password_confirm` honeypot
+  empty, and mirror `csrf_valid`. A fresh Phala auto-genesis debug CVM with the
+  fixed, GitHub-attested oracle image reached IMAP verification. That proof also
+  showed public `/health` exposed the generated mailbox address, so source now
+  bounds public `/health` and `/attestation` to readiness plus
+  `oracle_email_hash` and moves raw address retrieval to runtime-authenticated
+  `/email`; this bounded-health fix needs a rebuilt image and fresh Phala proof.
   CURRENT FINDING: the local Neko browser path works end to end through API-key
   capture. The older Phala/headless blocker has not been revalidated in this
   cycle, so deployed CVM browser posture remains pending.
@@ -841,7 +842,12 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
       fallback timed out.
 - [x] Repair source-level cock.li form mapping for `password_confinm`,
       `password_confirm` honeypot, and `csrf_valid`.
-- [ ] Rebuild/pin oracle image and re-run Phala oracle-genesis debug proof.
+- [x] Rebuild/pin oracle image and re-run Phala oracle-genesis debug proof;
+      HTTP signup reached IMAP verification in Phala.
+- [x] Bound public oracle health/attestation email fields in source after
+      successful genesis showed raw mailbox egress on `/health`.
+- [ ] Rebuild/pin bounded-health oracle image and re-run Phala oracle-genesis
+      debug proof.
 - [x] Implement: full automation in `tinker_delegate/signup.py`
 - [x] Validate local Neko/CDP auth, onboarding, and API-key provisioning against the live Tinker UI
 - [ ] Revalidate the deployed Phala/CVM browser posture against the live Tinker UI
