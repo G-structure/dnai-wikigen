@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from tinker_delegate.card_channel import CardPayload, handle_card_update
@@ -23,17 +25,22 @@ class RedactionTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("abcdefabcdefabcdefabcdefabcdefabcdef", redacted)
 
     async def test_card_update_error_is_redacted(self):
-        payload = CardPayload(
-            card_number="4242424242424242",
-            exp_month="12",
-            exp_year="2030",
-            cvc="123",
-            cardholder_name="Test User",
-        )
-        error = RuntimeError("processor saw card_number=4242424242424242 cvc=123")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload = CardPayload(
+                card_number="4242424242424242",
+                exp_month="12",
+                exp_year="2030",
+                cvc="123",
+                cardholder_name="Test User",
+            )
+            settings = Settings(
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="99" * 32,
+            )
+            error = RuntimeError("processor saw card_number=4242424242424242 cvc=123")
 
-        with patch("tinker_delegate.card_channel.add_payment_method", new=AsyncMock(side_effect=error)):
-            result = await handle_card_update(payload, Settings())
+            with patch("tinker_delegate.card_channel.add_payment_method", new=AsyncMock(side_effect=error)):
+                result = await handle_card_update(payload, settings)
 
         self.assertFalse(result.success)
         self.assertNotIn("4242424242424242", result.error)

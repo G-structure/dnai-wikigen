@@ -4,6 +4,7 @@ Endpoints:
   GET  /health                    — service health + oracle email
   GET  /attestation               — TDX attestation quote + encryption public key
   GET  /billing/balance           — current Tinker balance
+  GET  /billing/funding-receipts  — bounded funding attempt audit records
   POST /billing/card              — add payment method (plaintext — local dev only)
   POST /billing/card/encrypted    — add payment method (encrypted to TEE — production)
   POST /billing/add-balance       — add credit balance
@@ -30,6 +31,7 @@ from tinker_delegate.artifacts import (
 from tinker_delegate.config import Settings
 from tinker_delegate.crypto import EncryptedPayload
 from tinker_delegate.dstack_utils import is_dstack_enabled
+from tinker_delegate.funding_receipt_store import build_funding_receipt_store
 from tinker_delegate.oracle_client import OracleClient
 from tinker_delegate.redaction import redact_text
 from tinker_delegate.runtime_state import get_runtime_state
@@ -169,6 +171,16 @@ async def billing_balance():
     """Get current Tinker account balance."""
     result = await handle_get_balance(settings)
     return result.model_dump()
+
+
+@app.get("/billing/funding-receipts")
+async def billing_funding_receipts():
+    """Return bounded funding attempt records from sealed storage."""
+    try:
+        receipts = build_funding_receipt_store(settings).load()
+    except Exception as e:
+        raise HTTPException(503, f"funding receipt store unavailable: {redact_text(e)}") from e
+    return {"count": len(receipts), "receipts": receipts}
 
 
 @app.post("/billing/card", response_model=BillingResponse)

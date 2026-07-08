@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     api_key_store_path: str = "./data/tinker_api_key.enc"
     api_key_store_key: str = ""
     dstack_key_path: str = "tinker/api_key"
+    funding_receipt_store_path: str = "./data/funding_receipts.enc"
+    funding_receipt_store_key: str = ""
+    funding_receipt_key_path: str = "tinker/funding_receipts"
     bootstrap_signup: bool = False
     bootstrap_fail_open: bool = False
     bootstrap_oracle_timeout: float = 300.0

@@ -1,10 +1,19 @@
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
 from tinker_delegate import api
+from tinker_delegate.automation_receipts import (
+    AutomationOutcome,
+    AutomationStage,
+    AutomationSurface,
+    make_receipt,
+)
 from tinker_delegate.config import Settings
+from tinker_delegate.funding_receipt_store import FundingReceiptStore
 
 
 CARD_PAYLOAD = {
@@ -61,6 +70,33 @@ class BillingApiPolicyTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["error"], "stubbed")
         handle_card_update.assert_awaited_once()
+
+    def test_funding_receipts_endpoint_returns_bounded_records(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "funding_receipts.enc"
+            key = "88" * 32
+            api.settings = Settings(
+                funding_receipt_store_path=str(receipt_path),
+                funding_receipt_store_key=key,
+            )
+            receipt = make_receipt(
+                surface=AutomationSurface.PAYMENT_METHOD,
+                outcome=AutomationOutcome.CARD_DECLINED,
+                furthest_stage=AutomationStage.PAYMENT_SUBMITTED,
+                evidence="card_number=4242424242424242",
+                bounded_message="Your card was declined.",
+                card_payload_destroyed=True,
+            ).to_public_dict()
+            FundingReceiptStore(str(receipt_path), key_hex=key).append(receipt)
+            client = TestClient(api.app)
+
+            response = client.get("/billing/funding-receipts")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["count"], 1)
+        self.assertEqual(body["receipts"][0]["outcome"], "card_declined")
+        self.assertNotIn("4242424242424242", repr(body))
 
 
 if __name__ == "__main__":

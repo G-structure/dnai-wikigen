@@ -367,9 +367,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             billing automation/API responses: surface, outcome, furthest stage,
             issued timestamp, evidence hash, amount band, balance band, TDX
             quote hash when present, and card-payload destruction status.
-      - [ ] Persist funding receipts in sealed storage with timestamp and
-            payment-method token/reference once the live funding path is
-            approved.
+      - [x] Persist bounded funding receipts in encrypted/sealed delegate
+            storage and expose only bounded records through
+            `GET /billing/funding-receipts`.
+      - [ ] Add payment-method token/reference to funding receipts once the
+            live funding path exposes a safe non-card reference.
 - [ ] `P1` Add budget enforcement:
       Tinker spend cannot exceed buyer cap, room cap, daily cap, or operator cap.
 - [ ] `P1` Add top-up policy:

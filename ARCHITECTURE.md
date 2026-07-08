@@ -573,6 +573,10 @@ Implementation status:
             evidence hash, amount/balance bands, TDX quote hash when present,
             and card-payload destruction status. Raw card values and page text
             are not returned.
+[real]      Bounded funding attempt records are persisted in encrypted/sealed
+            delegate storage with a separate `tinker/funding_receipts` dstack
+            key path and can be read through `GET /billing/funding-receipts`.
+            The store rejects unknown fields and `raw_secret_egress=true`.
 [real]      Plaintext card API is disabled by default and unavailable in dstack mode.
 [real]      Central redaction helpers scrub bearer, OTP/password, card, API-key,
             and artifact-shaped values from bounded errors and high-risk logs.
@@ -620,8 +624,9 @@ Implementation status:
             cleanup.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE and
-            bounded attempt receipts are returned, but receipt persistence and
-            a capped real-card funding attempt still need to be proven.
+            bounded attempt receipts are returned/persisted, but payment-method
+            token/reference capture and a capped real-card funding attempt still
+            need to be proven.
 [partial]   Optional Tinker SDK dependency must be installed and the real SDK
             harness must be run inside the deployed CVM before claiming real
             evaluator execution.
@@ -1158,6 +1163,7 @@ Endpoints:
 GET  /health
 GET  /attestation
 GET  /billing/balance
+GET  /billing/funding-receipts bounded funding attempt audit records
 POST /billing/card            local-dev plaintext hook, disabled by default
 POST /billing/card/encrypted  production encrypted card channel
 POST /billing/add-balance

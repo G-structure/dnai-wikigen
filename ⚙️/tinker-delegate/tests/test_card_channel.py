@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from tinker_delegate.card_channel import (
@@ -9,6 +11,7 @@ from tinker_delegate.card_channel import (
     handle_card_update,
 )
 from tinker_delegate.config import Settings
+from tinker_delegate.funding_receipt_store import FundingReceiptStore
 
 
 def _payload() -> CardPayload:
@@ -74,48 +77,87 @@ class CardChannelTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(attestation["tcb_info"], {"compose_hash": "compose-ok"})
 
     async def test_plaintext_payload_is_wiped_after_success(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload = _payload()
+            receipt_path = Path(tmpdir) / "funding_receipts.enc"
+            settings = Settings(
+                funding_receipt_store_path=str(receipt_path),
+                funding_receipt_store_key="66" * 32,
+            )
+
+            with (
+                patch(
+                    "tinker_delegate.card_channel.add_payment_method",
+                    new=AsyncMock(return_value={"success": False, "error": "stubbed"}),
+                ),
+                patch("tinker_delegate.card_channel.get_attestation", return_value={}),
+            ):
+                result = await handle_card_update(payload, settings)
+
+            self.assertFalse(result.success)
+            self.assertEqual(result.error, "stubbed")
+            self.assertEqual(result.attempt_record["surface"], "payment_method")
+            self.assertEqual(result.attempt_record["outcome"], "unknown_failure")
+            self.assertTrue(result.attempt_record["card_payload_destroyed"])
+            stored = FundingReceiptStore(str(receipt_path), key_hex="66" * 32).load()
+            self.assertEqual(stored, [result.attempt_record])
+            self.assertEqual(payload.card_number, "")
+            self.assertEqual(payload.exp_month, "")
+            self.assertEqual(payload.exp_year, "")
+            self.assertEqual(payload.cvc, "")
+            self.assertEqual(payload.cardholder_name, "")
+            self.assertEqual(payload.address_line1, "")
+
+    async def test_plaintext_payload_is_wiped_after_exception(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload = _payload()
+            receipt_path = Path(tmpdir) / "funding_receipts.enc"
+            settings = Settings(
+                funding_receipt_store_path=str(receipt_path),
+                funding_receipt_store_key="77" * 32,
+            )
+
+            with patch(
+                "tinker_delegate.card_channel.add_payment_method",
+                new=AsyncMock(side_effect=RuntimeError("browser failed")),
+            ):
+                result = await handle_card_update(payload, settings)
+
+            self.assertFalse(result.success)
+            self.assertEqual(result.error, "browser failed")
+            self.assertEqual(result.attempt_record["surface"], "payment_method")
+            self.assertTrue(result.attempt_record["card_payload_destroyed"])
+            stored = FundingReceiptStore(str(receipt_path), key_hex="77" * 32).load()
+            self.assertEqual(stored, [result.attempt_record])
+            self.assertEqual(payload.card_number, "")
+            self.assertEqual(payload.exp_month, "")
+            self.assertEqual(payload.exp_year, "")
+            self.assertEqual(payload.cvc, "")
+            self.assertEqual(payload.cardholder_name, "")
+            self.assertEqual(payload.address_line1, "")
+
+    async def test_receipt_persistence_failure_fails_closed(self):
         payload = _payload()
+
+        class FailingStore:
+            def append(self, receipt):
+                raise RuntimeError("disk full card_number=4242424242424242")
 
         with (
             patch(
                 "tinker_delegate.card_channel.add_payment_method",
-                new=AsyncMock(return_value={"success": False, "error": "stubbed"}),
+                new=AsyncMock(return_value={"success": True}),
             ),
             patch("tinker_delegate.card_channel.get_attestation", return_value={}),
+            patch("tinker_delegate.card_channel.build_funding_receipt_store", return_value=FailingStore()),
         ):
             result = await handle_card_update(payload, Settings())
 
         self.assertFalse(result.success)
-        self.assertEqual(result.error, "stubbed")
-        self.assertEqual(result.attempt_record["surface"], "payment_method")
-        self.assertEqual(result.attempt_record["outcome"], "unknown_failure")
-        self.assertTrue(result.attempt_record["card_payload_destroyed"])
+        self.assertIn("funding receipt persistence failed", result.error)
+        self.assertNotIn("4242424242424242", result.error)
+        self.assertIsNone(result.attempt_record)
         self.assertEqual(payload.card_number, "")
-        self.assertEqual(payload.exp_month, "")
-        self.assertEqual(payload.exp_year, "")
-        self.assertEqual(payload.cvc, "")
-        self.assertEqual(payload.cardholder_name, "")
-        self.assertEqual(payload.address_line1, "")
-
-    async def test_plaintext_payload_is_wiped_after_exception(self):
-        payload = _payload()
-
-        with patch(
-            "tinker_delegate.card_channel.add_payment_method",
-            new=AsyncMock(side_effect=RuntimeError("browser failed")),
-        ):
-            result = await handle_card_update(payload, Settings())
-
-        self.assertFalse(result.success)
-        self.assertEqual(result.error, "browser failed")
-        self.assertEqual(result.attempt_record["surface"], "payment_method")
-        self.assertTrue(result.attempt_record["card_payload_destroyed"])
-        self.assertEqual(payload.card_number, "")
-        self.assertEqual(payload.exp_month, "")
-        self.assertEqual(payload.exp_year, "")
-        self.assertEqual(payload.cvc, "")
-        self.assertEqual(payload.cardholder_name, "")
-        self.assertEqual(payload.address_line1, "")
 
 
 if __name__ == "__main__":

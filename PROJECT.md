@@ -98,8 +98,8 @@ The current branch already contains:
 - `⚙️/tinker-delegate`
   TEE-side Tinker account automation, encrypted card channel, billing scaffold,
   isolated Tinker sessions, bounded control plane, evaluator scaffold, and API.
-  API-key provisioning and billing automation return bounded attempt records
-  rather than raw keys, card data, or browser page bodies.
+  API-key provisioning and billing automation return and persist bounded
+  attempt records rather than raw keys, card data, or browser page bodies.
 
 - `⚙️/props-room`
   Source-controller and sealed-asset control plane stub.

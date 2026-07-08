@@ -187,11 +187,13 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Payment-method and add-balance operations return bounded attempt records with
   outcome class, furthest stage, issued timestamp, evidence hash, amount/balance
   bands, TDX quote hash when present, and card-payload destruction status.
+- Bounded funding receipts are persisted in encrypted/sealed delegate storage
+  under a separate funding-receipt key path and exposed through
+  `GET /billing/funding-receipts`.
 - Real card funding is intentionally not attempted until real payment details
   are provided out of band.
-- Funding receipt persistence, payment-method token/reference handling, and the
-  sealed long-lived funding token/session state still need production retention
-  and rotation policy.
+- Payment-method token/reference handling and the sealed long-lived funding
+  token/session state still need production retention and rotation policy.
 
 [partial] TEE attestation:
 

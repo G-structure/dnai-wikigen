@@ -53,6 +53,7 @@ from tinker_delegate.billing import CardDetails, add_payment_method, add_balance
 from tinker_delegate.config import Settings
 from tinker_delegate.crypto import TEEKeyPair, EncryptedPayload
 from tinker_delegate.dstack_utils import get_attestation_details, is_dstack_enabled
+from tinker_delegate.funding_receipt_store import build_funding_receipt_store
 from tinker_delegate.redaction import redact_text
 
 
@@ -215,7 +216,8 @@ async def handle_card_update(payload: CardPayload, settings: Settings) -> Billin
 
         attestation = get_attestation("billing")
 
-        return BillingResponse(
+        return _billing_response_with_persisted_receipt(
+            settings,
             success=result.get("success", False),
             error=result.get("error"),
             tdx_quote=attestation.get("quote"),
@@ -230,7 +232,8 @@ async def handle_card_update(payload: CardPayload, settings: Settings) -> Billin
         )
     except Exception as e:
         error = redact_text(e)
-        return BillingResponse(
+        return _billing_response_with_persisted_receipt(
+            settings,
             success=False,
             error=error,
             attempt_record=_exception_receipt(
@@ -285,7 +288,8 @@ async def handle_encrypted_card_update(
         result = await add_payment_method(card, settings)
         attestation = get_attestation("billing")
 
-        return BillingResponse(
+        return _billing_response_with_persisted_receipt(
+            settings,
             success=result.get("success", False),
             error=result.get("error"),
             tdx_quote=attestation.get("quote"),
@@ -300,7 +304,8 @@ async def handle_encrypted_card_update(
         )
     except Exception as e:
         error = redact_text(e)
-        return BillingResponse(
+        return _billing_response_with_persisted_receipt(
+            settings,
             success=False,
             error=error,
             attempt_record=_exception_receipt(
@@ -321,14 +326,19 @@ async def handle_add_balance(payload: BalancePayload, settings: Settings) -> Bil
     """Add credit balance. No card details needed (uses card on file)."""
     try:
         result = await add_balance(payload.amount_dollars, settings)
-        return BillingResponse(
+        return _billing_response_with_persisted_receipt(
+            settings,
             success=result.get("success", False),
             error=result.get("error"),
-            attempt_record=_attempt_record_or_fallback(result, AutomationSurface.ADD_BALANCE),
+            attempt_record=_attempt_record_or_fallback(
+                result,
+                AutomationSurface.ADD_BALANCE,
+            ),
         )
     except Exception as e:
         error = redact_text(e)
-        return BillingResponse(
+        return _billing_response_with_persisted_receipt(
+            settings,
             success=False,
             error=error,
             attempt_record=_exception_receipt(AutomationSurface.ADD_BALANCE, error),
@@ -375,6 +385,38 @@ def _attempt_record_or_fallback(
         bounded_message="success" if success else (error or "automation_failed"),
         card_payload_destroyed=card_payload_destroyed,
     ).to_public_dict()
+
+
+def _persist_attempt_record(settings: Settings, attempt_record: Optional[dict]) -> Optional[dict]:
+    if not attempt_record:
+        return None
+    store = build_funding_receipt_store(settings)
+    return store.append(attempt_record)
+
+
+def _billing_response_with_persisted_receipt(
+    settings: Settings,
+    *,
+    success: bool,
+    error: Optional[str],
+    attempt_record: Optional[dict],
+    tdx_quote: Optional[str] = None,
+) -> BillingResponse:
+    try:
+        persisted_record = _persist_attempt_record(settings, attempt_record)
+    except Exception as exc:
+        return BillingResponse(
+            success=False,
+            error=f"funding receipt persistence failed: {redact_text(exc)}",
+            tdx_quote=tdx_quote,
+            attempt_record=None,
+        )
+    return BillingResponse(
+        success=success,
+        error=error,
+        tdx_quote=tdx_quote,
+        attempt_record=persisted_record,
+    )
 
 
 def _exception_receipt(

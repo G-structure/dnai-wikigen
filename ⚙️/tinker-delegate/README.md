@@ -176,6 +176,7 @@ The `serve` command starts a FastAPI server for programmatic access:
 GET  /health              — service health + oracle email
 GET  /attestation         — TDX attestation quote + report_data-bound public key
 GET  /billing/balance     — current Tinker balance
+GET  /billing/funding-receipts — bounded funding attempt audit records
 POST /billing/card        — plaintext local-dev hook, disabled by default
 POST /billing/card/encrypted — add payment method after attestation-verified encryption
 POST /billing/add-balance — add credit balance
@@ -230,6 +231,9 @@ All settings use the `TINKER_` env prefix:
 | `TINKER_OTP_POLL_INTERVAL` | `3.0` | Seconds between OTP polls |
 | `TINKER_OTP_POLL_TIMEOUT` | `120.0` | Max seconds to wait for OTP |
 | `TINKER_OTP_MAX_AGE` | `300` | Max age of OTP email in seconds |
+| `TINKER_FUNDING_RECEIPT_STORE_PATH` | `./data/funding_receipts.enc` | Encrypted bounded funding receipt store |
+| `TINKER_FUNDING_RECEIPT_STORE_KEY` | *(empty)* | Local-dev hex key override; dstack should derive the key instead |
+| `TINKER_FUNDING_RECEIPT_KEY_PATH` | `tinker/funding_receipts` | dstack key path for funding receipt storage |
 | `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT` | `false` | Local-dev only flag for `POST /billing/card`; production uses `/billing/card/encrypted` |
 
 ## Architecture
@@ -312,6 +316,9 @@ contracts/
   `surface`, `outcome`, `furthest_stage`, `issued_at`, `evidence_hash`,
   amount/balance bands, TDX quote hash when present, and card-payload
   destruction status; they do not return raw card fields or browser page bodies.
+- **Receipt storage**: bounded funding attempt records are persisted in the
+  encrypted delegate store and can be read through `/billing/funding-receipts`.
+  The store rejects unknown fields and any receipt claiming raw secret egress.
 - **Auto-reload**: Configurable threshold + amount
 - **Pricing** (USD/million tokens): Llama-3.2-1B $0.03-$0.09, Llama-3.1-8B $0.13-$0.40, Qwen3-235B $0.68-$2.04
 - **Trust model**: Developer encrypts card to TEE's TDX key → TEE fills Stripe form → zeroes memory → card never persisted
