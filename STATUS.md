@@ -33,29 +33,29 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
 `wikigen` in workspace `wiki`.
 
 Latest Phala evidence, 2026-07-08: GitHub Actions built source commit
-`54164898352e3db4ac17b367eb6e74dfff77355b` into GHCR digest-pinned
-`tee-email-oracle@sha256:77523e7ed2492b890ebedf54c9f4a4f425b6d5c9b7454b4f12de2221e761d2db`
+`355b8aa7959118f887c2e4a498edee200114c152` into GHCR digest-pinned
+`tee-email-oracle@sha256:9ef71de5e39456b52a76890e2eab64938f9801975576170d55cb5929016fdc67`
 and
-`tinker-delegate@sha256:b9e232dc961d87c3d28b098b70e821db83e0b93507d01b698ff4085be2be0ce6`
+`tinker-delegate@sha256:2f3a071d0046cbb4c0f47082d151e314d6210780801100160520d92fad259e59`
 images. Local `verify-ghcr-image-attestation` checks passed for both SLSA
 provenance and SPDX SBOM attestations. The current CVM `cvm_1w85mGjo` is
 temporarily running the auth-gated funding-validation profile for app ID
 `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, not the normal locked-down compose.
 The live Phala attested compose hash is
-`03f353fc17546fa16741a69c836bc27e8987f487ab690046e5296779e17500f8`; the local
+`34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09`; the local
 raw compose/image-policy hash is
-`d760517a5973d982e1c9f7571e9c65e6970d66a3a6f07d2c790bf5ac1a3cf6dc`, and the
+`1c47353da2d84f73dbd208b1a556cd72b13e123e731e78c2c7dce7e3416b2865`, and the
 rendered compose SHA-256 is
-`96001dd4c7989b395ca69942fdca618de760924702f9293f6a5b7773a4af35e5`.
+`55f4b58773574a8584740aff24f181a45fbf84ab890eca43405041a8f03fb107`.
 `verify-deployment-bundle` passed against the live endpoint with OS image hash
 `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`, artifact
 context report data
-`7ba7329a3d915a6fbe6e6b26afa7ae6b13eb063ba4c7f89c32f7f4b73a006d5e`,
+`7ba2e30e4e44ff1302ddccdcc913bee9a9e494bd1b4430de3fb9539bd51776e1`,
 encryption public key
-`409666dc58a0f0e2bf7cc706c2129c807827965ea383b55990e3edf6ad52f357`, and quote
+`27760e60034bda73eb9b4e8c1a159485efab1503acbd64488fe3607ae1e4277b`, and quote
 size `5010`; billing-context attestation returned the same compose/app/OS-image
 with report data
-`1d08a33b27ef9cd52c25023dd19f41f7f672c7a84353ee7943b1dcb1cd2c6ed4` and quote
+`dcf4070c8a8fece9f3f6c5236dc61207c2b5cbdd040192b6cfdcc7a4fa5bf00b` and quote
 size `10020`. Public logs remain disabled. Health is OK, the oracle is ready,
 IMAP is connected, and unauthenticated `/auth/reauth` plus
 `/billing/add-balance` fail closed with `401 Bearer token required`.
@@ -65,22 +65,22 @@ Funding profile live result, 2026-07-08: local preflight for `$5` with
 billing attestation returned ready. Authenticated `/auth/reauth` reached the
 delegate but failed bounded with `auth_access_blocked` before OTP
 (`raw_secret_egress=false`). Authenticated `$5` add-balance without a card
-reached `billing_page_loaded` and failed bounded with `selector_missing`.
+reached `billing_page_loaded` and failed bounded with `auth_required`.
 Authenticated encrypted Stripe test-card payment-method submission destroyed the
-card payload and failed bounded with `payment_method` / `selector_missing` at
+card payload and failed bounded with `payment_method` / `auth_required` at
 `billing_page_loaded` (`raw_secret_egress=false`). Therefore the Phala funding
 profile is live and guarded, but approved real-card funding is still blocked on
-Tinker auth/billing selector repair and must not be attempted yet.
+Tinker auth/session repair and must not be attempted yet.
 
-Source/test follow-up, 2026-07-08: billing automation now checks bounded
-auth-state before searching payment-method or add-balance selectors. If the
-billing navigation lands on sign-in or magic-code surfaces, receipts return the
-new bounded `auth_required` outcome at `billing_page_loaded`; if it lands on
-Tinker's access-blocked surface, receipts return `auth_access_blocked`. The
-check does not expose page text and does not click billing controls before
-classifying auth-state failures. This still needs GitHub-attested images,
-digest pinning, Phala redeploy, and live test-card/add-balance repro before it
-updates the live evidence above.
+Billing auth-state classifier follow-up, 2026-07-08: source, tests, and Phala
+live evidence now distinguish billing selector drift from auth/session state
+before payment-method or add-balance controls are touched. Billing navigation
+that lands on sign-in or magic-code surfaces returns bounded `auth_required` at
+`billing_page_loaded`; Tinker's access-blocked surface returns bounded
+`auth_access_blocked`. The classifier does not expose page text and does not
+click billing controls before classifying auth-state failures. The next push is
+to repair the deployed Tinker auth/session route so `/auth/reauth` reaches OTP
+and the billing page is authenticated before any approved real-card prompt.
 
 ## Built
 
@@ -555,9 +555,12 @@ updates the live evidence above.
   runtime-authenticated reauth/encrypted-card/add-balance endpoints, sets
   `operator_capped_validation` with `TINKER_MAX_ADD_BALANCE_USD=5.0`, and uses
   the Playwright sidecar rather than the currently blocked Phala Neko CDP path.
-  This profile is source/test-real but not yet deployed evidence until the
-  runtime-auth source commit has GitHub-attested GHCR images and a fresh live
-  Phala compose hash is recorded.
+  This profile is live deployed evidence for the current auth/session blocker:
+  GitHub-attested source `355b8aa7959118f887c2e4a498edee200114c152` images are
+  pinned by digest, the live Phala attested compose hash is
+  `34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09`, and
+  authenticated payment-method plus `$5` add-balance probes return bounded
+  `auth_required` without raw secret egress.
 - `python -m tinker_delegate.main check-funding-validation-packet` replay-checks
   packet directories and returns bounded pass/fail checks. It can require
   add-balance evidence and can require live deployed TDX attestation evidence;
@@ -602,8 +605,9 @@ updates the live evidence above.
 - Tinker delegate Python entrypoints disable core dumps with `RLIMIT_CORE=0`,
   and local/Phala compose services set `ulimits.core: 0` for the delegate and
   browser path.
-- Real card funding is intentionally not attempted until real payment details
-  are provided out of band.
+- Real card funding is intentionally not attempted until deployed Tinker
+  auth/session continuity is repaired and an approved operator enters card
+  details through the interactive, attestation-bound prompt.
 - Production or repeated card funding still needs legal/compliance approval.
 - Payment-method token/reference handling and the sealed long-lived funding
   token/session state still need an official/tokenized route plus production

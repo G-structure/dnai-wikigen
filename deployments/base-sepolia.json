@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-08T17:26:00Z",
+  "lastReviewedAt": "2026-07-08T21:59:08Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -42,12 +42,12 @@
     }
   },
   "phala": {
-    "status": "running_tinker_funding_validation_profile_auth_gated_billing_selector_missing_real_card_blocked",
+    "status": "running_tinker_funding_validation_profile_auth_gated_billing_auth_required_real_card_blocked",
     "cvmId": "670b3b21-4338-4d4e-ae72-7c8922579f59",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "03f353fc17546fa16741a69c836bc27e8987f487ab690046e5296779e17500f8",
-    "localRawComposeImagePolicyHash": "d760517a5973d982e1c9f7571e9c65e6970d66a3a6f07d2c790bf5ac1a3cf6dc",
-    "renderedComposeSha256": "96001dd4c7989b395ca69942fdca618de760924702f9293f6a5b7773a4af35e5",
+    "composeHash": "34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09",
+    "localRawComposeImagePolicyHash": "1c47353da2d84f73dbd208b1a556cd72b13e123e731e78c2c7dce7e3416b2865",
+    "renderedComposeSha256": "55f4b58773574a8584740aff24f181a45fbf84ab890eca43405041a8f03fb107",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -59,13 +59,13 @@
     "allowedEnvKeys": [
       "ORACLE_RUNTIME_AUTH_KEY_PATH",
       "TINKER_DSTACK_KEY_PATH",
-      "TINKER_FUNDING_MODE",
       "TINKER_FUNDING_RECEIPT_KEY_PATH",
-      "TINKER_MAX_ADD_BALANCE_USD",
       "TINKER_ORACLE_AUTH_KEY_PATH",
-      "TINKER_RUN_METADATA_KEY_PATH"
+      "TINKER_RUN_METADATA_KEY_PATH",
+      "TINKER_RUNTIME_AUTH_KEY_PATH",
+      "TINKER_RUNTIME_AUTH_TOKEN"
     ],
-    "allowedEnvKeysNote": "Current Phala metadata lists the narrowed seven-key runtime surface; deploy-critical oracle/delegate image refs and disabled secret-bearing gates are hardcoded directly in compose.",
+    "allowedEnvKeysNote": "Current Phala metadata lists the narrowed seven-key runtime surface; deploy-critical oracle/delegate image refs, capped funding policy, and disabled secret-bearing gates are hardcoded directly in compose.",
     "temporaryDebugException": {
       "active": false,
       "enabledAt": "2026-07-08T11:50:13Z",
@@ -90,10 +90,10 @@
         "TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "54164898352e3db4ac17b367eb6e74dfff77355b",
+    "sourceDigest": "355b8aa7959118f887c2e4a498edee200114c152",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 28976648545,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28976648545",
+    "githubActionsRunId": 28977917896,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28977917896",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -103,13 +103,13 @@
     "imageDigests": [
       {
         "service": "oracle",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:77523e7ed2492b890ebedf54c9f4a4f425b6d5c9b7454b4f12de2221e761d2db",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:9ef71de5e39456b52a76890e2eab64938f9801975576170d55cb5929016fdc67",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b9e232dc961d87c3d28b098b70e821db83e0b93507d01b698ff4085be2be0ce6",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:2f3a071d0046cbb4c0f47082d151e314d6210780801100160520d92fad259e59",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
@@ -122,8 +122,8 @@
       "mode": "tdx",
       "context": "artifact",
       "quoteSize": 5010,
-      "reportData": "0a998b30eed8c68ab31e1e23ccb918ea750565cdaac27b808504c1bc53c2aa4c",
-      "encryptionPublicKey": "99f4b6a6273111498d5dd9b0ceb61ab51ac13e88195971f47019f8dd4c51150d",
+      "reportData": "7ba2e30e4e44ff1302ddccdcc913bee9a9e494bd1b4430de3fb9539bd51776e1",
+      "encryptionPublicKey": "27760e60034bda73eb9b4e8c1a159485efab1503acbd64488fe3607ae1e4277b",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -1046,18 +1046,19 @@
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "fundingValidationEvidence": {
-      "status": "live_auth_gated_profile_billing_selector_missing_real_card_blocked",
+      "status": "live_auth_gated_profile_billing_auth_required_real_card_blocked",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
-      "sourceDigest": "54164898352e3db4ac17b367eb6e74dfff77355b",
-      "githubActionsRunId": 28976648545,
-      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:77523e7ed2492b890ebedf54c9f4a4f425b6d5c9b7454b4f12de2221e761d2db",
-      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b9e232dc961d87c3d28b098b70e821db83e0b93507d01b698ff4085be2be0ce6",
-      "localRawComposeImagePolicyHash": "d760517a5973d982e1c9f7571e9c65e6970d66a3a6f07d2c790bf5ac1a3cf6dc",
-      "renderedComposeSha256": "96001dd4c7989b395ca69942fdca618de760924702f9293f6a5b7773a4af35e5",
-      "attestedComposeHash": "03f353fc17546fa16741a69c836bc27e8987f487ab690046e5296779e17500f8",
+      "sourceDigest": "355b8aa7959118f887c2e4a498edee200114c152",
+      "githubActionsRunId": 28977917896,
+      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:9ef71de5e39456b52a76890e2eab64938f9801975576170d55cb5929016fdc67",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:2f3a071d0046cbb4c0f47082d151e314d6210780801100160520d92fad259e59",
+      "localRawComposeImagePolicyHash": "1c47353da2d84f73dbd208b1a556cd72b13e123e731e78c2c7dce7e3416b2865",
+      "renderedComposeSha256": "55f4b58773574a8584740aff24f181a45fbf84ab890eca43405041a8f03fb107",
+      "attestedComposeHash": "34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09",
+      "deploymentBundleVerification": "verified",
       "billingAttestation": {
-        "reportData": "1d08a33b27ef9cd52c25023dd19f41f7f672c7a84353ee7943b1dcb1cd2c6ed4",
-        "encryptionPublicKey": "409666dc58a0f0e2bf7cc706c2129c807827965ea383b55990e3edf6ad52f357",
+        "reportData": "dcf4070c8a8fece9f3f6c5236dc61207c2b5cbdd040192b6cfdcc7a4fa5bf00b",
+        "encryptionPublicKey": "27760e60034bda73eb9b4e8c1a159485efab1503acbd64488fe3607ae1e4277b",
         "quoteSize": 10020
       },
       "runtimeEnv": {
@@ -1092,19 +1093,19 @@
       "testCardAttempt": {
         "card": "stripe_decline_test_card",
         "surface": "payment_method",
-        "outcome": "selector_missing",
+        "outcome": "auth_required",
         "furthestStage": "billing_page_loaded",
         "cardPayloadDestroyed": true,
         "rawSecretEgress": false
       },
       "addBalanceNoCardAttempt": {
         "surface": "add_balance",
-        "outcome": "selector_missing",
+        "outcome": "auth_required",
         "furthestStage": "billing_page_loaded",
         "amountBand": "5_25_usd",
         "rawSecretEgress": false
       },
-      "nextStep": "repair deployed Tinker auth/billing selector route before approved real-card prompt"
+      "nextStep": "repair deployed Tinker auth/session route so /auth/reauth reaches OTP and billing page is authenticated before approved real-card prompt"
     }
   },
   "freshDeployment": {

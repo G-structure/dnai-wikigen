@@ -1033,13 +1033,13 @@ Implementation status:
             than the currently blocked Neko CDP path.
 [real]      The funding-validation profile was deployed to Phala on 2026-07-08
             with GitHub-attested source
-            `54164898352e3db4ac17b367eb6e74dfff77355b` images, local raw
+            `355b8aa7959118f887c2e4a498edee200114c152` images, local raw
             compose/image-policy hash
-            `d760517a5973d982e1c9f7571e9c65e6970d66a3a6f07d2c790bf5ac1a3cf6dc`,
+            `1c47353da2d84f73dbd208b1a556cd72b13e123e731e78c2c7dce7e3416b2865`,
             rendered compose SHA-256
-            `96001dd4c7989b395ca69942fdca618de760924702f9293f6a5b7773a4af35e5`,
+            `55f4b58773574a8584740aff24f181a45fbf84ab890eca43405041a8f03fb107`,
             and live attested compose hash
-            `03f353fc17546fa16741a69c836bc27e8987f487ab690046e5296779e17500f8`.
+            `34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09`.
             Health is OK, the email oracle is ready, IMAP is connected, public
             logs remain disabled, and unauthenticated reauth/add-balance calls
             fail closed with `401 Bearer token required`.
@@ -1048,10 +1048,10 @@ Implementation status:
             `/auth/reauth` currently returns bounded `auth_access_blocked`
             before OTP; authenticated encrypted Stripe test-card
             payment-method submission destroys the card payload but returns
-            bounded `payment_method` / `selector_missing` at
+            bounded `payment_method` / `auth_required` at
             `billing_page_loaded`; authenticated `$5` add-balance without a
-            card also returns bounded `selector_missing`. The next live step is
-            Tinker auth/billing selector-route repair on Phala, not a real-card
+            card also returns bounded `auth_required`. The next live step is
+            Tinker auth/session repair on Phala, not a real-card
             prompt.
 [real]      Source/tests now distinguish billing selector drift from auth-state
             failure before card fields or top-up controls are touched. The
@@ -1061,9 +1061,12 @@ Implementation status:
             surface as bounded `auth_access_blocked`, both at
             `billing_page_loaded` without echoing page text. This extends the
             bounded receipt vocabulary with `auth_required`.
-[planned]   The billing auth-state classifier still needs GitHub-attested image
-            build, digest pinning, Phala redeploy, and live test-card /
-            add-balance repro before it becomes deployed evidence.
+[real]      The billing auth-state classifier was rebuilt by GitHub Actions,
+            verified with provenance/SBOM attestations, pinned by digest,
+            redeployed to the funding-validation Phala profile, and live-tested
+            against encrypted Stripe test-card and `$5` add-balance probes.
+            The deployed result proves the blocker is Tinker auth/session
+            continuity rather than true billing selector drift.
 [real]      `check-funding-validation-packet` replay-checks packet directories:
             required files, payment manifest replay, optional add-balance
             manifest replay, summary hash consistency, and optional deployed

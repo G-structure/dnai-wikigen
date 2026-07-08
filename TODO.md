@@ -1159,20 +1159,20 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             deployed attested funding-validation endpoint after quote
             verification and GitHub-attested images for the runtime-auth source
             commit are pinned. Done 2026-07-08: source
-            `54164898352e3db4ac17b367eb6e74dfff77355b` images were built by
-            GitHub Actions run `28976648545`, local provenance/SBOM checks
+            `355b8aa7959118f887c2e4a498edee200114c152` images were built by
+            GitHub Actions run `28977917896`, local provenance/SBOM checks
             passed, Phala funding-validation compose is live at attested hash
-            `03f353fc17546fa16741a69c836bc27e8987f487ab690046e5296779e17500f8`,
+            `34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09`,
             billing-context attestation verified, unauthenticated funding
             mutations return `401 Bearer token required`, and an authenticated
             encrypted Stripe test-card submission destroyed the card payload and
-            returned a bounded `payment_method` / `selector_missing` receipt at
+            returned a bounded `payment_method` / `auth_required` receipt at
             `billing_page_loaded` with `raw_secret_egress=false`.
       - [ ] Repair deployed Tinker auth/billing automation before any approved
             real-card prompt: live `/auth/reauth` currently fails bounded with
             `auth_access_blocked` before OTP, and live payment-method plus
             add-balance attempts reach `billing_page_loaded` but return
-            `selector_missing`. Do not run real card material until this path
+            `auth_required`. Do not run real card material until this path
             reaches the Stripe form and a bounded test-card receipt on Phala.
             - [x] Source/test 2026-07-08: add a bounded billing auth-state
                   classifier before payment-method/add-balance selector
@@ -1180,10 +1180,21 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   access-blocked now return `auth_required` or
                   `auth_access_blocked` receipts at `billing_page_loaded`
                   without clicking billing controls or echoing page text.
-            - [ ] Rebuild/pin/deploy this classifier to Phala and rerun the
+            - [x] Rebuild/pin/deploy this classifier to Phala and rerun the
                   live encrypted Stripe test-card and `$5` add-balance probes
                   to distinguish auth-state failure from true billing selector
-                  drift.
+                  drift. Done 2026-07-08: source
+                  `355b8aa7959118f887c2e4a498edee200114c152` images were built
+                  by GitHub Actions run `28977917896`, provenance/SBOM checks
+                  passed, compose was digest-pinned and redeployed to live
+                  attested hash
+                  `34a79c5ad6d16e2f5c0b35ebcbf0f6df4cdcc8b3cff1ded98d4944efd6deff09`,
+                  and authenticated payment-method plus `$5` add-balance
+                  probes now return bounded `auth_required` rather than
+                  `selector_missing`.
+            - [ ] Repair the deployed Tinker auth/session route so
+                  `/auth/reauth` reaches OTP and billing navigation reuses an
+                  authenticated session before any approved real-card prompt.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
       account and a safe test card or approved real card.
       - [x] Stripe test card reaches live Tinker/Stripe submission and returns
@@ -1205,7 +1216,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             its live attested compose hash is recorded, and the operator CLI
             command targets that hash with `--fetch-attestation`. Blocked
             2026-07-08 by deployed Tinker auth/billing automation:
-            `auth_access_blocked` on reauth and `selector_missing` on both
+            `auth_access_blocked` on reauth and `auth_required` on both
             payment-method and add-balance surfaces.
 - [x] `P0` Confirm PCI and Stripe obligations.
       Research whether the current encrypted-card-to-TEE flow is acceptable or
