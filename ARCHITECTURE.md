@@ -544,10 +544,14 @@ Implementation status:
 
 ### 2. Tinker Encumbered Contract
 
-There is not yet a separate `TinkerAccountEncumbrance.sol` contract. In the
-current repo, the Tinker encumbrance is split across:
+`TinkerAccountEncumbrance.sol` is now the dedicated on-chain policy/audit
+surface for the TEE-owned Tinker account. It does not custody card data,
+credentials, or Tinker balances. It records and enforces bounded account
+operation policy while the actual browser/API automation remains inside the TEE.
+The current repo splits Tinker encumbrance across:
 
 ```
+TinkerAccountEncumbrance.sol      account policy, manager limits, measurement allowlist, audit events
 DiligenceRoom.sol                 on-chain escrow and bounded-result settlement
 tinker-delegate service           TEE-held Tinker account and API key
 IsolatedTinkerSession             runtime confinement around Tinker SDK usage
@@ -563,8 +567,26 @@ drive Tinker billing through a browser session once auth/funding is unblocked
 add balance using card-on-file or encrypted card payload once Stripe flow works
 create a one-deal isolated Tinker session
 meter compute and fee
+check operation against TinkerAccountEncumbrance policy before funding/spend
 clean up checkpoints after resolution
 submit bounded result to DiligenceRoom
+```
+
+Current concrete policy contract:
+
+```
+TinkerAccountEncumbrance.sol
+  owner
+  accountCommitment = hash/commitment for the TEE-owned Tinker account
+  approvedComposeHashes[composeHash] = true/false
+  managers[account] = true/false
+  maxAddBalanceWei
+  maxSpendWei
+  emergencyHalted
+  measurementsFrozen
+
+  authorizeOperation(operationId, kind, requester, composeHash, amountWei)
+  settleOperation(operationId, success, receiptHash)
 ```
 
 Diagram:
@@ -620,6 +642,19 @@ Implementation status:
 ```
 [real]      API routes, billing code, encrypted card channel, key store, control plane.
 [real]      DiligenceRoom.sol and tests.
+[real]      TinkerAccountEncumbrance.sol and tests. The contract stores a
+            hashed Tinker account commitment, approved compose hashes,
+            owner-managed managers, add-balance/spend caps, emergency halt,
+            measurement freeze, operation authorization records, and bounded
+            settlement receipt hashes. Managers can authorize/settle only
+            operations inside owner-set caps and approved measurements; tests
+            prove managers cannot set managers, change caps, approve
+            measurements, toggle halt, exceed caps, or bypass compose,
+            duplicate, and settlement guards.
+[partial]   The tinker-delegate runtime does not yet query
+            TinkerAccountEncumbrance before billing/add-balance/browser
+            automation, and the contract is not yet deployed or recorded in the
+            Base Sepolia manifest.
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
 [real]      Signup/bootstrap stores captured Tinker API keys in encrypted
             storage and returns only bounded hash/status metadata.

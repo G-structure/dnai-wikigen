@@ -260,15 +260,29 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 ### TinkerAccountEncumbrance.sol
 
-- [ ] `P0` Decide whether to create a dedicated `TinkerAccountEncumbrance.sol` or
+- [x] `P0` Decide whether to create a dedicated `TinkerAccountEncumbrance.sol` or
       extend `DiligenceRoom.sol` plus `EmailOracleAuth.sol`.
-- [ ] `P0` Specify the on-chain responsibilities of Tinker encumbrance:
+      Decided in code/docs: use a dedicated minimal
+      `TinkerAccountEncumbrance.sol` for Tinker account policy/audit, separate
+      from `DiligenceRoom` escrow settlement and `EmailOracleAuth` OTP
+      consumer policy.
+- [x] `P0` Specify the on-chain responsibilities of Tinker encumbrance:
       account identity, funding policy, spend limits, approved measurements,
       allowed billing operations, emergency halt, and audit events.
-- [ ] `P0` Implement a minimal `TinkerAccountEncumbrance.sol` if the separate
+      Done in `TinkerAccountEncumbrance.sol`: it stores a hashed account
+      commitment, approved compose hashes, per-operation add-balance/spend caps,
+      manager delegation, measurement freeze, emergency halt, operation
+      authorization, and bounded receipt settlement events.
+- [x] `P0` Implement a minimal `TinkerAccountEncumbrance.sol` if the separate
       contract route is chosen.
-- [ ] `P0` Add tests proving no manager can exceed owner/deployer-granted
+      Done with the dedicated contract under
+      `⚙️/tinker-delegate/contracts/src/TinkerAccountEncumbrance.sol`.
+- [x] `P0` Add tests proving no manager can exceed owner/deployer-granted
       authority.
+      Done in `TinkerAccountEncumbrance.t.sol`: managers can authorize/settle
+      bounded operations inside owner-set caps and approved measurements, but
+      cannot set managers, change caps, approve measurements, toggle emergency
+      halt, exceed caps, or bypass compose/emergency/duplicate guards.
 - [ ] `P1` Add funding rail policy:
       developer prefund, buyer compute deposit, crypto top-up, A2A/ACH/card
       path, and manual emergency funding.
@@ -1150,6 +1164,9 @@ vision Wiki is reaching for.
       - [ ] Redeploy `DiligenceRoom` after the verifier-signature
             `submitResult()` ABI change, set `DILIGENCE_RESULT_VERIFIER`, and
             record `resultVerifier()` in `deployments/base-sepolia.json`.
+      - [ ] Deploy `TinkerAccountEncumbrance`, set initial account commitment,
+            compose hash, add-balance/spend caps, and record the address/policy
+            in `deployments/base-sepolia.json`.
 - [ ] `Deploy` Verify contracts on BaseScan.
 - [ ] `Deploy` Register compose hashes in `EmailOracleAuth`.
 - [ ] `Deploy` Register consumer app/compose hash for Tinker delegate.

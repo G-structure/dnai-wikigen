@@ -37,6 +37,11 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   deals.
 - `⚙️/tinker-delegate/contracts/src/EmailOracleAuth.sol` models on-chain
   app-auth policy for email-oracle consumers.
+- `⚙️/tinker-delegate/contracts/src/TinkerAccountEncumbrance.sol` models
+  on-chain policy/audit controls for the TEE-owned Tinker account: hashed
+  account commitment, approved compose hashes, managers, add-balance/spend caps,
+  emergency halt, measurement freeze, bounded operation authorizations, and
+  receipt hashes.
 - Foundry tests exist under `⚙️/tinker-delegate/contracts/test/`.
 
 [real] `tee-email-oracle`:
@@ -220,6 +225,10 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
 
 [partial] Account funding:
 
+- A minimal `TinkerAccountEncumbrance.sol` contract now exists locally with
+  tests proving managers cannot exceed owner-set caps or change owner-only
+  policy. It is not yet deployed, and `tinker-delegate` does not yet query it
+  before card/add-balance/browser automation.
 - Test-card billing reaches a clear declined-card outcome.
 - Payment-method and add-balance operations return bounded attempt records with
   outcome class, furthest stage, issued timestamp, evidence hash, amount/balance
