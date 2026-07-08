@@ -235,8 +235,23 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   success/error, selector success/error, and declared selector-family count
   bands. It emits no raw page URLs, WebSocket URLs, event payloads, context IDs,
   frame IDs, page text, selectors, cookies, OTPs, API keys, or card material.
-  This direct route is source/test-real until a GitHub-attested image is
-  remeasured on Phala.
+  A 2026-07-08 Phala one-shot run with GitHub-attested `bf39f56` images proved
+  the direct page-target route reaches `/json/list` and the page WebSocket, but
+  direct page `Runtime.enable` still times out:
+  `direct_page_runtime_attempted=true`,
+  `direct_page_runtime.page_list_success=true`,
+  `direct_page_runtime.page_websocket_available=true`,
+  `direct_page_runtime_enable_success=false`,
+  `direct_page_runtime.runtime_enable_error_kind=timeout`,
+  `direct_page_runtime_micro_probe_success=false`,
+  `direct_page_runtime_selector_success=false`, empty `flow_observations`, and
+  `raw_secret_egress=false`. The CVM was restored to normal compose afterward
+  at live attested compose hash
+  `382aa6c881d477724552f4445157afbcd75738ee1feb9603b982b75ec4e82c2c`, and
+  `/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
+  returned 403 with the current request schema. Selector-family match capture
+  remains not Phala-proven; the remaining deployed blocker is Neko/Chrome
+  Runtime-domain behavior itself, not just attached-session routing.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,

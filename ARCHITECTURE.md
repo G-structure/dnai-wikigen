@@ -792,10 +792,18 @@ Implementation status:
             bands, micro-probe success/error, selector success/error, and
             declared selector-family count bands. It emits no raw page URLs,
             WebSocket URLs, event payloads, context IDs, frame IDs, page text,
-            raw selectors, cookies, OTPs, API keys, or card material. This
-            direct route is source/test-real and needs a GitHub-attested image
-            plus Phala measurement before it can be treated as deployed
-            evidence.
+            raw selectors, cookies, OTPs, API keys, or card material. A
+            follow-up Phala measurement with GitHub-attested `bf39f56` images
+            proved the direct route can fetch `/json/list` and reach the page
+            target WebSocket, but direct page `Runtime.enable` still timed out:
+            `direct_page_runtime_attempted=true`,
+            `direct_page_runtime.page_list_success=true`,
+            `direct_page_runtime.page_websocket_available=true`,
+            `direct_page_runtime_enable_success=false`,
+            `direct_page_runtime.runtime_enable_error_kind=timeout`, no
+            micro-probe, no selector-family matrix, empty `flow_observations`,
+            and `raw_secret_egress=false`. The current deployed blocker is the
+            page Runtime domain itself, not just the attached-session routing.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed
             one-shot evidence capture. It is disabled by default and returns
             403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
@@ -879,8 +887,11 @@ Implementation status:
             evaluation. The deployed blocker is therefore the attached-session
             Runtime domain itself. Source/tests now add a direct page-target
             WebSocket Runtime route that can recover selector-family bands
-            after an attached-session `Runtime.enable` timeout; it remains
-            source/test-real until remeasured on Phala.
+            after an attached-session `Runtime.enable` timeout in tests. The
+            2026-07-08 Phala measurement on GitHub-attested `bf39f56` images
+            proved `/json/list` and page-WebSocket availability, but direct
+            page `Runtime.enable` also timed out, so deployed selector-family
+            evidence remains blocked on Neko/Chrome Runtime-domain behavior.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
@@ -1111,17 +1122,17 @@ Implementation status:
             delegate `/health` returning `ok`, and live delegate
             deployment-bundle verification passing against local raw compose
             image-policy hash
-            `a5319e40a0844083303515e2a322f93880378ff51aa972a1cf7b8f9bfa25d0ae`,
+            `ddd344213f29769cebd3c0caef8ff990628f5422b4295346ee84a8072a3c5adf`,
             rendered compose SHA-256
-            `fbc95279dc8c5e154015635a6ea064da4ab12ad5272e52fbbf1275a671bb884b`,
+            `751d95bb7ac785b2bbf87ca27d00fd1b79d9c0bfd68d086259e08faefffbd40e`,
             and live Phala attested compose hash
-            `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`.
+            `382aa6c881d477724552f4445157afbcd75738ee1feb9603b982b75ec4e82c2c`.
             The current oracle image is
-            `tee-email-oracle@sha256:f88457fbde049ed42e75a5f06d06008376f1d313ca3b91db7038df50853d2df6`
+            `tee-email-oracle@sha256:43bf7d096bdd0e56b8fa95c23325513ba09825114de16e23fb578169cb8a3e42`
             and the current delegate image is
-            `tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04`,
+            `tinker-delegate@sha256:c43ac01ee461aca4b49bbfe77d55491cfac8bb3dc70907c84a7b40b34657c277`,
             both built from source commit
-            `9d6936434aab24eb3513abe7b5e862c1802da022`. Tinker bootstrap,
+            `bf39f569840f348c639be9fe0a8928f3360d9835`. Tinker bootstrap,
             selector-probe, browser-readiness, and add-balance are disabled in
             the current normal compose, and live checks return 403 for those
             widened/diagnostic endpoints.

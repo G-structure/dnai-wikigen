@@ -926,6 +926,39 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             cookies, OTPs, API keys, or card material. Next step: build
             GitHub-attested images, run one-shot Phala selector-probe, record
             whether direct page Runtime succeeds, then restore normal compose.
+            Follow-up Phala attempt 2026-07-08: GitHub Actions built and
+            signed source commit
+            `bf39f569840f348c639be9fe0a8928f3360d9835` into
+            `tinker-delegate@sha256:c43ac01ee461aca4b49bbfe77d55491cfac8bb3dc70907c84a7b40b34657c277`
+            and
+            `tee-email-oracle@sha256:43bf7d096bdd0e56b8fa95c23325513ba09825114de16e23fb578169cb8a3e42`;
+            local attestation checks passed for both provenance and SBOM
+            attestations. A one-shot Phala diagnostic compose reached live app
+            compose hash
+            `5b274e53751af9e6cd1bf03005062f4ffb0e6615b09d781d50934abeec7607e7`;
+            `/browser/selector-probe` returned `success=true`,
+            `probe_backend=raw_cdp`,
+            `partial_error_kind=runtime_enable_timeout`,
+            `direct_page_runtime_attempted=true`,
+            `direct_page_runtime.page_list_success=true`,
+            `direct_page_runtime.page_websocket_available=true`, but
+            `direct_page_runtime_enable_success=false`,
+            `direct_page_runtime.runtime_enable_error_kind=timeout`,
+            `direct_page_runtime_micro_probe_success=false`,
+            `direct_page_runtime_selector_success=false`, empty
+            `flow_observations`, and `raw_secret_egress=false`. This proves
+            the direct page-target WebSocket is reachable in Phala, but the
+            deployed page Runtime domain still does not complete
+            `Runtime.enable`. Normal compose was restored afterward at live
+            attested compose hash
+            `382aa6c881d477724552f4445157afbcd75738ee1feb9603b982b75ec4e82c2c`;
+            health is OK, `/browser/readiness` and
+            `/browser/selector-probe` return 403, and `/billing/add-balance`
+            returns 403 when called with the current `amount_dollars` schema.
+            Next step: debug the Neko/Chrome Runtime domain itself, likely by
+            comparing Chrome/supervisord flags or deploying a marked
+            public-logs/dev-access diagnostic profile, then restore the
+            locked-down compose again.
 - [x] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
       needed by each compose profile.
       Done 2026-07-08: `scripts/redeploy-phala-cvm.mjs` now defaults to
@@ -1692,6 +1725,9 @@ vision Wiki is reaching for.
             Refreshed again 2026-07-08 for bounded Runtime-enable CDP
             diagnostic commit `9d6936434aab24eb3513abe7b5e862c1802da022`
             with GitHub Actions build run `28971028987`.
+            Refreshed again 2026-07-08 for bounded direct page-target Runtime
+            diagnostic commit `bf39f569840f348c639be9fe0a8928f3360d9835`
+            with GitHub Actions build run `28972610369`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
@@ -1699,14 +1735,14 @@ vision Wiki is reaching for.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` /
       `cvm_1w85mGjo` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f88457fbde049ed42e75a5f06d06008376f1d313ca3b91db7038df50853d2df6`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:43bf7d096bdd0e56b8fa95c23325513ba09825114de16e23fb578169cb8a3e42`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c43ac01ee461aca4b49bbfe77d55491cfac8bb3dc70907c84a7b40b34657c277`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
       image refs change. The current normal profile is live at attested compose
-      hash `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`
+      hash `382aa6c881d477724552f4445157afbcd75738ee1feb9603b982b75ec4e82c2c`
       with narrowed `allowed_env_count=7`. Live update with disabled public
       logs/sysinfo succeeded, but Phala still reports `dstack-dev-0.5.9` /
       `is_dev=true`.
@@ -1728,16 +1764,16 @@ vision Wiki is reaching for.
       - [x] `verify-deployment-bundle` passes against the live log-hardened
             Phala deployment with GitHub image provenance/SBOM checks, required
             sidecar digests, local raw compose hash
-            `a5319e40a0844083303515e2a322f93880378ff51aa972a1cf7b8f9bfa25d0ae`,
+            `ddd344213f29769cebd3c0caef8ff990628f5422b4295346ee84a8072a3c5adf`,
             and live attested compose hash
-            `54ee243db5605588550d670fcc767ba17b49407e76613b633ddc7eee44494eb2`.
+            `382aa6c881d477724552f4445157afbcd75738ee1feb9603b982b75ec4e82c2c`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.
             Done 2026-07-08: live delegate image
-            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c6e559feb04f27fd3afafac1e6b26f7f0b23109ebb1d160d54d4588511785d04`
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:c43ac01ee461aca4b49bbfe77d55491cfac8bb3dc70907c84a7b40b34657c277`
             is GitHub-attested from commit
-            `9d6936434aab24eb3513abe7b5e862c1802da022`; `/pin` rejects
+            `bf39f569840f348c639be9fe0a8928f3360d9835`; `/pin` rejects
             unauthenticated requests with `401`, `/browser/readiness` and
             `/browser/selector-probe` reject while disabled with `403`,
             `/credentials/encrypted` is closed on the delegate port with `404`,
