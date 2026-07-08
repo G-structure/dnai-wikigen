@@ -274,6 +274,21 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   `/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
   returned 403. The remaining deployed blocker is now lower-level page CDP
   command delivery through the Phala Neko path.
+  FUNDING VALIDATION PROFILE: on 2026-07-08 the temporary
+  `docker-compose.tinker-funding-validation.phala.yaml` profile was deployed to
+  Phala with GitHub-attested source
+  `54164898352e3db4ac17b367eb6e74dfff77355b` images, local raw compose hash
+  `d760517a5973d982e1c9f7571e9c65e6970d66a3a6f07d2c790bf5ac1a3cf6dc`, and
+  live attested compose hash
+  `03f353fc17546fa16741a69c836bc27e8987f487ab690046e5296779e17500f8`.
+  Health is OK, the email oracle is ready, IMAP is connected, public logs remain
+  disabled, and unauthenticated funding mutations return `401 Bearer token
+  required`. `$5` preflight with live billing attestation is ready, but real-card
+  funding is blocked: authenticated reauth returns bounded
+  `auth_access_blocked` before OTP, and authenticated payment-method/add-balance
+  attempts reach `billing_page_loaded` but return bounded `selector_missing`
+  receipts. Do not run approved real-card material until this deployed path is
+  repaired with a bounded test-card success/failure receipt.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,

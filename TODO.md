@@ -1155,10 +1155,25 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `payment_submitted` receipt output, and the temp encrypted receipt
             file does not contain the test card number, CVC, name, postal code,
             or raw card field names.
-      - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
+      - [x] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested funding-validation endpoint after quote
             verification and GitHub-attested images for the runtime-auth source
-            commit are pinned.
+            commit are pinned. Done 2026-07-08: source
+            `54164898352e3db4ac17b367eb6e74dfff77355b` images were built by
+            GitHub Actions run `28976648545`, local provenance/SBOM checks
+            passed, Phala funding-validation compose is live at attested hash
+            `03f353fc17546fa16741a69c836bc27e8987f487ab690046e5296779e17500f8`,
+            billing-context attestation verified, unauthenticated funding
+            mutations return `401 Bearer token required`, and an authenticated
+            encrypted Stripe test-card submission destroyed the card payload and
+            returned a bounded `payment_method` / `selector_missing` receipt at
+            `billing_page_loaded` with `raw_secret_egress=false`.
+      - [ ] Repair deployed Tinker auth/billing automation before any approved
+            real-card prompt: live `/auth/reauth` currently fails bounded with
+            `auth_access_blocked` before OTP, and live payment-method plus
+            add-balance attempts reach `billing_page_loaded` but return
+            `selector_missing`. Do not run real card material until this path
+            reaches the Stripe form and a bounded test-card receipt on Phala.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
       account and a safe test card or approved real card.
       - [x] Stripe test card reaches live Tinker/Stripe submission and returns
@@ -1178,7 +1193,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
             attempt after the funding-validation compose is deployed on Phala,
             its live attested compose hash is recorded, and the operator CLI
-            command targets that hash with `--fetch-attestation`.
+            command targets that hash with `--fetch-attestation`. Blocked
+            2026-07-08 by deployed Tinker auth/billing automation:
+            `auth_access_blocked` on reauth and `selector_missing` on both
+            payment-method and add-balance surfaces.
 - [x] `P0` Confirm PCI and Stripe obligations.
       Research whether the current encrypted-card-to-TEE flow is acceptable or
       whether the system must use Stripe-hosted tokenization / SetupIntent /

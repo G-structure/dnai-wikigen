@@ -33,29 +33,44 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
 `wikigen` in workspace `wiki`.
 
 Latest Phala evidence, 2026-07-08: GitHub Actions built source commit
-`556387a9e673e91d3ea4991cdaee96ead3e52922` into GHCR digest-pinned
-`tee-email-oracle@sha256:287028f12f7cb596d573f950e6dc1cb2437fe37ea2984101abd8bd451d44eca3`
+`54164898352e3db4ac17b367eb6e74dfff77355b` into GHCR digest-pinned
+`tee-email-oracle@sha256:77523e7ed2492b890ebedf54c9f4a4f425b6d5c9b7454b4f12de2221e761d2db`
 and
-`tinker-delegate@sha256:72b584ff4228783711ff3108f8674a9d5ab86fec2a072cf1ea3f8b71b697ec38`
+`tinker-delegate@sha256:b9e232dc961d87c3d28b098b70e821db83e0b93507d01b698ff4085be2be0ce6`
 images. Local `verify-ghcr-image-attestation` checks passed for both SLSA
-provenance and SPDX SBOM attestations. The restored normal CVM
-`cvm_1w85mGjo` is running app ID
-`f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717` at live Phala compose hash
-`e9e07417f7df3b0dae2fdc148fc6847751afa240b9167cc81e76883060ecd586` with
-public logs/sysinfo disabled and 7 allowed runtime env keys. The local raw
-compose/image-policy hash is
-`1a4870ab818fe2d8d5e59c6c84ada795a36210c3ea5a0d2bc16d342bfdbb87f5`;
-the rendered compose SHA-256 is
-`9c664e88ba1c79108f6f9c2987f667aa2e6ee6fa853b19277c7a8f8abfd43441`.
+provenance and SPDX SBOM attestations. The current CVM `cvm_1w85mGjo` is
+temporarily running the auth-gated funding-validation profile for app ID
+`f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, not the normal locked-down compose.
+The live Phala attested compose hash is
+`03f353fc17546fa16741a69c836bc27e8987f487ab690046e5296779e17500f8`; the local
+raw compose/image-policy hash is
+`d760517a5973d982e1c9f7571e9c65e6970d66a3a6f07d2c790bf5ac1a3cf6dc`, and the
+rendered compose SHA-256 is
+`96001dd4c7989b395ca69942fdca618de760924702f9293f6a5b7773a4af35e5`.
 `verify-deployment-bundle` passed against the live endpoint with OS image hash
-`de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`,
-report data
-`0a998b30eed8c68ab31e1e23ccb918ea750565cdaac27b808504c1bc53c2aa4c`,
+`de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`, artifact
+context report data
+`7ba7329a3d915a6fbe6e6b26afa7ae6b13eb063ba4c7f89c32f7f4b73a006d5e`,
 encryption public key
-`99f4b6a6273111498d5dd9b0ceb61ab51ac13e88195971f47019f8dd4c51150d`,
-and quote size `5010`. Health is OK, the oracle is ready, and
-`/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
-return 403 in normal mode.
+`409666dc58a0f0e2bf7cc706c2129c807827965ea383b55990e3edf6ad52f357`, and quote
+size `5010`; billing-context attestation returned the same compose/app/OS-image
+with report data
+`1d08a33b27ef9cd52c25023dd19f41f7f672c7a84353ee7943b1dcb1cd2c6ed4` and quote
+size `10020`. Public logs remain disabled. Health is OK, the oracle is ready,
+IMAP is connected, and unauthenticated `/auth/reauth` plus
+`/billing/add-balance` fail closed with `401 Bearer token required`.
+
+Funding profile live result, 2026-07-08: local preflight for `$5` with
+`operator_capped_validation`, the add-balance endpoint requirement, and live
+billing attestation returned ready. Authenticated `/auth/reauth` reached the
+delegate but failed bounded with `auth_access_blocked` before OTP
+(`raw_secret_egress=false`). Authenticated `$5` add-balance without a card
+reached `billing_page_loaded` and failed bounded with `selector_missing`.
+Authenticated encrypted Stripe test-card payment-method submission destroyed the
+card payload and failed bounded with `payment_method` / `selector_missing` at
+`billing_page_loaded` (`raw_secret_egress=false`). Therefore the Phala funding
+profile is live and guarded, but approved real-card funding is still blocked on
+Tinker auth/billing selector repair and must not be attempted yet.
 
 ## Built
 

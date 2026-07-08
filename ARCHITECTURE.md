@@ -1031,12 +1031,28 @@ Implementation status:
             `TINKER_FUNDING_MODE=operator_capped_validation`, caps top-ups at
             `$5`, and routes browser work through the Playwright sidecar rather
             than the currently blocked Neko CDP path.
-[partial]   The funding-validation profile is source/test-real but not yet live
-            Phala evidence for a real-card attempt until GitHub Actions builds
-            images for this runtime-auth source commit, the compose is updated
-            to those pinned digests, Phala reports a fresh live attested compose
-            hash, and `funding-validation-packet --fetch-attestation` is run
-            against that live endpoint.
+[real]      The funding-validation profile was deployed to Phala on 2026-07-08
+            with GitHub-attested source
+            `54164898352e3db4ac17b367eb6e74dfff77355b` images, local raw
+            compose/image-policy hash
+            `d760517a5973d982e1c9f7571e9c65e6970d66a3a6f07d2c790bf5ac1a3cf6dc`,
+            rendered compose SHA-256
+            `96001dd4c7989b395ca69942fdca618de760924702f9293f6a5b7773a4af35e5`,
+            and live attested compose hash
+            `03f353fc17546fa16741a69c836bc27e8987f487ab690046e5296779e17500f8`.
+            Health is OK, the email oracle is ready, IMAP is connected, public
+            logs remain disabled, and unauthenticated reauth/add-balance calls
+            fail closed with `401 Bearer token required`.
+[partial]   The funding-validation profile is live and quote-bound, but it is
+            not ready for approved real-card funding. Authenticated
+            `/auth/reauth` currently returns bounded `auth_access_blocked`
+            before OTP; authenticated encrypted Stripe test-card
+            payment-method submission destroys the card payload but returns
+            bounded `payment_method` / `selector_missing` at
+            `billing_page_loaded`; authenticated `$5` add-balance without a
+            card also returns bounded `selector_missing`. The next live step is
+            Tinker auth/billing selector-route repair on Phala, not a real-card
+            prompt.
 [real]      `check-funding-validation-packet` replay-checks packet directories:
             required files, payment manifest replay, optional add-balance
             manifest replay, summary hash consistency, and optional deployed
