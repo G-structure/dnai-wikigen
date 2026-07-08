@@ -757,8 +757,18 @@ Implementation status:
             Runtime command delivery/evaluation in the deployed Neko/CDP path,
             not selector-expression complexity. Selector-family bands are
             therefore source/test-real but still not Phala-proven; the next
-            diagnostic should emit bounded `Runtime.enable` and execution
-            context event bands.
+            source/test-real diagnostic now sends `Runtime.enable` before the
+            constant micro-probe and emits only bounded runtime/session fields:
+            `runtime_enable_command_success`,
+            `runtime_execution_context_event_observed`,
+            `runtime_enable_success`, `runtime_enable_error_kind`,
+            `runtime_event_before_enable_response`,
+            `runtime_event_count_band`, and
+            `runtime_execution_context_created`. It does not emit event
+            payloads, context IDs, frame IDs, raw URLs, page text, selectors,
+            cookies, OTPs, API keys, or card material. It still needs a
+            GitHub-attested image build and Phala measurement before it can be
+            treated as deployed evidence.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed
             one-shot evidence capture. It is disabled by default and returns
             403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
@@ -833,9 +843,12 @@ Implementation status:
             `runtime_micro_probe_error_kind=timeout`,
             `runtime_selector_command_success=false`, and empty
             `flow_observations`. The deployed timeout is therefore below the
-            selector expression itself; next work is a bounded Runtime/session
-            diagnostic, for example `Runtime.enable` plus execution-context
-            event bands.
+            selector expression itself. Source/tests now add a bounded
+            Runtime/session diagnostic by running `Runtime.enable` before the
+            constant micro-probe and recording only success/error/event-count
+            bands. The next deployed measurement should identify whether
+            `Runtime.enable` itself times out or whether enable succeeds
+            without a subsequent evaluable execution context.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,

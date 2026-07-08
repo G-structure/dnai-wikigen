@@ -60,7 +60,7 @@ from tinker_delegate.signup import (
 SELECTOR_MAP_VERSION = "2026-07-08.1"
 DEPLOYED_SELECTOR_EVIDENCE_STATUS = "pending_deployed_cvm_capture"
 PROBE_VERSION = "2026-07-08.1"
-RAW_CDP_PROBE_VERSION = "2026-07-08.1"
+RAW_CDP_PROBE_VERSION = "2026-07-08.2"
 COUNT_BAND_CAP = 2
 MATCH_BANDS = {"0", "1", "2+", "probe_error"}
 
@@ -347,6 +347,8 @@ def _read_matching_cdp_response(
     max_frames: int = 8,
 ) -> dict[str, Any]:
     saw_event = False
+    runtime_event_count = 0
+    saw_runtime_execution_context_created = False
     for _ in range(max_frames):
         frame = _read_websocket_text_frame(sock)
         if frame.get("too_large"):
@@ -362,8 +364,17 @@ def _read_matching_cdp_response(
             raise RuntimeError("invalid_json") from exc
         if payload.get("id") == command_id and (not session_id or payload.get("sessionId") == session_id):
             payload["_saw_event_before_response"] = saw_event
+            payload["_runtime_event_count_before_response"] = runtime_event_count
+            payload["_saw_runtime_execution_context_created_before_response"] = (
+                saw_runtime_execution_context_created
+            )
             return payload
         if "method" in payload:
+            method = str(payload.get("method") or "")
+            if method.startswith("Runtime."):
+                runtime_event_count += 1
+            if method == "Runtime.executionContextCreated":
+                saw_runtime_execution_context_created = True
             saw_event = True
             continue
     raise RuntimeError("missing_cdp_response")
@@ -589,6 +600,8 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
         "metadata_success": False,
         "upgrade_success": False,
         "target_command_success": False,
+        "runtime_enable_command_success": False,
+        "runtime_execution_context_event_observed": False,
         "runtime_micro_probe_command_success": False,
         "runtime_selector_command_success": False,
         "frame_tree_command_success": False,
@@ -643,6 +656,11 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                     "target_type": "page",
                     "attached": False,
                     "attach_error_kind": "",
+                    "runtime_enable_success": False,
+                    "runtime_enable_error_kind": "",
+                    "runtime_event_before_enable_response": False,
+                    "runtime_event_count_band": "0",
+                    "runtime_execution_context_created": False,
                     "runtime_micro_probe_success": False,
                     "runtime_micro_probe_error_kind": "",
                     "runtime_selector_success": False,
@@ -671,27 +689,56 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                     page_result["attached"] = bool(session_id)
                     if session_id:
                         try:
-                            micro_probe_response = client.command(
-                                "Runtime.evaluate",
-                                {
-                                    "expression": _runtime_micro_probe_expression(),
-                                    "returnByValue": True,
-                                    "awaitPromise": False,
-                                    "silent": True,
-                                },
+                            runtime_enable_response = client.command(
+                                "Runtime.enable",
                                 session_id=session_id,
                             )
-                            micro_probe_value = _runtime_evaluate_value(micro_probe_response)
-                            if micro_probe_value != "dnai_runtime_ok":
-                                raise RuntimeError("runtime_exception")
                         except Exception as exc:
                             error_kind = _raw_cdp_error_kind(exc)
-                            page_result["runtime_micro_probe_error_kind"] = error_kind
-                            partial_errors.append(f"runtime_micro_probe_{error_kind}")
+                            page_result["runtime_enable_error_kind"] = error_kind
+                            partial_errors.append(f"runtime_enable_{error_kind}")
                             stop_after_page = True
                         else:
-                            page_result["runtime_micro_probe_success"] = True
-                            result["runtime_micro_probe_command_success"] = True
+                            page_result["runtime_enable_success"] = True
+                            page_result["runtime_event_before_enable_response"] = bool(
+                                runtime_enable_response.get("_saw_event_before_response")
+                            )
+                            page_result["runtime_event_count_band"] = _count_band(
+                                int(runtime_enable_response.get("_runtime_event_count_before_response") or 0)
+                            )
+                            page_result["runtime_execution_context_created"] = bool(
+                                runtime_enable_response.get(
+                                    "_saw_runtime_execution_context_created_before_response"
+                                )
+                            )
+                            result["runtime_enable_command_success"] = True
+                            result["runtime_execution_context_event_observed"] = bool(
+                                result["runtime_execution_context_event_observed"]
+                                or page_result["runtime_execution_context_created"]
+                            )
+                        if not stop_after_page:
+                            try:
+                                micro_probe_response = client.command(
+                                    "Runtime.evaluate",
+                                    {
+                                        "expression": _runtime_micro_probe_expression(),
+                                        "returnByValue": True,
+                                        "awaitPromise": False,
+                                        "silent": True,
+                                    },
+                                    session_id=session_id,
+                                )
+                                micro_probe_value = _runtime_evaluate_value(micro_probe_response)
+                                if micro_probe_value != "dnai_runtime_ok":
+                                    raise RuntimeError("runtime_exception")
+                            except Exception as exc:
+                                error_kind = _raw_cdp_error_kind(exc)
+                                page_result["runtime_micro_probe_error_kind"] = error_kind
+                                partial_errors.append(f"runtime_micro_probe_{error_kind}")
+                                stop_after_page = True
+                            else:
+                                page_result["runtime_micro_probe_success"] = True
+                                result["runtime_micro_probe_command_success"] = True
                         if not stop_after_page:
                             try:
                                 runtime_response = client.command(

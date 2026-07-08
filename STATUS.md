@@ -146,6 +146,17 @@ return 403 in normal mode.
   `runtime_selector_command_success=false`, and `flow_observations=[]`. This
   narrows the blocker to page-scoped Runtime command delivery/evaluation in
   the deployed Neko/CDP path, not selector-expression complexity.
+  Source/tests now add the next bounded Runtime/session diagnostic: the raw-CDP
+  fallback sends `Runtime.enable` before the constant micro-probe and emits only
+  `runtime_enable_command_success`,
+  `runtime_execution_context_event_observed`, `runtime_enable_success`,
+  `runtime_enable_error_kind`, `runtime_event_before_enable_response`,
+  `runtime_event_count_band`, and `runtime_execution_context_created`. Tests
+  cover successful execution-context observation and a `Runtime.enable` timeout
+  before any micro-probe or selector evaluation. It emits no event payloads,
+  context IDs, frame IDs, raw URLs, page text, selectors, cookies, OTPs, API
+  keys, or card material. This new diagnostic is source/test-real pending a
+  GitHub-attested image build and Phala one-shot measurement.
   `Page.getFrameTree` still times out before frame inventory. The
   timeout-preserving page observation refinement is now Phala-proven with
   GitHub-attested `a384db2` images:

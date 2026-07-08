@@ -865,6 +865,22 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             bounded raw-CDP Runtime/session diagnostic, for example
             `Runtime.enable` plus execution-context event bands, before
             retrying selector-family counts.
+            Follow-up source/tests 2026-07-08: the raw-CDP fallback now sends
+            `Runtime.enable` before the constant Runtime micro-probe and emits
+            only bounded session/runtime fields:
+            `runtime_enable_command_success`,
+            `runtime_execution_context_event_observed`,
+            `runtime_enable_success`, `runtime_enable_error_kind`,
+            `runtime_event_before_enable_response`,
+            `runtime_event_count_band`, and
+            `runtime_execution_context_created`. Tests cover successful
+            execution-context observation and a `Runtime.enable` timeout before
+            any micro-probe or selector evaluation. No event payloads, context
+            IDs, frame IDs, raw URLs, page text, selectors, cookies, OTPs, API
+            keys, or card material are emitted. Next step: build
+            GitHub-attested images for this source slice, run one-shot Phala
+            selector-probe, record whether `Runtime.enable` or the subsequent
+            micro-probe times out, then restore normal compose.
 - [x] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
       needed by each compose profile.
       Done 2026-07-08: `scripts/redeploy-phala-cvm.mjs` now defaults to

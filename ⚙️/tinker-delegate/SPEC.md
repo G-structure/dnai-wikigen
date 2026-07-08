@@ -204,8 +204,15 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   `6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd`, and
   `/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
   returned 403. Selector-family match capture remains not Phala-proven; next
-  diagnosis should add bounded `Runtime.enable` and execution-context event
-  bands.
+  source/test-real diagnosis now adds bounded `Runtime.enable` and
+  execution-context event bands before the micro-probe:
+  `runtime_enable_command_success`,
+  `runtime_execution_context_event_observed`, `runtime_enable_success`,
+  `runtime_enable_error_kind`, `runtime_event_before_enable_response`,
+  `runtime_event_count_band`, and `runtime_execution_context_created`. It emits
+  no event payloads, context IDs, frame IDs, raw URLs, page text, selectors,
+  cookies, OTPs, API keys, or card material. It still needs a GitHub-attested
+  image build and Phala one-shot measurement.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,
