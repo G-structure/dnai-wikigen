@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-08T09:52:36Z",
+  "lastReviewedAt": "2026-07-08T11:08:20Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -42,13 +42,60 @@
     }
   },
   "phala": {
-    "status": "not_revalidated_by_this_contract_deploy",
-    "cvmId": null,
-    "appId": null,
-    "composeHash": null,
-    "gatewayBaseDomain": null,
-    "imageDigests": [],
-    "quoteEvidence": null
+    "status": "running_revalidated_by_deployment_bundle",
+    "cvmId": "670b3b21-4338-4d4e-ae72-7c8922579f59",
+    "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
+    "composeHash": "cb4e3a013cedb9d14db49ad745dfde44eeb7b6a57121e892bd3e51b2a1f25b71",
+    "localRawComposeImagePolicyHash": "86951bb72fcff8a613760ee1c4672d97373e03558593a5f5366fd5c2b58003aa",
+    "renderedComposeSha256": "cb5337c5cf9d70d201cd42470815699efbb872f23d09bf5285b8e5fbe4af983e",
+    "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
+    "gatewayBaseDomain": "dstack-pha-prod9.phala.network",
+    "publicLogs": false,
+    "publicSysinfo": false,
+    "sourceDigest": "6ed07d0323182b1a7e67b2778e6bb9ee8497b976",
+    "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
+    "githubActionsRunId": 28937712489,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28937712489",
+    "endpoints": {
+      "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
+      "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
+      "cdp": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-9222.dstack-pha-prod9.phala.network",
+      "neko": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-52000.dstack-pha-prod9.phala.network"
+    },
+    "imageDigests": [
+      {
+        "service": "oracle",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:c4c9b5837ef8ca71f00b6545b683be1fe55dc22e1fc6cb0423a8822caa786a73",
+        "githubProvenanceAttestation": "verified",
+        "githubSbomAttestation": "verified"
+      },
+      {
+        "service": "delegate",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:47c2c384421805a15d10dddb34907f039b6d22cd0d1d7ebd2af18f5fba8e69fc",
+        "githubProvenanceAttestation": "verified",
+        "githubSbomAttestation": "verified"
+      },
+      {
+        "service": "neko",
+        "image": "ghcr.io/m1k1o/neko/google-chrome@sha256:320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea",
+        "githubProvenanceAttestation": "not_applicable_external_sidecar",
+        "githubSbomAttestation": "not_applicable_external_sidecar"
+      },
+      {
+        "service": "delegate-browser",
+        "image": "mcr.microsoft.com/playwright:v1.58.0-noble@sha256:e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f",
+        "githubProvenanceAttestation": "not_applicable_external_sidecar",
+        "githubSbomAttestation": "not_applicable_external_sidecar"
+      }
+    ],
+    "quoteEvidence": {
+      "mode": "tdx",
+      "context": "artifact",
+      "quoteSize": 5010,
+      "reportData": "3a6638177e8e45f8a7c85a03e32f77c10d2da582c63c28832f42e356246503d8",
+      "encryptionPublicKey": "e2f0848538394a3fdae0b4fb4f9b984975ebd44115c886a09281c20007819c4a",
+      "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
+    }
   },
   "freshDeployment": {
     "status": "broadcast_complete",

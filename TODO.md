@@ -1198,10 +1198,18 @@ vision Wiki is reaching for.
             TEE images.
       - [x] Run the GitHub image workflow, verify published image attestations,
             and record final image digests.
+            Refreshed 2026-07-08 for commit
+            `6ed07d0323182b1a7e67b2778e6bb9ee8497b976` with GitHub Actions run
+            `28937712489`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
+      Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
+      runs oracle image
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:c4c9b5837ef8ca71f00b6545b683be1fe55dc22e1fc6cb0423a8822caa786a73`
+      and delegate image
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:47c2c384421805a15d10dddb34907f039b6d22cd0d1d7ebd2af18f5fba8e69fc`.
 - [ ] `Deploy` Verify CVM endpoints:
       `/health`, `/attestation`, oracle `/pin` auth rejection, delegate status,
       browser CDP internal-only or protected.

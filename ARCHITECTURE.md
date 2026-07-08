@@ -875,6 +875,8 @@ Implementation status:
             returning degraded until credentials are sealed, and live delegate
             attestation verification passing against Phala compose hash
             `cb4e3a013cedb9d14db49ad745dfde44eeb7b6a57121e892bd3e51b2a1f25b71`.
+            The current source commit, image digests, endpoints, and bounded
+            quote-envelope fields are recorded in `deployments/base-sepolia.json`.
 [real]      In dstack mode `/attestation` includes public dstack evidence fields
             when available: event log, VM config, instance/device IDs,
             aggregated measurement, OS image hash, compose hash, and TCB info.
