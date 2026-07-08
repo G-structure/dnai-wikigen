@@ -16,7 +16,9 @@ RPC_URL="${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}"
 ACCOUNT="${FOUNDRY_KEYSTORE_ACCOUNT:-dev}"
 CHAIN_ID="${CHAIN_ID:-84532}"
 DEPLOYER_ADDRESS="${DEPLOYER_ADDRESS:-0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD}"
+DILIGENCE_RESULT_VERIFIER="${DILIGENCE_RESULT_VERIFIER:-$DEPLOYER_ADDRESS}"
 VERIFY="${VERIFY:-false}"
+export DILIGENCE_RESULT_VERIFIER
 
 if [ "$CHAIN_ID" != "84532" ]; then
   echo "Refusing to deploy: this helper is only for Base Sepolia chainId 84532." >&2
@@ -44,6 +46,7 @@ echo "== Base Sepolia deploy preflight =="
 echo "RPC:       $RPC_URL"
 echo "Account:   $ACCOUNT"
 echo "Deployer:  $DEPLOYER_ADDRESS"
+echo "Verifier:  $DILIGENCE_RESULT_VERIFIER"
 echo "Manifest:  $MANIFEST_PATH"
 echo
 
@@ -97,12 +100,14 @@ fi
 echo
 echo "== On-chain verification reads =="
 DILIGENCE_DEVELOPER="$(cast call "$DILIGENCE_ADDRESS" "developer()(address)" --rpc-url "$RPC_URL")"
+DILIGENCE_VERIFIER="$(cast call "$DILIGENCE_ADDRESS" "resultVerifier()(address)" --rpc-url "$RPC_URL")"
 EMAIL_OWNER="$(cast call "$EMAIL_AUTH_ADDRESS" "owner()(address)" --rpc-url "$RPC_URL")"
 EMAIL_ALLOW_ANY_DEVICE="$(cast call "$EMAIL_AUTH_ADDRESS" "allowAnyDevice()(bool)" --rpc-url "$RPC_URL")"
 EMAIL_DELAY="$(cast call "$EMAIL_AUTH_ADDRESS" "ORACLE_UPGRADE_DELAY()(uint256)" --rpc-url "$RPC_URL" | awk '{print $1}')"
 
 echo "DiligenceRoom:   $DILIGENCE_ADDRESS"
 echo "  developer:     $DILIGENCE_DEVELOPER"
+echo "  verifier:      $DILIGENCE_VERIFIER"
 echo "  tx:            $DILIGENCE_TX"
 echo "EmailOracleAuth: $EMAIL_AUTH_ADDRESS"
 echo "  owner:         $EMAIL_OWNER"
@@ -119,6 +124,7 @@ jq -n \
   --arg diligence "$DILIGENCE_ADDRESS" \
   --arg diligenceTx "$DILIGENCE_TX" \
   --arg diligenceDeveloper "$DILIGENCE_DEVELOPER" \
+  --arg diligenceVerifier "$DILIGENCE_VERIFIER" \
   --arg emailAuth "$EMAIL_AUTH_ADDRESS" \
   --arg emailAuthTx "$EMAIL_AUTH_TX" \
   --arg emailOwner "$EMAIL_OWNER" \
@@ -148,6 +154,7 @@ jq -n \
         deploymentTx: $diligenceTx,
         transactionUrl: (if $diligenceTx == "" then null else "https://sepolia.basescan.org/tx/" + $diligenceTx end),
         developer: $diligenceDeveloper,
+        resultVerifier: $diligenceVerifier,
         currentOperatorControlled: true
       },
       emailOracleAuth: {

@@ -570,6 +570,17 @@ def cli():
         "result_hash",
         help="bytes32 hash of the bounded result payload; the CLI submits an anti-replay commitment",
     )
+    submit_result_p.add_argument(
+        "--authorization-expiry",
+        type=int,
+        required=True,
+        help="Unix timestamp after which the verifier authorization is invalid",
+    )
+    submit_result_p.add_argument(
+        "--verifier-signature",
+        required=True,
+        help="65-byte verifier signature over the DiligenceRoom result authorization digest",
+    )
     submit_result_p.add_argument("--rpc-url", default="", help="JSON-RPC URL, or TINKER_CHAIN_RPC_URL")
     submit_result_p.add_argument(
         "--contract-address",
@@ -1087,6 +1098,8 @@ def cli():
                 score_band=args.score_band,
                 compute_cost_wei=args.compute_cost_wei,
                 result_hash=args.result_hash,
+                authorization_expiry=args.authorization_expiry,
+                verifier_signature=args.verifier_signature,
                 signer_attestation=signer_attestation,
             )
             _emit_bounded_json(receipt.to_public_dict())

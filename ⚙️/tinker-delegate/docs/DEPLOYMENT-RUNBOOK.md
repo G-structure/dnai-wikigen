@@ -69,7 +69,7 @@ The original escrow contract was not safe enough to deploy unchanged. The deploy
 
 - `createDeal(uint256 reservePrice, uint256 expiry, bytes32 artifactHash, address teeIdentity)`
 - `fundDeal(uint256 dealId)` payable
-- `submitResult(uint256 dealId, ScoreBand scoreBand, uint256 computeCost, bytes32 resultHash)`
+- `submitResult(uint256 dealId, ScoreBand scoreBand, uint256 computeCost, bytes32 resultHash, bytes32 composeHash, uint256 authorizationExpiry, bytes verifierSignature)`
 - `acceptDeal(uint256 dealId, uint256 dealPayment)`
 - `rejectDeal(uint256 dealId)`
 - `expireDeal(uint256 dealId)`

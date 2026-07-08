@@ -33,9 +33,12 @@ SECP256K1_N = int(
 )
 
 SUBMIT_RESULT_SELECTOR = keccak(
-    b"submitResult(uint256,uint8,uint256,bytes32)"
+    b"submitResult(uint256,uint8,uint256,bytes32,bytes32,uint256,bytes)"
 )[:4]
 DEALS_SELECTOR = keccak(b"deals(uint256)")[:4]
+RESULT_AUTHORIZATION_TYPEHASH = keccak(
+    b"DiligenceRoomResultAuthorization(uint256 chainId,address contractAddress,uint256 dealId,address teeIdentity,bytes32 composeHash,uint8 scoreBand,uint256 computeCost,bytes32 resultHash,uint256 authorizationExpiry)"
+)
 
 SCORE_BAND_TO_CONTRACT = {
     "negligible": 0,
@@ -99,6 +102,8 @@ class SubmitResultReceipt:
     payload_result_hash: str
     compose_hash: str
     expiry: int
+    authorization_expiry: int
+    verifier_signature_hash: str
     signer_address: str
     contract_address: str
     chain_id: int
@@ -122,6 +127,8 @@ class SubmitResultReceipt:
             "payload_result_hash": self.payload_result_hash,
             "compose_hash": self.compose_hash,
             "expiry": self.expiry,
+            "authorization_expiry": self.authorization_expiry,
+            "verifier_signature_hash": self.verifier_signature_hash,
             "signer_address": self.signer_address,
             "contract_address": self.contract_address,
             "chain_id": self.chain_id,
@@ -228,6 +235,19 @@ def normalize_optional_bytes32(value: str) -> str:
     return normalize_bytes32(value)
 
 
+def normalize_signature(value: str) -> str:
+    raw = value.strip().lower()
+    if raw.startswith("0x"):
+        raw = raw[2:]
+    try:
+        decoded = bytes.fromhex(raw)
+    except ValueError as exc:
+        raise ChainSubmitterError("verifier signature must be hex") from exc
+    if len(decoded) != 65:
+        raise ChainSubmitterError("verifier signature must be 65 bytes")
+    return "0x" + raw
+
+
 def _hex_bytes(value: str, *, field: str) -> bytes:
     raw = value.strip().lower()
     if raw.startswith("0x"):
@@ -263,6 +283,15 @@ def encode_uint256(value: int) -> bytes:
     return value.to_bytes(32, "big")
 
 
+def encode_address_word(address: str) -> bytes:
+    return bytes.fromhex(normalize_address(address)[2:]).rjust(32, b"\x00")
+
+
+def _pad_dynamic(data: bytes) -> bytes:
+    padding = (32 - (len(data) % 32)) % 32
+    return data + (b"\x00" * padding)
+
+
 def score_band_to_contract_value(score_band: str | int) -> tuple[int, str]:
     if isinstance(score_band, int):
         if score_band not in CONTRACT_SCORE_BANDS:
@@ -280,9 +309,15 @@ def encode_submit_result_calldata(
     score_band: str | int,
     compute_cost_wei: int,
     result_hash: str,
+    compose_hash: str,
+    authorization_expiry: int,
+    verifier_signature: str,
 ) -> str:
     band_value, _ = score_band_to_contract_value(score_band)
     result_hash_hex = normalize_bytes32(result_hash)[2:]
+    compose_hash_hex = normalize_optional_bytes32(compose_hash)[2:]
+    signature = bytes.fromhex(normalize_signature(verifier_signature)[2:])
+    head_size = 7 * 32
     payload = b"".join(
         [
             SUBMIT_RESULT_SELECTOR,
@@ -290,9 +325,49 @@ def encode_submit_result_calldata(
             encode_uint256(band_value),
             encode_uint256(compute_cost_wei),
             bytes.fromhex(result_hash_hex),
+            bytes.fromhex(compose_hash_hex),
+            encode_uint256(authorization_expiry),
+            encode_uint256(head_size),
+            encode_uint256(len(signature)),
+            _pad_dynamic(signature),
         ]
     )
     return "0x" + payload.hex()
+
+
+def result_authorization_digest(
+    *,
+    chain_id: int,
+    contract_address: str,
+    deal_id: int,
+    tee_identity: str,
+    compose_hash: str,
+    score_band: str | int,
+    compute_cost_wei: int,
+    result_hash: str,
+    authorization_expiry: int,
+) -> str:
+    band_value, _ = score_band_to_contract_value(score_band)
+    payload = b"".join(
+        [
+            RESULT_AUTHORIZATION_TYPEHASH,
+            encode_uint256(chain_id),
+            encode_address_word(contract_address),
+            encode_uint256(deal_id),
+            encode_address_word(tee_identity),
+            bytes.fromhex(normalize_optional_bytes32(compose_hash)[2:]),
+            encode_uint256(band_value),
+            encode_uint256(compute_cost_wei),
+            bytes.fromhex(normalize_bytes32(result_hash)[2:]),
+            encode_uint256(authorization_expiry),
+        ]
+    )
+    return "0x" + keccak(payload).hex()
+
+
+def eth_signed_message_digest(digest: str) -> str:
+    raw = bytes.fromhex(normalize_bytes32(digest)[2:])
+    return "0x" + keccak(b"\x19Ethereum Signed Message:\n32" + raw).hex()
 
 
 def signer_attestation_report_data(
@@ -559,6 +634,8 @@ class DiligenceRoomSubmitter:
         score_band: str | int,
         compute_cost_wei: int,
         result_hash: str,
+        authorization_expiry: int,
+        verifier_signature: str,
         compose_hash: str = "",
         signer_attestation: SignerAttestationEvidence | None = None,
     ) -> SubmitResultReceipt:
@@ -566,9 +643,12 @@ class DiligenceRoomSubmitter:
             raise ChainSubmitterError("deal ID cannot be negative")
         if compute_cost_wei < 0:
             raise ChainSubmitterError("compute cost cannot be negative")
+        if authorization_expiry <= 0:
+            raise ChainSubmitterError("authorization expiry must be positive")
 
         band_value, band_label = score_band_to_contract_value(score_band)
         payload_result_hash = normalize_bytes32(result_hash)
+        normalized_verifier_signature = normalize_signature(verifier_signature)
         signer_address = normalize_address(self.signer.address)
         deal = self.read_deal(deal_id)
         if deal.state != 1:
@@ -611,6 +691,9 @@ class DiligenceRoomSubmitter:
             score_band=band_value,
             compute_cost_wei=compute_cost_wei,
             result_hash=submission_result_hash,
+            compose_hash=normalized_compose_hash,
+            authorization_expiry=authorization_expiry,
+            verifier_signature=normalized_verifier_signature,
         )
         gas_price = self.rpc.gas_price()
         base_tx = {
@@ -647,6 +730,10 @@ class DiligenceRoomSubmitter:
             payload_result_hash=payload_result_hash,
             compose_hash=normalized_compose_hash,
             expiry=deal.expiry,
+            authorization_expiry=authorization_expiry,
+            verifier_signature_hash="0x" + hashlib.sha256(
+                bytes.fromhex(normalized_verifier_signature[2:])
+            ).hexdigest(),
             signer_address=signer_address,
             contract_address=self.contract_address,
             chain_id=chain_id,

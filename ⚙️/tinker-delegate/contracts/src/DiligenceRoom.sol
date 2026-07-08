@@ -3,8 +3,8 @@ pragma solidity ^0.8.28;
 
 /// @title DiligenceRoom — NDAI escrow for attested ML evaluations
 /// @notice Minimal escrow state machine on Base Sepolia. Seller lists artifact,
-///         buyer funds evaluation, TEE evaluator submits bounded result,
-///         three-way settlement (seller + developer + buyer refund).
+///         buyer funds evaluation, a verifier authorizes an attested TEE result,
+///         and the TEE submits bounded output for three-way settlement.
 contract DiligenceRoom {
     // ── State machine ──────────────────────────────────────────────────
     enum State {
@@ -40,13 +40,18 @@ contract DiligenceRoom {
         uint256 computeCost;       // Tinker compute cost reported by TEE
         uint256 fee;               // 1% surcharge
         bytes32 resultHash;        // keccak256 of full EvaluationResult
+        bytes32 resultComposeHash; // verified compose/app measurement binding
     }
 
     // ── Constants ──────────────────────────────────────────────────────
     uint256 public constant FEE_BPS = 100;  // 1% = 100 basis points
+    bytes32 public constant RESULT_AUTHORIZATION_TYPEHASH = keccak256(
+        "DiligenceRoomResultAuthorization(uint256 chainId,address contractAddress,uint256 dealId,address teeIdentity,bytes32 composeHash,uint8 scoreBand,uint256 computeCost,bytes32 resultHash,uint256 authorizationExpiry)"
+    );
 
     // ── State ──────────────────────────────────────────────────────────
     address public immutable developer;
+    address public immutable resultVerifier;
     mapping(uint256 => Deal) public deals;
     mapping(address => uint256) public pendingWithdrawals;
     uint256 public nextDealId;
@@ -70,6 +75,13 @@ contract DiligenceRoom {
         ScoreBand scoreBand,
         uint256 computeCost,
         bytes32 resultHash
+    );
+    event ResultAuthorized(
+        uint256 indexed dealId,
+        address indexed verifier,
+        address indexed teeIdentity,
+        bytes32 composeHash,
+        uint256 authorizationExpiry
     );
     event DealAccepted(
         uint256 indexed dealId,
@@ -102,10 +114,16 @@ contract DiligenceRoom {
     error PaymentBelowReserve();
     error PaymentAboveBudget();
     error TransferFailed();
+    error ZeroResultVerifier();
+    error ZeroComposeHash();
+    error AuthorizationExpired();
+    error InvalidResultAuthorization();
 
     // ── Constructor ────────────────────────────────────────────────────
-    constructor() {
+    constructor(address _resultVerifier) {
+        if (_resultVerifier == address(0)) revert ZeroResultVerifier();
         developer = msg.sender;
+        resultVerifier = _resultVerifier;
     }
 
     // ── Seller creates deal ────────────────────────────────────────────
@@ -153,7 +171,9 @@ contract DiligenceRoom {
     }
 
     // ── TEE submits evaluation result ──────────────────────────────────
-    /// @notice TEE submits bounded evaluation result + metered compute cost
+    /// @notice TEE submits bounded evaluation result + metered compute cost.
+    ///         The result must be authorized by resultVerifier over the TEE
+    ///         identity, compose hash, result hash, score, cost, and expiry.
     /// @param dealId The deal being evaluated
     /// @param scoreBand Bounded score (enum, never raw metrics)
     /// @param computeCost Actual Tinker API cost in wei
@@ -162,12 +182,33 @@ contract DiligenceRoom {
         uint256 dealId,
         ScoreBand scoreBand,
         uint256 computeCost,
-        bytes32 resultHash
+        bytes32 resultHash,
+        bytes32 composeHash,
+        uint256 authorizationExpiry,
+        bytes calldata verifierSignature
     ) external {
         Deal storage d = deals[dealId];
         if (d.state != State.Funded) revert InvalidState(State.Funded, d.state);
         if (msg.sender != d.teeIdentity) revert NotTEE();
         if (block.timestamp >= d.expiry) revert AlreadyExpired();
+        if (composeHash == bytes32(0)) revert ZeroComposeHash();
+        if (block.timestamp > authorizationExpiry) revert AuthorizationExpired();
+        if (
+            _recoverSigner(
+                _toEthSignedMessageHash(
+                    _authorizationDigest(
+                        dealId,
+                        msg.sender,
+                        composeHash,
+                        scoreBand,
+                        computeCost,
+                        resultHash,
+                        authorizationExpiry
+                    )
+                ),
+                verifierSignature
+            ) != resultVerifier
+        ) revert InvalidResultAuthorization();
 
         uint256 fee = (computeCost * FEE_BPS) / 10000;
         if (computeCost + fee > d.budgetCap) revert ComputeCostOverBudget();
@@ -176,9 +217,31 @@ contract DiligenceRoom {
         d.computeCost = computeCost;
         d.fee = fee;
         d.resultHash = resultHash;
+        d.resultComposeHash = composeHash;
         d.state = State.Evaluated;
 
+        emit ResultAuthorized(dealId, resultVerifier, msg.sender, composeHash, authorizationExpiry);
         emit EvaluationSubmitted(dealId, scoreBand, computeCost, resultHash);
+    }
+
+    function resultAuthorizationDigest(
+        uint256 dealId,
+        address teeIdentity,
+        bytes32 composeHash,
+        ScoreBand scoreBand,
+        uint256 computeCost,
+        bytes32 resultHash,
+        uint256 authorizationExpiry
+    ) external view returns (bytes32) {
+        return _authorizationDigest(
+            dealId,
+            teeIdentity,
+            composeHash,
+            scoreBand,
+            computeCost,
+            resultHash,
+            authorizationExpiry
+        );
     }
 
     // ── Buyer accepts — three-way settlement ───────────────────────────
@@ -282,5 +345,53 @@ contract DiligenceRoom {
 
         pendingWithdrawals[recipient] += amount;
         emit PayoutAccrued(dealId, recipient, amount);
+    }
+
+    function _authorizationDigest(
+        uint256 dealId,
+        address teeIdentity,
+        bytes32 composeHash,
+        ScoreBand scoreBand,
+        uint256 computeCost,
+        bytes32 resultHash,
+        uint256 authorizationExpiry
+    ) internal view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                RESULT_AUTHORIZATION_TYPEHASH,
+                block.chainid,
+                address(this),
+                dealId,
+                teeIdentity,
+                composeHash,
+                uint8(scoreBand),
+                computeCost,
+                resultHash,
+                authorizationExpiry
+            )
+        );
+    }
+
+    function _recoverSigner(bytes32 digest, bytes calldata signature) internal pure returns (address) {
+        if (signature.length != 65) revert InvalidResultAuthorization();
+
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := calldataload(signature.offset)
+            s := calldataload(add(signature.offset, 32))
+            v := byte(0, calldataload(add(signature.offset, 64)))
+        }
+        if (v < 27) v += 27;
+        if (v != 27 && v != 28) revert InvalidResultAuthorization();
+
+        address signer = ecrecover(digest, v, r, s);
+        if (signer == address(0)) revert InvalidResultAuthorization();
+        return signer;
+    }
+
+    function _toEthSignedMessageHash(bytes32 digest) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", digest));
     }
 }

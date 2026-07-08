@@ -65,7 +65,8 @@ Control plane starts, emits genesis attestation (TDX quote binding identity)
    → ScoreBand × budget_cap → offer_price (clamped to reserve_price floor)
    → Attaches TDX quote binding deal_id + score_band + offer_price
  TEE submits result on-chain:
-   → DiligenceRoom.submitResult(dealId, scoreBand, computeCost, resultHash)
+   → DiligenceRoom.submitResult(dealId, scoreBand, computeCost, resultHash,
+                                composeHash, authorizationExpiry, verifierSignature)
    → On-chain: State = Evaluated
    → Event: EvaluationSubmitted(dealId, scoreBand, computeCost, resultHash)
  Bounded result available to buyer:
@@ -261,9 +262,13 @@ DiligenceRoom.submitResult(
     dealId,                    # uint256
     scoreBand,                 # ScoreBand enum (0-4)
     computeCost,               # uint256 (wei)
-    resultHash                 # bytes32 (keccak256 of full EvaluationResult)
+    resultHash,                # bytes32 (replay-bound result commitment)
+    composeHash,               # bytes32 (approved app/compose measurement)
+    authorizationExpiry,       # uint256
+    verifierSignature          # bytes (resultVerifier authorization)
 )
 # msg.sender must == deal.teeIdentity (KMS-derived address)
+# verifierSignature must bind the bounded submission context.
 ```
 
 **Encrypted Card Channel: Developer → TEE**

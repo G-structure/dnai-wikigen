@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-08T08:56:38Z",
+  "lastReviewedAt": "2026-07-08T09:52:36Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -22,6 +22,9 @@
       "deploymentTx": "0xfa50ada33f0a2c9f434c58b6cadf98defa01302b7c3e444116c021370d28169e",
       "transactionUrl": "https://sepolia.basescan.org/tx/0xfa50ada33f0a2c9f434c58b6cadf98defa01302b7c3e444116c021370d28169e",
       "developer": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
+      "resultVerifier": null,
+      "sourceCompatibility": "superseded_by_verifier_signature_submit_result_abi",
+      "requiresRedeployForVerifierAuthorization": true,
       "currentOperatorControlled": true
     },
     "emailOracleAuth": {

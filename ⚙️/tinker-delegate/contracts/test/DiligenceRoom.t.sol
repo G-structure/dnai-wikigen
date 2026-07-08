@@ -31,19 +31,26 @@ contract RevertingReceiver {
 
 contract DiligenceRoomTest is Test {
     DiligenceRoom public room;
+    bytes32 internal constant RESULT_AUTHORIZATION_TYPEHASH = keccak256(
+        "DiligenceRoomResultAuthorization(uint256 chainId,address contractAddress,uint256 dealId,address teeIdentity,bytes32 composeHash,uint8 scoreBand,uint256 computeCost,bytes32 resultHash,uint256 authorizationExpiry)"
+    );
 
     address dev = address(this);
     address seller = makeAddr("seller");
     address buyer = makeAddr("buyer");
     address tee = makeAddr("tee");
+    uint256 verifierPk = 0xA11CE;
+    address verifier;
 
     uint256 reservePrice = 0.5 ether;
     uint256 budgetCap = 2 ether;
     uint256 expiry;
     bytes32 artifactHash = keccak256("test-artifact");
+    bytes32 composeHash = keccak256("delegate-compose-v1");
 
     function setUp() public {
-        room = new DiligenceRoom();
+        verifier = vm.addr(verifierPk);
+        room = new DiligenceRoom(verifier);
         expiry = block.timestamp + 1 days;
         vm.deal(buyer, 10 ether);
     }
@@ -65,8 +72,67 @@ contract DiligenceRoomTest is Test {
         DiligenceRoom.ScoreBand band,
         uint256 computeCost
     ) internal {
+        bytes32 resultHash = keccak256("result");
+        uint256 authorizationExpiry = block.timestamp + 1 hours;
         vm.prank(tee);
-        room.submitResult(dealId, band, computeCost, keccak256("result"));
+        room.submitResult(
+            dealId,
+            band,
+            computeCost,
+            resultHash,
+            composeHash,
+            authorizationExpiry,
+            _authorizationSignature(dealId, band, computeCost, resultHash, authorizationExpiry)
+        );
+    }
+
+    function _authorizationSignature(
+        uint256 dealId,
+        DiligenceRoom.ScoreBand band,
+        uint256 computeCost,
+        bytes32 resultHash,
+        uint256 authorizationExpiry
+    ) internal view returns (bytes memory) {
+        bytes32 digest = _authorizationDigest(
+            dealId,
+            tee,
+            composeHash,
+            band,
+            computeCost,
+            resultHash,
+            authorizationExpiry
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(verifierPk, _ethSignedMessageHash(digest));
+        return abi.encodePacked(r, s, v);
+    }
+
+    function _authorizationDigest(
+        uint256 dealId,
+        address teeIdentity,
+        bytes32 resultComposeHash,
+        DiligenceRoom.ScoreBand band,
+        uint256 computeCost,
+        bytes32 resultHash,
+        uint256 authorizationExpiry
+    ) internal view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                RESULT_AUTHORIZATION_TYPEHASH,
+                block.chainid,
+                address(room),
+                dealId,
+                teeIdentity,
+                resultComposeHash,
+                uint8(band),
+                computeCost,
+                resultHash,
+                authorizationExpiry
+            )
+        );
+    }
+
+    function _ethSignedMessageHash(bytes32 digest) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", digest));
     }
 
     // ── Creation ───────────────────────────────────────────────────────
@@ -159,32 +225,163 @@ contract DiligenceRoomTest is Test {
         assertEq(uint8(d.scoreBand), uint8(DiligenceRoom.ScoreBand.High));
         assertEq(d.computeCost, 0.1 ether);
         assertEq(d.fee, 0.001 ether); // 1% of 0.1
+        assertEq(d.resultComposeHash, composeHash);
     }
 
     function test_SubmitResult_RevertNotTEE() public {
         uint256 id = _createDeal();
         _fundDeal(id);
+        bytes32 resultHash = keccak256("r");
+        uint256 authorizationExpiry = block.timestamp + 1 hours;
 
         vm.prank(seller);
         vm.expectRevert(DiligenceRoom.NotTEE.selector);
-        room.submitResult(id, DiligenceRoom.ScoreBand.High, 0.1 ether, keccak256("r"));
+        room.submitResult(
+            id,
+            DiligenceRoom.ScoreBand.High,
+            0.1 ether,
+            resultHash,
+            composeHash,
+            authorizationExpiry,
+            _authorizationSignature(
+                id,
+                DiligenceRoom.ScoreBand.High,
+                0.1 ether,
+                resultHash,
+                authorizationExpiry
+            )
+        );
     }
 
     function test_SubmitResult_RevertWrongState() public {
         uint256 id = _createDeal();
         // Not funded yet
+        bytes32 resultHash = keccak256("r");
+        uint256 authorizationExpiry = block.timestamp + 1 hours;
         vm.prank(tee);
         vm.expectRevert();
-        room.submitResult(id, DiligenceRoom.ScoreBand.High, 0.1 ether, keccak256("r"));
+        room.submitResult(
+            id,
+            DiligenceRoom.ScoreBand.High,
+            0.1 ether,
+            resultHash,
+            composeHash,
+            authorizationExpiry,
+            _authorizationSignature(
+                id,
+                DiligenceRoom.ScoreBand.High,
+                0.1 ether,
+                resultHash,
+                authorizationExpiry
+            )
+        );
     }
 
     function test_SubmitResult_RevertComputeCostOverBudget() public {
         uint256 id = _createDeal();
         _fundDeal(id);
+        bytes32 resultHash = keccak256("r");
+        uint256 authorizationExpiry = block.timestamp + 1 hours;
 
         vm.prank(tee);
         vm.expectRevert(DiligenceRoom.ComputeCostOverBudget.selector);
-        room.submitResult(id, DiligenceRoom.ScoreBand.High, 1.99 ether, keccak256("r"));
+        room.submitResult(
+            id,
+            DiligenceRoom.ScoreBand.High,
+            1.99 ether,
+            resultHash,
+            composeHash,
+            authorizationExpiry,
+            _authorizationSignature(
+                id,
+                DiligenceRoom.ScoreBand.High,
+                1.99 ether,
+                resultHash,
+                authorizationExpiry
+            )
+        );
+    }
+
+    function test_SubmitResult_RevertZeroComposeHash() public {
+        uint256 id = _createDeal();
+        _fundDeal(id);
+        bytes32 resultHash = keccak256("r");
+        uint256 authorizationExpiry = block.timestamp + 1 hours;
+
+        vm.prank(tee);
+        vm.expectRevert(DiligenceRoom.ZeroComposeHash.selector);
+        room.submitResult(
+            id,
+            DiligenceRoom.ScoreBand.High,
+            0.1 ether,
+            resultHash,
+            bytes32(0),
+            authorizationExpiry,
+            _authorizationSignature(
+                id,
+                DiligenceRoom.ScoreBand.High,
+                0.1 ether,
+                resultHash,
+                authorizationExpiry
+            )
+        );
+    }
+
+    function test_SubmitResult_RevertExpiredAuthorization() public {
+        uint256 id = _createDeal();
+        _fundDeal(id);
+        bytes32 resultHash = keccak256("r");
+        uint256 authorizationExpiry = block.timestamp - 1;
+
+        vm.prank(tee);
+        vm.expectRevert(DiligenceRoom.AuthorizationExpired.selector);
+        room.submitResult(
+            id,
+            DiligenceRoom.ScoreBand.High,
+            0.1 ether,
+            resultHash,
+            composeHash,
+            authorizationExpiry,
+            _authorizationSignature(
+                id,
+                DiligenceRoom.ScoreBand.High,
+                0.1 ether,
+                resultHash,
+                authorizationExpiry
+            )
+        );
+    }
+
+    function test_SubmitResult_RevertInvalidAuthorizationSigner() public {
+        uint256 id = _createDeal();
+        _fundDeal(id);
+        bytes32 resultHash = keccak256("r");
+        uint256 authorizationExpiry = block.timestamp + 1 hours;
+        bytes32 digest = _authorizationDigest(
+            id,
+            tee,
+            composeHash,
+            DiligenceRoom.ScoreBand.High,
+            0.1 ether,
+            resultHash,
+            authorizationExpiry
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            0xB0B,
+            _ethSignedMessageHash(digest)
+        );
+
+        vm.prank(tee);
+        vm.expectRevert(DiligenceRoom.InvalidResultAuthorization.selector);
+        room.submitResult(
+            id,
+            DiligenceRoom.ScoreBand.High,
+            0.1 ether,
+            resultHash,
+            composeHash,
+            authorizationExpiry,
+            abi.encodePacked(r, s, v)
+        );
     }
 
     // ── Accept ─────────────────────────────────────────────────────────

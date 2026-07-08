@@ -190,10 +190,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       contract, through an attestation registry, or through a verified off-chain
       verifier whose signature the contract accepts.
       Decision recorded in `docs/DECISIONS.md`: current path is a verified
-      off-chain submitter gate before broadcast, with signer quote evidence
-      binding signer address, chain ID, and contract address. vNext should add a
-      verifier signature accepted by a contract or registry before claiming
-      trustless on-chain quote enforcement.
+      off-chain submitter gate plus a `DiligenceRoom` result-verifier signature.
+      The remaining gap is the production verifier service that validates live
+      Phala quote evidence, compose/app identity, freshness, and revocation
+      before issuing signatures.
 - [ ] `P0` Implement the chosen quote-verification path for `submitResult()`.
       Done when a bogus TEE address cannot submit a result even if it knows the
       deal ID.
@@ -202,8 +202,21 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             must match signer address, chain ID, contract address, report data,
             quote report data, and compose hash, and the bounded receipt carries
             quote hash/report-data/size without raw secret egress.
-      - [ ] Add verifier-signature contract or registry enforcement so a bogus
+      - [x] Add verifier-signature contract or registry enforcement so a bogus
             bare `teeIdentity` cannot submit through the Solidity entrypoint.
+            Done in `DiligenceRoom.sol`: `submitResult()` now requires an
+            Ethereum-signed verifier authorization over chain ID, contract
+            address, deal ID, TEE identity, compose hash, score band, compute
+            cost, result commitment, and authorization expiry. Contract tests
+            prove wrong verifier, expired authorization, and zero compose hash
+            fail; the dstack-simulator Anvil proof uses an unlocked local
+            verifier account to authorize the real CLI submission without raw
+            verifier key material.
+      - [ ] Build the production verifier service/path that validates live
+            Phala quote evidence, approved compose/app identity, freshness, and
+            revocation policy before issuing verifier signatures.
+      - [ ] Repeat the verifier-authorized submitter proof from a deployed Phala
+            CVM against Base Sepolia or an Anvil fork.
 - [ ] `P1` Add ERC20/USDC support in addition to native ETH.
       Done when buyer deposits and pull payments work with a stablecoin.
 - [ ] `P1` Add protocol-fee configuration with timelock/freeze semantics.
@@ -1109,6 +1122,9 @@ vision Wiki is reaching for.
             (`0xa29d749517a69f868db1785c7f091ea75f60a76ef657badedb0848e44be7a349`).
             On-chain reads confirm the funded `dev` deployer is the
             DiligenceRoom developer and EmailOracleAuth owner.
+      - [ ] Redeploy `DiligenceRoom` after the verifier-signature
+            `submitResult()` ABI change, set `DILIGENCE_RESULT_VERIFIER`, and
+            record `resultVerifier()` in `deployments/base-sepolia.json`.
 - [ ] `Deploy` Verify contracts on BaseScan.
 - [ ] `Deploy` Register compose hashes in `EmailOracleAuth`.
 - [ ] `Deploy` Register consumer app/compose hash for Tinker delegate.

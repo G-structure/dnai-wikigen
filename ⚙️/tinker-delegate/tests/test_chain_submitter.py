@@ -1,3 +1,4 @@
+import hashlib
 import json
 import subprocess
 import sys
@@ -15,6 +16,8 @@ from tinker_delegate.chain_submitter import (
     SignerAttestationEvidence,
     SignerUnavailable,
     encode_submit_result_calldata,
+    eth_signed_message_digest,
+    result_authorization_digest,
     signer_attestation_report_data,
     verify_signer_attestation_evidence,
 )
@@ -23,6 +26,8 @@ from tinker_delegate.config import Settings
 
 COMPOSE_HASH = "0x" + "99" * 32
 CONTRACT_ADDRESS = "0x" + "55" * 20
+AUTHORIZATION_EXPIRY = 2_000_000_000
+VERIFIER_SIGNATURE = "0x" + "11" * 65
 
 
 def _signer_attestation(
@@ -127,13 +132,20 @@ class ChainSubmitterTest(unittest.TestCase):
             score_band="high",
             compute_cost_wei=123,
             result_hash=result_hash,
+            compose_hash=COMPOSE_HASH,
+            authorization_expiry=AUTHORIZATION_EXPIRY,
+            verifier_signature=VERIFIER_SIGNATURE,
         )
 
         self.assertTrue(calldata.startswith("0x"))
-        self.assertEqual(len(bytes.fromhex(calldata[2:])), 4 + (4 * 32))
+        self.assertEqual(len(bytes.fromhex(calldata[2:])), 4 + (7 * 32) + 32 + 96)
         self.assertIn(_word_int(5), calldata)
         self.assertIn(_word_int(3), calldata)
-        self.assertTrue(calldata.endswith("44" * 32))
+        self.assertIn("44" * 32, calldata)
+        self.assertIn(COMPOSE_HASH[2:], calldata)
+        self.assertIn(_word_int(AUTHORIZATION_EXPIRY), calldata)
+        self.assertIn(_word_int(7 * 32), calldata)
+        self.assertIn(_word_int(65), calldata)
 
     def test_submit_result_broadcasts_from_matching_tee_signer(self):
         signer = InjectedTestSigner()
@@ -149,6 +161,8 @@ class ChainSubmitterTest(unittest.TestCase):
             score_band="medium",
             compute_cost_wei=10**15,
             result_hash="0x" + "66" * 32,
+            authorization_expiry=AUTHORIZATION_EXPIRY,
+            verifier_signature=VERIFIER_SIGNATURE,
             compose_hash=COMPOSE_HASH,
         )
         expected_commitment = ResultCommitment(
@@ -174,6 +188,11 @@ class ChainSubmitterTest(unittest.TestCase):
         self.assertEqual(receipt.result_hash, expected_commitment)
         self.assertEqual(receipt.compose_hash, COMPOSE_HASH)
         self.assertEqual(receipt.expiry, 9999999999)
+        self.assertEqual(receipt.authorization_expiry, AUTHORIZATION_EXPIRY)
+        self.assertEqual(
+            receipt.verifier_signature_hash,
+            "0x" + hashlib.sha256(bytes.fromhex("11" * 65)).hexdigest(),
+        )
         self.assertEqual(receipt.custody, "injected_test_signer")
         self.assertFalse(receipt.raw_secret_egress)
         self.assertEqual(len(rpc.sent_raw_transactions), 1)
@@ -194,6 +213,8 @@ class ChainSubmitterTest(unittest.TestCase):
                 score_band="low",
                 compute_cost_wei=1,
                 result_hash="0x" + "66" * 32,
+                authorization_expiry=AUTHORIZATION_EXPIRY,
+                verifier_signature=VERIFIER_SIGNATURE,
                 compose_hash=COMPOSE_HASH,
             )
 
@@ -208,6 +229,8 @@ class ChainSubmitterTest(unittest.TestCase):
                 score_band="low",
                 compute_cost_wei=1,
                 result_hash="0x" + "66" * 32,
+                authorization_expiry=AUTHORIZATION_EXPIRY,
+                verifier_signature=VERIFIER_SIGNATURE,
                 compose_hash=COMPOSE_HASH,
             )
 
@@ -224,6 +247,8 @@ class ChainSubmitterTest(unittest.TestCase):
                 score_band="low",
                 compute_cost_wei=100,
                 result_hash="0x" + "66" * 32,
+                authorization_expiry=AUTHORIZATION_EXPIRY,
+                verifier_signature=VERIFIER_SIGNATURE,
                 compose_hash=COMPOSE_HASH,
             )
 
@@ -265,6 +290,8 @@ class ChainSubmitterTest(unittest.TestCase):
             score_band="medium",
             compute_cost_wei=10**15,
             result_hash="0x" + "66" * 32,
+            authorization_expiry=AUTHORIZATION_EXPIRY,
+            verifier_signature=VERIFIER_SIGNATURE,
             compose_hash=COMPOSE_HASH,
         )
 
@@ -312,6 +339,8 @@ class ChainSubmitterTest(unittest.TestCase):
             score_band="medium",
             compute_cost_wei=10**15,
             result_hash="0x" + "66" * 32,
+            authorization_expiry=AUTHORIZATION_EXPIRY,
+            verifier_signature=VERIFIER_SIGNATURE,
             signer_attestation=_signer_attestation(signer_address=signer.address),
         )
 
@@ -326,6 +355,24 @@ class ChainSubmitterTest(unittest.TestCase):
                 contract_address=CONTRACT_ADDRESS,
             ).hex(),
         )
+
+    def test_result_authorization_digest_matches_contract_shape(self):
+        digest = result_authorization_digest(
+            chain_id=31337,
+            contract_address=CONTRACT_ADDRESS,
+            deal_id=1,
+            tee_identity="0x" + "aa" * 20,
+            compose_hash=COMPOSE_HASH,
+            score_band="medium",
+            compute_cost_wei=10**15,
+            result_hash="0x" + "66" * 32,
+            authorization_expiry=AUTHORIZATION_EXPIRY,
+        )
+        signed_digest = eth_signed_message_digest(digest)
+
+        self.assertRegex(digest, r"^0x[0-9a-f]{64}$")
+        self.assertRegex(signed_digest, r"^0x[0-9a-f]{64}$")
+        self.assertNotEqual(digest, signed_digest)
 
     def test_signer_attestation_rejects_wrong_context(self):
         signer = InjectedTestSigner()

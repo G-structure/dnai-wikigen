@@ -75,7 +75,10 @@ Important current status:
             current operator-controlled Base Sepolia `DiligenceRoom` and
             `EmailOracleAuth` deployments plus historical Phala records. BaseScan
             source verification, compose-hash registration, and fresh Phala
-            quote evidence remain open.
+            quote evidence remain open. The recorded `DiligenceRoom` deployment
+            predates the current verifier-signature `submitResult()` ABI, so a
+            fresh deployment with `DILIGENCE_RESULT_VERIFIER` recorded is
+            required before live-chain result-verifier enforcement is real.
 [real]      Local chain watcher. `tinker_delegate.chain_watcher` can decode
             `DiligenceRoom` lifecycle logs from JSON-RPC, post bounded
             `/deal/chain-event` audit markers, call `/deal/notify-funded` when
@@ -95,15 +98,19 @@ Important current status:
             through JSON-RPC, and emit only bounded receipt metadata. The
             submitted `resultHash` is an anti-replay commitment over chain ID,
             contract, deal ID, signer nonce, compose hash, payload result hash,
-            score band, compute cost, and expiry. The `submit-result` path now
-            also fetches and verifies signer quote evidence whose report data
-            binds signer address, chain ID, and contract address; the bounded
-            receipt includes quote hash, report data, and quote size.
-            `scripts/prove-chain-submitter-dstack-anvil.py` proves this against
-            the Phala/dstack simulator plus ephemeral Anvil and verifies a real
-            `EvaluationSubmitted` event. This still needs a deployed-CVM
-            broadcast proof and contract/registry enforcement for measured
-            compose/app identity.
+            score band, compute cost, and expiry. `DiligenceRoom.sol` now
+            requires a configured result verifier signature over chain ID,
+            contract address, deal ID, TEE identity, compose hash, score band,
+            compute cost, result commitment, and authorization expiry before
+            accepting `submitResult()`. The `submit-result` path also fetches
+            and verifies signer quote evidence whose report data binds signer
+            address, chain ID, and contract address; the bounded receipt
+            includes quote hash, report data, quote size, authorization expiry,
+            and verifier-signature hash. `scripts/prove-chain-submitter-dstack-anvil.py`
+            proves this against the Phala/dstack simulator plus ephemeral Anvil
+            and verifies a real `EvaluationSubmitted` event. This still needs a
+            production verifier service that signs only after live Phala quote
+            verification and a deployed-CVM broadcast proof.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -331,7 +338,7 @@ This is the intended end-to-end flow for a private artifact or bio dataset.
    v
 9. TEE submits result to contract
    |
-   |  submitResult(dealId, scoreBand, computeCost, resultHash)
+   |  submitResult(..., resultHash, composeHash, authorizationExpiry, verifierSignature)
    v
 10. Buyer accepts, rejects, or deal expires
    |
@@ -1238,19 +1245,23 @@ pull payments avoid recipient reverting during settlement
 Current caveat:
 
 ```
-submitResult() trusts a bare teeIdentity address. The delegate now has partial
-TEE-held signing plumbing: in dstack mode it derives an Ethereum key from a
-dstack key path, preflights `deals(dealId)` so the signer must match the public
-teeIdentity, checks funded state and compute budget, commits the payload result
-hash to chain ID, contract address, deal ID, signer nonce, compose hash, score
-band, compute cost, and expiry, verifies signer quote evidence whose report data
-binds the signer address to the chain ID and contract address, signs the
-transaction in memory, and returns bounded receipt metadata. A local
-Phala/dstack simulator proof broadcasts `submitResult()` to ephemeral Anvil and
-verifies `EvaluationSubmitted` carries the replay-bound commitment rather than
-the raw payload hash. This is still pre-broadcast/off-chain enforcement: the
-Solidity contract does not yet require a verifier signature or registry proof,
-and the deployed Phala CVM-origin broadcast path still needs live validation.
+submitResult() no longer trusts only a bare teeIdentity address in the current
+contract source. The delegate has partial TEE-held signing plumbing: in dstack
+mode it derives an Ethereum key from a dstack key path, preflights
+`deals(dealId)` so the signer must match the public teeIdentity, checks funded
+state and compute budget, commits the payload result hash to chain ID, contract
+address, deal ID, signer nonce, compose hash, score band, compute cost, and
+expiry, verifies signer quote evidence whose report data binds the signer
+address to the chain ID and contract address, signs the transaction in memory,
+and returns bounded receipt metadata. `DiligenceRoom.sol` requires a
+result-verifier signature over the same bounded submission context plus
+authorization expiry before accepting the call. A local Phala/dstack simulator
+proof broadcasts `submitResult()` to ephemeral Anvil and verifies
+`EvaluationSubmitted` carries the replay-bound commitment rather than the raw
+payload hash. The remaining production gap is the verifier service/policy: it
+must validate live Phala quote evidence, compose/app allowlists, freshness, and
+revocation before signing; the deployed Phala CVM-origin broadcast path still
+needs live validation.
 ```
 
 ## Service Architecture
@@ -1805,9 +1816,10 @@ wrangler whoami
 
 ```
 1. Enforce EmailOracleAuth on OTP consumers.
-2. Add real TDX quote verification for result submitters.
-3. Prove dstack/CVM-originated `submitResult()` broadcast and replace bare
-   teeIdentity trust with measured-code trust.
+2. Add the production verifier service that validates live TDX quote evidence
+   before issuing result-authorization signatures.
+3. Prove deployed-CVM-originated verifier-authorized `submitResult()` broadcast
+   and replace local-simulator evidence with live measured-code evidence.
 4. Stabilize Tinker browser posture or use an official non-browser account API.
 5. Implement the TTT/RL bio-validation evaluator and benchmark schema.
 6. Add fail-closed DLP/egress enforcement.

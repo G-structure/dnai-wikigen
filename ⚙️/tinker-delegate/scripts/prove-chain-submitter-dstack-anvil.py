@@ -23,7 +23,12 @@ from typing import Any
 
 from dstack_sdk import DstackClient
 
-from tinker_delegate.chain_submitter import DstackEthereumSigner
+from tinker_delegate.chain_submitter import (
+    DstackEthereumSigner,
+    ResultCommitment,
+    get_dstack_signer_attestation,
+    result_authorization_digest,
+)
 from tinker_delegate.chain_watcher import JsonRpcLogSource
 from tinker_delegate.config import Settings
 
@@ -38,6 +43,7 @@ DEFAULT_DSTACK_SOCKET = (
 
 ANVIL_SELLER = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 ANVIL_BUYER = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+ANVIL_VERIFIER = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
 ARTIFACT_HASH = "0x" + "ab" * 32
 RESULT_HASH = "0x" + "cd" * 32
 
@@ -56,14 +62,23 @@ def main() -> int:
         contract_address = _deploy_diligence_room(rpc_url)
         start_block = _block_number(rpc_url)
         fund_signer_tx = _fund_signer(rpc_url, signer_address)
-        create_tx = _create_deal(rpc_url, contract_address, signer_address)
+        create_tx, deal_expiry = _create_deal(rpc_url, contract_address, signer_address)
         fund_deal_tx = _fund_deal(rpc_url, contract_address)
+        authorization_expiry, verifier_signature = _sign_result_authorization(
+            rpc_url=rpc_url,
+            contract_address=contract_address,
+            signer_address=signer_address,
+            dstack_endpoint=dstack_endpoint,
+            deal_expiry=deal_expiry,
+        )
         before_submit_block = _block_number(rpc_url)
 
         receipt = _submit_result_via_cli(
             rpc_url=rpc_url,
             contract_address=contract_address,
             dstack_endpoint=dstack_endpoint,
+            authorization_expiry=authorization_expiry,
+            verifier_signature=verifier_signature,
         )
         after_submit_block = _block_number(rpc_url)
         submitted_event = _find_evaluation_submitted(
@@ -92,6 +107,7 @@ def main() -> int:
                 "rpc": "ephemeral_anvil",
                 "chain_id": receipt.get("chain_id"),
                 "contract_address": contract_address,
+                "result_verifier": ANVIL_VERIFIER,
                 "start_block": start_block,
                 "before_submit_block": before_submit_block,
                 "after_submit_block": after_submit_block,
@@ -110,6 +126,8 @@ def main() -> int:
                 "payload_result_hash": receipt.get("payload_result_hash"),
                 "submitted_result_hash": receipt.get("result_hash"),
                 "compose_hash": receipt.get("compose_hash"),
+                "authorization_expiry": receipt.get("authorization_expiry"),
+                "verifier_signature_hash": receipt.get("verifier_signature_hash"),
                 "nonce": receipt.get("nonce"),
                 "event_name": submitted_event.name,
                 "event_fields": submitted_event.fields,
@@ -205,6 +223,8 @@ def _deploy_diligence_room(rpc_url: str) -> str:
         ANVIL_SELLER,
         "--broadcast",
         "--json",
+        "--constructor-args",
+        ANVIL_VERIFIER,
     ], cwd=CONTRACTS_DIR)
     address = output.get("deployedTo") or output.get("contractAddress")
     if not address:
@@ -229,7 +249,7 @@ def _fund_signer(rpc_url: str, signer_address: str) -> str:
     return _tx_hash(output)
 
 
-def _create_deal(rpc_url: str, contract_address: str, tee_identity: str) -> str:
+def _create_deal(rpc_url: str, contract_address: str, tee_identity: str) -> tuple[str, int]:
     expiry = int(time.time()) + 3600
     output = _run_json([
         "cast",
@@ -247,7 +267,7 @@ def _create_deal(rpc_url: str, contract_address: str, tee_identity: str) -> str:
         ANVIL_SELLER,
         "--json",
     ])
-    return _tx_hash(output)
+    return _tx_hash(output), expiry
 
 
 def _fund_deal(rpc_url: str, contract_address: str) -> str:
@@ -274,6 +294,8 @@ def _submit_result_via_cli(
     rpc_url: str,
     contract_address: str,
     dstack_endpoint: str,
+    authorization_expiry: int,
+    verifier_signature: str,
 ) -> dict[str, Any]:
     output = _run([
         sys.executable,
@@ -284,12 +306,80 @@ def _submit_result_via_cli(
         "high",
         "1000000000000000",
         RESULT_HASH,
+        "--authorization-expiry",
+        str(authorization_expiry),
+        "--verifier-signature",
+        verifier_signature,
         "--rpc-url",
         rpc_url,
         "--contract-address",
         contract_address,
     ], cwd=TINKER_DIR, env=_proof_env(dstack_endpoint))
     return json.loads(output)
+
+
+def _sign_result_authorization(
+    *,
+    rpc_url: str,
+    contract_address: str,
+    signer_address: str,
+    dstack_endpoint: str,
+    deal_expiry: int,
+) -> tuple[int, str]:
+    chain_id = int(_run(["cast", "chain-id", "--rpc-url", rpc_url]).strip())
+    nonce = int(_run(["cast", "nonce", signer_address, "--rpc-url", rpc_url]).strip())
+    env = _proof_env(dstack_endpoint)
+    old_env = os.environ.copy()
+    os.environ.update(env)
+    try:
+        attestation = get_dstack_signer_attestation(
+            signer_address=signer_address,
+            chain_id=chain_id,
+            contract_address=contract_address,
+        )
+    finally:
+        os.environ.clear()
+        os.environ.update(old_env)
+
+    commitment = ResultCommitment(
+        chain_id=chain_id,
+        contract_address=contract_address,
+        deal_id=0,
+        nonce=nonce,
+        compose_hash=attestation.compose_hash,
+        payload_result_hash=RESULT_HASH,
+        score_band_value=3,
+        compute_cost_wei=10**15,
+        expiry=deal_expiry,
+    ).digest()
+    authorization_expiry = int(time.time()) + 600
+    digest = result_authorization_digest(
+        chain_id=chain_id,
+        contract_address=contract_address,
+        deal_id=0,
+        tee_identity=signer_address,
+        compose_hash=attestation.compose_hash,
+        score_band=3,
+        compute_cost_wei=10**15,
+        result_hash=commitment,
+        authorization_expiry=authorization_expiry,
+    )
+    signature_output = _run([
+        "cast",
+        "rpc",
+        "eth_sign",
+        ANVIL_VERIFIER,
+        digest,
+        "--rpc-url",
+        rpc_url,
+    ]).strip()
+    try:
+        signature = json.loads(signature_output)
+    except json.JSONDecodeError:
+        signature = signature_output
+    if not isinstance(signature, str) or not signature.startswith("0x"):
+        raise RuntimeError("eth_sign did not return a hex signature")
+    return authorization_expiry, signature
 
 
 def _proof_env(dstack_endpoint: str) -> dict[str, str]:

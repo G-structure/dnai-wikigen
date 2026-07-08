@@ -366,26 +366,35 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   Current tests use an injected test signer to verify signed transaction
   recovery, commitment drift under replay-context changes, and bounded receipt
   shape without committing or accepting raw keys.
+- `DiligenceRoom.sol` now requires a result-verifier signature before accepting
+  `submitResult()`. The signed authorization binds chain ID, contract address,
+  deal ID, TEE identity, compose hash, score band, compute cost, replay-bound
+  result commitment, and authorization expiry. Contract tests cover wrong
+  verifier, expired authorization, and zero compose hash.
 - The `submit-result` path now uses a pre-broadcast off-chain verifier gate:
   it fetches dstack signer quote evidence whose report data binds the signer
   address, chain ID, and contract address; rejects signer/chain/contract/report
-  data/compose mismatches; and records only bounded quote hash, report data, and
-  quote size in the receipt. This is the chosen current quote-verification path
-  documented in `docs/DECISIONS.md`.
+  data/compose mismatches; and records only bounded quote hash, report data,
+  quote size, authorization expiry, and verifier-signature hash in the receipt.
+  This is the chosen current quote-verification path documented in
+  `docs/DECISIONS.md`.
 - `⚙️/tinker-delegate/scripts/prove-chain-submitter-dstack-anvil.py` proves the
   submitter against Phala/dstack simulator key derivation and real local Anvil:
   it derives the signer through the same dstack path used by the CLI, funds that
-  signer on ephemeral Anvil, creates and funds a deal whose `teeIdentity` is the
-  derived address, runs `tinker-delegate submit-result`, and verifies the real
-  `EvaluationSubmitted` event carries the replay-bound submission commitment,
-  not the raw payload hash, with signer attestation metadata and
+  signer on ephemeral Anvil, deploys `DiligenceRoom` with an unlocked local
+  verifier account, creates and funds a deal whose `teeIdentity` is the derived
+  address, obtains a verifier signature through JSON-RPC `eth_sign`, runs
+  `tinker-delegate submit-result`, and verifies the real `EvaluationSubmitted`
+  event carries the replay-bound submission commitment, not the raw payload
+  hash, with signer attestation metadata, verifier-signature hash, and
   `raw_secret_egress=false`.
 - The watcher is not yet deployed as a Phala/CVM process and does not include
   chain-lag alerting or deep-reorg rollback beyond the configured confirmation
   policy.
-- A deployed-CVM proof of `submitResult()` broadcast has not yet been run, and
-  contract-enforced quote verification, compose/app identity binding, and full
-  settlement-event integration are not built.
+- A deployed-CVM proof of verifier-authorized `submitResult()` broadcast has
+  not yet been run. The production verifier service that validates live Phala
+  quote evidence, compose/app identity, freshness, and revocation before
+  signing is not built. Full settlement-event integration is still incomplete.
 
 [partial] Data custody:
 
@@ -462,6 +471,10 @@ CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   `EmailOracleAuth` at `0xf52c18a33bd172ae94282132649d80bcd4b872ff`.
   On-chain reads confirm the current funded Foundry deployer is the
   `DiligenceRoom` developer and `EmailOracleAuth` owner.
+- The current Base Sepolia `DiligenceRoom` deployment predates the
+  verifier-signature `submitResult()` ABI in this branch. A fresh deployment
+  with `DILIGENCE_RESULT_VERIFIER` recorded in the manifest is required before
+  claiming the live contract enforces result-verifier authorization.
 - Phala CVM deployment with current recorded CVM ID, app ID, compose hash, image
   digest, gateway endpoint, and quote evidence still needs revalidation.
 - Docker compose validation, docs stale-phrase checks, and broader container

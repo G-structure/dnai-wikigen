@@ -461,12 +461,16 @@ contract DiligenceRoom {
     // Buyer funds the deal — msg.value covers budget_cap + max compute + fee
     function fundDeal(uint256 dealId) external payable;
 
-    // TEE submits evaluation result + metered compute cost (attested via TDX)
+    // TEE submits bounded result + metered compute cost after verifier auth.
     function submitResult(
         uint256 dealId,
+        ScoreBand scoreBand,
+        uint256 computeCost,
         bytes32 resultHash,
-        uint256 computeCost
-    ) external;  // only callable by teeIdentity
+        bytes32 composeHash,
+        uint256 authorizationExpiry,
+        bytes calldata verifierSignature
+    ) external;  // callable only by teeIdentity with resultVerifier authorization
 
     // Buyer accepts — three-way settlement:
     //   seller gets deal_payment
