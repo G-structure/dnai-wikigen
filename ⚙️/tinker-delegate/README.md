@@ -178,6 +178,13 @@ uv venv && uv pip install playwright httpx pydantic pydantic-settings
   --allow-local-attestation \
   --receipt-output ./payment-method-receipt.json
 
+# Operator prompt path for an approved real-card validation attempt
+.venv/bin/python -m tinker_delegate.main add-card-encrypted-prompt https://<deployed-tee> \
+  --compose-hash 0xEXPECTED_COMPOSE_HASH \
+  --app-id 0xEXPECTED_APP_ID \
+  --os-image-hash 0xEXPECTED_OS_IMAGE_HASH \
+  --receipt-output ./payment-method-receipt.json
+
 # Save a bounded add-balance receipt if the validation reaches top-up
 .venv/bin/python -m tinker_delegate.main add-balance 5 \
   --receipt-output ./add-balance-receipt.json
@@ -530,6 +537,11 @@ contracts/
   `tinker_delegate.billing_uploader` fetch `/attestation?context=billing`,
   verify policy, encrypt card JSON, wipe the local plaintext buffer, and post
   only ciphertext to `/billing/card/encrypted`.
+- **Operator card entry**: `add-card-encrypted-prompt` prompts interactively
+  instead of taking card fields as command-line flags, requires deployed
+  compose/app/OS-image attestation expectations unless explicitly run with
+  local-development attestation, zeros the in-memory card dictionary after
+  upload, and emits only bounded JSON.
 - **Funding model and Stripe/PCI stance**: see `docs/TINKER-FUNDING-MODEL.md`
   and `docs/STRIPE-PCI-FUNDING-SCOPE.md`; production or repeated funding should
   use an official Tinker route, Stripe-hosted/tokenized collection,

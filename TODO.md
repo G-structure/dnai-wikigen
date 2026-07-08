@@ -416,6 +416,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             families for the Tinker billing UI, with mock-page tests covering
             data-testid/aria-style drift and bounded `selector_missing`
             receipts when top-up controls cannot be found.
+      - [x] Add `add-card-encrypted-prompt` so approved operator card details
+            are entered interactively instead of as command-line flags; the
+            prompt path requires deployed compose/app/OS-image attestation
+            expectations unless explicitly run in local-dev mode.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test

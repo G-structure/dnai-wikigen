@@ -1,6 +1,7 @@
 """CLI entrypoint for tinker-delegate automation."""
 import argparse
 import asyncio
+import getpass
 import json
 import os
 import time
@@ -52,6 +53,49 @@ def _receipt_or_raise(response: dict[str, Any] | Any) -> dict[str, Any]:
     if not isinstance(receipt, dict):
         raise ValueError("bounded receipt output requested, but response has no attempt_record")
     return receipt
+
+
+def _prompt_billing_card_payload(prompt_fn=getpass.getpass) -> dict[str, str]:
+    """Read card fields without placing them in shell history or argv."""
+    fields = (
+        ("card_number", "Card number", ""),
+        ("exp_month", "Expiration month", ""),
+        ("exp_year", "Expiration year", ""),
+        ("cvc", "CVC", ""),
+        ("cardholder_name", "Cardholder name", ""),
+        ("address_line1", "Billing address line 1 (optional)", ""),
+        ("address_city", "Billing city (optional)", ""),
+        ("address_state", "Billing state/region (optional)", ""),
+        ("address_postal", "Billing postal code (optional)", ""),
+        ("address_country", "Billing country", "US"),
+    )
+    payload = {}
+    for key, label, default in fields:
+        suffix = f" [{default}]" if default else ""
+        value = prompt_fn(f"{label}{suffix}: ").strip()
+        payload[key] = value or default
+    return payload
+
+
+def _validate_prompt_billing_policy(args) -> None:
+    """Require a concrete deployed attestation policy for prompt-based card entry."""
+    if args.allow_local_attestation:
+        return
+    missing = [
+        flag
+        for flag, attr in (
+            ("--compose-hash", "compose_hash"),
+            ("--app-id", "app_id"),
+            ("--os-image-hash", "os_image_hash"),
+        )
+        if not getattr(args, attr, "")
+    ]
+    if missing:
+        joined = ", ".join(missing)
+        raise ValueError(
+            "add-card-encrypted-prompt requires deployed billing attestation expectations "
+            f"({joined}) unless --allow-local-attestation is set for local development"
+        )
 
 
 def _wait_for_oracle(settings: Settings) -> None:
@@ -363,6 +407,33 @@ def cli():
         help="Allow local-mode attestation for development only",
     )
     add_card_encrypted_p.add_argument("--receipt-output", default="", help="Optional output path for bounded receipt JSON")
+
+    add_card_encrypted_prompt_p = sub.add_parser(
+        "add-card-encrypted-prompt",
+        help="Prompt for card details, verify attestation, encrypt, and POST /billing/card/encrypted",
+    )
+    add_card_encrypted_prompt_p.add_argument("api_url", help="Tinker delegate API base URL")
+    add_card_encrypted_prompt_p.add_argument(
+        "--compose-hash",
+        default="",
+        help="Expected dstack compose hash; required unless --allow-local-attestation is set",
+    )
+    add_card_encrypted_prompt_p.add_argument("--app-id", default="", help="Expected dstack app ID")
+    add_card_encrypted_prompt_p.add_argument(
+        "--os-image-hash",
+        default="",
+        help="Expected dstack OS image hash; required unless --allow-local-attestation is set",
+    )
+    add_card_encrypted_prompt_p.add_argument(
+        "--allow-local-attestation",
+        action="store_true",
+        help="Allow local-mode attestation for development only; do not use for real cards",
+    )
+    add_card_encrypted_prompt_p.add_argument(
+        "--receipt-output",
+        default="",
+        help="Optional output path for bounded receipt JSON",
+    )
 
     upload_artifact_p = sub.add_parser(
         "upload-artifact",
@@ -688,6 +759,52 @@ def cli():
             args.address_line1,
             args.address_postal,
         )
+        if args.receipt_output:
+            _emit_bounded_json(
+                _receipt_or_raise(result.response),
+                output_path=args.receipt_output,
+                forbidden_values=forbidden_values,
+            )
+        _emit_bounded_json(body, forbidden_values=forbidden_values)
+        sys.exit(0 if result.response.get("success") else 1)
+
+    elif args.command == "add-card-encrypted-prompt":
+        from tinker_delegate.attestation_verifier import AttestationVerificationError
+        from tinker_delegate.billing_uploader import (
+            BillingCardUploadPolicy,
+            upload_billing_card_payload,
+        )
+
+        try:
+            _validate_prompt_billing_policy(args)
+        except ValueError as exc:
+            print(f"[add-card-encrypted-prompt] policy rejected: {redact_text(exc)}")
+            sys.exit(1)
+
+        card = _prompt_billing_card_payload()
+        policy = BillingCardUploadPolicy(
+            expected_compose_hash=args.compose_hash,
+            expected_app_id=args.app_id,
+            expected_os_image_hash=args.os_image_hash,
+            allow_local=args.allow_local_attestation,
+        )
+        forbidden_values = tuple(card.values())
+        try:
+            result = upload_billing_card_payload(args.api_url, card, policy)
+        except AttestationVerificationError as exc:
+            print(f"[add-card-encrypted-prompt] attestation rejected: {redact_text(exc)}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"[add-card-encrypted-prompt] update failed: {redact_text(exc)}")
+            sys.exit(1)
+        finally:
+            for key in list(card):
+                card[key] = ""
+
+        body = {
+            "status_code": result.status_code,
+            "response": result.response,
+        }
         if args.receipt_output:
             _emit_bounded_json(
                 _receipt_or_raise(result.response),

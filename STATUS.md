@@ -279,6 +279,11 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   posts only ciphertext to `/billing/card/encrypted`, and was locally exercised
   against the Neko/Tinker/Stripe test-card path. It returned bounded
   `card_declined` and persisted one funding receipt.
+- `python -m tinker_delegate.main add-card-encrypted-prompt` prompts for card
+  fields interactively instead of taking them as command-line flags, requires
+  deployed compose/app/OS-image attestation expectations unless explicitly run
+  in local-development mode, zeros the in-memory card dictionary after upload,
+  and emits only bounded response/receipt JSON.
 - Payment-method screenshots after card entry/submission are suppressed even
   when debug screenshots are enabled; non-secret billing screenshots remain
   explicit debug artifacts only.

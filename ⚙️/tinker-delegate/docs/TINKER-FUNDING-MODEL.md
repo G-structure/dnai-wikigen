@@ -77,12 +77,7 @@ After an approved validation attempt, write bounded receipt artifacts directly
 from the receipt-producing commands:
 
 ```bash
-python -m tinker_delegate.main add-card-encrypted https://delegate.example \
-  --number <operator-approved-card-number> \
-  --exp-month 12 --exp-year 2028 \
-  --cvc <operator-approved-cvc> \
-  --name "Operator Name" \
-  --address-postal "94105" \
+python -m tinker_delegate.main add-card-encrypted-prompt https://delegate.example \
   --compose-hash EXPECTED_COMPOSE_HASH \
   --app-id EXPECTED_APP_ID \
   --os-image-hash EXPECTED_OS_IMAGE_HASH \
@@ -92,8 +87,10 @@ python -m tinker_delegate.main add-balance 5 \
   --receipt-output ./add-balance-receipt.json
 ```
 
-The CLI refuses to print or write a response that contains submitted card
-values or secret-shaped fields.
+The prompt command keeps card fields out of shell history and process
+arguments, requires deployed compose/app/OS-image attestation expectations
+unless explicitly run in local-development mode, and refuses to print or write a
+response that contains submitted card values or secret-shaped fields.
 
 Build a bounded public manifest from the saved preflight and bounded receipt:
 
@@ -164,6 +161,9 @@ What is real:
 - Payment-method and add-balance browser automation use selector fallback
   families for Tinker billing controls and return bounded `selector_missing`
   receipts when top-up controls cannot be found.
+- `add-card-encrypted-prompt` accepts approved operator card details
+  interactively instead of through command-line flags and requires deployed
+  attestation expectations unless explicitly run in local-development mode.
 - Funding attempts persist bounded encrypted receipts.
 - Policy-denied card and add-balance requests persist bounded receipts without
   launching browser automation.

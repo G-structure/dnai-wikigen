@@ -698,6 +698,12 @@ Implementation status:
             billing attestation, refuses local/non-matching evidence unless
             explicitly allowed, encrypts card JSON to `/billing/card/encrypted`,
             wipes its plaintext buffer, and posts only ciphertext.
+[real]      `add-card-encrypted-prompt` supports approved operator validation
+            attempts without putting card fields in command-line arguments. It
+            prompts interactively, requires deployed compose/app/OS-image
+            attestation expectations unless explicitly run in local-development
+            mode, zeros the in-memory card dictionary after upload, and emits
+            only bounded response/receipt JSON.
 [real]      Standalone `verify-attestation` CLI live-fetches
             `/attestation?context=...` and checks the public evidence envelope:
             mode, quote presence, compose hash, app ID, OS image hash,
