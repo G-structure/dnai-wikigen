@@ -495,6 +495,10 @@ def _runtime_selector_expression(selector_map: dict[str, Any]) -> str:
     )
 
 
+def _runtime_micro_probe_expression() -> str:
+    return "(() => 'dnai_runtime_ok')()"
+
+
 def _runtime_selector_observations(value: Any, selector_map: dict[str, Any]) -> list[dict[str, Any]]:
     flow_observations: list[dict[str, Any]] = []
     matrix = value if isinstance(value, list) else []
@@ -585,6 +589,7 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
         "metadata_success": False,
         "upgrade_success": False,
         "target_command_success": False,
+        "runtime_micro_probe_command_success": False,
         "runtime_selector_command_success": False,
         "frame_tree_command_success": False,
         "http_status_band": "",
@@ -638,6 +643,8 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                     "target_type": "page",
                     "attached": False,
                     "attach_error_kind": "",
+                    "runtime_micro_probe_success": False,
+                    "runtime_micro_probe_error_kind": "",
                     "runtime_selector_success": False,
                     "runtime_selector_error_kind": "",
                     "flow_observations": [],
@@ -664,29 +671,52 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                     page_result["attached"] = bool(session_id)
                     if session_id:
                         try:
-                            runtime_response = client.command(
+                            micro_probe_response = client.command(
                                 "Runtime.evaluate",
                                 {
-                                    "expression": _runtime_selector_expression(selector_map),
+                                    "expression": _runtime_micro_probe_expression(),
                                     "returnByValue": True,
                                     "awaitPromise": False,
                                     "silent": True,
                                 },
                                 session_id=session_id,
                             )
-                            runtime_value = _runtime_evaluate_value(runtime_response)
+                            micro_probe_value = _runtime_evaluate_value(micro_probe_response)
+                            if micro_probe_value != "dnai_runtime_ok":
+                                raise RuntimeError("runtime_exception")
                         except Exception as exc:
                             error_kind = _raw_cdp_error_kind(exc)
-                            page_result["runtime_selector_error_kind"] = error_kind
-                            partial_errors.append(f"runtime_selector_{error_kind}")
+                            page_result["runtime_micro_probe_error_kind"] = error_kind
+                            partial_errors.append(f"runtime_micro_probe_{error_kind}")
                             stop_after_page = True
                         else:
-                            page_result["runtime_selector_success"] = True
-                            page_result["flow_observations"] = _runtime_selector_observations(
-                                runtime_value,
-                                selector_map,
-                            )
-                            result["runtime_selector_command_success"] = True
+                            page_result["runtime_micro_probe_success"] = True
+                            result["runtime_micro_probe_command_success"] = True
+                        if not stop_after_page:
+                            try:
+                                runtime_response = client.command(
+                                    "Runtime.evaluate",
+                                    {
+                                        "expression": _runtime_selector_expression(selector_map),
+                                        "returnByValue": True,
+                                        "awaitPromise": False,
+                                        "silent": True,
+                                    },
+                                    session_id=session_id,
+                                )
+                                runtime_value = _runtime_evaluate_value(runtime_response)
+                            except Exception as exc:
+                                error_kind = _raw_cdp_error_kind(exc)
+                                page_result["runtime_selector_error_kind"] = error_kind
+                                partial_errors.append(f"runtime_selector_{error_kind}")
+                                stop_after_page = True
+                            else:
+                                page_result["runtime_selector_success"] = True
+                                page_result["flow_observations"] = _runtime_selector_observations(
+                                    runtime_value,
+                                    selector_map,
+                                )
+                                result["runtime_selector_command_success"] = True
                         if not stop_after_page:
                             try:
                                 frame_tree = client.command("Page.getFrameTree", session_id=session_id)

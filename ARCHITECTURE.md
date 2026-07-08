@@ -735,7 +735,14 @@ Implementation status:
             maps the returned matrix onto known flow/family names, so public
             output cannot include page text, raw DOM, raw selectors, cookies,
             account identifiers, OTPs, API keys, card data, or arbitrary
-            page-controlled strings. A Phala one-shot measurement with
+            page-controlled strings. Source/tests now precede that selector
+            matrix with a constant page-scoped Runtime micro-probe and emit
+            only `runtime_micro_probe_command_success`,
+            `runtime_micro_probe_success`, and
+            `runtime_micro_probe_error_kind`; this bounded diagnostic
+            distinguishes Runtime transport failure from selector-expression
+            timeout without exposing page-controlled values. A Phala one-shot
+            measurement with
             GitHub-attested `50de0a9` images proved the command path is built
             into the deployed image and preserves bounded output, but the
             page-scoped Runtime command still timed out:
@@ -808,7 +815,9 @@ Implementation status:
             when frame traversal times out, but the 2026-07-08 Phala
             measurement on `50de0a9` images returned
             `runtime_selector_error_kind=timeout` and empty
-            `flow_observations`; selector-family match capture remains open.
+            `flow_observations`. Source/tests now add the preceding bounded
+            Runtime micro-probe; it still needs a GitHub-attested image build
+            and Phala measurement before it can explain the deployed timeout.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,

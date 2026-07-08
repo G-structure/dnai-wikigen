@@ -807,6 +807,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             OTPs, API keys, card data, or arbitrary page-controlled strings.
             Tests prove selector-family observations survive the same
             `Page.getFrameTree` timeout seen on Phala.
+            Follow-up source/tests 2026-07-08: the raw-CDP fallback now sends a
+            constant, page-scoped Runtime micro-probe before the selector
+            matrix and emits only `runtime_micro_probe_command_success`,
+            `runtime_micro_probe_success`, and
+            `runtime_micro_probe_error_kind`. This lets the next Phala run
+            distinguish "Runtime.evaluate is unavailable in the attached page"
+            from "the selector-family matrix expression timed out" without
+            exposing page text, raw DOM, selectors, URLs, cookies, OTPs, API
+            keys, or card material.
             Phala attempt 2026-07-08: GitHub Actions built and signed
             source commit `50de0a945e60b0602b5d944c0fa09951da2c3410`
             into
@@ -826,8 +835,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             health is OK and `/browser/readiness`, `/browser/selector-probe`,
             and `/billing/add-balance` all return 403. Next step: debug why
             deployed page-scoped `Runtime.evaluate` times out after successful
-            target attach without widening output beyond selector-family
-            bands.
+            target attach by building GitHub-attested images with the Runtime
+            micro-probe, measuring one-shot Phala selector-probe output, and
+            restoring normal compose.
 - [x] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
       needed by each compose profile.
       Done 2026-07-08: `scripts/redeploy-phala-cvm.mjs` now defaults to

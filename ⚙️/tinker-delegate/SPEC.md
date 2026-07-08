@@ -184,7 +184,12 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   to normal compose afterward, and both diagnostic endpoints returned 403.
   Source/tests now add a bounded raw-CDP `Runtime.evaluate` selector-family
   counter that emits only declared flow/family names plus `0`, `1`, `2+`, or
-  `probe_error` bands. A 2026-07-08 Phala one-shot run with GitHub-attested
+  `probe_error` bands. Source/tests now run a constant page-scoped Runtime
+  micro-probe before the selector matrix and emit only
+  `runtime_micro_probe_command_success`, `runtime_micro_probe_success`, and
+  `runtime_micro_probe_error_kind`; this narrows the next deployed diagnosis
+  without exposing page text, raw DOM, selectors, URLs, cookies, OTPs, API keys,
+  or card material. A 2026-07-08 Phala one-shot run with GitHub-attested
   `50de0a9` images proved the deployed route still returns bounded raw-CDP
   output, but the page-scoped Runtime command timed out:
   `runtime_selector_error_kind=timeout` and `flow_observations=[]`. The CVM was

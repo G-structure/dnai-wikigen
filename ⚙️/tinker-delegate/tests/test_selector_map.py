@@ -285,6 +285,13 @@ class SelectorMapTest(unittest.TestCase):
                     {
                         "id": 3,
                         "sessionId": "session-1",
+                        "result": {"result": {"type": "string", "value": "dnai_runtime_ok"}},
+                    }
+                ),
+                server_text_frame(
+                    {
+                        "id": 4,
+                        "sessionId": "session-1",
                         "result": {
                             "result": {
                                 "type": "object",
@@ -298,7 +305,7 @@ class SelectorMapTest(unittest.TestCase):
                 ),
                 server_text_frame(
                     {
-                        "id": 4,
+                        "id": 5,
                         "sessionId": "session-1",
                         "result": {
                             "frameTree": {
@@ -321,11 +328,13 @@ class SelectorMapTest(unittest.TestCase):
         self.assertTrue(result["metadata_success"])
         self.assertTrue(result["upgrade_success"])
         self.assertTrue(result["target_command_success"])
+        self.assertTrue(result["runtime_micro_probe_command_success"])
         self.assertTrue(result["runtime_selector_command_success"])
         self.assertTrue(result["frame_tree_command_success"])
         self.assertEqual(result["probe_backend"], "raw_cdp")
         self.assertEqual(result["method"], "raw_cdp_target_frame_inventory")
         self.assertEqual(result["pages"][0]["url_class"], "tinker_console_keys")
+        self.assertTrue(result["pages"][0]["runtime_micro_probe_success"])
         self.assertTrue(result["pages"][0]["runtime_selector_success"])
         api_flow = next(
             flow for flow in result["pages"][0]["flow_observations"] if flow["name"] == "api_keys"
@@ -370,6 +379,13 @@ class SelectorMapTest(unittest.TestCase):
                     {
                         "id": 3,
                         "sessionId": "session-1",
+                        "result": {"result": {"type": "string", "value": "dnai_runtime_ok"}},
+                    }
+                ),
+                server_text_frame(
+                    {
+                        "id": 4,
+                        "sessionId": "session-1",
                         "result": {
                             "result": {
                                 "type": "object",
@@ -389,6 +405,7 @@ class SelectorMapTest(unittest.TestCase):
 
         self.assertTrue(result["success"])
         self.assertTrue(result["target_command_success"])
+        self.assertTrue(result["runtime_micro_probe_command_success"])
         self.assertTrue(result["runtime_selector_command_success"])
         self.assertFalse(result["frame_tree_command_success"])
         self.assertEqual(result["partial_error_kind"], "frame_tree_timeout")
@@ -397,6 +414,7 @@ class SelectorMapTest(unittest.TestCase):
         self.assertEqual(result["pages_observed"], 1)
         self.assertEqual(result["pages"][0]["url_class"], "tinker_console_keys")
         self.assertTrue(result["pages"][0]["attached"])
+        self.assertTrue(result["pages"][0]["runtime_micro_probe_success"])
         self.assertTrue(result["pages"][0]["runtime_selector_success"])
         api_flow = next(
             flow for flow in result["pages"][0]["flow_observations"] if flow["name"] == "api_keys"
@@ -409,6 +427,63 @@ class SelectorMapTest(unittest.TestCase):
         self.assertEqual(result["pages"][0]["frame_tree_error_kind"], "timeout")
         self.assertEqual(result["pages"][0]["frame_count_band"], "0")
         self.assertEqual(result["pages"][0]["frame_observations"], [])
+        rendered = _render_bounded_json(result)
+        self.assertNotIn(raw_cdp_url, rendered)
+        self.assertNotIn(raw_ws_url, rendered)
+        self.assertNotIn("session=secret", rendered)
+        self.assertEqual(redact_text(rendered), rendered)
+
+    def test_raw_cdp_preserves_runtime_micro_probe_when_selector_runtime_times_out(self):
+        raw_cdp_url = "http://172.20.0.3:9223"
+        raw_ws_url = "ws://172.20.0.3:9223/devtools/browser/raw-session-id"
+        raw_page_url = "https://tinker-console.thinkingmachines.ai/keys?session=secret"
+        response = FakeResponse({"webSocketDebuggerUrl": raw_ws_url})
+        fake_socket = TimeoutAfterChunksSocket(
+            [
+                b"HTTP/1.1 101 Switching Protocols\r\n\r\n",
+                server_text_frame(
+                    {
+                        "id": 1,
+                        "result": {
+                            "targetInfos": [
+                                {"targetId": "page-1", "type": "page", "url": raw_page_url},
+                                {"targetId": "worker-1", "type": "worker", "url": ""},
+                            ]
+                        },
+                    }
+                ),
+                server_text_frame({"id": 2, "result": {"sessionId": "session-1"}}),
+                server_text_frame(
+                    {
+                        "id": 3,
+                        "sessionId": "session-1",
+                        "result": {"result": {"type": "string", "value": "dnai_runtime_ok"}},
+                    }
+                ),
+            ]
+        )
+
+        with (
+            patch("tinker_delegate.selector_map.urlopen", return_value=response),
+            patch("tinker_delegate.selector_map.socket.create_connection", return_value=fake_socket),
+        ):
+            result = _probe_raw_cdp_targets(Settings(cdp_url=raw_cdp_url))
+
+        self.assertTrue(result["success"])
+        self.assertTrue(result["runtime_micro_probe_command_success"])
+        self.assertFalse(result["runtime_selector_command_success"])
+        self.assertEqual(result["partial_error_kind"], "runtime_selector_timeout")
+        self.assertEqual(result["pages_observed"], 1)
+        page = result["pages"][0]
+        self.assertEqual(page["url_class"], "tinker_console_keys")
+        self.assertTrue(page["attached"])
+        self.assertTrue(page["runtime_micro_probe_success"])
+        self.assertEqual(page["runtime_micro_probe_error_kind"], "")
+        self.assertFalse(page["runtime_selector_success"])
+        self.assertEqual(page["runtime_selector_error_kind"], "timeout")
+        self.assertEqual(page["flow_observations"], [])
+        self.assertFalse(page["frame_tree_success"])
+        self.assertEqual(page["frame_observations"], [])
         rendered = _render_bounded_json(result)
         self.assertNotIn(raw_cdp_url, rendered)
         self.assertNotIn(raw_ws_url, rendered)

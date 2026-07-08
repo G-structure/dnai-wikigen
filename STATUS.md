@@ -131,7 +131,12 @@ return 403 in normal mode.
   `Target.getTargets`, returning bounded target count `2+` and page count `1`.
   Source/tests now run bounded DOM selector-family counting through one
   raw-CDP `Runtime.evaluate` command after page attach, returning only declared
-  flow/family names and `0`, `1`, `2+`, or `probe_error` bands. A Phala
+  flow/family names and `0`, `1`, `2+`, or `probe_error` bands. Source/tests
+  now precede that selector matrix with a constant page-scoped Runtime
+  micro-probe and emit only `runtime_micro_probe_command_success`,
+  `runtime_micro_probe_success`, and `runtime_micro_probe_error_kind`, so the
+  next Phala run can distinguish Runtime transport failure from selector-matrix
+  timeout without exposing page-controlled values. A Phala
   one-shot measurement using GitHub-attested `50de0a9` images reached
   `probe_backend=raw_cdp`, returned `success=true`, preserved a bounded page
   URL class/hash and `attached=true`, but the page-scoped `Runtime.evaluate`
