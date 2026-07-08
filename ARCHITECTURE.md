@@ -579,6 +579,9 @@ Implementation status:
             evidence hash, amount/balance bands, TDX quote hash when present,
             and card-payload destruction status. Raw card values and page text
             are not returned.
+[real]      Payment-method debug screenshots are suppressed after card entry
+            and payment submission even when debug screenshots are enabled;
+            non-secret billing screenshots still require explicit debug opt-in.
 [real]      Bounded funding attempt records are persisted in encrypted/sealed
             delegate storage with a separate `tinker/funding_receipts` dstack
             key path and can be read through `GET /billing/funding-receipts`.

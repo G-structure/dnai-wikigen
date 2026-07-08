@@ -334,6 +334,9 @@ contracts/
 - **Receipt storage**: bounded funding attempt records are persisted in the
   encrypted delegate store and can be read through `/billing/funding-receipts`.
   The store rejects unknown fields and any receipt claiming raw secret egress.
+- **Debug screenshots**: payment-method screenshots after card entry/submission
+  are suppressed even when `TINKER_DEBUG_SCREENSHOTS=true`; only non-secret
+  billing screenshots may be written.
 - **Encrypted client**: `add-card-encrypted` and
   `tinker_delegate.billing_uploader` fetch `/attestation?context=billing`,
   verify policy, encrypt card JSON, wipe the local plaintext buffer, and post

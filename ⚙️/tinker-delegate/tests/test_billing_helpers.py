@@ -1,13 +1,24 @@
+import asyncio
 import unittest
 
 from tinker_delegate.automation_receipts import AutomationStage
 from tinker_delegate.billing import (
     CardDetails,
+    _debug_screenshot,
     _add_balance_result,
     _billing_error_message,
     _format_expiry,
     _payment_method_result,
 )
+from tinker_delegate.config import Settings
+
+
+class FakeScreenshotPage:
+    def __init__(self):
+        self.paths = []
+
+    async def screenshot(self, *, path: str):
+        self.paths.append(path)
 
 
 class BillingHelpersTest(unittest.TestCase):
@@ -53,6 +64,49 @@ class BillingHelpersTest(unittest.TestCase):
         self.assertEqual(result["attempt_record"]["surface"], "add_balance")
         self.assertEqual(result["attempt_record"]["outcome"], "payment_method_required")
         self.assertEqual(result["attempt_record"]["amount_band"], "lt_5_usd")
+
+    def test_debug_screenshot_writes_non_secret_artifact_when_enabled(self):
+        page = FakeScreenshotPage()
+
+        wrote = asyncio.run(
+            _debug_screenshot(
+                page,
+                Settings(debug_screenshots=True),
+                "screenshot_no_stripe.png",
+            )
+        )
+
+        self.assertTrue(wrote)
+        self.assertEqual(page.paths, ["screenshot_no_stripe.png"])
+
+    def test_debug_screenshot_suppresses_secret_bearing_artifact_even_when_enabled(self):
+        page = FakeScreenshotPage()
+
+        wrote = asyncio.run(
+            _debug_screenshot(
+                page,
+                Settings(debug_screenshots=True),
+                "screenshot_billing_filled.png",
+                contains_secrets=True,
+            )
+        )
+
+        self.assertFalse(wrote)
+        self.assertEqual(page.paths, [])
+
+    def test_debug_screenshot_disabled_by_default(self):
+        page = FakeScreenshotPage()
+
+        wrote = asyncio.run(
+            _debug_screenshot(
+                page,
+                Settings(debug_screenshots=False),
+                "screenshot_add_balance.png",
+            )
+        )
+
+        self.assertFalse(wrote)
+        self.assertEqual(page.paths, [])
 
 
 if __name__ == "__main__":

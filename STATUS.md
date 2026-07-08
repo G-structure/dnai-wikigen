@@ -199,6 +199,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   posts only ciphertext to `/billing/card/encrypted`, and was locally exercised
   against the Neko/Tinker/Stripe test-card path. It returned bounded
   `card_declined` and persisted one funding receipt.
+- Payment-method screenshots after card entry/submission are suppressed even
+  when debug screenshots are enabled; non-secret billing screenshots remain
+  explicit debug artifacts only.
 - Real card funding is intentionally not attempted until real payment details
   are provided out of band.
 - Payment-method token/reference handling and the sealed long-lived funding

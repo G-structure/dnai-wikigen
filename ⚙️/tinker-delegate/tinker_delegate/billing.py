@@ -141,6 +141,14 @@ def _billing_error_message(text: str) -> str | None:
     return None
 
 
+async def _debug_screenshot(page: Page, settings: Settings, path: str, *, contains_secrets: bool = False) -> bool:
+    """Write a debug screenshot only when it cannot contain card material."""
+    if not settings.debug_screenshots or contains_secrets:
+        return False
+    await page.screenshot(path=path)
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -211,8 +219,7 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
             await asyncio.sleep(1)
 
         if not stripe_frame:
-            if settings.debug_screenshots:
-                await page.screenshot(path="screenshot_no_stripe.png")
+            await _debug_screenshot(page, settings, "screenshot_no_stripe.png")
             error = "Stripe card iframe not found"
             return _payment_method_result(False, error, furthest_stage, text)
         furthest_stage = AutomationStage.STRIPE_IFRAME_FOUND
@@ -244,8 +251,12 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
         furthest_stage = AutomationStage.PAYMENT_FORM_FILLED
 
         await asyncio.sleep(1)
-        if settings.debug_screenshots:
-            await page.screenshot(path="screenshot_billing_filled.png")
+        await _debug_screenshot(
+            page,
+            settings,
+            "screenshot_billing_filled.png",
+            contains_secrets=True,
+        )
 
         # Submit
         print("[billing] submitting payment method...")
@@ -263,8 +274,12 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
 
         # Check result
         text = await page.evaluate("() => document.body?.innerText || ''")
-        if settings.debug_screenshots:
-            await page.screenshot(path="screenshot_billing_result.png")
+        await _debug_screenshot(
+            page,
+            settings,
+            "screenshot_billing_result.png",
+            contains_secrets=True,
+        )
 
         error_msg = _billing_error_message(text)
         if error_msg:
@@ -335,8 +350,7 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
             return _add_balance_result(False, error, amount_dollars, furthest_stage, text)
 
         text = await page.evaluate("() => document.body?.innerText || ''")
-        if settings.debug_screenshots:
-            await page.screenshot(path="screenshot_add_balance.png")
+        await _debug_screenshot(page, settings, "screenshot_add_balance.png")
 
         error_msg = _billing_error_message(text)
         if error_msg:
@@ -394,8 +408,7 @@ async def configure_auto_reload(
             await save_btn.click()
             await asyncio.sleep(3)
 
-        if settings.debug_screenshots:
-            await page.screenshot(path="screenshot_auto_reload.png")
+        await _debug_screenshot(page, settings, "screenshot_auto_reload.png")
         return {"success": True}
 
 

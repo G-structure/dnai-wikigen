@@ -378,6 +378,14 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Ensure no card details appear in:
       browser traces, Playwright logs, screenshots, API logs, exception messages,
       crash dumps, or Phala console output.
+      - [x] Suppress payment-method screenshots after card entry/submission even
+            when debug screenshots are enabled; only non-secret billing debug
+            screenshots may be written.
+      - [ ] Add trace-file redaction/deletion if Playwright/browser tracing is
+            enabled in a future deployed debugging mode.
+      - [ ] Add deployed log/Phala-console verification for the encrypted
+            card path once the CVM endpoint is available.
+      - [ ] Add crash-dump/core-dump policy for browser and delegate processes.
 - [ ] `P1` Add funding receipt records:
       amount band, timestamp, payment method token/reference, Tinker balance band,
       CVM quote, and card payload destruction proof.
