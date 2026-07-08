@@ -556,6 +556,30 @@ def cli():
     )
     watch_chain_p.add_argument("--once", action="store_true", help="Poll one range and exit")
 
+    submit_result_p = sub.add_parser(
+        "submit-result",
+        help="Broadcast DiligenceRoom.submitResult from the dstack-derived TEE signer",
+    )
+    submit_result_p.add_argument("deal_id", type=int, help="DiligenceRoom deal ID")
+    submit_result_p.add_argument(
+        "score_band",
+        help="Bounded score band: negligible, low, medium, high, or exceptional",
+    )
+    submit_result_p.add_argument("compute_cost_wei", type=int, help="Bounded compute cost in wei")
+    submit_result_p.add_argument("result_hash", help="bytes32 hash of the full bounded result")
+    submit_result_p.add_argument("--rpc-url", default="", help="JSON-RPC URL, or TINKER_CHAIN_RPC_URL")
+    submit_result_p.add_argument(
+        "--contract-address",
+        default="",
+        help="DiligenceRoom address, or TINKER_CHAIN_CONTRACT_ADDRESS",
+    )
+    submit_result_p.add_argument(
+        "--gas-limit",
+        type=int,
+        default=None,
+        help="Optional gas limit override; defaults to TINKER_CHAIN_SUBMIT_GAS_LIMIT or eth_estimateGas",
+    )
+
     # API server
     serve_p = sub.add_parser("serve", help="Start the FastAPI server")
     serve_p.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
@@ -1022,6 +1046,52 @@ def cli():
                 dispatcher.close()
             if source is not None:
                 source.close()
+
+    elif args.command == "submit-result":
+        from tinker_delegate.chain_submitter import (
+            ChainSubmitterError,
+            DiligenceRoomSubmitter,
+            DstackEthereumSigner,
+            JsonRpcClient,
+            SignerUnavailable,
+        )
+
+        rpc_url = args.rpc_url or settings.chain_rpc_url
+        contract_address = args.contract_address or settings.chain_contract_address
+        gas_limit = (
+            args.gas_limit
+            if args.gas_limit is not None
+            else settings.chain_submit_gas_limit
+        )
+        rpc = None
+        try:
+            rpc = JsonRpcClient(rpc_url)
+            signer = DstackEthereumSigner.from_settings(settings)
+            submitter = DiligenceRoomSubmitter(
+                rpc,
+                contract_address,
+                signer,
+                gas_limit=gas_limit,
+            )
+            receipt = submitter.submit_result(
+                deal_id=args.deal_id,
+                score_band=args.score_band,
+                compute_cost_wei=args.compute_cost_wei,
+                result_hash=args.result_hash,
+            )
+            _emit_bounded_json(receipt.to_public_dict())
+        except SignerUnavailable as exc:
+            print(f"[submit-result] signer unavailable: {redact_text(exc)}")
+            sys.exit(1)
+        except ChainSubmitterError as exc:
+            print(f"[submit-result] rejected: {redact_text(exc)}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"[submit-result] failed: {redact_text(exc)}")
+            sys.exit(1)
+        finally:
+            if rpc is not None:
+                rpc.close()
 
     elif args.command == "serve":
         import uvicorn

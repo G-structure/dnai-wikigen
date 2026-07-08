@@ -88,6 +88,13 @@ Important current status:
 [partial]   Chain-watcher operations. The watcher is not yet deployed as a
             Phala/CVM process and does not yet have chain-lag alerting or
             deep-reorg rollback beyond the configured confirmation policy.
+[partial]   TEE-to-chain result submission. `tinker_delegate.chain_submitter`
+            can derive an Ethereum signer from dstack key material, guard
+            `submitResult()` against public `deals(dealId)` state, sign a raw
+            transaction without a raw-private-key CLI/env path, broadcast it
+            through JSON-RPC, and emit only bounded receipt metadata. This still
+            needs a dstack simulator or deployed-CVM broadcast proof and does
+            not yet bind `teeIdentity` to a measured compose/app identity.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
@@ -1222,8 +1229,13 @@ pull payments avoid recipient reverting during settlement
 Current caveat:
 
 ```
-submitResult() trusts a bare teeIdentity address. It does not yet verify a TDX
-quote or bind result acceptance to a measured compose hash on-chain.
+submitResult() trusts a bare teeIdentity address. The delegate now has partial
+TEE-held signing plumbing: in dstack mode it derives an Ethereum key from a
+dstack key path, preflights `deals(dealId)` so the signer must match the public
+teeIdentity, checks funded state and compute budget, signs the transaction in
+memory, and returns bounded receipt metadata. This is not yet proof that the
+address is controlled by a verified compose/app measurement, and the CVM-origin
+broadcast path still needs live dstack/Phala validation.
 ```
 
 ## Service Architecture
@@ -1779,7 +1791,8 @@ wrangler whoami
 ```
 1. Enforce EmailOracleAuth on OTP consumers.
 2. Add real TDX quote verification for result submitters.
-3. Replace bare teeIdentity trust with measured-code trust.
+3. Prove dstack/CVM-originated `submitResult()` broadcast and replace bare
+   teeIdentity trust with measured-code trust.
 4. Stabilize Tinker browser posture or use an official non-browser account API.
 5. Implement the TTT/RL bio-validation evaluator and benchmark schema.
 6. Add fail-closed DLP/egress enforcement.

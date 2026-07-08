@@ -149,6 +149,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       Ethereum key or equivalent TEE-held signer.
       Done when `submitResult()` can be broadcast from inside the CVM without raw
       private keys or `--private-key`.
+      - [x] Add a dstack-derived Ethereum signer and bounded
+            `submit-result` broadcaster for `DiligenceRoom.submitResult()`.
+            The submitter has no raw-private-key CLI/env path, derives the
+            production signer from dstack key material, preflights the public
+            `deals(dealId)` state so the signer must match `teeIdentity`, checks
+            funded state and compute budget before signing, broadcasts a raw
+            transaction through JSON-RPC, and returns only bounded receipt
+            metadata.
+      - [ ] Prove the submitter from a dstack simulator or deployed CVM against
+            Anvil/Base Sepolia so `submitResult()` is actually broadcast from
+            inside the attested runtime.
 - [ ] `P0` Bind `teeIdentity` to an attested compose/app identity instead of a
       bare trusted address.
       Done when result submission proves the signer is controlled by a verified
@@ -1194,6 +1205,9 @@ vision Wiki is reaching for.
        Runtime bearer auth is implemented; on-chain `EmailOracleAuth` consumer
        registry enforcement remains.
 7. [ ] Add chain watcher + TEE chain signer for `DiligenceRoom`.
+       Local watcher and signer/broadcaster plumbing now exist; remaining proof
+       is dstack/CVM-originated `submitResult()` broadcast and measured-code
+       binding.
 8. [ ] Build a fake Tinker backend and full local synthetic room test.
 9. [ ] Rework deployed browser path to headed Neko inside Phala, or get an
        official Tinker service-account/API route.

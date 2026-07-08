@@ -25,8 +25,8 @@ email OTP -> Tinker login/onboarding -> bounded API-key provisioning metadata
 encrypted artifact upload -> TEE-bound attestation report_data -> hash-checked in-memory custody
 ```
 
-Production deployment, real account funding, full TDX quote verification,
-TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
+Production deployment, real account funding, full TDX quote verification, live
+CVM-originated TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
 
 ## Built
 
@@ -353,11 +353,21 @@ TEE-to-chain signing, and RLVR/bio-validation remain incomplete.
   `DealFunded` can still notify funded state after the created context has
   crossed a process boundary. The watcher advances the cursor only after
   successful dispatch and only scans confirmation-safe blocks.
+- `tinker_delegate.chain_submitter` provides partial TEE-to-chain signing
+  plumbing: in dstack mode it derives an Ethereum signer from dstack key
+  material, has no raw-private-key CLI/env path, verifies the public
+  `deals(dealId)` state before signing, requires the signer to match
+  `teeIdentity`, checks funded state and compute budget, signs
+  `submitResult()` in memory, broadcasts through JSON-RPC, and returns only
+  bounded receipt metadata. Current tests use an injected test signer to verify
+  signed transaction recovery and receipt shape without committing or accepting
+  raw keys.
 - The watcher is not yet deployed as a Phala/CVM process and does not include
   chain-lag alerting or deep-reorg rollback beyond the configured confirmation
   policy.
-- TEE-derived transaction signing, on-chain quote verification, compose/app
-  identity binding, and full settlement-event integration are not built.
+- A dstack-simulator or deployed-CVM proof of `submitResult()` broadcast has
+  not yet been run, and on-chain quote verification, compose/app identity
+  binding, and full settlement-event integration are not built.
 
 [partial] Data custody:
 
