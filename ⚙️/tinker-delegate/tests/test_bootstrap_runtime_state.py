@@ -22,6 +22,14 @@ BOUNDED_BOOTSTRAP_RECEIPT = {
     "issued_at": 1,
 }
 
+BOUNDED_AUTH_BOOTSTRAP_RECEIPT = {
+    **BOUNDED_BOOTSTRAP_RECEIPT,
+    "surface": "tinker_auth",
+    "outcome": "transient_browser_failure",
+    "furthest_stage": "not_started",
+    "bounded_message": "transient_browser_failure",
+}
+
 
 class BootstrapRuntimeStateTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -96,6 +104,37 @@ class BootstrapRuntimeStateTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(runtime["bootstrap_error_kind"], "selector_missing")
         self.assertEqual(runtime["last_bootstrap_attempt_record"], BOUNDED_BOOTSTRAP_RECEIPT)
         self.assertNotIn("oracle@example.com", repr(runtime))
+        self.assertNotIn("tml-", repr(runtime))
+
+    async def test_failed_bootstrap_preserves_early_auth_attempt_record(self):
+        store = Mock()
+        store.exists.return_value = False
+        signup_result = {
+            "success": False,
+            "stored": False,
+            "api_key_created": False,
+            "api_key_hash": "",
+            "error_kind": "transient_browser_failure",
+            "attempt_record": BOUNDED_AUTH_BOOTSTRAP_RECEIPT,
+        }
+
+        with (
+            patch.dict(os.environ, {"TINKER_API_KEY": ""}, clear=False),
+            patch("tinker_delegate.main.build_api_key_store", return_value=store),
+            patch("tinker_delegate.main._wait_for_oracle"),
+            patch("tinker_delegate.signup.signup", new=AsyncMock(return_value=signup_result)),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "did not store an API key"):
+                await _ensure_api_key(self._settings())
+
+        runtime = get_runtime_state()
+        self.assertFalse(runtime["api_key_available"])
+        self.assertTrue(runtime["bootstrap_attempted"])
+        self.assertFalse(runtime["bootstrap_success"])
+        self.assertEqual(runtime["bootstrap_error_kind"], "transient_browser_failure")
+        self.assertEqual(runtime["last_bootstrap_attempt_record"], BOUNDED_AUTH_BOOTSTRAP_RECEIPT)
+        self.assertNotIn("oracle@example.com", repr(runtime))
+        self.assertNotIn("123456", repr(runtime))
         self.assertNotIn("tml-", repr(runtime))
 
 

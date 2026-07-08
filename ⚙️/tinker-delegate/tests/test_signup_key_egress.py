@@ -132,6 +132,63 @@ class SignupKeyEgressTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["attempt_record"]["furthest_stage"], "api_keys_page_loaded")
         self.assertNotIn("oracle@example.com", stdout.getvalue())
 
+    async def test_signup_browser_connect_failure_returns_bounded_receipt(self):
+        error = RuntimeError(
+            "cdp did not become ready for oracle@example.com with OTP 123456 "
+            "at https://tinker-console.thinkingmachines.ai using tml-secret-key-material"
+        )
+
+        with (
+            patch("tinker_delegate.signup.OracleClient", FakeOracle),
+            patch("tinker_delegate.signup.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.signup.connect_chromium", new=AsyncMock(side_effect=error)),
+        ):
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                result = await signup(Settings())
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["stored"])
+        self.assertFalse(result["api_key_created"])
+        self.assertEqual(result["error_kind"], "transient_browser_failure")
+        self.assertEqual(result["attempt_record"]["surface"], "tinker_auth")
+        self.assertEqual(result["attempt_record"]["outcome"], "transient_browser_failure")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "not_started")
+        rendered = repr(result) + stdout.getvalue()
+        self.assertNotIn("oracle@example.com", rendered)
+        self.assertNotIn("123456", rendered)
+        self.assertNotIn("tinker-console.thinkingmachines.ai", rendered)
+        self.assertNotIn("tml-secret-key-material", rendered)
+
+    async def test_signup_onboarding_failure_returns_stage_bounded_receipt(self):
+        error = RuntimeError(
+            "Continue button not found for oracle@example.com at "
+            "https://tinker-console.thinkingmachines.ai/onboarding with OTP 123456"
+        )
+
+        with (
+            patch("tinker_delegate.signup.OracleClient", FakeOracle),
+            patch("tinker_delegate.signup.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.signup.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.signup.get_browser_context", new=AsyncMock(return_value=FakeContext())),
+            patch("tinker_delegate.signup._authenticate", new=AsyncMock()),
+            patch("tinker_delegate.signup._handle_onboarding", new=AsyncMock(side_effect=error)),
+        ):
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                result = await signup(Settings())
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["stored"])
+        self.assertEqual(result["error_kind"], "selector_missing")
+        self.assertEqual(result["attempt_record"]["surface"], "tinker_auth")
+        self.assertEqual(result["attempt_record"]["outcome"], "selector_missing")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "authenticated")
+        rendered = repr(result) + stdout.getvalue()
+        self.assertNotIn("oracle@example.com", rendered)
+        self.assertNotIn("123456", rendered)
+        self.assertNotIn("tinker-console.thinkingmachines.ai", rendered)
+
     async def test_signin_returns_bounded_metadata_not_email_or_url(self):
         with (
             patch("tinker_delegate.signup.OracleClient", FakeOracle),

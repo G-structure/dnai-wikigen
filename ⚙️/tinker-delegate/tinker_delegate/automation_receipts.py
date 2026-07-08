@@ -27,7 +27,10 @@ class AutomationSurface(StrEnum):
 
 class AutomationStage(StrEnum):
     NOT_STARTED = "not_started"
+    BROWSER_CONNECTED = "browser_connected"
+    BROWSER_CONTEXT_READY = "browser_context_ready"
     AUTHENTICATED = "authenticated"
+    ONBOARDING_COMPLETE = "onboarding_complete"
     API_KEYS_PAGE_LOADED = "api_keys_page_loaded"
     API_KEY_CREATE_CLICKED = "api_key_create_clicked"
     API_KEY_GENERATE_CLICKED = "api_key_generate_clicked"
@@ -167,7 +170,13 @@ def classify_automation_error(error: str | None) -> AutomationOutcome:
         return AutomationOutcome.POLICY_DENIED
     if "rate limit" in text or "too many" in text or "bot" in text:
         return AutomationOutcome.BOT_OR_RATE_LIMIT
-    if "timeout" in text or "browser" in text or "navigation" in text:
+    if (
+        "timeout" in text
+        or "browser" in text
+        or "navigation" in text
+        or "cdp" in text
+        or "did not become ready" in text
+    ):
         return AutomationOutcome.TRANSIENT_BROWSER_FAILURE
     return AutomationOutcome.UNKNOWN_FAILURE
 

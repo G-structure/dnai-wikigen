@@ -183,65 +183,99 @@ async def signup(settings: Settings | None = None) -> dict:
     if settings is None:
         settings = Settings()
 
-    oracle = OracleClient(settings)
-    email = settings.email or oracle.get_email()
+    stage = AutomationStage.NOT_STARTED
+    email = ""
+    try:
+        oracle = OracleClient(settings)
+        email = settings.email or oracle.get_email()
+    except Exception as exc:
+        return _signup_failure_result(
+            email=email,
+            outcome=classify_automation_error(str(exc)),
+            furthest_stage=stage,
+            bounded_message="signup_account_lookup_failed",
+            evidence=exc,
+        )
+
     email_hash = _hash_text(email)
     print(f"[signup] email_hash={email_hash}")
 
-    async with async_playwright() as p:
-        browser = await connect_chromium(p, settings)
-        context = await get_browser_context(browser)
-        page = context.pages[0] if context.pages else await context.new_page()
+    try:
+        async with async_playwright() as p:
+            browser = await connect_chromium(p, settings)
+            stage = AutomationStage.BROWSER_CONNECTED
+            context = await get_browser_context(browser)
+            page = context.pages[0] if context.pages else await context.new_page()
+            stage = AutomationStage.BROWSER_CONTEXT_READY
 
-        # Step 1: Authenticate
-        await _authenticate(page, email, oracle, settings)
+            # Step 1: Authenticate
+            await _authenticate(page, email, oracle, settings)
+            stage = AutomationStage.AUTHENTICATED
 
-        # Step 2: Handle onboarding if present
-        await _handle_onboarding(page, settings)
+            # Step 2: Handle onboarding if present
+            await _handle_onboarding(page, settings)
+            stage = AutomationStage.ONBOARDING_COMPLETE
 
-        # Step 3: Create API key
-        api_key = await _create_api_key(page, settings)
-
-        receipt = _api_key_receipt(
+            # Step 3: Create API key
+            api_key = await _create_api_key(page, settings)
+    except AuthAccessBlockedError as exc:
+        return _signup_failure_result(
             email=email,
-            api_key_hash=hashlib.sha256(api_key.encode()).hexdigest() if api_key else "",
-            stored=False,
-            store_error="",
-            selector_error=None if api_key else "API key was not captured from the keys page",
+            outcome=AutomationOutcome.AUTH_ACCESS_BLOCKED,
+            furthest_stage=stage,
+            bounded_message="auth_access_blocked",
+            evidence=exc,
         )
-        result = {
-            "email_hash": email_hash,
-            "api_key_created": bool(api_key),
-            "api_key_hash": _hash_text(api_key) if api_key else "",
-            "stored": False,
-            "success": False,
-            "attempt_record": receipt.to_public_dict(),
-        }
-        if api_key:
-            try:
-                store = build_api_key_store(settings)
-                store.save(api_key)
-                result["stored"] = True
-                result["success"] = True
-                result["attempt_record"] = _api_key_receipt(
-                    email=email,
-                    api_key_hash=result["api_key_hash"],
-                    stored=True,
-                    store_error="",
-                    selector_error=None,
-                ).to_public_dict()
-            except Exception as e:
-                result["store_error"] = redact_text(e)
-                result["attempt_record"] = _api_key_receipt(
-                    email=email,
-                    api_key_hash=result["api_key_hash"],
-                    stored=False,
-                    store_error=result["store_error"],
-                    selector_error=None,
-                ).to_public_dict()
-            print("[done] API key captured and sealed" if result["stored"] else "[done] API key captured but not stored")
-        print(f"\n[done] success={result['success']}")
-        return result
+    except Exception as exc:
+        outcome = classify_automation_error(str(exc))
+        return _signup_failure_result(
+            email=email,
+            outcome=outcome,
+            furthest_stage=stage,
+            bounded_message=outcome.value,
+            evidence=exc,
+        )
+
+    receipt = _api_key_receipt(
+        email=email,
+        api_key_hash=hashlib.sha256(api_key.encode()).hexdigest() if api_key else "",
+        stored=False,
+        store_error="",
+        selector_error=None if api_key else "API key was not captured from the keys page",
+    )
+    result = {
+        "email_hash": email_hash,
+        "api_key_created": bool(api_key),
+        "api_key_hash": _hash_text(api_key) if api_key else "",
+        "stored": False,
+        "success": False,
+        "attempt_record": receipt.to_public_dict(),
+    }
+    if api_key:
+        try:
+            store = build_api_key_store(settings)
+            store.save(api_key)
+            result["stored"] = True
+            result["success"] = True
+            result["attempt_record"] = _api_key_receipt(
+                email=email,
+                api_key_hash=result["api_key_hash"],
+                stored=True,
+                store_error="",
+                selector_error=None,
+            ).to_public_dict()
+        except Exception as e:
+            result["store_error"] = redact_text(e)
+            result["attempt_record"] = _api_key_receipt(
+                email=email,
+                api_key_hash=result["api_key_hash"],
+                stored=False,
+                store_error=result["store_error"],
+                selector_error=None,
+            ).to_public_dict()
+        print("[done] API key captured and sealed" if result["stored"] else "[done] API key captured but not stored")
+    print(f"\n[done] success={result['success']}")
+    return result
 
 
 async def signin(settings: Settings | None = None) -> dict:
@@ -567,3 +601,31 @@ def _auth_receipt(
         bounded_message=bounded_message,
         account_identifier=email,
     )
+
+
+def _signup_failure_result(
+    *,
+    email: str,
+    outcome: AutomationOutcome,
+    furthest_stage: AutomationStage,
+    bounded_message: str,
+    evidence: object,
+) -> dict:
+    receipt = _auth_receipt(
+        email=email,
+        outcome=outcome,
+        furthest_stage=furthest_stage,
+        bounded_message=bounded_message,
+        evidence=evidence,
+    )
+    result = {
+        "email_hash": _hash_text(email) if email else "",
+        "api_key_created": False,
+        "api_key_hash": "",
+        "stored": False,
+        "success": False,
+        "error_kind": outcome.value,
+        "attempt_record": receipt.to_public_dict(),
+    }
+    print(f"[signup] failed outcome={outcome.value} stage={furthest_stage.value}")
+    return result

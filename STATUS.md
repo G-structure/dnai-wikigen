@@ -73,12 +73,14 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
 - Signup/signin stdout and return payloads expose mailbox and browser-route
   hashes rather than raw account email or Tinker URLs; regression tests cover
   stdout and result egress before the deployed-CVM bootstrap path is retried.
-- Startup bootstrap now preserves the last bounded `api_key_provisioning`
-  attempt record in `/health.runtime.last_bootstrap_attempt_record` on success
-  or selector/API-key-capture failure. This is local/tested code until the next
-  GHCR image is built and deployed; the record contains outcome, furthest
-  stage, hashes, and `raw_secret_egress=false`, not raw mailbox, OTP, browser
-  URL, page text, or API key.
+- Startup bootstrap now preserves the last bounded attempt record in
+  `/health.runtime.last_bootstrap_attempt_record`. It covers successful
+  `api_key_provisioning`, selector/API-key-capture failures, and early
+  `tinker_auth` failures during account lookup, CDP/browser connection,
+  browser context/page setup, authentication, and onboarding. This is
+  local/tested code until the next GHCR image is built and deployed; the record
+  contains outcome, furthest stage, hashes, and `raw_secret_egress=false`, not
+  raw mailbox, OTP, browser URL, page text, or API key.
 - `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps
@@ -875,7 +877,9 @@ explicitly legacy.
   update with `--no-dev-os` still left the CVM reporting dev OS.
 - Deployed headed-Neko bootstrap packaging has now been Phala-tested without the
   Playwright sidecar, but Tinker login/API-key capture inside the deployed CVM
-  is not yet proven.
+  is not yet proven. Source/tests now add bounded early-stage bootstrap
+  receipts for the next Phala retry, but that instrumentation is not yet in the
+  live CVM image.
 - Full Intel TDX quote-internal parsing and quote freshness checking need
   implementation; current verifier checks the public dstack envelope and
   report-data binding only.

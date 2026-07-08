@@ -605,10 +605,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       The live attempt still failed closed with generic
       `bootstrap_error_kind=bootstrap_error` before API-key sealing, so this
       only proves the browser packaging change, not production signup.
-- [ ] `P0` Instrument pre-signup, CDP connection, navigation, and onboarding
+- [x] `P0` Instrument pre-signup, CDP connection, navigation, and onboarding
       exceptions with bounded stage/type receipts so the next deployed bootstrap
       failure preserves useful evidence without raw URL, page text, OTP, email,
       or API-key egress.
+      Done in source/tests 2026-07-08: `signup()` now returns bounded
+      `tinker_auth` receipts for account lookup, CDP/browser connection,
+      browser context/page setup, auth, and onboarding exceptions. Receipts
+      expose only outcome, furthest stage, hashes, bounded message, and
+      `raw_secret_egress=false`; tests inject fake email, OTP, URL, and
+      key-shaped strings into exceptions and assert they do not appear in
+      result/stdout/runtime state. This is not yet redeployed to Phala.
 - [ ] `P0` Capture a selector/frame/auth-flow map for:
       email input, magic-code page, OTP boxes, onboarding, keys page, billing,
       Stripe iframe, balance page, and auto-reload settings.
@@ -657,8 +664,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             Phala one-shot bootstrap using headed Neko CDP instead of the
             Playwright sidecar verified the packaging and endpoint gates, but
             failed closed with generic `bootstrap_error` before a bounded stage
-            receipt or API-key capture. Local Neko still works, so next work
-            should improve bounded failure instrumentation and either repair the
+            receipt or API-key capture. Bounded failure instrumentation now
+            exists in source/tests but still needs a GHCR build and Phala retry.
+            Local Neko still works, so next work should either repair the
             supportable headed-browser posture or obtain an official/support-
             approved Tinker service-account/API-key route.
       - [ ] Complete the same flow inside the deployed CVM and seal the API key

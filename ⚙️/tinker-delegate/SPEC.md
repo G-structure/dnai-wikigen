@@ -26,7 +26,7 @@ We need:
 | **Fee structure** | 1% surcharge on top of raw Tinker API costs, paid to the developer account. |
 | **Evaluation protocol** | Up to the agent and its owner (the buyer). The agent decides base model, steps, benchmarks autonomously. |
 | **`ttl_seconds` on checkpoints** | Mandatory on every save. Dead man's switch — Tinker auto-deletes even if our cleanup never runs. |
-| **Tinker console automation** | **PARTIAL**: Local Neko/CDP + Playwright works for passwordless magic-code auth, onboarding, and API-key provisioning as of 2026-07-08. API-key provisioning now has selector fallback families, aria-label/data-testid variants, bounded `api_key_provisioning` attempt records, and replayable mock-page tests for successful extraction and selector failures. Startup bootstrap preserves the last bounded API-key provisioning attempt record in `/health.runtime.last_bootstrap_attempt_record` so a deployed selector/posture failure can be inspected without raw mailbox, OTP, URL, page text, or API-key egress. A bounded local `reauth` path can refresh OTP auth and returns only `tinker_auth` receipt metadata. The delegate Docker image now installs the optional Tinker SDK and a local image run reports `/health.agent_stack_available=true`. Phala one-shot bootstrap attempts have now failed closed first at Tinker auth with `auth_access_blocked`, then under headed Neko CDP with generic `bootstrap_error`; production bootstrap is not solved. |
+| **Tinker console automation** | **PARTIAL**: Local Neko/CDP + Playwright works for passwordless magic-code auth, onboarding, and API-key provisioning as of 2026-07-08. API-key provisioning now has selector fallback families, aria-label/data-testid variants, bounded `api_key_provisioning` attempt records, and replayable mock-page tests for successful extraction and selector failures. Startup bootstrap preserves the last bounded attempt record in `/health.runtime.last_bootstrap_attempt_record` for successful API-key provisioning, selector/API-key failures, and early `tinker_auth` failures across account lookup, CDP/browser connection, context/page setup, auth, and onboarding. Those records expose no raw mailbox, OTP, URL, page text, or API key. A bounded local `reauth` path can refresh OTP auth and returns only `tinker_auth` receipt metadata. The delegate Docker image now installs the optional Tinker SDK and a local image run reports `/health.agent_stack_available=true`. Phala one-shot bootstrap attempts have now failed closed first at Tinker auth with `auth_access_blocked`, then under headed Neko CDP with generic `bootstrap_error`; production bootstrap is not solved, and the newer early-stage instrumentation still needs a Phala rebuild/retry. |
 | **Plaintext card API** | Disabled by default and unavailable in dstack mode. The normal API path is `/billing/card/encrypted` after quote verification; plaintext card JSON is only an explicit local-development test hook. |
 | **Oracle boot authorization** | Governed on-chain by oracle compose hash policy. The oracle's own code authorization is frozen permanently after production sign-off; fresh TDX quotes continue to verify against that frozen policy. |
 | **OTP consumer authorization** | Managed separately from oracle code authorization. Current same-CVM runtime enforcement uses a bearer token derived from the shared dstack key path; full on-chain consumer-registry checks remain pending. |
@@ -140,8 +140,10 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   auth surface and failed closed with `bootstrap_error_kind=auth_access_blocked`.
   The headed-Neko CDP retry verified the intended packaging and endpoint gates
   but failed closed with generic `bootstrap_error` before a bounded stage
-  receipt or API-key capture. No API key was created, no card or add-balance
-  path was opened, and the normal compose was restored after each attempt.
+  receipt or API-key capture. Source/tests now add bounded early-stage
+  `tinker_auth` receipts for the next deployed retry. No API key was created,
+  no card or add-balance path was opened, and the normal compose was restored
+  after each attempt.
 
 PHASE 2: READY
   Control plane starts listening for on-chain deal events

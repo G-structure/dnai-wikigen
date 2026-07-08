@@ -950,11 +950,14 @@ Implementation status:
             `bootstrap_error_kind=auth_access_blocked`. The second, using the
             headed Neko CDP endpoint, verified the intended browser packaging
             but failed with a generic `bootstrap_error` before a bounded stage
-            receipt was captured. In both attempts the oracle mailbox stayed
-            ready, no API key was configured or stored, endpoint gates stayed
-            closed, and the CVM was redeployed back to the normal compose.
-            Completing deployed Tinker signup now requires better bounded
-            bootstrap instrumentation plus either a supportable headed-browser
+            receipt was captured. Source/tests now add bounded `tinker_auth`
+            receipts for account lookup, CDP/browser connection, context/page
+            setup, auth, and onboarding exceptions, but that instrumentation
+            is not yet deployed to Phala. In both live attempts the oracle
+            mailbox stayed ready, no API key was configured or stored, endpoint
+            gates stayed closed, and the CVM was redeployed back to the normal
+            compose. Completing deployed Tinker signup now requires a new
+            instrumented Phala retry plus either a supportable headed-browser
             posture inside Phala or an official/support-approved Tinker
             API-key/service-account route; stealth/evasion remains out of
             scope.
@@ -1861,7 +1864,8 @@ bounded aggregate results
    are implemented.
 3. Tinker browser automation works locally through Neko/CDP. The deployed
    headed-Neko packaging is Phala-proven, but deployed signup still fails
-   closed before API-key sealing.
+   closed before API-key sealing. Bounded early-stage bootstrap receipts are
+   implemented in source/tests and need the next Phala image/deploy retry.
 4. Reliable Tinker account funding through Stripe browser automation is in progress:
    the test-card path reaches Stripe and declines as expected, the plaintext
    card API is disabled by default, `manual_prefund` is the default production
