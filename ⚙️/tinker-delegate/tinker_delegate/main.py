@@ -121,6 +121,7 @@ def cli():
 
     # Billing commands
     sub.add_parser("balance", help="Get current Tinker account balance")
+    sub.add_parser("funding-policy", help="Print bounded Tinker funding-mode policy")
 
     add_card_p = sub.add_parser("add-card", help="Add payment method (card) to Tinker account")
     add_card_p.add_argument("--number", required=True, help="Card number")
@@ -281,6 +282,10 @@ def cli():
         from tinker_delegate.billing import get_balance
         result = asyncio.run(get_balance(settings))
         print(json.dumps(result, indent=2))
+
+    elif args.command == "funding-policy":
+        from tinker_delegate.funding_policy import funding_policy_status
+        print(json.dumps(funding_policy_status(settings).to_public_dict(), indent=2))
 
     elif args.command == "add-card":
         from tinker_delegate.card_channel import CardPayload, handle_card_update

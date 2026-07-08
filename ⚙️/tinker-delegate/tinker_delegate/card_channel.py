@@ -54,6 +54,12 @@ from tinker_delegate.config import Settings
 from tinker_delegate.crypto import TEEKeyPair, EncryptedPayload
 from tinker_delegate.dstack_utils import get_attestation_details, is_dstack_enabled
 from tinker_delegate.funding_receipt_store import build_funding_receipt_store
+from tinker_delegate.funding_policy import (
+    FundingPolicyError,
+    funding_policy_receipt,
+    require_add_balance_allowed,
+    require_card_automation_allowed,
+)
 from tinker_delegate.redaction import redact_text
 
 
@@ -198,6 +204,22 @@ async def handle_card_update(payload: CardPayload, settings: Settings) -> Billin
 
     For local dev only. In production, use handle_encrypted_card_update.
     """
+    try:
+        require_card_automation_allowed(settings)
+    except FundingPolicyError as exc:
+        error = redact_text(exc)
+        payload.zero()
+        return _billing_response_with_persisted_receipt(
+            settings,
+            success=False,
+            error=error,
+            attempt_record=funding_policy_receipt(
+                surface=AutomationSurface.PAYMENT_METHOD,
+                error=error,
+                card_payload_destroyed=True,
+            ),
+        )
+
     card = CardDetails(
         number=payload.card_number,
         exp_month=payload.exp_month,
@@ -254,10 +276,24 @@ async def handle_encrypted_card_update(
 
     Production path. Card details are encrypted to the TEE's X25519 public key.
     """
-    keypair = get_tee_keypair()
     plaintext_bytes = None
     card = None
+    try:
+        require_card_automation_allowed(settings)
+    except FundingPolicyError as exc:
+        error = redact_text(exc)
+        return _billing_response_with_persisted_receipt(
+            settings,
+            success=False,
+            error=error,
+            attempt_record=funding_policy_receipt(
+                surface=AutomationSurface.PAYMENT_METHOD,
+                error=error,
+                card_payload_destroyed=True,
+            ),
+        )
 
+    keypair = get_tee_keypair()
     try:
         encrypted = EncryptedPayload.from_hex({
             "ephemeral_public_key": payload.ephemeral_public_key,
@@ -324,6 +360,21 @@ async def handle_encrypted_card_update(
 
 async def handle_add_balance(payload: BalancePayload, settings: Settings) -> BillingResponse:
     """Add credit balance. No card details needed (uses card on file)."""
+    try:
+        require_add_balance_allowed(settings)
+    except FundingPolicyError as exc:
+        error = redact_text(exc)
+        return _billing_response_with_persisted_receipt(
+            settings,
+            success=False,
+            error=error,
+            attempt_record=funding_policy_receipt(
+                surface=AutomationSurface.ADD_BALANCE,
+                error=error,
+                amount_dollars=payload.amount_dollars,
+            ),
+        )
+
     try:
         result = await add_balance(payload.amount_dollars, settings)
         return _billing_response_with_persisted_receipt(

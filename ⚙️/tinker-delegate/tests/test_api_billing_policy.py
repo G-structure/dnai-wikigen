@@ -57,7 +57,10 @@ class BillingApiPolicyTest(unittest.TestCase):
         handle_card_update.assert_not_called()
 
     def test_plaintext_card_endpoint_can_be_enabled_for_local_dev(self):
-        api.settings = Settings(allow_plaintext_card_endpoint=True)
+        api.settings = Settings(
+            allow_plaintext_card_endpoint=True,
+            funding_mode="operator_capped_validation",
+        )
         client = TestClient(api.app)
 
         with (
@@ -101,6 +104,7 @@ class BillingApiPolicyTest(unittest.TestCase):
             api.settings = Settings(
                 funding_receipt_store_path=str(receipt_path),
                 funding_receipt_store_key=key,
+                funding_mode="operator_capped_validation",
             )
             client = TestClient(api.app)
             attestation = client.get("/attestation", params={"context": "billing"}).json()
@@ -163,7 +167,10 @@ class BillingApiPolicyTest(unittest.TestCase):
         handle_add_balance.assert_not_called()
 
     def test_add_balance_endpoint_can_be_explicitly_enabled(self):
-        api.settings = Settings(allow_add_balance_endpoint=True)
+        api.settings = Settings(
+            allow_add_balance_endpoint=True,
+            funding_mode="operator_capped_validation",
+        )
         client = TestClient(api.app)
 
         with patch(

@@ -1,0 +1,158 @@
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+
+from fastapi.testclient import TestClient
+
+from tinker_delegate import api
+from tinker_delegate.card_channel import (
+    BalancePayload,
+    CardPayload,
+    EncryptedCardPayload,
+    handle_add_balance,
+    handle_card_update,
+    handle_encrypted_card_update,
+)
+from tinker_delegate.config import Settings
+from tinker_delegate.funding_policy import (
+    FundingMode,
+    FundingPolicyError,
+    funding_policy_status,
+    require_add_balance_allowed,
+    require_card_automation_allowed,
+)
+from tinker_delegate.funding_receipt_store import FundingReceiptStore
+
+
+def _payload() -> CardPayload:
+    return CardPayload(
+        card_number="4242424242424242",
+        exp_month="12",
+        exp_year="2030",
+        cvc="123",
+        cardholder_name="Test User",
+    )
+
+
+class FundingPolicyTest(unittest.IsolatedAsyncioTestCase):
+    def test_default_manual_prefund_denies_browser_funding(self):
+        settings = Settings()
+        status = funding_policy_status(settings)
+
+        self.assertEqual(status.mode, FundingMode.MANUAL_PREFUND)
+        self.assertFalse(status.card_automation_allowed)
+        self.assertFalse(status.add_balance_automation_allowed)
+        with self.assertRaises(FundingPolicyError):
+            require_card_automation_allowed(settings)
+        with self.assertRaises(FundingPolicyError):
+            require_add_balance_allowed(settings)
+
+    def test_operator_capped_validation_allows_browser_funding(self):
+        settings = Settings(
+            funding_mode="operator_capped_validation",
+            allow_plaintext_card_endpoint=True,
+            allow_add_balance_endpoint=True,
+        )
+        status = funding_policy_status(settings)
+
+        self.assertEqual(status.mode, FundingMode.OPERATOR_CAPPED_VALIDATION)
+        self.assertTrue(status.card_automation_allowed)
+        self.assertTrue(status.add_balance_automation_allowed)
+        self.assertTrue(status.plaintext_card_endpoint_allowed)
+        self.assertTrue(status.add_balance_endpoint_allowed)
+        self.assertIn("operator-owned capped validation", status.raw_card_scope)
+        require_card_automation_allowed(settings)
+        require_add_balance_allowed(settings)
+
+    async def test_default_policy_denies_plaintext_card_before_browser(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "funding_receipts.enc"
+            settings = Settings(
+                funding_receipt_store_path=str(receipt_path),
+                funding_receipt_store_key="11" * 32,
+            )
+            payload = _payload()
+
+            with patch("tinker_delegate.card_channel.add_payment_method", new=AsyncMock()) as add_payment:
+                result = await handle_card_update(payload, settings)
+
+            self.assertFalse(result.success)
+            self.assertEqual(result.attempt_record["outcome"], "policy_denied")
+            self.assertTrue(result.attempt_record["card_payload_destroyed"])
+            self.assertEqual(payload.card_number, "")
+            self.assertNotIn("4242424242424242", result.model_dump_json())
+            add_payment.assert_not_called()
+            stored = FundingReceiptStore(str(receipt_path), key_hex="11" * 32).load()
+            self.assertEqual(stored, [result.attempt_record])
+
+    async def test_default_policy_denies_encrypted_card_before_decrypt(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "funding_receipts.enc"
+            settings = Settings(
+                funding_receipt_store_path=str(receipt_path),
+                funding_receipt_store_key="22" * 32,
+            )
+            payload = EncryptedCardPayload(
+                ephemeral_public_key="00",
+                nonce="00",
+                ciphertext="00",
+            )
+
+            with (
+                patch("tinker_delegate.card_channel.add_payment_method", new=AsyncMock()) as add_payment,
+                patch("tinker_delegate.card_channel.EncryptedPayload.from_hex") as from_hex,
+            ):
+                result = await handle_encrypted_card_update(payload, settings)
+
+            self.assertFalse(result.success)
+            self.assertEqual(result.attempt_record["outcome"], "policy_denied")
+            self.assertTrue(result.attempt_record["card_payload_destroyed"])
+            self.assertNotIn("4242424242424242", result.model_dump_json())
+            add_payment.assert_not_called()
+            from_hex.assert_not_called()
+            stored = FundingReceiptStore(str(receipt_path), key_hex="22" * 32).load()
+            self.assertEqual(stored, [result.attempt_record])
+
+    async def test_default_policy_denies_add_balance_before_browser(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt_path = Path(tmpdir) / "funding_receipts.enc"
+            settings = Settings(
+                funding_receipt_store_path=str(receipt_path),
+                funding_receipt_store_key="33" * 32,
+            )
+
+            with patch("tinker_delegate.card_channel.add_balance", new=AsyncMock()) as add_balance:
+                result = await handle_add_balance(BalancePayload(amount_dollars=5.0), settings)
+
+            self.assertFalse(result.success)
+            self.assertEqual(result.attempt_record["surface"], "add_balance")
+            self.assertEqual(result.attempt_record["outcome"], "policy_denied")
+            self.assertEqual(result.attempt_record["amount_band"], "5_25_usd")
+            add_balance.assert_not_called()
+            stored = FundingReceiptStore(str(receipt_path), key_hex="33" * 32).load()
+            self.assertEqual(stored, [result.attempt_record])
+
+
+class FundingPolicyApiTest(unittest.TestCase):
+    def setUp(self):
+        self.original_settings = api.settings
+
+    def tearDown(self):
+        api.settings = self.original_settings
+
+    def test_funding_policy_endpoint_returns_bounded_mode(self):
+        api.settings = Settings(funding_mode="manual_prefund")
+        client = TestClient(api.app)
+
+        response = client.get("/billing/funding-policy")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["mode"], "manual_prefund")
+        self.assertFalse(body["card_automation_allowed"])
+        self.assertEqual(body["raw_card_scope"], "denied")
+
+
+if __name__ == "__main__":
+    unittest.main()

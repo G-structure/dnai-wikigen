@@ -609,10 +609,18 @@ Implementation status:
             before launching browser automation. Non-finite, non-positive, and
             over-cap requests return bounded `policy_denied` `add_balance`
             receipts at `not_started` with amount bands, not page text.
+[real]      `TINKER_FUNDING_MODE=manual_prefund` is the default production
+            funding model and denies card/add-balance browser automation before
+            decryption or browser launch. `operator_capped_validation` is
+            required for one-off approved operator validation attempts; denied
+            requests persist bounded `policy_denied` receipts. The bounded
+            policy is inspectable through `GET /billing/funding-policy` and
+            the `funding-policy` CLI.
 [real]      The FastAPI `POST /billing/add-balance` mutation endpoint is
             disabled by default behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`.
-            The lower-level CLI/internal handler remains available for
-            deliberate capped operator validation attempts.
+            The lower-level CLI/internal handler still requires
+            `operator_capped_validation` mode before deliberate capped operator
+            validation attempts.
 [real]      Stripe/PCI funding stance is documented in
             `⚙️/tinker-delegate/docs/STRIPE-PCI-FUNDING-SCOPE.md`: the
             encrypted raw-card channel is only an operator-owned capped
@@ -1229,6 +1237,7 @@ GET  /health
 GET  /attestation?context=ingress|artifact|billing
 POST /auth/reauth opt-in bounded OTP re-auth; disabled by default
 GET  /billing/balance
+GET  /billing/funding-policy bounded funding-mode policy
 GET  /billing/funding-receipts bounded funding attempt audit records
 POST /billing/card            local-dev plaintext hook, disabled by default
 POST /billing/card/encrypted  production encrypted card channel
@@ -1457,7 +1466,8 @@ bounded aggregate results
    fresh deployed Phala/CVM validation run.
 4. Reliable Tinker account funding through Stripe browser automation is in progress:
    the test-card path reaches Stripe and declines as expected, the plaintext
-   card API is disabled by default, but real funding is not yet proven.
+   card API is disabled by default, `manual_prefund` is the default production
+   funding mode, and real funding is not yet proven.
 5. Real TTT/RL bio-validation is not implemented.
 6. DLP/egress enforcement is not implemented.
 7. Corpus policy and consent/revocation are modeled but not enforced.

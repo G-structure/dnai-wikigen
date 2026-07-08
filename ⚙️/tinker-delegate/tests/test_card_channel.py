@@ -83,6 +83,7 @@ class CardChannelTest(unittest.IsolatedAsyncioTestCase):
             settings = Settings(
                 funding_receipt_store_path=str(receipt_path),
                 funding_receipt_store_key="66" * 32,
+                funding_mode="operator_capped_validation",
             )
 
             with (
@@ -115,6 +116,7 @@ class CardChannelTest(unittest.IsolatedAsyncioTestCase):
             settings = Settings(
                 funding_receipt_store_path=str(receipt_path),
                 funding_receipt_store_key="77" * 32,
+                funding_mode="operator_capped_validation",
             )
 
             with patch(
@@ -151,7 +153,10 @@ class CardChannelTest(unittest.IsolatedAsyncioTestCase):
             patch("tinker_delegate.card_channel.get_attestation", return_value={}),
             patch("tinker_delegate.card_channel.build_funding_receipt_store", return_value=FailingStore()),
         ):
-            result = await handle_card_update(payload, Settings())
+            result = await handle_card_update(
+                payload,
+                Settings(funding_mode="operator_capped_validation"),
+            )
 
         self.assertFalse(result.success)
         self.assertIn("funding receipt persistence failed", result.error)

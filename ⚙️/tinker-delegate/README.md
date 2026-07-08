@@ -14,7 +14,32 @@ The acceptable automation route is recorded in `docs/TINKER-AUTOMATION-ROUTE.md`
 
 The oracle's `/pin` and `/inbox` endpoints are now protected by runtime bearer auth when enabled. In the combined dstack/Phala deployment, the oracle and delegate derive the bearer token from the same dstack key path (`oracle/runtime-auth`). Local development can use an explicit `ORACLE_RUNTIME_AUTH_TOKEN` / `TINKER_ORACLE_AUTH_TOKEN` pair instead. `/pin` requests are scoped: the delegate sends target service, expected sender, caller identity, reason, nonce, max age, and bounded extraction pattern. The oracle persists released OTP hashes in an encrypted/sealed replay ledger so one-time-use survives restart, and logs only bounded metadata, not the OTP value.
 
-Tinker account funding remains in progress. The current validation path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code now reach Stripe in the local Neko session: a Stripe test card filled the live payment form and was rejected with `Your card was declined.` Adding balance correctly fails closed with `Payment method required before adding balance` when no real card is on file. On 2026-07-08, the same local session produced bounded `payment_method` and `add_balance` attempt records with outcome classes, furthest-stage markers, timestamps, evidence hashes, amount bands, and card-payload destruction status. The encrypted client harness verifies `/attestation?context=billing`, encrypts locally, posts only ciphertext to `/billing/card/encrypted`, and locally reproduced the same bounded test-card decline with a persisted receipt. The plaintext card API endpoint is disabled by default and unavailable in dstack mode; it can only be enabled as a local-development test hook with `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. The add-balance HTTP mutation endpoint is also disabled by default and requires `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=true`; the capped CLI/operator path remains available for deliberate validation attempts. The Stripe/PCI stance is recorded in `docs/STRIPE-PCI-FUNDING-SCOPE.md`: raw-card encrypted delivery is limited to a capped operator-owned validation path, while production/repeated funding should use an official Tinker route, Stripe-hosted/tokenized collection, SetupIntent / PaymentMethod reuse with consent, or manual/developer prefunding until compliance review approves otherwise. A capped real-card validation attempt is still required before funding can be called end-to-end proven.
+Tinker account funding remains in progress. The production funding model is
+manual/developer prefund by default until an official/tokenized route exists.
+Raw-card browser automation is denied unless `TINKER_FUNDING_MODE` is set to
+`operator_capped_validation` for a one-off approved operator-owned validation
+attempt. The current validation path is card data encrypted to the TEE, then
+browser automation drives the Tinker/Stripe billing form and clears card
+material from memory. The card channel and billing code now reach Stripe in the
+local Neko session: a Stripe test card filled the live payment form and was
+rejected with `Your card was declined.` Adding balance correctly fails closed
+with `Payment method required before adding balance` when no real card is on
+file. On 2026-07-08, the same local session produced bounded `payment_method`
+and `add_balance` attempt records with outcome classes, furthest-stage markers,
+timestamps, evidence hashes, amount bands, and card-payload destruction status.
+The encrypted client harness verifies `/attestation?context=billing`, encrypts
+locally, posts only ciphertext to `/billing/card/encrypted`, and locally
+reproduced the same bounded test-card decline with a persisted receipt. The
+plaintext card API endpoint is disabled by default and unavailable in dstack
+mode; it can only be enabled as a local-development test hook with
+`TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. The add-balance HTTP mutation
+endpoint is also disabled by default and requires
+`TINKER_ALLOW_ADD_BALANCE_ENDPOINT=true`; the capped CLI/operator path remains
+available only in `operator_capped_validation` mode. The Stripe/PCI stance is
+recorded in `docs/STRIPE-PCI-FUNDING-SCOPE.md`; the enforceable funding-mode
+decision is recorded in `docs/TINKER-FUNDING-MODEL.md`. A capped real-card
+validation attempt is still required before funding can be called end-to-end
+proven.
 
 ## How It Works
 
@@ -208,6 +233,7 @@ GET  /health              — service health + oracle email
 GET  /attestation?context=ingress|artifact|billing — context-bound quote + public key
 POST /auth/reauth         — bounded OTP re-auth, disabled unless explicitly enabled
 GET  /billing/balance     — current Tinker balance
+GET  /billing/funding-policy — bounded funding-mode policy
 GET  /billing/funding-receipts — bounded funding attempt audit records
 POST /billing/card        — plaintext local-dev hook, disabled by default
 POST /billing/card/encrypted — add payment method after attestation-verified encryption
@@ -269,6 +295,7 @@ All settings use the `TINKER_` env prefix:
 | `TINKER_RUN_METADATA_STORE_PATH` | `./data/run_metadata.enc` | Encrypted bounded deal/run lifecycle metadata store |
 | `TINKER_RUN_METADATA_STORE_KEY` | *(empty)* | Local-dev hex key override; dstack should derive the key instead |
 | `TINKER_RUN_METADATA_KEY_PATH` | `tinker/run_metadata` | dstack key path for run metadata storage |
+| `TINKER_FUNDING_MODE` | `manual_prefund` | Funding mode: `manual_prefund`, `operator_capped_validation`, or reserved `official_tokenized` |
 | `TINKER_MAX_ADD_BALANCE_USD` | `5.0` | Maximum add-balance amount allowed before browser automation starts |
 | `TINKER_ALLOW_ADD_BALANCE_ENDPOINT` | `false` | Enables `POST /billing/add-balance`; leave false unless running a deliberate capped operator validation |
 | `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT` | `false` | Local-dev only flag for `POST /billing/card`; production uses `/billing/card/encrypted` |
@@ -359,6 +386,12 @@ contracts/
 - **Receipt storage**: bounded funding attempt records are persisted in the
   encrypted delegate store and can be read through `/billing/funding-receipts`.
   The store rejects unknown fields and any receipt claiming raw secret egress.
+- **Funding mode**: `manual_prefund` is the default production model and denies
+  card/add-balance browser automation. `operator_capped_validation` is required
+  before encrypted card or add-balance automation can launch, and denied
+  requests persist bounded `policy_denied` receipts. Inspect the bounded policy
+  through `/billing/funding-policy` or `python -m tinker_delegate.main
+  funding-policy`.
 - **Run metadata storage**: deal lifecycle events are persisted in a separate
   encrypted delegate store under `/data/run_metadata.enc` in compose profiles.
   Records contain only bounded metadata such as hashed deal/account/run handles,
@@ -376,10 +409,11 @@ contracts/
   `tinker_delegate.billing_uploader` fetch `/attestation?context=billing`,
   verify policy, encrypt card JSON, wipe the local plaintext buffer, and post
   only ciphertext to `/billing/card/encrypted`.
-- **Stripe/PCI stance**: see `docs/STRIPE-PCI-FUNDING-SCOPE.md`; production or
-  repeated funding should use an official Tinker route, Stripe-hosted/tokenized
-  collection, SetupIntent / PaymentMethod reuse with consent, or
-  manual/developer prefunding until compliance review approves otherwise.
+- **Funding model and Stripe/PCI stance**: see `docs/TINKER-FUNDING-MODEL.md`
+  and `docs/STRIPE-PCI-FUNDING-SCOPE.md`; production or repeated funding should
+  use an official Tinker route, Stripe-hosted/tokenized collection,
+  SetupIntent / PaymentMethod reuse with consent, or manual/developer prefunding
+  until compliance review approves otherwise.
 - **Auto-reload**: Configurable threshold + amount
 - **Pricing** (USD/million tokens): Llama-3.2-1B $0.03-$0.09, Llama-3.1-8B $0.13-$0.40, Qwen3-235B $0.68-$2.04
 - **Trust model**: Developer encrypts card to TEE's TDX key → TEE fills Stripe form → zeroes memory → card never persisted

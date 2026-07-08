@@ -36,6 +36,7 @@ class RedactionTest(unittest.IsolatedAsyncioTestCase):
             settings = Settings(
                 funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
                 funding_receipt_store_key="99" * 32,
+                funding_mode="operator_capped_validation",
             )
             error = RuntimeError("processor saw card_number=4242424242424242 cvc=123")
 

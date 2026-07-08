@@ -69,6 +69,18 @@ class ComposeHardeningTest(unittest.TestCase):
                 self.assertIn("TINKER_RUN_METADATA_KEY_PATH", block)
                 self.assertIn("tinker/run_metadata", block)
 
+    def test_delegate_funding_mode_defaults_to_manual_prefund(self):
+        for compose_name in (
+            "docker-compose.yaml",
+            "docker-compose.dstack.yaml",
+            "docker-compose.all.yaml",
+            "docker-compose.all.dstack.yaml",
+            "docker-compose.all.phala.yaml",
+        ):
+            with self.subTest(compose_name=compose_name):
+                block = _service_block((ROOT / compose_name).read_text(), "delegate")
+                self.assertIn("TINKER_FUNDING_MODE: ${TINKER_FUNDING_MODE:-manual_prefund}", block)
+
 
 if __name__ == "__main__":
     unittest.main()

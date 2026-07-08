@@ -64,6 +64,11 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Add-balance fails closed when no funded payment method is available.
 - Bounded funding receipts are stored encrypted under the delegate data volume
   and reject unknown fields or `raw_secret_egress=true`.
+- `TINKER_FUNDING_MODE=manual_prefund` is the default production model and
+  denies card/add-balance browser automation before decryption or browser
+  launch. `operator_capped_validation` is required for one-off approved
+  operator validation attempts, and denied requests persist bounded
+  `policy_denied` receipts.
 
 [real] `tinker-delegate` bounded run metadata:
 
@@ -220,9 +225,12 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
 - Add-balance automation enforces `TINKER_MAX_ADD_BALANCE_USD` before launching
   browser automation. Non-finite, non-positive, or over-cap requests return
   bounded `policy_denied` receipts at `not_started` with amount bands.
+- The active funding mode is inspectable through `GET /billing/funding-policy`
+  and `python -m tinker_delegate.main funding-policy`.
 - The HTTP `POST /billing/add-balance` mutation endpoint is disabled by default
-  behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; the capped CLI/internal path
-  remains available for deliberate operator validation attempts.
+  behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; the capped CLI/internal path also
+  requires `TINKER_FUNDING_MODE=operator_capped_validation` for deliberate
+  operator validation attempts.
 - Stripe/PCI stance is recorded in
   `⚙️/tinker-delegate/docs/STRIPE-PCI-FUNDING-SCOPE.md`: the encrypted raw-card
   channel is limited to a one-off operator-owned capped validation path, while
@@ -247,7 +255,8 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   are provided out of band.
 - Production or repeated card funding still needs legal/compliance approval.
 - Payment-method token/reference handling and the sealed long-lived funding
-  token/session state still need production retention and rotation policy.
+  token/session state still need an official/tokenized route plus production
+  retention and rotation policy.
 
 [partial] TEE attestation:
 

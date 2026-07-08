@@ -363,9 +363,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 ### Tinker Funding
 
-- [ ] `P0` Decide the production funding model:
-      developer prefund, buyer-funded compute pool, per-deal top-up, account to
-      account transfer, crypto-to-fiat bridge, or manual invoice.
+- [x] `P0` Decide the production funding model:
+      production defaults to manual/developer prefund until an official or
+      tokenized Tinker/Stripe route exists. Raw-card browser automation is
+      limited to opt-in `operator_capped_validation` for one-off approved
+      operator-owned validation attempts; `GET /billing/funding-policy` and the
+      `funding-policy` CLI expose the bounded mode, and denied card/add-balance
+      requests persist bounded `policy_denied` receipts without browser launch.
 - [ ] `P0` Finish the encrypted card channel:
       verify TEE quote, encrypt card payload to TEE public key, decrypt in memory,
       fill billing form, zero memory, and return only bounded status.
@@ -379,6 +383,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             context-bound billing attestation verification; Stripe test-card
             submission returns bounded `card_declined` and the encrypted receipt
             store records the attempt.
+      - [x] Gate encrypted card and add-balance automation behind
+            `TINKER_FUNDING_MODE=operator_capped_validation`; the default
+            `manual_prefund` mode denies those browser paths before card
+            decryption or browser launch and records bounded policy receipts.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
@@ -391,8 +399,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             automation so real-card top-ups cannot exceed the approved cap by
             caller input alone.
       - [x] Disable the HTTP add-balance mutation endpoint by default behind
-            `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; keep the capped CLI/internal
-            path for deliberate operator validation attempts.
+            `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; the capped CLI/internal path
+            also requires `TINKER_FUNDING_MODE=operator_capped_validation` for
+            deliberate operator validation attempts.
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
             attempt after receiving approved card details.
 - [x] `P0` Confirm PCI and Stripe obligations.

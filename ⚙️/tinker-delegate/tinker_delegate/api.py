@@ -5,6 +5,7 @@ Endpoints:
   GET  /attestation               — TDX attestation quote + context-bound encryption public key
   POST /auth/reauth               — bounded Tinker OTP re-auth, disabled unless explicitly enabled
   GET  /billing/balance           — current Tinker balance
+  GET  /billing/funding-policy    — bounded active funding mode
   GET  /billing/funding-receipts  — bounded funding attempt audit records
   POST /billing/card              — add payment method (plaintext — local dev only)
   POST /billing/card/encrypted    — add payment method (encrypted to TEE — production)
@@ -33,6 +34,7 @@ from tinker_delegate.config import Settings
 from tinker_delegate.crypto import EncryptedPayload
 from tinker_delegate.dstack_utils import is_dstack_enabled
 from tinker_delegate.funding_receipt_store import build_funding_receipt_store
+from tinker_delegate.funding_policy import FundingPolicyError, funding_policy_status
 from tinker_delegate.oracle_client import OracleClient
 from tinker_delegate.redaction import redact_text
 from tinker_delegate.run_metadata_store import build_run_metadata_store
@@ -203,6 +205,15 @@ async def billing_balance():
     """Get current Tinker account balance."""
     result = await handle_get_balance(settings)
     return result.model_dump()
+
+
+@app.get("/billing/funding-policy")
+async def billing_funding_policy():
+    """Return the bounded funding-mode policy for this delegate."""
+    try:
+        return funding_policy_status(settings).to_public_dict()
+    except FundingPolicyError as e:
+        raise HTTPException(503, redact_text(e)) from e
 
 
 @app.get("/billing/funding-receipts")
