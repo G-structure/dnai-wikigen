@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -12,6 +13,8 @@ from tinker_delegate.automation_receipts import (
     AutomationSurface,
     make_receipt,
 )
+from tinker_delegate.funding_receipt_store import build_funding_receipt_store
+from tinker_delegate.redaction import redact_text
 
 
 class FundingMode(StrEnum):
@@ -47,6 +50,36 @@ class FundingPolicyStatus:
             "add_balance_endpoint_allowed": self.add_balance_endpoint_allowed,
             "raw_card_scope": self.raw_card_scope,
             "next_required_evidence": self.next_required_evidence,
+        }
+
+
+@dataclass(frozen=True)
+class FundingPreflightCheck:
+    name: str
+    ok: bool
+    status: str
+    detail: str = ""
+
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "ok": self.ok,
+            "status": self.status,
+            "detail": self.detail,
+        }
+
+
+@dataclass(frozen=True)
+class FundingValidationPreflight:
+    ready: bool
+    policy: FundingPolicyStatus
+    checks: tuple[FundingPreflightCheck, ...]
+
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "ready": self.ready,
+            "policy": self.policy.to_public_dict(),
+            "checks": [check.to_public_dict() for check in self.checks],
         }
 
 
@@ -127,3 +160,199 @@ def funding_policy_receipt(
         amount_dollars=amount_dollars,
         card_payload_destroyed=card_payload_destroyed,
     ).to_public_dict()
+
+
+def funding_validation_preflight(
+    settings,
+    *,
+    amount_dollars: float | None = None,
+    require_add_balance_endpoint: bool = False,
+    api_url: str = "",
+    expected_compose_hash: str = "",
+    expected_app_id: str = "",
+    expected_os_image_hash: str = "",
+    allow_local_attestation: bool = False,
+    fetch_attestation: bool = False,
+) -> FundingValidationPreflight:
+    """Check operator funding readiness without card material or browser launch."""
+    policy = funding_policy_status(settings)
+    checks: list[FundingPreflightCheck] = []
+
+    checks.append(
+        FundingPreflightCheck(
+            name="funding_mode",
+            ok=policy.mode == FundingMode.OPERATOR_CAPPED_VALIDATION,
+            status=policy.mode.value,
+            detail=(
+                "operator capped validation enabled"
+                if policy.mode == FundingMode.OPERATOR_CAPPED_VALIDATION
+                else "set TINKER_FUNDING_MODE=operator_capped_validation for a one-off operator validation"
+            ),
+        )
+    )
+
+    max_amount = float(settings.max_add_balance_usd)
+    cap_ok = math.isfinite(max_amount) and max_amount > 0
+    checks.append(
+        FundingPreflightCheck(
+            name="max_add_balance_cap",
+            ok=cap_ok,
+            status=str(settings.max_add_balance_usd),
+            detail="configured cap must be finite and positive",
+        )
+    )
+
+    if amount_dollars is not None:
+        amount = float(amount_dollars)
+        amount_ok = math.isfinite(amount) and 0 < amount <= max_amount
+        checks.append(
+            FundingPreflightCheck(
+                name="requested_amount",
+                ok=amount_ok,
+                status="within_cap" if amount_ok else "outside_cap",
+                detail="requested amount must be positive, finite, and no larger than TINKER_MAX_ADD_BALANCE_USD",
+            )
+        )
+
+    if require_add_balance_endpoint:
+        endpoint_ok = bool(settings.allow_add_balance_endpoint)
+        checks.append(
+            FundingPreflightCheck(
+                name="add_balance_endpoint",
+                ok=endpoint_ok,
+                status="enabled" if endpoint_ok else "disabled",
+                detail="set TINKER_ALLOW_ADD_BALANCE_ENDPOINT=true only for a deliberate capped validation",
+            )
+        )
+
+    checks.append(_receipt_store_check(settings))
+    checks.extend(
+        _attestation_preflight_checks(
+            api_url=api_url,
+            expected_compose_hash=expected_compose_hash,
+            expected_app_id=expected_app_id,
+            expected_os_image_hash=expected_os_image_hash,
+            allow_local_attestation=allow_local_attestation,
+            fetch_attestation=fetch_attestation,
+        )
+    )
+
+    return FundingValidationPreflight(
+        ready=all(check.ok for check in checks),
+        policy=policy,
+        checks=tuple(checks),
+    )
+
+
+def _receipt_store_check(settings) -> FundingPreflightCheck:
+    try:
+        build_funding_receipt_store(settings).load()
+    except Exception as exc:
+        return FundingPreflightCheck(
+            name="funding_receipt_store",
+            ok=False,
+            status="unavailable",
+            detail=redact_text(exc),
+        )
+    return FundingPreflightCheck(
+        name="funding_receipt_store",
+        ok=True,
+        status="loadable",
+        detail="bounded encrypted receipt store can be opened",
+    )
+
+
+def _attestation_preflight_checks(
+    *,
+    api_url: str,
+    expected_compose_hash: str,
+    expected_app_id: str,
+    expected_os_image_hash: str,
+    allow_local_attestation: bool,
+    fetch_attestation: bool,
+) -> list[FundingPreflightCheck]:
+    if not api_url:
+        return [
+            FundingPreflightCheck(
+                name="billing_attestation_policy",
+                ok=False,
+                status="missing_api_url",
+                detail="provide the delegate API URL to preflight encrypted-card attestation",
+            )
+        ]
+
+    has_expected_identity = bool(expected_compose_hash or expected_app_id or expected_os_image_hash)
+    if not allow_local_attestation and not has_expected_identity:
+        return [
+            FundingPreflightCheck(
+                name="billing_attestation_policy",
+                ok=False,
+                status="missing_expected_measurement",
+                detail="provide expected compose/app/OS image hash or explicitly allow local attestation",
+            )
+        ]
+
+    checks = [
+        FundingPreflightCheck(
+            name="billing_attestation_policy",
+            ok=True,
+            status="configured",
+            detail="billing attestation policy has bounded expected evidence",
+        )
+    ]
+    if not fetch_attestation:
+        checks.append(
+            FundingPreflightCheck(
+                name="billing_attestation_fetch",
+                ok=True,
+                status="skipped",
+                detail="pass --fetch-attestation to live-fetch and verify /attestation?context=billing",
+            )
+        )
+        return checks
+
+    from tinker_delegate.attestation_verifier import (
+        AttestationPolicy,
+        AttestationVerificationError,
+        fetch_and_verify_attestation,
+    )
+
+    policy = AttestationPolicy(
+        expected_compose_hash=expected_compose_hash,
+        expected_app_id=expected_app_id,
+        expected_os_image_hash=expected_os_image_hash,
+        context="billing",
+        allow_local=allow_local_attestation,
+    )
+    try:
+        result = fetch_and_verify_attestation(api_url, policy)
+    except AttestationVerificationError as exc:
+        checks.append(
+            FundingPreflightCheck(
+                name="billing_attestation_fetch",
+                ok=False,
+                status="rejected",
+                detail=redact_text(exc),
+            )
+        )
+        return checks
+    except Exception as exc:
+        checks.append(
+            FundingPreflightCheck(
+                name="billing_attestation_fetch",
+                ok=False,
+                status="unavailable",
+                detail=redact_text(exc),
+            )
+        )
+        return checks
+
+    checks.append(
+        FundingPreflightCheck(
+            name="billing_attestation_fetch",
+            ok=True,
+            status=result.mode,
+            detail="billing attestation evidence verified",
+        )
+    )
+    return checks

@@ -123,6 +123,48 @@ def cli():
     sub.add_parser("balance", help="Get current Tinker account balance")
     sub.add_parser("funding-policy", help="Print bounded Tinker funding-mode policy")
 
+    funding_preflight_p = sub.add_parser(
+        "funding-preflight",
+        help="Check operator funding validation readiness without card material",
+    )
+    funding_preflight_p.add_argument(
+        "--amount",
+        type=float,
+        default=None,
+        help="Planned add-balance amount in USD to check against the configured cap",
+    )
+    funding_preflight_p.add_argument(
+        "--require-add-balance-endpoint",
+        action="store_true",
+        help="Require POST /billing/add-balance to be explicitly enabled",
+    )
+    funding_preflight_p.add_argument(
+        "--api-url",
+        default="",
+        help="Tinker delegate API base URL for billing attestation preflight",
+    )
+    funding_preflight_p.add_argument(
+        "--compose-hash",
+        default="",
+        help="Expected dstack compose hash for billing attestation",
+    )
+    funding_preflight_p.add_argument("--app-id", default="", help="Expected dstack app ID")
+    funding_preflight_p.add_argument(
+        "--os-image-hash",
+        default="",
+        help="Expected dstack OS image hash",
+    )
+    funding_preflight_p.add_argument(
+        "--allow-local-attestation",
+        action="store_true",
+        help="Allow local-mode attestation for development preflight only",
+    )
+    funding_preflight_p.add_argument(
+        "--fetch-attestation",
+        action="store_true",
+        help="Live-fetch and verify /attestation?context=billing",
+    )
+
     add_card_p = sub.add_parser("add-card", help="Add payment method (card) to Tinker account")
     add_card_p.add_argument("--number", required=True, help="Card number")
     add_card_p.add_argument("--exp-month", required=True, help="Expiration month (01-12)")
@@ -286,6 +328,22 @@ def cli():
     elif args.command == "funding-policy":
         from tinker_delegate.funding_policy import funding_policy_status
         print(json.dumps(funding_policy_status(settings).to_public_dict(), indent=2))
+
+    elif args.command == "funding-preflight":
+        from tinker_delegate.funding_policy import funding_validation_preflight
+        result = funding_validation_preflight(
+            settings,
+            amount_dollars=args.amount,
+            require_add_balance_endpoint=args.require_add_balance_endpoint,
+            api_url=args.api_url,
+            expected_compose_hash=args.compose_hash,
+            expected_app_id=args.app_id,
+            expected_os_image_hash=args.os_image_hash,
+            allow_local_attestation=args.allow_local_attestation,
+            fetch_attestation=args.fetch_attestation,
+        )
+        print(json.dumps(result.to_public_dict(), indent=2))
+        sys.exit(0 if result.ready else 1)
 
     elif args.command == "add-card":
         from tinker_delegate.card_channel import CardPayload, handle_card_update

@@ -387,6 +387,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `TINKER_FUNDING_MODE=operator_capped_validation`; the default
             `manual_prefund` mode denies those browser paths before card
             decryption or browser launch and records bounded policy receipts.
+      - [x] Add bounded operator funding preflight via
+            `GET /billing/funding-preflight` and the `funding-preflight` CLI:
+            checks funding mode, amount cap, optional add-balance endpoint flag,
+            encrypted receipt-store availability, and billing attestation policy
+            before any card payload or browser launch.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test

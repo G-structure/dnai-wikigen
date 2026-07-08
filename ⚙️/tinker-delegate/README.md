@@ -234,6 +234,7 @@ GET  /attestation?context=ingress|artifact|billing — context-bound quote + pub
 POST /auth/reauth         — bounded OTP re-auth, disabled unless explicitly enabled
 GET  /billing/balance     — current Tinker balance
 GET  /billing/funding-policy — bounded funding-mode policy
+GET  /billing/funding-preflight — bounded operator funding readiness checks
 GET  /billing/funding-receipts — bounded funding attempt audit records
 POST /billing/card        — plaintext local-dev hook, disabled by default
 POST /billing/card/encrypted — add payment method after attestation-verified encryption
@@ -392,6 +393,11 @@ contracts/
   requests persist bounded `policy_denied` receipts. Inspect the bounded policy
   through `/billing/funding-policy` or `python -m tinker_delegate.main
   funding-policy`.
+- **Funding preflight**: `GET /billing/funding-preflight` and `python -m
+  tinker_delegate.main funding-preflight` check validation mode, amount cap,
+  optional add-balance endpoint flag, encrypted receipt-store availability, and
+  billing attestation policy before any card payload or browser launch. Passing
+  `--fetch-attestation` live-fetches `/attestation?context=billing`.
 - **Run metadata storage**: deal lifecycle events are persisted in a separate
   encrypted delegate store under `/data/run_metadata.enc` in compose profiles.
   Records contain only bounded metadata such as hashed deal/account/run handles,

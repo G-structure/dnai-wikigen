@@ -18,6 +18,7 @@ from tinker_delegate.config import Settings
 from tinker_delegate.funding_policy import (
     FundingMode,
     FundingPolicyError,
+    funding_validation_preflight,
     funding_policy_status,
     require_add_balance_allowed,
     require_card_automation_allowed,
@@ -64,6 +65,71 @@ class FundingPolicyTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("operator-owned capped validation", status.raw_card_scope)
         require_card_automation_allowed(settings)
         require_add_balance_allowed(settings)
+
+    def test_default_preflight_fails_closed_without_browser_or_card(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = Settings(
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="44" * 32,
+            )
+
+            result = funding_validation_preflight(settings, amount_dollars=5.0)
+
+        body = result.to_public_dict()
+        self.assertFalse(body["ready"])
+        checks = {check["name"]: check for check in body["checks"]}
+        self.assertEqual(checks["funding_mode"]["status"], "manual_prefund")
+        self.assertFalse(checks["funding_mode"]["ok"])
+        self.assertEqual(checks["funding_receipt_store"]["status"], "loadable")
+        self.assertEqual(checks["billing_attestation_policy"]["status"], "missing_api_url")
+        self.assertNotIn("4242424242424242", repr(body))
+
+    def test_operator_validation_preflight_passes_with_bounded_local_policy(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="55" * 32,
+            )
+
+            result = funding_validation_preflight(
+                settings,
+                amount_dollars=5.0,
+                api_url="http://localhost:8080",
+                allow_local_attestation=True,
+            )
+
+        body = result.to_public_dict()
+        self.assertTrue(body["ready"])
+        checks = {check["name"]: check for check in body["checks"]}
+        self.assertEqual(checks["funding_mode"]["status"], "operator_capped_validation")
+        self.assertEqual(checks["requested_amount"]["status"], "within_cap")
+        self.assertEqual(checks["billing_attestation_policy"]["status"], "configured")
+        self.assertEqual(checks["billing_attestation_fetch"]["status"], "skipped")
+
+    def test_preflight_rejects_over_cap_amount_and_disabled_endpoint(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="66" * 32,
+                max_add_balance_usd=5.0,
+                allow_add_balance_endpoint=False,
+            )
+
+            result = funding_validation_preflight(
+                settings,
+                amount_dollars=6.0,
+                require_add_balance_endpoint=True,
+                api_url="http://localhost:8080",
+                allow_local_attestation=True,
+            )
+
+        body = result.to_public_dict()
+        self.assertFalse(body["ready"])
+        checks = {check["name"]: check for check in body["checks"]}
+        self.assertEqual(checks["requested_amount"]["status"], "outside_cap")
+        self.assertEqual(checks["add_balance_endpoint"]["status"], "disabled")
 
     async def test_default_policy_denies_plaintext_card_before_browser(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -152,6 +218,30 @@ class FundingPolicyApiTest(unittest.TestCase):
         self.assertEqual(body["mode"], "manual_prefund")
         self.assertFalse(body["card_automation_allowed"])
         self.assertEqual(body["raw_card_scope"], "denied")
+
+    def test_funding_preflight_endpoint_returns_bounded_checks(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            api.settings = Settings(
+                funding_mode="operator_capped_validation",
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="77" * 32,
+            )
+            client = TestClient(api.app)
+
+            response = client.get(
+                "/billing/funding-preflight",
+                params={
+                    "amount_dollars": 5.0,
+                    "api_url": "http://localhost:8080",
+                    "allow_local_attestation": True,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["ready"])
+        self.assertEqual(body["policy"]["mode"], "operator_capped_validation")
+        self.assertNotIn("4242424242424242", repr(body))
 
 
 if __name__ == "__main__":

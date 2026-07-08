@@ -616,6 +616,11 @@ Implementation status:
             requests persist bounded `policy_denied` receipts. The bounded
             policy is inspectable through `GET /billing/funding-policy` and
             the `funding-policy` CLI.
+[real]      Operator funding preflight is available through
+            `GET /billing/funding-preflight` and the `funding-preflight` CLI.
+            It checks funding mode, requested amount cap, optional add-balance
+            endpoint flag, encrypted receipt-store availability, and billing
+            attestation policy before any card payload or browser launch.
 [real]      The FastAPI `POST /billing/add-balance` mutation endpoint is
             disabled by default behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`.
             The lower-level CLI/internal handler still requires
@@ -1238,6 +1243,7 @@ GET  /attestation?context=ingress|artifact|billing
 POST /auth/reauth opt-in bounded OTP re-auth; disabled by default
 GET  /billing/balance
 GET  /billing/funding-policy bounded funding-mode policy
+GET  /billing/funding-preflight bounded operator funding readiness checks
 GET  /billing/funding-receipts bounded funding attempt audit records
 POST /billing/card            local-dev plaintext hook, disabled by default
 POST /billing/card/encrypted  production encrypted card channel

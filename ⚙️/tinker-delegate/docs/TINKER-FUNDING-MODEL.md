@@ -54,6 +54,23 @@ The response includes the funding mode, whether card/add-balance automation is
 allowed, the configured add-balance cap, endpoint flags, raw-card scope, and the
 next evidence required to advance funding validation.
 
+Before a one-off operator validation attempt, run the bounded preflight:
+
+```bash
+python -m tinker_delegate.main funding-preflight \
+  --amount 5 \
+  --api-url https://delegate.example \
+  --compose-hash EXPECTED_COMPOSE_HASH \
+  --app-id EXPECTED_APP_ID \
+  --fetch-attestation
+
+curl 'http://localhost:8080/billing/funding-preflight?amount_dollars=5&api_url=http://localhost:8080&allow_local_attestation=true'
+```
+
+The preflight checks funding mode, amount cap, optional add-balance endpoint
+flag, encrypted receipt-store availability, and billing attestation policy. It
+does not accept card material and does not launch browser automation.
+
 ## Validation Boundary
 
 What is real:
@@ -64,6 +81,8 @@ What is real:
 - Funding attempts persist bounded encrypted receipts.
 - Policy-denied card and add-balance requests persist bounded receipts without
   launching browser automation.
+- Operator funding preflight returns bounded readiness checks before card
+  payloads or browser automation.
 
 What remains partial:
 

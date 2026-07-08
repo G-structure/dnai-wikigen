@@ -6,6 +6,7 @@ Endpoints:
   POST /auth/reauth               — bounded Tinker OTP re-auth, disabled unless explicitly enabled
   GET  /billing/balance           — current Tinker balance
   GET  /billing/funding-policy    — bounded active funding mode
+  GET  /billing/funding-preflight — bounded operator validation readiness
   GET  /billing/funding-receipts  — bounded funding attempt audit records
   POST /billing/card              — add payment method (plaintext — local dev only)
   POST /billing/card/encrypted    — add payment method (encrypted to TEE — production)
@@ -34,7 +35,11 @@ from tinker_delegate.config import Settings
 from tinker_delegate.crypto import EncryptedPayload
 from tinker_delegate.dstack_utils import is_dstack_enabled
 from tinker_delegate.funding_receipt_store import build_funding_receipt_store
-from tinker_delegate.funding_policy import FundingPolicyError, funding_policy_status
+from tinker_delegate.funding_policy import (
+    FundingPolicyError,
+    funding_policy_status,
+    funding_validation_preflight,
+)
 from tinker_delegate.oracle_client import OracleClient
 from tinker_delegate.redaction import redact_text
 from tinker_delegate.run_metadata_store import build_run_metadata_store
@@ -212,6 +217,34 @@ async def billing_funding_policy():
     """Return the bounded funding-mode policy for this delegate."""
     try:
         return funding_policy_status(settings).to_public_dict()
+    except FundingPolicyError as e:
+        raise HTTPException(503, redact_text(e)) from e
+
+
+@app.get("/billing/funding-preflight")
+async def billing_funding_preflight(
+    amount_dollars: Optional[float] = None,
+    require_add_balance_endpoint: bool = False,
+    api_url: str = "",
+    expected_compose_hash: str = "",
+    expected_app_id: str = "",
+    expected_os_image_hash: str = "",
+    allow_local_attestation: bool = False,
+    fetch_attestation: bool = False,
+):
+    """Return bounded readiness checks for an operator funding validation."""
+    try:
+        return funding_validation_preflight(
+            settings,
+            amount_dollars=amount_dollars,
+            require_add_balance_endpoint=require_add_balance_endpoint,
+            api_url=api_url,
+            expected_compose_hash=expected_compose_hash,
+            expected_app_id=expected_app_id,
+            expected_os_image_hash=expected_os_image_hash,
+            allow_local_attestation=allow_local_attestation,
+            fetch_attestation=fetch_attestation,
+        ).to_public_dict()
     except FundingPolicyError as e:
         raise HTTPException(503, redact_text(e)) from e
 

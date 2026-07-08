@@ -227,6 +227,11 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   bounded `policy_denied` receipts at `not_started` with amount bands.
 - The active funding mode is inspectable through `GET /billing/funding-policy`
   and `python -m tinker_delegate.main funding-policy`.
+- Operator funding preflight is inspectable through
+  `GET /billing/funding-preflight` and `python -m tinker_delegate.main
+  funding-preflight`; it checks validation mode, amount cap, optional
+  add-balance endpoint flag, encrypted receipt-store availability, and billing
+  attestation policy without card material or browser launch.
 - The HTTP `POST /billing/add-balance` mutation endpoint is disabled by default
   behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; the capped CLI/internal path also
   requires `TINKER_FUNDING_MODE=operator_capped_validation` for deliberate
@@ -405,6 +410,7 @@ cd "⚙️/tinker-delegate" && docker stop dnai-tinker-delegate-agent-extra-chec
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-attestation --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main verify-compose-hash --help
 cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main upload-artifact --help
+cd "⚙️/tinker-delegate" && uv run python -m tinker_delegate.main funding-preflight --help
 
 cd "⚙️/tee-email-oracle" && uv run python -m unittest discover -s tests -v
 cd "⚙️/tee-email-oracle" && uv run python -m compileall email_oracle
