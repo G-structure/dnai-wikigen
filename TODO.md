@@ -661,6 +661,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             status, selector counts, and a recomputable map hash. The output is
             guarded by the bounded CLI renderer and regression-tested to avoid
             secret-shaped material; `--summary-only` omits concrete selectors.
+      - [x] Add a read-only bounded browser probe for deployed selector/frame
+            evidence capture.
+            Done 2026-07-08: `tinker-delegate selector-probe` connects to the
+            configured browser, observes current pages/frames without
+            navigation, clicks, typing, screenshots, or page-text capture, and
+            emits only URL classes, URL hashes, selector match bands, frame
+            kinds, selector-map hash, and `raw_secret_egress=false`. Browser
+            connection failures return bounded `browser_unavailable` JSON
+            instead of tracebacks.
       - [ ] Capture deployed-CVM selector/frame evidence after Phala packaging.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.

@@ -298,6 +298,16 @@ def cli():
         help="Omit concrete selectors and print only family names/counts/evidence",
     )
     selector_map_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    selector_probe_p = sub.add_parser(
+        "selector-probe",
+        help="Read-only bounded probe of current browser pages/frames against selector-map",
+    )
+    selector_probe_p.add_argument(
+        "--no-local-browser-fallback",
+        action="store_true",
+        help="Fail if the configured remote browser is unavailable instead of launching local Chromium",
+    )
+    selector_probe_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     synthetic_reward_p = sub.add_parser(
         "synthetic-private-reward-demo",
         help="Run a bounded synthetic hidden-dataset private reward demo",
@@ -1029,6 +1039,27 @@ def cli():
         from tinker_delegate.selector_map import build_selector_map
 
         result = build_selector_map(include_selectors=not args.summary_only)
+        _emit_bounded_json(result, output_path=args.output)
+
+    elif args.command == "selector-probe":
+        from tinker_delegate.selector_map import run_live_selector_map_probe
+
+        if args.no_local_browser_fallback:
+            settings.local_browser_fallback = False
+        try:
+            result = run_live_selector_map_probe(settings)
+        except Exception:
+            result = {
+                "surface": "tinker_console_and_stripe_billing",
+                "raw_secret_egress": False,
+                "bounded_output": True,
+                "read_only": True,
+                "success": False,
+                "error_kind": "browser_unavailable",
+                "bounded_message": "selector_probe_browser_unavailable",
+            }
+            _emit_bounded_json(result, output_path=args.output)
+            sys.exit(1)
         _emit_bounded_json(result, output_path=args.output)
 
     elif args.command == "synthetic-private-reward-demo":

@@ -7,10 +7,16 @@ page text, account identifiers, OTPs, cards, API keys, cookies, or browser URLs.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import time
 from typing import Any
+from urllib.parse import urlparse
 
+from playwright.async_api import async_playwright
+
+from tinker_delegate.browser_ready import connect_chromium, get_browser_context
 from tinker_delegate.billing import (
     ADD_BALANCE_AMOUNT_SELECTORS,
     ADD_BALANCE_CONFIRM_SELECTORS,
@@ -30,6 +36,7 @@ from tinker_delegate.billing import (
     STRIPE_CARD_NUMBER_SELECTORS,
     STRIPE_FRAME_MATCHERS,
 )
+from tinker_delegate.config import Settings
 from tinker_delegate.signup import (
     API_KEY_CLOSE_SELECTORS,
     API_KEY_CONFIRM_SELECTORS,
@@ -47,6 +54,8 @@ from tinker_delegate.signup import (
 
 SELECTOR_MAP_VERSION = "2026-07-08.1"
 DEPLOYED_SELECTOR_EVIDENCE_STATUS = "pending_deployed_cvm_capture"
+PROBE_VERSION = "2026-07-08.1"
+COUNT_BAND_CAP = 2
 
 
 def _family(name: str, selectors: tuple[str, ...], *, required: bool = True) -> dict[str, Any]:
@@ -190,3 +199,157 @@ def selector_map_hash(payload: dict[str, Any]) -> str:
     clone = {key: value for key, value in payload.items() if key != "selector_map_hash"}
     encoded = json.dumps(clone, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _hash_text(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _count_band(count: int) -> str:
+    if count <= 0:
+        return "0"
+    if count == 1:
+        return "1"
+    return f"{COUNT_BAND_CAP}+"
+
+
+def _classify_url(url: str) -> str:
+    """Return a coarse public route class without emitting the raw URL."""
+
+    try:
+        parsed = urlparse(url or "")
+    except Exception:
+        return "unknown"
+    host = parsed.netloc.lower()
+    path = parsed.path.lower()
+    if "auth.thinkingmachines.ai" in host:
+        return "tinker_auth_magic_code" if "magic-code" in path else "tinker_auth"
+    if "tinker-console.thinkingmachines.ai" in host:
+        if "billing" in path:
+            return "tinker_console_billing"
+        if "keys" in path:
+            return "tinker_console_keys"
+        if "onboarding" in path:
+            return "tinker_console_onboarding"
+        return "tinker_console"
+    if "stripe" in host:
+        return "stripe"
+    if not url:
+        return "empty"
+    return "other"
+
+
+def _frame_kind(frame: Any) -> str:
+    url = str(getattr(frame, "url", "") or "")
+    name = str(getattr(frame, "name", "") or "")
+    if "elements-inner-card" in url or "StripeFrame" in name:
+        return "stripe_card"
+    return _classify_url(url)
+
+
+async def _selector_count_band(scope: Any, selectors: list[str]) -> str:
+    total = 0
+    for selector in selectors:
+        try:
+            locator = scope.locator(selector)
+            total += int(await locator.count())
+        except Exception:
+            return "probe_error"
+        if total >= COUNT_BAND_CAP:
+            return f"{COUNT_BAND_CAP}+"
+    return _count_band(total)
+
+
+async def probe_selector_map_context(context: Any, *, issued_at: int | None = None) -> dict[str, Any]:
+    """Inspect current browser pages/frames without navigation or raw content egress."""
+
+    selector_map = build_selector_map(include_selectors=True)
+    pages = list(getattr(context, "pages", []) or [])
+    page_results = []
+    for page_index, page in enumerate(pages[:5]):
+        page_url = str(getattr(page, "url", "") or "")
+        page_result: dict[str, Any] = {
+            "page_index": page_index,
+            "url_class": _classify_url(page_url),
+            "url_hash": _hash_text(page_url) if page_url else "",
+            "flow_observations": [],
+            "frame_observations": [],
+        }
+        for flow in selector_map["flows"]:
+            family_observations = []
+            for family in flow["families"]:
+                if family["name"] == "stripe_frame_matchers":
+                    continue
+                family_observations.append(
+                    {
+                        "name": family["name"],
+                        "required": family["required"],
+                        "match_band": await _selector_count_band(page, family.get("selectors", [])),
+                    }
+                )
+            present_required = sum(
+                1
+                for item in family_observations
+                if item["required"] and item["match_band"] not in {"0", "probe_error"}
+            )
+            page_result["flow_observations"].append(
+                {
+                    "name": flow["name"],
+                    "present_required_families": present_required,
+                    "family_observations": family_observations,
+                }
+            )
+
+        frames = list(getattr(page, "frames", []) or [])
+        for frame_index, frame in enumerate(frames[:10]):
+            frame_observation: dict[str, Any] = {
+                "frame_index": frame_index,
+                "kind": _frame_kind(frame),
+                "url_class": _classify_url(str(getattr(frame, "url", "") or "")),
+            }
+            if frame_observation["kind"] == "stripe_card":
+                frame_observation["stripe_field_observations"] = [
+                    {
+                        "name": "stripe_card_number",
+                        "match_band": await _selector_count_band(frame, list(STRIPE_CARD_NUMBER_SELECTORS)),
+                    },
+                    {
+                        "name": "stripe_card_expiry",
+                        "match_band": await _selector_count_band(frame, list(STRIPE_CARD_EXPIRY_SELECTORS)),
+                    },
+                    {
+                        "name": "stripe_card_cvc",
+                        "match_band": await _selector_count_band(frame, list(STRIPE_CARD_CVC_SELECTORS)),
+                    },
+                ]
+            page_result["frame_observations"].append(frame_observation)
+        page_results.append(page_result)
+
+    return {
+        "version": PROBE_VERSION,
+        "selector_map_hash": selector_map["selector_map_hash"],
+        "surface": selector_map["surface"],
+        "issued_at": int(issued_at if issued_at is not None else time.time()),
+        "raw_secret_egress": False,
+        "bounded_output": True,
+        "read_only": True,
+        "success": True,
+        "page_count_band": _count_band(len(pages)),
+        "pages_observed": len(page_results),
+        "pages": page_results,
+    }
+
+
+async def probe_live_selector_map(settings: Settings | None = None) -> dict[str, Any]:
+    """Connect to the configured browser and run a read-only bounded probe."""
+
+    if settings is None:
+        settings = Settings()
+    async with async_playwright() as playwright:
+        browser = await connect_chromium(playwright, settings)
+        context = await get_browser_context(browser)
+        return await probe_selector_map_context(context)
+
+
+def run_live_selector_map_probe(settings: Settings | None = None) -> dict[str, Any]:
+    return asyncio.run(probe_live_selector_map(settings))

@@ -706,6 +706,14 @@ Implementation status:
             hash only; it contains no account identifiers, OTPs, API keys, card
             details, cookies, raw page text, or browser session URLs. A summary
             mode omits concrete selectors for compact deployment evidence.
+[real]      `tinker-delegate selector-probe` is the read-only live browser
+            observation command for that contract. It connects to the configured
+            Playwright/CDP browser, inspects current pages and frames without
+            navigation, clicking, typing, screenshots, or page-text capture,
+            and emits only URL classes, URL hashes, selector match bands, frame
+            kinds, selector-map hash, bounded timestamps, and
+            `raw_secret_egress=false`. Browser connection failures return
+            bounded `browser_unavailable` JSON instead of tracebacks.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,

@@ -90,7 +90,13 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   creation, billing, Stripe iframe, balance top-up, and auto-reload surfaces.
   It includes selector-family counts, evidence labels, and a recomputable map
   hash, with optional `--summary-only` output that omits concrete selectors.
-  The deployed-CVM selector/frame capture remains open.
+  `tinker-delegate selector-probe` now provides the read-only browser
+  observation path for deployed evidence capture: it observes current
+  pages/frames without navigation, clicks, typing, screenshots, or page-text
+  capture, emits only URL classes/hashes, selector match bands, frame kinds,
+  selector-map hash, and `raw_secret_egress=false`, and fails closed with
+  bounded `browser_unavailable` JSON if the browser cannot be reached. The
+  deployed-CVM selector/frame capture remains open.
 - `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps

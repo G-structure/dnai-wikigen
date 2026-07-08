@@ -1,8 +1,38 @@
+import asyncio
 import unittest
 
 from tinker_delegate.main import _render_bounded_json
 from tinker_delegate.redaction import redact_text
-from tinker_delegate.selector_map import build_selector_map, selector_map_hash
+from tinker_delegate.selector_map import build_selector_map, probe_selector_map_context, selector_map_hash
+
+
+class FakeLocator:
+    def __init__(self, count: int):
+        self._count = count
+
+    async def count(self):
+        return self._count
+
+
+class FakeScope:
+    def __init__(self, *, url: str = "", name: str = "", counts: dict[str, int] | None = None):
+        self.url = url
+        self.name = name
+        self._counts = counts or {}
+
+    def locator(self, selector: str):
+        return FakeLocator(self._counts.get(selector, 0))
+
+
+class FakePage(FakeScope):
+    def __init__(self, *, url: str, counts: dict[str, int], frames: list[FakeScope] | None = None):
+        super().__init__(url=url, counts=counts)
+        self.frames = frames or []
+
+
+class FakeContext:
+    def __init__(self, pages: list[FakePage]):
+        self.pages = pages
 
 
 class SelectorMapTest(unittest.TestCase):
@@ -48,6 +78,52 @@ class SelectorMapTest(unittest.TestCase):
 
         self.assertRegex(selector_map["selector_map_hash"], r"^[0-9a-f]{64}$")
         self.assertEqual(selector_map["selector_map_hash"], selector_map_hash(selector_map))
+
+    def test_probe_reports_count_bands_without_raw_urls(self):
+        async def run_probe():
+            return await probe_selector_map_context(FakeContext([page]), issued_at=123)
+
+        page = FakePage(
+            url="https://tinker-console.thinkingmachines.ai/keys?session=secret",
+            counts={
+                '[data-testid="create-api-key"]': 1,
+                'button:has-text("Generate key")': 1,
+                'button:has-text("Done")': 3,
+            },
+            frames=[
+                FakeScope(
+                    url="https://js.stripe.com/elements-inner-card.html#private",
+                    name="__privateStripeFrame123",
+                    counts={
+                        'input[name="cardnumber"]': 1,
+                        'input[data-elements-stable-field-name="cardExpiry"]': 1,
+                        'input[name="cvc"]': 1,
+                    },
+                )
+            ],
+        )
+
+        result = asyncio.run(run_probe())
+        rendered = _render_bounded_json(result)
+
+        self.assertNotIn("session=secret", rendered)
+        self.assertNotIn("elements-inner-card.html#private", rendered)
+        self.assertEqual(redact_text(rendered), rendered)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["page_count_band"], "1")
+        self.assertEqual(result["pages"][0]["url_class"], "tinker_console_keys")
+        self.assertEqual(result["pages"][0]["frame_observations"][0]["kind"], "stripe_card")
+        api_flow = next(
+            flow for flow in result["pages"][0]["flow_observations"] if flow["name"] == "api_keys"
+        )
+        create_family = next(
+            family for family in api_flow["family_observations"] if family["name"] == "create_key"
+        )
+        close_family = next(
+            family for family in api_flow["family_observations"] if family["name"] == "close_key_dialog"
+        )
+        self.assertEqual(create_family["match_band"], "1")
+        self.assertEqual(close_family["match_band"], "2+")
 
 
 if __name__ == "__main__":
