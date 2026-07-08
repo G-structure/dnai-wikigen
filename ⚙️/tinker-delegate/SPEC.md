@@ -103,7 +103,8 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   → complete onboarding form (name + TOS checkbox) → welcome page
   → navigate to /keys → click "New key" → click "Generate key"
   → capture one-time tml-... API key
-  → seal via derive_key("tinker/api_key")
+  → seal via encrypted key store locally or derive_key("tinker/api_key") in dstack
+  → return only bounded key hash/status metadata
   → emit TDX attestation: {email, tinker_account_id, enclave_identity}
 
   HISTORICAL FINDING: cock.li and firemail.cc domains were blocked by Thinking
@@ -845,7 +846,8 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] `docker-compose.dstack.yaml` — dstack overlay (neko + oracle network, TDX sock)
 - [x] Encryption channel: X25519 + AES-256-GCM for card delivery — `tinker_delegate/crypto.py`
 - [x] TDX quote stubs (local) / real generation (dstack) in attestation endpoints
-- [ ] Replace file-based key store with `dstack_sdk.TappdClient.derive_key()`
+- [x] Key-store code path uses `dstack_sdk.TappdClient.derive_key()` in dstack mode
+- [ ] Validate dstack-derived key sealing in a deployed CVM
 - [ ] Local testing with `/phala-simulator`
 - [ ] Deploy to Phala Cloud via `/phala-deploy`
 
@@ -854,7 +856,8 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] Signup automation — `tinker_delegate/signup.py`
 - [x] Email oracle integration — `tinker_delegate/oracle_client.py` (authenticated POST /pin for OTP)
 - [x] API key capture — New key → Generate key → extracted from console modal, `tml-...` format
-- [ ] API key sealing via `derive_key("tinker/api_key")` (requires dstack deployment)
+- [x] API key is stored in encrypted key store and signup returns only hash/status metadata
+- [ ] API key sealing via `derive_key("tinker/api_key")` validated in deployed dstack CVM
 - [ ] End-to-end genesis test on Phala Cloud using the validated local selector flow
 
 ## 11. Decided Questions

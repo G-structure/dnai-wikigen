@@ -326,7 +326,7 @@ Sensitive data classes and where they are allowed to exist:
 email password / IMAP creds      tee-email-oracle sealed store only
 email OTP                        tee-email-oracle memory, then bounded OTP response
 Tinker session cookies           browser inside TEE only
-Tinker API key                   tinker-delegate env or sealed API key store
+Tinker API key                   tinker-delegate encrypted key store or Phala encrypted env
 payment card details             encrypted-to-TEE payload, transient memory, Stripe iframe
 seller artifact                  TEE memory or sealed store, never public
 training checkpoints             Tinker run scoped to deal, TTL-enforced, cleaned up
@@ -531,6 +531,8 @@ Implementation status:
 [real]      API routes, billing code, encrypted card channel, key store, control plane.
 [real]      DiligenceRoom.sol and tests.
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
+[real]      Signup/bootstrap stores captured Tinker API keys in encrypted
+            storage and returns only bounded hash/status metadata.
 [real]      Local Stripe test-card billing path reaches submission and returns a bounded decline.
 [real]      Plaintext card API is disabled by default and unavailable in dstack mode.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
@@ -993,6 +995,7 @@ serve startup
   | if TINKER_API_KEY exists, use it
   | else if encrypted API key exists, decrypt it
   | else if bootstrap enabled, run signup automation
+  |   and persist captured key before returning bounded metadata
   | else run with control plane unavailable
   v
 FastAPI app

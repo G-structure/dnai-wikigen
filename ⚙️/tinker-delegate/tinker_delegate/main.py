@@ -93,11 +93,9 @@ async def _ensure_api_key(settings: Settings) -> None:
     )
 
     result = await signup(settings)
-    api_key = result.get("api_key")
-    if not api_key:
-        raise RuntimeError("signup bootstrap did not produce an API key")
+    if not result.get("stored"):
+        raise RuntimeError("signup bootstrap did not store an API key")
 
-    store.save(api_key)
     print(f"[serve] bootstrap complete, API key stored at {settings.api_key_store_path}")
     update_runtime_state(
         api_key_available=True,

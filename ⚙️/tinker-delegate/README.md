@@ -25,7 +25,7 @@ Tinker account funding remains in progress. The intended payment path is card da
 │  3. Fill email → Continue → magic-code (OTP) page               │
 │  4. POST /pin ──→ email oracle ──→ polls IMAP ──→ 6-digit code  │
 │  5. Enter code → authenticated → onboarding → API key           │
-│  6. Return { email, api_key }                                   │
+│  6. Seal API key → return { email, api_key_hash, stored }       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -147,7 +147,9 @@ POST /billing/add-balance — add credit balance
 ```json
 {
   "email": "d1074e2240b5311d@cock.email",
-  "api_key": "tml-yIqm...",
+  "api_key_created": true,
+  "api_key_hash": "9b3f...",
+  "stored": true,
   "success": true
 }
 ```
@@ -297,4 +299,4 @@ All core components are implemented. Remaining integration work:
 - **On-chain watcher** — listen for DiligenceRoom events, call control plane API
 - **Test SFT evaluator** end-to-end with real Tinker API key
 - **TEE deployment** — merge docker-compose with email oracle, deploy to Phala Cloud
-- **API key sealing** — use `dstack_sdk.TappdClient.derive_key("tinker/api_key")` in production
+- **API key sealing** — code uses the encrypted key store locally and `dstack_sdk.TappdClient.derive_key("tinker/api_key")` in dstack mode; deployed CVM validation is still pending

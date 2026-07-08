@@ -209,7 +209,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       email creds, Tinker API key, funding token state, and run metadata.
       - [x] Persist email-oracle OTP replay hashes in an encrypted/sealed ledger
             so OTP one-time-use survives service restart without storing OTPs.
-      - [ ] Confirm Tinker API key, funding token state, and run metadata are
+      - [x] Store captured Tinker API keys in the encrypted key store and return
+            only bounded hash/status metadata from signup/bootstrap.
+      - [ ] Confirm funding token state and run metadata are
             sealed/persisted only under the CVM data volume.
 - [ ] `P0` Add log scrubbing for OTPs, API keys, card data, bearer tokens, and
       raw artifacts.
@@ -297,6 +299,8 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       email OTP, onboarding, API key creation, encrypted key sealing.
       - [x] Complete local Neko signup/sign-in path through OTP, onboarding, and
             API-key creation.
+      - [x] Store local captured API keys in the encrypted key store without
+            returning or logging the raw key.
       - [ ] Complete the same flow inside the deployed CVM and seal the API key
             with the dstack-derived key path.
 - [ ] `P0` Add a Tinker re-auth path for future OTP challenges.

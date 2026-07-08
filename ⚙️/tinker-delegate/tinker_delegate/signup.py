@@ -13,6 +13,7 @@ Requires:
   - Browser automation path that Tinker does not classify as blocked
 """
 import asyncio
+import hashlib
 import time
 
 from playwright.async_api import async_playwright, Page
@@ -108,7 +109,8 @@ async def _page_state(page: Page) -> dict:
 async def signup(settings: Settings | None = None) -> dict:
     """Full Tinker signup: auth → onboarding → API key.
 
-    Returns dict with email, api_key, success.
+    Returns bounded metadata only. The raw API key is sealed to the local/dstack
+    key store and is never returned to callers or printed.
     """
     if settings is None:
         settings = Settings()
@@ -129,19 +131,25 @@ async def signup(settings: Settings | None = None) -> dict:
         await _handle_onboarding(page, settings)
 
         # Step 3: Create API key
-        api_key = await _create_api_key(page)
+        api_key = await _create_api_key(page, settings)
 
-        result = {"email": email, "api_key": api_key, "success": bool(api_key)}
-        print(f"\n[done] success={result['success']}")
+        result = {
+            "email": email,
+            "api_key_created": bool(api_key),
+            "api_key_hash": hashlib.sha256(api_key.encode()).hexdigest() if api_key else "",
+            "stored": False,
+            "success": False,
+        }
         if api_key:
             try:
                 store = build_api_key_store(settings)
                 store.save(api_key)
                 result["stored"] = True
+                result["success"] = True
             except Exception as e:
-                result["stored"] = False
                 result["store_error"] = str(e)
-            print(f"[done] TINKER_API_KEY={api_key[:12]}...<redacted>")
+            print("[done] API key captured and sealed" if result["stored"] else "[done] API key captured but not stored")
+        print(f"\n[done] success={result['success']}")
         return result
 
 
@@ -287,8 +295,10 @@ async def _handle_onboarding(page: Page, settings: Settings) -> None:
     print(f"[onboarding] done → {page.url}")
 
 
-async def _create_api_key(page: Page) -> str | None:
+async def _create_api_key(page: Page, settings: Settings | None = None) -> str | None:
     """Navigate to API keys page, create a key, return it."""
+    if settings is None:
+        settings = Settings()
     print("[apikey] navigating to API keys page...")
     await page.goto("https://tinker-console.thinkingmachines.ai/keys",
                     wait_until="domcontentloaded", timeout=15000)
@@ -301,7 +311,8 @@ async def _create_api_key(page: Page) -> str | None:
     new_key = page.locator('button:has-text("New key")')
     if await new_key.count() == 0:
         print("[apikey] no 'New key' button found")
-        await page.screenshot(path="screenshot_no_new_key.png")
+        if settings.debug_screenshots:
+            await page.screenshot(path="screenshot_no_new_key.png")
         return None
 
     print("[apikey] creating new key...")
@@ -330,10 +341,11 @@ async def _create_api_key(page: Page) -> str | None:
     }""")
 
     if api_key:
-        print(f"[apikey] captured: {api_key[:20]}...")
+        print("[apikey] captured key")
     else:
         print("[apikey] failed to extract key")
-        await page.screenshot(path="screenshot_key_extraction_fail.png")
+        if settings.debug_screenshots:
+            await page.screenshot(path="screenshot_key_extraction_fail.png")
 
     # Close dialog
     close_btn = page.locator('button:has-text("Close")')
