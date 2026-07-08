@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 from tinker_delegate.api_key_store import resolve_api_key
 from tinker_delegate.config import Settings
+from tinker_delegate.dstack_utils import is_dstack_enabled
 from tinker_delegate.oracle_client import OracleClient
 from tinker_delegate.runtime_state import get_runtime_state
 from tinker_delegate.card_channel import (
@@ -54,6 +55,11 @@ def _agent_stack_available() -> bool:
         return True
     except Exception:
         return False
+
+
+def _plaintext_card_endpoint_allowed() -> bool:
+    """Plaintext card delivery is a local-dev escape hatch, never a TEE path."""
+    return settings.allow_plaintext_card_endpoint and not is_dstack_enabled()
 
 
 def _get_control_plane():
@@ -149,6 +155,14 @@ async def billing_card(payload: CardPayload):
 
     In production, use POST /billing/card/encrypted instead.
     """
+    if not _plaintext_card_endpoint_allowed():
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Plaintext card endpoint is disabled; use "
+                "POST /billing/card/encrypted after verifying attestation"
+            ),
+        )
     result = await handle_card_update(payload, settings)
     return result
 

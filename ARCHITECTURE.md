@@ -528,6 +528,7 @@ Implementation status:
 [real]      DiligenceRoom.sol and tests.
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
 [real]      Local Stripe test-card billing path reaches submission and returns a bounded decline.
+[real]      Plaintext card API is disabled by default and unavailable in dstack mode.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE, but a capped real-card funding attempt still needs to be proven.
 [partial]   Optional Tinker SDK dependency must be installed for real evaluator execution.
@@ -964,8 +965,8 @@ Endpoints:
 GET  /health
 GET  /attestation
 GET  /billing/balance
-POST /billing/card
-POST /billing/card/encrypted
+POST /billing/card            local-dev plaintext hook, disabled by default
+POST /billing/card/encrypted  production encrypted card channel
 POST /billing/add-balance
 POST /deal/notify-funded
 POST /deal/{deal_id}/artifact
@@ -1183,8 +1184,8 @@ bounded aggregate results
 3. Tinker browser automation works locally through Neko/CDP but still needs a
    fresh deployed Phala/CVM validation run.
 4. Reliable Tinker account funding through Stripe browser automation is in progress:
-   the test-card path reaches Stripe and declines as expected, but real funding
-   is not yet proven.
+   the test-card path reaches Stripe and declines as expected, the plaintext
+   card API is disabled by default, but real funding is not yet proven.
 5. Real TTT/RL bio-validation is not implemented.
 6. DLP/egress enforcement is not implemented.
 7. Corpus policy and consent/revocation are modeled but not enforced.

@@ -62,6 +62,18 @@ class CardPayload(BaseModel):
     address_postal: str = ""
     address_country: str = "US"
 
+    def zero(self) -> None:
+        self.card_number = ""
+        self.exp_month = ""
+        self.exp_year = ""
+        self.cvc = ""
+        self.cardholder_name = ""
+        self.address_line1 = ""
+        self.address_city = ""
+        self.address_state = ""
+        self.address_postal = ""
+        self.address_country = ""
+
 
 class EncryptedCardPayload(BaseModel):
     """Encrypted card payload — production format.
@@ -161,9 +173,6 @@ async def handle_card_update(payload: CardPayload, settings: Settings) -> Billin
     try:
         result = await add_payment_method(card, settings)
 
-        payload.card_number = ""
-        payload.cvc = ""
-
         attestation = get_attestation()
 
         return BillingResponse(
@@ -172,8 +181,10 @@ async def handle_card_update(payload: CardPayload, settings: Settings) -> Billin
             tdx_quote=attestation.get("quote"),
         )
     except Exception as e:
-        card.zero()
         return BillingResponse(success=False, error=str(e))
+    finally:
+        card.zero()
+        payload.zero()
 
 
 async def handle_encrypted_card_update(
@@ -193,8 +204,8 @@ async def handle_encrypted_card_update(
             "nonce": payload.nonce,
             "ciphertext": payload.ciphertext,
         })
-        plaintext_bytes = keypair.decrypt(encrypted)
-        card_data = json.loads(plaintext_bytes)
+        plaintext_bytes = bytearray(keypair.decrypt(encrypted))
+        card_data = json.loads(plaintext_bytes.decode())
 
         card = CardDetails(
             number=card_data["card_number"],
@@ -209,8 +220,10 @@ async def handle_encrypted_card_update(
             address_country=card_data.get("address_country", "US"),
         )
 
-        # Zero plaintext immediately after parsing
-        plaintext_bytes = b"\x00" * len(plaintext_bytes)
+        # Zero plaintext immediately after parsing.
+        for i in range(len(plaintext_bytes)):
+            plaintext_bytes[i] = 0
+        plaintext_bytes = None
 
         result = await add_payment_method(card, settings)
         attestation = get_attestation()
@@ -221,9 +234,13 @@ async def handle_encrypted_card_update(
             tdx_quote=attestation.get("quote"),
         )
     except Exception as e:
+        return BillingResponse(success=False, error=str(e))
+    finally:
+        if plaintext_bytes is not None:
+            for i in range(len(plaintext_bytes)):
+                plaintext_bytes[i] = 0
         if card:
             card.zero()
-        return BillingResponse(success=False, error=str(e))
 
 
 async def handle_add_balance(payload: BalancePayload, settings: Settings) -> BillingResponse:

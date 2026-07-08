@@ -12,7 +12,7 @@ The email oracle is still required. It is not just a disposable inbox: it is the
 
 The oracle's `/pin` and `/inbox` endpoints are now protected by runtime bearer auth when enabled. In the combined dstack/Phala deployment, the oracle and delegate derive the bearer token from the same dstack key path (`oracle/runtime-auth`). Local development can use an explicit `ORACLE_RUNTIME_AUTH_TOKEN` / `TINKER_ORACLE_AUTH_TOKEN` pair instead.
 
-Tinker account funding remains in progress. The intended payment path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code now reach Stripe in the local Neko session: a Stripe test card filled the live payment form and was rejected with `Your card was declined.` Adding balance correctly fails closed with `Payment method required before adding balance` when no real card is on file. A capped real-card funding attempt is still required before funding can be called production-complete.
+Tinker account funding remains in progress. The intended payment path is card data encrypted to the TEE, then browser automation drives the Tinker/Stripe billing form and clears card material from memory. The card channel and billing code now reach Stripe in the local Neko session: a Stripe test card filled the live payment form and was rejected with `Your card was declined.` Adding balance correctly fails closed with `Payment method required before adding balance` when no real card is on file. The plaintext card API endpoint is disabled by default and unavailable in dstack mode; it can only be enabled as a local-development test hook with `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. A capped real-card funding attempt is still required before funding can be called production-complete.
 
 ## How It Works
 
@@ -137,7 +137,8 @@ The `serve` command starts a FastAPI server for programmatic access:
 GET  /health              — service health + oracle email
 GET  /attestation         — TDX attestation quote (verify before sending card)
 GET  /billing/balance     — current Tinker balance
-POST /billing/card        — add payment method (card encrypted to TEE)
+POST /billing/card        — plaintext local-dev hook, disabled by default
+POST /billing/card/encrypted — add payment method after attestation-verified encryption
 POST /billing/add-balance — add credit balance
 ```
 
@@ -178,6 +179,7 @@ All settings use the `TINKER_` env prefix:
 | `TINKER_OTP_POLL_INTERVAL` | `3.0` | Seconds between OTP polls |
 | `TINKER_OTP_POLL_TIMEOUT` | `120.0` | Max seconds to wait for OTP |
 | `TINKER_OTP_MAX_AGE` | `300` | Max age of OTP email in seconds |
+| `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT` | `false` | Local-dev only flag for `POST /billing/card`; production uses `/billing/card/encrypted` |
 
 ## Architecture
 

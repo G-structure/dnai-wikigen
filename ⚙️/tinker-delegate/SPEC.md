@@ -27,6 +27,7 @@ We need:
 | **Evaluation protocol** | Up to the agent and its owner (the buyer). The agent decides base model, steps, benchmarks autonomously. |
 | **`ttl_seconds` on checkpoints** | Mandatory on every save. Dead man's switch — Tinker auto-deletes even if our cleanup never runs. |
 | **Tinker console automation** | **PARTIAL**: Local Neko/CDP + Playwright works for passwordless magic-code auth, onboarding, and API-key provisioning as of 2026-07-08. The packaged Phala/deployed browser posture still needs a fresh probe before production bootstrap is called solved. |
+| **Plaintext card API** | Disabled by default and unavailable in dstack mode. The normal API path is `/billing/card/encrypted` after quote verification; plaintext card JSON is only an explicit local-development test hook. |
 | **Oracle boot authorization** | Governed on-chain by oracle compose hash policy. The oracle's own code authorization is frozen permanently after production sign-off; fresh TDX quotes continue to verify against that frozen policy. |
 | **OTP consumer authorization** | Managed separately from oracle code authorization. Current same-CVM runtime enforcement uses a bearer token derived from the shared dstack key path; full on-chain consumer-registry checks remain pending. |
 
@@ -869,7 +870,7 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 
 1. **Tinker console signup flow** — Local Neko/CDP automation works against the live Tinker UI as of 2026-07-08: OTP arrives through the email oracle, onboarding completes, and API-key provisioning captures a one-time `tml-...` key. Production signup is not complete until the same selector flow is validated in the deployed CVM package.
 
-2. **Tinker billing settings page** — Browser automation and encrypted card-channel code exist. Local Neko reaches the Stripe Elements payment form, fills the test card, and receives the expected `Your card was declined.` response. Add-balance fails closed with `Payment method required before adding balance` when no real card is on file. Production funding still needs a capped real-card attempt after attestation verification.
+2. **Tinker billing settings page** — Browser automation and encrypted card-channel code exist. Local Neko reaches the Stripe Elements payment form, fills the test card, and receives the expected `Your card was declined.` response. Add-balance fails closed with `Payment method required before adding balance` when no real card is on file. The plaintext card API endpoint is disabled by default and is not available in dstack mode; production funding still needs a capped real-card attempt after attestation verification.
 
 3. **TTL reliability** — Does Tinker actually purge expired checkpoints and make them inaccessible after `ttl_seconds`? Or are they just marked expired but still fetchable? Needs empirical testing.
 

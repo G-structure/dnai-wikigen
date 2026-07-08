@@ -309,6 +309,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Local plaintext development path fills the Stripe Elements card
             iframe, zeroes card payload objects, and returns bounded failure
             status without logging card details.
+      - [x] Disable plaintext `POST /billing/card` by default, disallow it in
+            dstack mode, and wipe plaintext card request objects on success and
+            failure.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
