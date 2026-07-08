@@ -743,12 +743,22 @@ Implementation status:
             distinguishes Runtime transport failure from selector-expression
             timeout without exposing page-controlled values. A Phala one-shot
             measurement with
-            GitHub-attested `50de0a9` images proved the command path is built
-            into the deployed image and preserves bounded output, but the
-            page-scoped Runtime command still timed out:
-            `runtime_selector_error_kind=timeout` and `flow_observations=[]`.
-            Selector-family bands are therefore source/test-real but still not
-            Phala-proven.
+            GitHub-attested `50de0a9` images proved the selector command path
+            is built into the deployed image and preserves bounded output, but
+            the page-scoped Runtime selector command still timed out. A
+            follow-up one-shot measurement with GitHub-attested `5943c61`
+            images proved that even the constant page-scoped Runtime
+            micro-probe times out after page attach:
+            `partial_error_kind=runtime_micro_probe_timeout`,
+            `runtime_micro_probe_command_success=false`,
+            `runtime_micro_probe_error_kind=timeout`,
+            `runtime_selector_command_success=false`, and
+            `flow_observations=[]`. This narrows the blocker to page-scoped
+            Runtime command delivery/evaluation in the deployed Neko/CDP path,
+            not selector-expression complexity. Selector-family bands are
+            therefore source/test-real but still not Phala-proven; the next
+            diagnostic should emit bounded `Runtime.enable` and execution
+            context event bands.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed
             one-shot evidence capture. It is disabled by default and returns
             403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
@@ -815,9 +825,17 @@ Implementation status:
             when frame traversal times out, but the 2026-07-08 Phala
             measurement on `50de0a9` images returned
             `runtime_selector_error_kind=timeout` and empty
-            `flow_observations`. Source/tests now add the preceding bounded
-            Runtime micro-probe; it still needs a GitHub-attested image build
-            and Phala measurement before it can explain the deployed timeout.
+            `flow_observations`. The follow-up 2026-07-08 Phala measurement on
+            GitHub-attested `5943c61` images added a preceding constant Runtime
+            micro-probe and returned
+            `partial_error_kind=runtime_micro_probe_timeout`,
+            `runtime_micro_probe_command_success=false`,
+            `runtime_micro_probe_error_kind=timeout`,
+            `runtime_selector_command_success=false`, and empty
+            `flow_observations`. The deployed timeout is therefore below the
+            selector expression itself; next work is a bounded Runtime/session
+            diagnostic, for example `Runtime.enable` plus execution-context
+            event bands.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
@@ -1048,17 +1066,17 @@ Implementation status:
             delegate `/health` returning `ok`, and live delegate
             deployment-bundle verification passing against local raw compose
             image-policy hash
-            `8f0b2a966fec6ad786b025a22b177f19f38d8d3d6d2be899fe0210fc7ce7ba90`,
+            `5cde251bf97cce3ca6ef099b6e07fd1c2d0b38b7419c13ad6cfd296787b66601`,
             rendered compose SHA-256
-            `4903e10d35dbf339fdad4168da9df837438d66f9a202833e892fe69ae6894d20`,
+            `15feb78a5e580b14f95105bc4b6c8d9c58ce8ef137caaa2d3d0db43be8d01deb`,
             and live Phala attested compose hash
-            `26b3b3a4feba6a2935900fafa733a7e39846f50845317561e1bbccf4ed3e743a`.
+            `6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd`.
             The current oracle image is
-            `tee-email-oracle@sha256:88fc9e44b12e218a0d8202c7f10f5c6b96cdbdb81c41dcfe69652994e076e0cf`
+            `tee-email-oracle@sha256:d5512a498f91e7b7470b70dcc93bd5262f483e0d74eacbaeb5626a9eb21086bc`
             and the current delegate image is
-            `tinker-delegate@sha256:10e32c7ac9544b3cdb1bf098038d66b388e07e917b1a4783211246831dc9cc3a`,
+            `tinker-delegate@sha256:509346d9f232cf49962b0e980a59fc6d3911cce5ede1fa74a71726a48a15577f`,
             both built from source commit
-            `50de0a945e60b0602b5d944c0fa09951da2c3410`. Tinker bootstrap,
+            `5943c61a496e81fbd19093f3fced61b14bcd5bb0`. Tinker bootstrap,
             selector-probe, browser-readiness, and add-balance are disabled in
             the current normal compose, and live checks return 403 for those
             widened/diagnostic endpoints.

@@ -191,12 +191,21 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   without exposing page text, raw DOM, selectors, URLs, cookies, OTPs, API keys,
   or card material. A 2026-07-08 Phala one-shot run with GitHub-attested
   `50de0a9` images proved the deployed route still returns bounded raw-CDP
-  output, but the page-scoped Runtime command timed out:
-  `runtime_selector_error_kind=timeout` and `flow_observations=[]`. The CVM was
-  restored to normal compose afterward at live hash
-  `26b3b3a4feba6a2935900fafa733a7e39846f50845317561e1bbccf4ed3e743a`, and
+  output, but the page-scoped Runtime selector command timed out. A follow-up
+  Phala one-shot run with GitHub-attested `5943c61` images proved that even the
+  constant page-scoped Runtime micro-probe times out after page attach:
+  `partial_error_kind=runtime_micro_probe_timeout`,
+  `runtime_micro_probe_command_success=false`,
+  `runtime_micro_probe_error_kind=timeout`,
+  `runtime_selector_command_success=false`, and `flow_observations=[]`. This
+  narrows the deployed blocker to Runtime command delivery/evaluation in the
+  Neko/CDP path, not selector-expression complexity. The CVM was restored to
+  normal compose afterward at live hash
+  `6ead86a6f857f12210b9dd7656fbd54a2547795538a60f28bb9404165e3166fd`, and
   `/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
-  returned 403. Selector-family match capture remains not Phala-proven.
+  returned 403. Selector-family match capture remains not Phala-proven; next
+  diagnosis should add bounded `Runtime.enable` and execution-context event
+  bands.
   BOUNDED BROWSER READINESS FINDING: source now includes
   `tinker-delegate browser-readiness` plus disabled-by-default
   `GET /browser/readiness`. The diagnostic reports only endpoint classes/hashes,
