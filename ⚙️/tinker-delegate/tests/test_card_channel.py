@@ -44,6 +44,35 @@ class CardChannelTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(attestation["encryption_public_key"], keypair.public_key_bytes.hex())
 
+    def test_tdx_attestation_includes_public_dstack_evidence(self):
+        details = {
+            "quote": "aa",
+            "quote_report_data": "bb",
+            "event_log": "[]",
+            "vm_config": "{}",
+            "app_id": "app-ok",
+            "instance_id": "instance-ok",
+            "app_name": "delegate",
+            "device_id": "device-ok",
+            "mr_aggregated": "mr-ok",
+            "os_image_hash": "os-ok",
+            "compose_hash": "compose-ok",
+            "tcb_info": {"compose_hash": "compose-ok"},
+        }
+
+        with (
+            patch("tinker_delegate.card_channel.is_dstack_enabled", return_value=True),
+            patch("tinker_delegate.card_channel.get_attestation_details", return_value=details),
+        ):
+            attestation = get_attestation("artifact")
+
+        self.assertEqual(attestation["mode"], "tdx")
+        self.assertEqual(attestation["quote"], "aa")
+        self.assertEqual(attestation["event_log"], "[]")
+        self.assertEqual(attestation["os_image_hash"], "os-ok")
+        self.assertEqual(attestation["compose_hash"], "compose-ok")
+        self.assertEqual(attestation["tcb_info"], {"compose_hash": "compose-ok"})
+
     async def test_plaintext_payload_is_wiped_after_success(self):
         payload = _payload()
 

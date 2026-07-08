@@ -44,7 +44,7 @@ from pydantic import BaseModel
 from tinker_delegate.billing import CardDetails, add_payment_method, add_balance, get_balance
 from tinker_delegate.config import Settings
 from tinker_delegate.crypto import TEEKeyPair, EncryptedPayload
-from tinker_delegate.dstack_utils import get_attestation as get_dstack_attestation, is_dstack_enabled
+from tinker_delegate.dstack_utils import get_attestation_details, is_dstack_enabled
 from tinker_delegate.redaction import redact_text
 
 
@@ -146,15 +146,24 @@ def get_attestation(context: str = "ingress") -> dict:
     report_data = attestation_report_data(context, keypair.public_key_bytes)
     if is_dstack_enabled():
         try:
-            quote, app_id, compose_hash = get_dstack_attestation(report_data)
+            details = get_attestation_details(report_data)
             return {
                 "mode": "tdx",
-                "quote": quote,
+                "quote": details["quote"],
                 "encryption_public_key": keypair.public_key_bytes.hex(),
                 "report_context": context,
                 "report_data": report_data.hex(),
-                "app_id": app_id,
-                "compose_hash": compose_hash,
+                "quote_report_data": details.get("quote_report_data", ""),
+                "event_log": details.get("event_log", ""),
+                "vm_config": details.get("vm_config", ""),
+                "app_id": details["app_id"],
+                "instance_id": details.get("instance_id", ""),
+                "app_name": details.get("app_name", ""),
+                "device_id": details.get("device_id", ""),
+                "mr_aggregated": details.get("mr_aggregated", ""),
+                "os_image_hash": details.get("os_image_hash", ""),
+                "compose_hash": details["compose_hash"],
+                "tcb_info": details.get("tcb_info", {}),
                 "verified": True,
             }
         except Exception as e:

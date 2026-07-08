@@ -150,6 +150,24 @@ server response.
 Local development can pass `--allow-local-attestation`, but production uploads
 must use the dstack/TDX attestation path.
 
+### Attestation Verification
+
+Use `verify-attestation` to check the public evidence envelope from a laptop
+before sending payment material or artifacts. It live-fetches `/attestation` and
+verifies mode, quote presence, expected compose hash, optional app ID, optional
+OS image hash, public-key shape, report-data key binding, and client fetch
+freshness. This is not a complete Intel quote-chain parser yet; that remains a
+separate verifier task.
+
+```bash
+.venv/bin/python -m tinker_delegate.main verify-attestation \
+  https://delegate.example \
+  --compose-hash 0xEXPECTED_COMPOSE_HASH \
+  --app-id 0xEXPECTED_APP_ID \
+  --os-image-hash 0xEXPECTED_OS_IMAGE_HASH \
+  --context artifact
+```
+
 ### API Server
 
 The `serve` command starts a FastAPI server for programmatic access:

@@ -554,6 +554,13 @@ Implementation status:
 [real]      Client-side artifact uploader fetches `/attestation` and refuses to
             encrypt or upload unless mode, quote presence, compose hash, app ID,
             public-key shape, and report data match policy.
+[real]      Standalone `verify-attestation` CLI live-fetches `/attestation` and
+            checks the public evidence envelope: mode, quote presence, compose
+            hash, app ID, OS image hash, report-data key binding, and client
+            fetch freshness.
+[real]      In dstack mode `/attestation` includes public dstack evidence fields
+            when available: event log, VM config, instance/device IDs,
+            aggregated measurement, OS image hash, compose hash, and TCB info.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with the current selectors.
 [partial]   Funding is in progress: card data can be encrypted to the TEE, but a capped real-card funding attempt still needs to be proven.
 [partial]   Optional Tinker SDK dependency must be installed for real evaluator execution.

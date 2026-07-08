@@ -148,6 +148,40 @@ def cli():
     )
     upload_artifact_p.add_argument("--app-id", default="", help="Expected dstack app ID")
     upload_artifact_p.add_argument(
+        "--os-image-hash",
+        default="",
+        help="Expected dstack OS image hash",
+    )
+    upload_artifact_p.add_argument(
+        "--allow-local-attestation",
+        action="store_true",
+        help="Allow local-mode attestation for development only",
+    )
+
+    verify_attestation_p = sub.add_parser(
+        "verify-attestation",
+        help="Fetch /attestation and verify public TEE evidence against policy",
+    )
+    verify_attestation_p.add_argument("api_url", help="Tinker delegate API base URL")
+    verify_attestation_p.add_argument(
+        "--compose-hash",
+        default="",
+        help="Expected dstack compose hash; required unless --allow-local-attestation is set",
+    )
+    verify_attestation_p.add_argument("--app-id", default="", help="Expected dstack app ID")
+    verify_attestation_p.add_argument(
+        "--os-image-hash",
+        default="",
+        help="Expected dstack OS image hash",
+    )
+    verify_attestation_p.add_argument("--context", default="artifact", help="Expected report context")
+    verify_attestation_p.add_argument(
+        "--max-age-seconds",
+        type=float,
+        default=60.0,
+        help="Maximum client-side age for fetched evidence",
+    )
+    verify_attestation_p.add_argument(
         "--allow-local-attestation",
         action="store_true",
         help="Allow local-mode attestation for development only",
@@ -219,6 +253,7 @@ def cli():
         policy = ArtifactUploadPolicy(
             expected_compose_hash=args.compose_hash,
             expected_app_id=args.app_id,
+            expected_os_image_hash=args.os_image_hash,
             allow_local=args.allow_local_attestation,
         )
         try:
@@ -241,6 +276,42 @@ def cli():
             "size": result.size,
             "status_code": result.status_code,
             "response": result.response,
+        }, indent=2))
+
+    elif args.command == "verify-attestation":
+        from tinker_delegate.attestation_verifier import (
+            AttestationPolicy,
+            AttestationVerificationError,
+            fetch_and_verify_attestation,
+        )
+
+        policy = AttestationPolicy(
+            expected_compose_hash=args.compose_hash,
+            expected_app_id=args.app_id,
+            expected_os_image_hash=args.os_image_hash,
+            context=args.context,
+            allow_local=args.allow_local_attestation,
+            max_age_seconds=args.max_age_seconds,
+        )
+        try:
+            result = fetch_and_verify_attestation(args.api_url, policy)
+        except AttestationVerificationError as exc:
+            print(f"[verify-attestation] rejected: {redact_text(exc)}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"[verify-attestation] failed: {redact_text(exc)}")
+            sys.exit(1)
+
+        print(json.dumps({
+            "mode": result.mode,
+            "report_context": result.report_context,
+            "report_data": result.report_data,
+            "encryption_public_key": result.encryption_public_key,
+            "quote_size": result.quote_size,
+            "compose_hash": result.compose_hash,
+            "app_id": result.app_id,
+            "os_image_hash": result.os_image_hash,
+            "fetched_at": result.fetched_at,
         }, indent=2))
 
     elif args.command == "serve":

@@ -854,6 +854,8 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 - [x] Encrypted artifact ingress: quote-key channel, deal/hash-bound AES-GCM,
       disabled plaintext production path, client-side attestation envelope gate
 - [x] TDX quote stubs (local) / real generation (dstack) in attestation endpoints
+- [x] Client-side attestation envelope verifier: mode, quote presence, compose
+      hash, app ID, OS image hash, report-data key binding, and fetch freshness
 - [x] Key-store code path uses `dstack_sdk.TappdClient.derive_key()` in dstack mode
 - [ ] Full cryptographic Intel TDX quote parsing/freshness verification
 - [ ] Validate dstack-derived key sealing in a deployed CVM
