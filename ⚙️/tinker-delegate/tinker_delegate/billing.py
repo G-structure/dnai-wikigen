@@ -12,6 +12,7 @@ Trust model:
   - TEE never persists card details — they're ephemeral
 """
 import asyncio
+import re
 
 from playwright.async_api import async_playwright, Page, Frame
 
@@ -90,7 +91,7 @@ async def _fill_stripe_card(frame: Frame, card: CardDetails) -> None:
     exp_input = frame.locator('input[name="exp-date"], input[data-elements-stable-field-name="cardExpiry"]')
     if await exp_input.count() > 0:
         await exp_input.click()
-        await exp_input.type(f"{card.exp_month}{card.exp_year}", delay=30)
+        await exp_input.type(_format_expiry(card), delay=30)
         await asyncio.sleep(0.3)
 
     # CVC
@@ -99,6 +100,38 @@ async def _fill_stripe_card(frame: Frame, card: CardDetails) -> None:
         await cvc_input.click()
         await cvc_input.type(card.cvc, delay=30)
         await asyncio.sleep(0.3)
+
+
+def _format_expiry(card: CardDetails) -> str:
+    """Return the MMYY string expected by Stripe Elements."""
+    month = card.exp_month.strip().zfill(2)
+    year = card.exp_year.strip()
+    if len(year) == 4:
+        year = year[-2:]
+    return f"{month}{year}"
+
+
+def _billing_error_message(text: str) -> str | None:
+    """Extract the most useful visible billing failure without returning the page."""
+    normalized = re.sub(r"\s+", " ", text).strip()
+    patterns = [
+        r"(Your card[^.]*\.)",
+        r"(The card[^.]*\.)",
+        r"(This card[^.]*\.)",
+        r"(Payment method[^.]*\.)",
+        r"(Unable to[^.]*\.)",
+        r"(Failed to[^.]*\.)",
+        r"(declined[^.]*\.)",
+        r"(invalid[^.]*\.)",
+        r"(expired[^.]*\.)",
+        r"(test card[^.]*\.)",
+        r"(live mode[^.]*\.)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, normalized, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +200,8 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
             await asyncio.sleep(1)
 
         if not stripe_frame:
-            await page.screenshot(path="screenshot_no_stripe.png")
+            if settings.debug_screenshots:
+                await page.screenshot(path="screenshot_no_stripe.png")
             return {"success": False, "error": "Stripe card iframe not found"}
 
         # Fill Stripe card fields
@@ -196,7 +230,8 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
                     await asyncio.sleep(0.1)
 
         await asyncio.sleep(1)
-        await page.screenshot(path="screenshot_billing_filled.png")
+        if settings.debug_screenshots:
+            await page.screenshot(path="screenshot_billing_filled.png")
 
         # Submit
         print("[billing] submitting payment method...")
@@ -212,17 +247,20 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
 
         # Check result
         text = await page.evaluate("() => document.body?.innerText || ''")
-        await page.screenshot(path="screenshot_billing_result.png")
+        if settings.debug_screenshots:
+            await page.screenshot(path="screenshot_billing_result.png")
 
-        if "error" in text.lower() and "card" in text.lower():
-            error_msg = text[text.lower().find("error"):text.lower().find("error") + 100]
-            return {"success": False, "error": error_msg.strip()}
+        error_msg = _billing_error_message(text)
+        if error_msg:
+            return {"success": False, "error": error_msg}
 
         # Check if payment method now shows up
         success = "ending in" in text.lower() or "visa" in text.lower() or "mastercard" in text.lower()
         print(f"[billing] payment method added: {success}")
 
-        return {"success": success}
+        if not success:
+            return {"success": False, "error": "Payment method was not added"}
+        return {"success": True}
 
 
 async def add_balance(amount_dollars: float, settings: Settings | None = None) -> dict:
@@ -250,22 +288,39 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
             await add_btn.click()
             await asyncio.sleep(3)
 
+        text = await page.evaluate("() => document.body?.innerText || ''")
+        if "Add payment method" in text and "Name on card" in text:
+            return {
+                "success": False,
+                "error": "Payment method required before adding balance",
+            }
+
         # Look for amount input
-        amount_input = page.locator('input[type="number"], input[placeholder*="amount"], input[name*="amount"]')
+        dialog = page.locator('[role="dialog"], dialog')
+        scope = dialog.last if await dialog.count() > 0 else page
+        amount_input = scope.locator('input[type="number"], input[placeholder*="amount"], input[name*="amount"]')
         if await amount_input.count() > 0:
             await amount_input.fill(str(amount_dollars))
             await asyncio.sleep(0.5)
+        else:
+            return {"success": False, "error": "Add-balance amount input not found"}
 
         # Submit
-        confirm = page.locator('button:has-text("Confirm"), button:has-text("Add"), button:has-text("Pay")')
+        confirm = scope.locator('button:has-text("Confirm"), button:has-text("Add balance"), button:has-text("Pay")')
         if await confirm.count() > 0:
             await confirm.first.click()
             await asyncio.sleep(5)
+        else:
+            return {"success": False, "error": "Add-balance submit button not found"}
 
         text = await page.evaluate("() => document.body?.innerText || ''")
-        await page.screenshot(path="screenshot_add_balance.png")
+        if settings.debug_screenshots:
+            await page.screenshot(path="screenshot_add_balance.png")
 
-        return {"success": True, "page_text": text[:300]}
+        error_msg = _billing_error_message(text)
+        if error_msg:
+            return {"success": False, "error": error_msg}
+        return {"success": True}
 
 
 async def configure_auto_reload(
@@ -318,7 +373,8 @@ async def configure_auto_reload(
             await save_btn.click()
             await asyncio.sleep(3)
 
-        await page.screenshot(path="screenshot_auto_reload.png")
+        if settings.debug_screenshots:
+            await page.screenshot(path="screenshot_auto_reload.png")
         return {"success": True}
 
 

@@ -139,7 +139,7 @@ async def signup(settings: Settings | None = None) -> dict:
             except Exception as e:
                 result["stored"] = False
                 result["store_error"] = str(e)
-            print(f"[done] TINKER_API_KEY={api_key}")
+            print(f"[done] TINKER_API_KEY={api_key[:12]}...<redacted>")
         return result
 
 
@@ -304,7 +304,15 @@ async def _create_api_key(page: Page) -> str | None:
 
     print("[apikey] creating new key...")
     await new_key.click()
-    await asyncio.sleep(3)
+    await asyncio.sleep(1)
+
+    generate_key = page.locator('button:has-text("Generate key")')
+    if await generate_key.count() > 0:
+        print("[apikey] confirming key generation...")
+        await generate_key.first.click()
+        await asyncio.sleep(3)
+    else:
+        await asyncio.sleep(2)
 
     # Extract the key from the dialog
     api_key = await page.evaluate("""() => {
