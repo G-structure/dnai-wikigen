@@ -12,6 +12,10 @@ _DEFAULT_STATE = {
     "bootstrap_success": False,
     "bootstrap_error": "",
     "bootstrap_error_kind": "",
+    "reauth_attempted": False,
+    "reauth_success": False,
+    "reauth_error_kind": "",
+    "last_reauth_attempt_record": None,
 }
 
 _state = deepcopy(_DEFAULT_STATE)

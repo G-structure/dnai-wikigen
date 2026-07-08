@@ -172,6 +172,9 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   `api_key_provisioning` attempt records including `selector_missing` instead
   of raw page state, and has replayable mock-page tests for successful key
   extraction and selector-drift failures.
+- Tinker re-auth now has a bounded local helper/CLI and opt-in API endpoint for
+  future OTP challenges. It returns `tinker_auth` attempt records only and does
+  not return account email, OTP, browser URL, API key, or raw page text.
 - The same flow still needs fresh validation inside a deployed Phala CVM.
 - The optional Tinker SDK dependency and runtime behavior inside the final CVM
   image are not yet proven.

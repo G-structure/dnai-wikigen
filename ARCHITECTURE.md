@@ -569,6 +569,10 @@ Implementation status:
             including `selector_missing` when no key can be captured, and has
             replayable mock-page tests for successful extraction and selector
             drift failure paths.
+[real]      Tinker re-auth exists as a bounded OTP refresh path through
+            `reauth` and opt-in `POST /auth/reauth`; it returns only
+            `tinker_auth` attempt records and does not expose account email,
+            OTP, browser URL, API key, or page text.
 [real]      Local Stripe test-card billing path reaches submission and returns a bounded decline.
 [real]      Billing automation returns bounded payment-method and add-balance
             attempt records: outcome class, furthest stage, issued timestamp,
@@ -1173,6 +1177,7 @@ Endpoints:
 ```
 GET  /health
 GET  /attestation?context=ingress|artifact|billing
+POST /auth/reauth opt-in bounded OTP re-auth; disabled by default
 GET  /billing/balance
 GET  /billing/funding-receipts bounded funding attempt audit records
 POST /billing/card            local-dev plaintext hook, disabled by default

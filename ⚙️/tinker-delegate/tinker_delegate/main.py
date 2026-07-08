@@ -115,6 +115,7 @@ def cli():
     sub.add_parser("check", help="Check oracle health and email readiness")
     sub.add_parser("signup", help="Full signup: auth → onboarding → API key")
     sub.add_parser("signin", help="Sign in to existing account")
+    sub.add_parser("reauth", help="Refresh Tinker auth through OTP and return bounded receipt")
 
     # Billing commands
     sub.add_parser("balance", help="Get current Tinker account balance")
@@ -242,6 +243,12 @@ def cli():
     elif args.command == "signin":
         from tinker_delegate.signup import signin
         result = asyncio.run(signin(settings))
+        print(json.dumps(result, indent=2, default=str))
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "reauth":
+        from tinker_delegate.signup import reauth
+        result = asyncio.run(reauth(settings))
         print(json.dumps(result, indent=2, default=str))
         sys.exit(0 if result.get("success") else 1)
 

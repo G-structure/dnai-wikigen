@@ -324,7 +324,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             returning or logging the raw key.
       - [ ] Complete the same flow inside the deployed CVM and seal the API key
             with the dstack-derived key path.
-- [ ] `P0` Add a Tinker re-auth path for future OTP challenges.
+- [x] `P0` Add a Tinker re-auth path for future OTP challenges.
+      Done locally via bounded `reauth` CLI/helper and opt-in
+      `POST /auth/reauth`; outputs are `tinker_auth` receipts only and do not
+      expose account email, OTP, URL, API key, or raw page text. Deployed-CVM
+      validation remains covered by the open Phala selector/posture tasks above.
 - [ ] `P1` Add browser session recovery:
       stale OTP page detection, cookie/session expiration, login loop detection,
       screenshot artifacts with secrets redacted.

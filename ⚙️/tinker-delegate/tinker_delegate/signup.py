@@ -24,6 +24,7 @@ from tinker_delegate.automation_receipts import (
     AutomationOutcome,
     AutomationStage,
     AutomationSurface,
+    classify_automation_error,
     make_receipt,
 )
 from tinker_delegate.config import Settings
@@ -256,6 +257,70 @@ async def signin(settings: Settings | None = None) -> dict:
         return {"email": email, "url": final_url, "success": "tinker-console" in final_url}
 
 
+async def reauth(settings: Settings | None = None) -> dict:
+    """Refresh Tinker browser authentication through the email OTP flow.
+
+    Returns only bounded metadata. The account email, OTP, browser URL, page
+    text, and API key material do not leave this function.
+    """
+    if settings is None:
+        settings = Settings()
+
+    oracle = OracleClient(settings)
+    email = settings.email or oracle.get_email()
+    print("[reauth] starting bounded Tinker re-auth")
+
+    try:
+        async with async_playwright() as p:
+            browser = await connect_chromium(p, settings)
+            context = await get_browser_context(browser)
+            page = context.pages[0] if context.pages else await context.new_page()
+            await _authenticate(page, email, oracle, settings)
+    except AuthAccessBlockedError as exc:
+        receipt = _auth_receipt(
+            email=email,
+            outcome=AutomationOutcome.AUTH_ACCESS_BLOCKED,
+            furthest_stage=AutomationStage.NOT_STARTED,
+            bounded_message="auth_access_blocked",
+            evidence=exc,
+        )
+        return {
+            "success": False,
+            "authenticated": False,
+            "error_kind": AutomationOutcome.AUTH_ACCESS_BLOCKED.value,
+            "attempt_record": receipt.to_public_dict(),
+        }
+    except Exception as exc:
+        outcome = classify_automation_error(str(exc))
+        receipt = _auth_receipt(
+            email=email,
+            outcome=outcome,
+            furthest_stage=AutomationStage.NOT_STARTED,
+            bounded_message=outcome.value,
+            evidence=exc,
+        )
+        return {
+            "success": False,
+            "authenticated": False,
+            "error_kind": outcome.value,
+            "attempt_record": receipt.to_public_dict(),
+        }
+
+    receipt = _auth_receipt(
+        email=email,
+        outcome=AutomationOutcome.SUCCESS,
+        furthest_stage=AutomationStage.AUTHENTICATED,
+        bounded_message="reauthenticated",
+        evidence="reauthenticated",
+    )
+    return {
+        "success": True,
+        "authenticated": True,
+        "error_kind": "",
+        "attempt_record": receipt.to_public_dict(),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Internal steps
 # ---------------------------------------------------------------------------
@@ -468,5 +533,23 @@ def _api_key_receipt(
         furthest_stage=AutomationStage.API_KEYS_PAGE_LOADED,
         evidence=selector_error or "api_key_not_captured",
         bounded_message="api_key_not_captured",
+        account_identifier=email,
+    )
+
+
+def _auth_receipt(
+    *,
+    email: str,
+    outcome: AutomationOutcome,
+    furthest_stage: AutomationStage,
+    bounded_message: str,
+    evidence: object,
+):
+    return make_receipt(
+        surface=AutomationSurface.TINKER_AUTH,
+        outcome=outcome,
+        furthest_stage=furthest_stage,
+        evidence=evidence,
+        bounded_message=bounded_message,
         account_identifier=email,
     )

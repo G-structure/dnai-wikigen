@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
 from tinker_delegate.config import Settings
-from tinker_delegate.signup import signup
+from tinker_delegate.signup import AuthAccessBlockedError, reauth, signup
 
 
 class AsyncPlaywrightStub:
@@ -105,6 +105,52 @@ class SignupKeyEgressTest(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result["api_key_created"])
         self.assertEqual(result["attempt_record"]["outcome"], "selector_missing")
         self.assertEqual(result["attempt_record"]["furthest_stage"], "api_keys_page_loaded")
+
+    async def test_reauth_returns_bounded_metadata_not_email_otp_or_url(self):
+        with (
+            patch("tinker_delegate.signup.OracleClient", FakeOracle),
+            patch("tinker_delegate.signup.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.signup.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.signup.get_browser_context", new=AsyncMock(return_value=FakeContext())),
+            patch("tinker_delegate.signup._authenticate", new=AsyncMock()) as authenticate,
+        ):
+            result = await reauth(Settings())
+
+        self.assertTrue(result["success"])
+        self.assertTrue(result["authenticated"])
+        self.assertEqual(result["error_kind"], "")
+        self.assertEqual(result["attempt_record"]["surface"], "tinker_auth")
+        self.assertEqual(result["attempt_record"]["outcome"], "success")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "authenticated")
+        authenticate.assert_awaited_once()
+        rendered = repr(result)
+        self.assertNotIn("oracle@example.com", rendered)
+        self.assertNotIn("123456", rendered)
+        self.assertNotIn("tinker-console.thinkingmachines.ai", rendered)
+
+    async def test_reauth_auth_blocked_returns_bounded_receipt(self):
+        error = AuthAccessBlockedError(
+            "Access blocked for oracle@example.com with OTP 123456 at https://tinker-console.thinkingmachines.ai"
+        )
+
+        with (
+            patch("tinker_delegate.signup.OracleClient", FakeOracle),
+            patch("tinker_delegate.signup.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.signup.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.signup.get_browser_context", new=AsyncMock(return_value=FakeContext())),
+            patch("tinker_delegate.signup._authenticate", new=AsyncMock(side_effect=error)),
+        ):
+            result = await reauth(Settings())
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["authenticated"])
+        self.assertEqual(result["error_kind"], "auth_access_blocked")
+        self.assertEqual(result["attempt_record"]["surface"], "tinker_auth")
+        self.assertEqual(result["attempt_record"]["outcome"], "auth_access_blocked")
+        rendered = repr(result)
+        self.assertNotIn("oracle@example.com", rendered)
+        self.assertNotIn("123456", rendered)
+        self.assertNotIn("tinker-console.thinkingmachines.ai", rendered)
 
 
 if __name__ == "__main__":

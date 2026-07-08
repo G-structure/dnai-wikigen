@@ -3,6 +3,7 @@
 Endpoints:
   GET  /health                    — service health + oracle email
   GET  /attestation               — TDX attestation quote + context-bound encryption public key
+  POST /auth/reauth               — bounded Tinker OTP re-auth, disabled unless explicitly enabled
   GET  /billing/balance           — current Tinker balance
   GET  /billing/funding-receipts  — bounded funding attempt audit records
   POST /billing/card              — add payment method (plaintext — local dev only)
@@ -34,7 +35,7 @@ from tinker_delegate.dstack_utils import is_dstack_enabled
 from tinker_delegate.funding_receipt_store import build_funding_receipt_store
 from tinker_delegate.oracle_client import OracleClient
 from tinker_delegate.redaction import redact_text
-from tinker_delegate.runtime_state import get_runtime_state
+from tinker_delegate.runtime_state import get_runtime_state, update_runtime_state
 from tinker_delegate.card_channel import (
     CardPayload,
     EncryptedCardPayload,
@@ -169,6 +170,29 @@ async def attestation(context: str = "ingress"):
     if context not in ATTESTATION_CONTEXTS:
         raise HTTPException(400, "unsupported attestation context")
     return get_attestation(context)
+
+
+@app.post("/auth/reauth")
+async def auth_reauth():
+    """Refresh Tinker browser auth through the OTP path.
+
+    This endpoint is disabled by default because it can trigger account auth
+    emails. Enable only for an internal/deployed control plane that already
+    restricts who can invoke account operations.
+    """
+    if not settings.allow_auth_automation_endpoint:
+        raise HTTPException(403, "auth automation endpoint is disabled")
+
+    from tinker_delegate.signup import reauth
+
+    result = await reauth(settings)
+    update_runtime_state(
+        reauth_attempted=True,
+        reauth_success=bool(result.get("success")),
+        reauth_error_kind=result.get("error_kind", ""),
+        last_reauth_attempt_record=result.get("attempt_record"),
+    )
+    return result
 
 
 @app.get("/billing/balance")

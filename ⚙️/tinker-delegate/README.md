@@ -105,8 +105,11 @@ uv venv && uv pip install playwright httpx pydantic pydantic-settings
 # Full signup: creates account, completes onboarding, generates API key
 .venv/bin/python -m tinker_delegate.main signup
 
-# Sign in: re-authenticates existing account via OTP
+# Sign in: returns legacy URL/success metadata for local debugging
 .venv/bin/python -m tinker_delegate.main signin
+
+# Re-authenticate existing account via OTP with bounded receipt output
+.venv/bin/python -m tinker_delegate.main reauth
 
 # Check balance
 .venv/bin/python -m tinker_delegate.main balance
@@ -185,6 +188,7 @@ The `serve` command starts a FastAPI server for programmatic access:
 ```
 GET  /health              — service health + oracle email
 GET  /attestation?context=ingress|artifact|billing — context-bound quote + public key
+POST /auth/reauth         — bounded OTP re-auth, disabled unless explicitly enabled
 GET  /billing/balance     — current Tinker balance
 GET  /billing/funding-receipts — bounded funding attempt audit records
 POST /billing/card        — plaintext local-dev hook, disabled by default
@@ -261,7 +265,7 @@ tinker_delegate/
 ├── control_plane.py   # Deal lifecycle orchestration + output bounding
 ├── evaluator.py       # Stub + SFT evaluator agents
 ├── api.py             # FastAPI server: billing, attestation, deal lifecycle
-└── main.py            # CLI: check, signup, signin, balance, add-card, add-balance, serve
+└── main.py            # CLI: check, signup, signin, reauth, balance, add-card, add-balance, serve
 
 contracts/
 ├── src/DiligenceRoom.sol       # Escrow state machine (Base Sepolia)
@@ -276,6 +280,7 @@ contracts/
 |----------|---------|
 | `signup()` | Full flow: authenticate → onboarding → create API key |
 | `signin()` | Re-authenticate existing account via OTP |
+| `reauth()` | Refresh Tinker auth via OTP and return only bounded `tinker_auth` receipt metadata |
 | `_authenticate()` | Handle email entry, OTP wait, code entry |
 | `_handle_onboarding()` | Fill name, check TOS, submit (skipped if already done) |
 | `_create_api_key()` | Navigate to /keys, click "New key", extract `tml-...` token |

@@ -1,0 +1,74 @@
+import unittest
+from unittest.mock import AsyncMock, patch
+
+from fastapi.testclient import TestClient
+
+from tinker_delegate import api
+from tinker_delegate.config import Settings
+from tinker_delegate.runtime_state import get_runtime_state, reset_runtime_state
+
+
+BOUNDED_REAUTH_RESULT = {
+    "success": True,
+    "authenticated": True,
+    "error_kind": "",
+    "attempt_record": {
+        "surface": "tinker_auth",
+        "outcome": "success",
+        "furthest_stage": "authenticated",
+        "bounded_message": "reauthenticated",
+        "evidence_hash": "a" * 64,
+        "account_hash": "b" * 64,
+        "amount_band": "",
+        "balance_band": "",
+        "tdx_quote_hash": "",
+        "card_payload_destroyed": False,
+        "raw_secret_egress": False,
+        "issued_at": 1,
+    },
+}
+
+
+class ReauthApiTest(unittest.TestCase):
+    def setUp(self):
+        self.original_settings = api.settings
+        reset_runtime_state()
+
+    def tearDown(self):
+        api.settings = self.original_settings
+        reset_runtime_state()
+
+    def test_reauth_endpoint_disabled_by_default(self):
+        api.settings = Settings(allow_auth_automation_endpoint=False)
+        client = TestClient(api.app)
+
+        with patch("tinker_delegate.signup.reauth", new=AsyncMock()) as reauth:
+            response = client.post("/auth/reauth")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("auth automation endpoint is disabled", response.json()["detail"])
+        reauth.assert_not_called()
+
+    def test_reauth_endpoint_returns_bounded_result_and_updates_runtime_state(self):
+        api.settings = Settings(allow_auth_automation_endpoint=True)
+        client = TestClient(api.app)
+
+        with patch("tinker_delegate.signup.reauth", new=AsyncMock(return_value=BOUNDED_REAUTH_RESULT)) as reauth:
+            response = client.post("/auth/reauth")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body, BOUNDED_REAUTH_RESULT)
+        self.assertNotIn("oracle@example.com", repr(body))
+        self.assertNotIn("123456", repr(body))
+        reauth.assert_awaited_once()
+
+        runtime = get_runtime_state()
+        self.assertTrue(runtime["reauth_attempted"])
+        self.assertTrue(runtime["reauth_success"])
+        self.assertEqual(runtime["reauth_error_kind"], "")
+        self.assertEqual(runtime["last_reauth_attempt_record"], BOUNDED_REAUTH_RESULT["attempt_record"])
+
+
+if __name__ == "__main__":
+    unittest.main()
