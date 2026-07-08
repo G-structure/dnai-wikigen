@@ -728,7 +728,15 @@ Implementation status:
             and empty frame observations for the affected page. It performs no
             navigation, clicking, typing, screenshots, page-text capture,
             cookie reads, DOM text extraction, or raw URL egress. It does not
-            yet run DOM selector counting.
+            require successful frame traversal before preserving page identity.
+            In source/tests, the raw-CDP fallback now also sends one bounded
+            `Runtime.evaluate` command after page attach to count declared
+            selector families as `0`, `1`, `2+`, or `probe_error` bands. Python
+            maps the returned matrix onto known flow/family names, so public
+            output cannot include page text, raw DOM, raw selectors, cookies,
+            account identifiers, OTPs, API keys, card data, or arbitrary
+            page-controlled strings. This Runtime selector-counting refinement
+            is not yet Phala-proven.
 [real]      `GET /browser/selector-probe` wraps the same probe for deployed
             one-shot evidence capture. It is disabled by default and returns
             403 unless `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=true`; when enabled
@@ -789,8 +797,11 @@ Implementation status:
             `partial_error_kind=frame_tree_timeout`, empty frame observations,
             and `raw_secret_egress=false`. The CVM was restored to normal
             compose afterward, and both diagnostic endpoints returned 403.
-            `Page.getFrameTree` still times out, so actual frame inventory and
-            DOM selector match evidence remain open.
+            `Page.getFrameTree` still times out, so actual frame inventory
+            remains open. Source/tests now add bounded raw-CDP Runtime selector
+            counting that should capture deployed selector-family bands even
+            when frame traversal times out, but that refinement is not yet
+            Phala-proven.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,

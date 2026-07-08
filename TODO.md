@@ -737,9 +737,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             returned bounded `browser_unavailable`, and the CVM was restored to
             normal compose where the readiness and selector endpoints return
             403. Later subitems added and Phala-measured the raw-CDP
-            target/page fallback. DOM selector match counts remain open until
-            the fallback grows bounded Runtime evaluation or Playwright
-            attachment is repaired.
+            target/page fallback. Source/tests now add bounded Runtime selector
+            family counting; deployed DOM selector match evidence remains open
+            until that fallback is built into GitHub-attested images and
+            measured on Phala.
       - [x] Add a bounded post-upgrade DevTools-protocol probe.
             Done in source/tests and Phala-proven 2026-07-08:
             `browser-readiness` now includes
@@ -795,6 +796,19 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             text, raw URLs, cookies, account identifiers, OTPs, API keys, and
             card material. Frame inventory and DOM selector counting remain
             open.
+      - [ ] Add bounded raw-CDP Runtime selector-family counting for deployed
+            selector evidence.
+            Done in source/tests 2026-07-08: after `Target.attachToTarget`,
+            the raw-CDP fallback sends one `Runtime.evaluate` command that
+            counts only declared selector families and returns a matrix of
+            `0`, `1`, `2+`, or `probe_error` bands. Python maps that matrix
+            onto known flow/family names, so the public receipt cannot include
+            page text, raw DOM, raw selectors, cookies, account identifiers,
+            OTPs, API keys, card data, or arbitrary page-controlled strings.
+            Tests prove selector-family observations survive the same
+            `Page.getFrameTree` timeout seen on Phala. Next step: build
+            GitHub-attested images, measure this one-shot selector probe on
+            Phala, and restore normal compose.
 - [x] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
       needed by each compose profile.
       Done 2026-07-08: `scripts/redeploy-phala-cvm.mjs` now defaults to

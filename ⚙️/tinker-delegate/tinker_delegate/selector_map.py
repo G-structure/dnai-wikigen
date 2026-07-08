@@ -62,6 +62,7 @@ DEPLOYED_SELECTOR_EVIDENCE_STATUS = "pending_deployed_cvm_capture"
 PROBE_VERSION = "2026-07-08.1"
 RAW_CDP_PROBE_VERSION = "2026-07-08.1"
 COUNT_BAND_CAP = 2
+MATCH_BANDS = {"0", "1", "2+", "probe_error"}
 
 
 def _family(name: str, selectors: tuple[str, ...], *, required: bool = True) -> dict[str, Any]:
@@ -462,6 +463,87 @@ def _frame_tree_items(frame_tree: dict[str, Any]) -> list[dict[str, Any]]:
     return items
 
 
+def _runtime_selector_matrix(selector_map: dict[str, Any]) -> list[list[list[str]]]:
+    matrix: list[list[list[str]]] = []
+    for flow in selector_map["flows"]:
+        flow_selectors: list[list[str]] = []
+        for family in flow["families"]:
+            if family["name"] == "stripe_frame_matchers":
+                continue
+            flow_selectors.append(list(family.get("selectors", []) or []))
+        matrix.append(flow_selectors)
+    return matrix
+
+
+def _runtime_selector_expression(selector_map: dict[str, Any]) -> str:
+    selector_matrix = json.dumps(_runtime_selector_matrix(selector_map), separators=(",", ":"))
+    return (
+        "(() => {"
+        f"const flows={selector_matrix};"
+        "const cap=2;"
+        "const band=(count)=>count<=0?'0':count===1?'1':'2+';"
+        "return flows.map((families)=>families.map((selectors)=>{"
+        "let total=0;"
+        "for (const selector of selectors){"
+        "try { total += document.querySelectorAll(selector).length; }"
+        "catch (_) { continue; }"
+        "if (total >= cap) return '2+';"
+        "}"
+        "return band(total);"
+        "}));"
+        "})()"
+    )
+
+
+def _runtime_selector_observations(value: Any, selector_map: dict[str, Any]) -> list[dict[str, Any]]:
+    flow_observations: list[dict[str, Any]] = []
+    matrix = value if isinstance(value, list) else []
+    for flow_index, flow in enumerate(selector_map["flows"]):
+        raw_flow = matrix[flow_index] if flow_index < len(matrix) and isinstance(matrix[flow_index], list) else []
+        family_observations = []
+        emitted_index = 0
+        for family in flow["families"]:
+            if family["name"] == "stripe_frame_matchers":
+                continue
+            raw_band = raw_flow[emitted_index] if emitted_index < len(raw_flow) else "probe_error"
+            emitted_index += 1
+            match_band = raw_band if isinstance(raw_band, str) and raw_band in MATCH_BANDS else "probe_error"
+            family_observations.append(
+                {
+                    "name": family["name"],
+                    "required": family["required"],
+                    "match_band": match_band,
+                }
+            )
+        present_required = sum(
+            1
+            for item in family_observations
+            if item["required"] and item["match_band"] not in {"0", "probe_error"}
+        )
+        flow_observations.append(
+            {
+                "name": flow["name"],
+                "present_required_families": present_required,
+                "family_observations": family_observations,
+            }
+        )
+    return flow_observations
+
+
+def _runtime_evaluate_value(response: dict[str, Any]) -> Any:
+    result = response.get("result", {})
+    if not isinstance(result, dict):
+        raise RuntimeError("missing_runtime_result")
+    remote_object = result.get("result")
+    if not isinstance(remote_object, dict):
+        raise RuntimeError("missing_runtime_result")
+    if remote_object.get("subtype") == "error" or "exceptionDetails" in result:
+        raise RuntimeError("runtime_exception")
+    if "value" not in remote_object:
+        raise RuntimeError("missing_runtime_value")
+    return remote_object["value"]
+
+
 def _raw_cdp_error_kind(exc: Exception) -> str:
     if isinstance(exc, (socket.timeout, TimeoutError)):
         return "timeout"
@@ -478,6 +560,9 @@ def _raw_cdp_error_kind(exc: Exception) -> str:
             "unsupported_websocket_url",
             "upgrade_rejected",
             "invalid_upgrade_response",
+            "missing_runtime_result",
+            "missing_runtime_value",
+            "runtime_exception",
         }
         if value in allowed:
             return value
@@ -500,6 +585,7 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
         "metadata_success": False,
         "upgrade_success": False,
         "target_command_success": False,
+        "runtime_selector_command_success": False,
         "frame_tree_command_success": False,
         "http_status_band": "",
         "target_count_band": "0",
@@ -534,6 +620,8 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
             targets = list(targets_response.get("result", {}).get("targetInfos", []) or [])
             result["target_command_success"] = True
             result["target_count_band"] = _count_band(len(targets))
+            selector_map = build_selector_map(include_selectors=True)
+            result["selector_map_hash"] = selector_map["selector_map_hash"]
             page_targets = [
                 target
                 for target in targets
@@ -550,6 +638,9 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                     "target_type": "page",
                     "attached": False,
                     "attach_error_kind": "",
+                    "runtime_selector_success": False,
+                    "runtime_selector_error_kind": "",
+                    "flow_observations": [],
                     "frame_tree_success": False,
                     "frame_tree_error_kind": "",
                     "frame_count_band": "0",
@@ -573,23 +664,48 @@ def _probe_raw_cdp_targets(settings: Settings) -> dict[str, Any]:
                     page_result["attached"] = bool(session_id)
                     if session_id:
                         try:
-                            frame_tree = client.command("Page.getFrameTree", session_id=session_id)
-                            tree = frame_tree.get("result", {}).get("frameTree")
+                            runtime_response = client.command(
+                                "Runtime.evaluate",
+                                {
+                                    "expression": _runtime_selector_expression(selector_map),
+                                    "returnByValue": True,
+                                    "awaitPromise": False,
+                                    "silent": True,
+                                },
+                                session_id=session_id,
+                            )
+                            runtime_value = _runtime_evaluate_value(runtime_response)
                         except Exception as exc:
                             error_kind = _raw_cdp_error_kind(exc)
-                            page_result["frame_tree_error_kind"] = error_kind
-                            partial_errors.append(f"frame_tree_{error_kind}")
+                            page_result["runtime_selector_error_kind"] = error_kind
+                            partial_errors.append(f"runtime_selector_{error_kind}")
                             stop_after_page = True
                         else:
-                            if isinstance(tree, dict):
-                                observations = _frame_tree_items(tree)[:10]
-                                page_result["frame_tree_success"] = True
-                                page_result["frame_count_band"] = _count_band(len(observations))
-                                page_result["frame_observations"] = observations
-                                result["frame_tree_command_success"] = True
+                            page_result["runtime_selector_success"] = True
+                            page_result["flow_observations"] = _runtime_selector_observations(
+                                runtime_value,
+                                selector_map,
+                            )
+                            result["runtime_selector_command_success"] = True
+                        if not stop_after_page:
+                            try:
+                                frame_tree = client.command("Page.getFrameTree", session_id=session_id)
+                                tree = frame_tree.get("result", {}).get("frameTree")
+                            except Exception as exc:
+                                error_kind = _raw_cdp_error_kind(exc)
+                                page_result["frame_tree_error_kind"] = error_kind
+                                partial_errors.append(f"frame_tree_{error_kind}")
+                                stop_after_page = True
                             else:
-                                page_result["frame_tree_error_kind"] = "missing_frame_tree"
-                                partial_errors.append("frame_tree_missing_frame_tree")
+                                if isinstance(tree, dict):
+                                    observations = _frame_tree_items(tree)[:10]
+                                    page_result["frame_tree_success"] = True
+                                    page_result["frame_count_band"] = _count_band(len(observations))
+                                    page_result["frame_observations"] = observations
+                                    result["frame_tree_command_success"] = True
+                                else:
+                                    page_result["frame_tree_error_kind"] = "missing_frame_tree"
+                                    partial_errors.append("frame_tree_missing_frame_tree")
                 else:
                     page_result["attach_error_kind"] = "missing_target_id"
                     partial_errors.append("attach_missing_target_id")

@@ -104,15 +104,18 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   receipts. It is now Phala-proven through target inventory: a one-shot
   `f63dd18` deployment reached CDP metadata, WebSocket status `101`, and
   `Target.getTargets`, returning bounded target count `2+` and page count `1`.
-  It does not yet run DOM selector counting, and `Page.getFrameTree` still
-  times out before frame inventory. The timeout-preserving page observation
-  refinement is now Phala-proven with GitHub-attested `a384db2` images:
+  Source/tests now run bounded DOM selector-family counting through one
+  raw-CDP `Runtime.evaluate` command after page attach, returning only declared
+  flow/family names and `0`, `1`, `2+`, or `probe_error` bands; this is not yet
+  Phala-proven. `Page.getFrameTree` still times out before frame inventory. The
+  timeout-preserving page observation refinement is now Phala-proven with
+  GitHub-attested `a384db2` images:
   `selector-probe` returned `probe_backend=raw_cdp`, `success=true`, target
   count `2+`, page count `1`, `pages_observed=1`, one bounded page URL
   class/hash, `attached=true`, `frame_tree_error_kind=timeout`,
   `partial_error_kind=frame_tree_timeout`, empty frame observations, and
   `raw_secret_egress=false`. Normal compose was restored afterward at compose
-  hash `b63af8f92f7a65dd0f7b22fc7955e23c0adf075bfbdd53bcdd0673420169b487`,
+  hash `000ac9ba94fc8cf1870786f9a9a3f7b1586ce74ad21f23143ce4e3d88941318e`,
   with public logs/sysinfo still disabled; both diagnostic endpoints return
   403. The restored deployment-bundle verifier ties the new normal compose to
   `tinker-delegate@sha256:7ddea52df75ab0392defbb35d568649ab21bb67352e6cc55ce1aeb154470c83e`,
@@ -126,8 +129,9 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   `7973b27` images enabled it on top of the bounded bootstrap profile, the live
   response returned bounded `browser_unavailable` JSON with
   `raw_secret_egress=false`, and the restored normal compose returns 403.
-  Deployed frame traversal and selector match capture remain open because
-  `Page.getFrameTree` and Playwright/CDP attachment time out.
+  Deployed frame traversal and selector-family match capture remain open until
+  the raw-CDP Runtime selector-counting refinement is built into
+  GitHub-attested images and measured on Phala.
 - `tinker-delegate browser-readiness` and disabled-by-default
   `GET /browser/readiness` now provide a bounded way to diagnose that deployed
   browser-control failure without logs, SSH, screenshots, page text, cookies,

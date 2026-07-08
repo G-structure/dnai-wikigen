@@ -103,6 +103,19 @@ def server_text_frame(payload: dict) -> bytes:
     return bytes([0x81, 126, (length >> 8) & 0xFF, length & 0xFF]) + payload_bytes
 
 
+def runtime_selector_matrix(*, api_key_create: str = "0", api_key_confirm: str = "0") -> list[list[str]]:
+    return [
+        ["0", "0", "0", "0", "0"],
+        ["0"],
+        ["0", "0", "0"],
+        [api_key_create, api_key_confirm, "0"],
+        ["0", "0", "0", "0", "0", "0", "0", "0"],
+        ["0", "0", "0"],
+        ["0", "0", "0", "0"],
+        ["0", "0", "0", "0"],
+    ]
+
+
 class SelectorMapTest(unittest.TestCase):
     def setUp(self):
         self.original_settings = api.settings
@@ -273,6 +286,21 @@ class SelectorMapTest(unittest.TestCase):
                         "id": 3,
                         "sessionId": "session-1",
                         "result": {
+                            "result": {
+                                "type": "object",
+                                "value": runtime_selector_matrix(
+                                    api_key_create="1",
+                                    api_key_confirm="2+",
+                                ),
+                            }
+                        },
+                    }
+                ),
+                server_text_frame(
+                    {
+                        "id": 4,
+                        "sessionId": "session-1",
+                        "result": {
                             "frameTree": {
                                 "frame": {"url": raw_page_url},
                                 "childFrames": [{"frame": {"url": raw_frame_url}}],
@@ -293,10 +321,23 @@ class SelectorMapTest(unittest.TestCase):
         self.assertTrue(result["metadata_success"])
         self.assertTrue(result["upgrade_success"])
         self.assertTrue(result["target_command_success"])
+        self.assertTrue(result["runtime_selector_command_success"])
         self.assertTrue(result["frame_tree_command_success"])
         self.assertEqual(result["probe_backend"], "raw_cdp")
         self.assertEqual(result["method"], "raw_cdp_target_frame_inventory")
         self.assertEqual(result["pages"][0]["url_class"], "tinker_console_keys")
+        self.assertTrue(result["pages"][0]["runtime_selector_success"])
+        api_flow = next(
+            flow for flow in result["pages"][0]["flow_observations"] if flow["name"] == "api_keys"
+        )
+        create_family = next(
+            family for family in api_flow["family_observations"] if family["name"] == "create_key"
+        )
+        confirm_family = next(
+            family for family in api_flow["family_observations"] if family["name"] == "confirm_key_generation"
+        )
+        self.assertEqual(create_family["match_band"], "1")
+        self.assertEqual(confirm_family["match_band"], "2+")
         self.assertEqual(result["pages"][0]["frame_observations"][1]["kind"], "stripe_card")
         rendered = _render_bounded_json(result)
         self.assertNotIn(raw_cdp_url, rendered)
@@ -325,6 +366,18 @@ class SelectorMapTest(unittest.TestCase):
                     }
                 ),
                 server_text_frame({"id": 2, "result": {"sessionId": "session-1"}}),
+                server_text_frame(
+                    {
+                        "id": 3,
+                        "sessionId": "session-1",
+                        "result": {
+                            "result": {
+                                "type": "object",
+                                "value": runtime_selector_matrix(api_key_create="1"),
+                            }
+                        },
+                    }
+                ),
             ]
         )
 
@@ -336,6 +389,7 @@ class SelectorMapTest(unittest.TestCase):
 
         self.assertTrue(result["success"])
         self.assertTrue(result["target_command_success"])
+        self.assertTrue(result["runtime_selector_command_success"])
         self.assertFalse(result["frame_tree_command_success"])
         self.assertEqual(result["partial_error_kind"], "frame_tree_timeout")
         self.assertEqual(result["target_count_band"], "2+")
@@ -343,6 +397,14 @@ class SelectorMapTest(unittest.TestCase):
         self.assertEqual(result["pages_observed"], 1)
         self.assertEqual(result["pages"][0]["url_class"], "tinker_console_keys")
         self.assertTrue(result["pages"][0]["attached"])
+        self.assertTrue(result["pages"][0]["runtime_selector_success"])
+        api_flow = next(
+            flow for flow in result["pages"][0]["flow_observations"] if flow["name"] == "api_keys"
+        )
+        create_family = next(
+            family for family in api_flow["family_observations"] if family["name"] == "create_key"
+        )
+        self.assertEqual(create_family["match_band"], "1")
         self.assertFalse(result["pages"][0]["frame_tree_success"])
         self.assertEqual(result["pages"][0]["frame_tree_error_kind"], "timeout")
         self.assertEqual(result["pages"][0]["frame_count_band"], "0")
