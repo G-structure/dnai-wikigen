@@ -620,12 +620,17 @@ Implementation status:
             `GET /billing/funding-preflight` and the `funding-preflight` CLI.
             It checks funding mode, requested amount cap, optional add-balance
             endpoint flag, encrypted receipt-store availability, and billing
-            attestation policy before any card payload or browser launch.
+            attestation policy before any card payload or browser launch. The
+            CLI can write the bounded preflight JSON directly with `--output`.
 [real]      Bounded funding validation manifests can be built from saved
             preflight and receipt JSON through the `funding-manifest` CLI. The
             manifest stores hashes, bands, outcome, TDX quote hash, and
             card-destruction/no-raw-egress booleans; it rejects raw card,
             API-key, and secret-shaped inputs and does not store card material.
+[real]      Billing receipt-producing CLIs can write bounded attempt records
+            with `--receipt-output` for later manifest binding. CLI rendering
+            fails closed before printing or writing JSON when output contains
+            secret-shaped material or submitted card values.
 [real]      The FastAPI `POST /billing/add-balance` mutation endpoint is
             disabled by default behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`.
             The lower-level CLI/internal handler still requires

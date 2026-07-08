@@ -62,22 +62,45 @@ python -m tinker_delegate.main funding-preflight \
   --api-url https://delegate.example \
   --compose-hash EXPECTED_COMPOSE_HASH \
   --app-id EXPECTED_APP_ID \
-  --fetch-attestation
+  --fetch-attestation \
+  --output ./preflight.json
 
 curl 'http://localhost:8080/billing/funding-preflight?amount_dollars=5&api_url=http://localhost:8080&allow_local_attestation=true'
 ```
 
 The preflight checks funding mode, amount cap, optional add-balance endpoint
 flag, encrypted receipt-store availability, and billing attestation policy. It
-does not accept card material and does not launch browser automation.
+does not accept card material and does not launch browser automation. The CLI
+`--output` flag writes the same bounded preflight JSON to disk.
 
-After an approved validation attempt, build a bounded public manifest from the
-saved preflight and bounded receipt:
+After an approved validation attempt, write bounded receipt artifacts directly
+from the receipt-producing commands:
+
+```bash
+python -m tinker_delegate.main add-card-encrypted https://delegate.example \
+  --number <operator-approved-card-number> \
+  --exp-month 12 --exp-year 2028 \
+  --cvc <operator-approved-cvc> \
+  --name "Operator Name" \
+  --address-postal "94105" \
+  --compose-hash EXPECTED_COMPOSE_HASH \
+  --app-id EXPECTED_APP_ID \
+  --os-image-hash EXPECTED_OS_IMAGE_HASH \
+  --receipt-output ./payment-method-receipt.json
+
+python -m tinker_delegate.main add-balance 5 \
+  --receipt-output ./add-balance-receipt.json
+```
+
+The CLI refuses to print or write a response that contains submitted card
+values or secret-shaped fields.
+
+Build a bounded public manifest from the saved preflight and bounded receipt:
 
 ```bash
 python -m tinker_delegate.main funding-manifest \
   --preflight-json ./preflight.json \
-  --receipt-json ./receipt.json \
+  --receipt-json ./payment-method-receipt.json \
   --validation-id operator-run-1 \
   --compose-hash EXPECTED_COMPOSE_HASH \
   --app-id EXPECTED_APP_ID \
@@ -102,6 +125,8 @@ What is real:
   launching browser automation.
 - Operator funding preflight returns bounded readiness checks before card
   payloads or browser automation.
+- Funding preflight and billing receipt CLIs can write bounded validation JSON
+  artifacts for later manifest binding.
 - Funding validation manifests can be built from already-bounded preflight and
   receipt JSON.
 

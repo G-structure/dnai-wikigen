@@ -237,6 +237,11 @@ chain-watcher settlement, and RLVR/bio-validation remain incomplete.
   only hashes, bands, outcome, TDX quote hash, card-destruction /
   no-raw-egress booleans, and an optional attestation-policy hash, and rejects
   raw card/API-key/secret-shaped inputs.
+- Operator CLIs can write validation artifacts directly:
+  `funding-preflight --output` writes bounded preflight JSON, and billing
+  receipt-producing commands support `--receipt-output` for bounded attempt
+  records. CLI output fails closed if a response contains submitted card
+  material or secret-shaped fields.
 - The HTTP `POST /billing/add-balance` mutation endpoint is disabled by default
   behind `TINKER_ALLOW_ADD_BALANCE_ENDPOINT`; the capped CLI/internal path also
   requires `TINKER_FUNDING_MODE=operator_capped_validation` for deliberate

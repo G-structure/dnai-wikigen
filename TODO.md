@@ -396,6 +396,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `funding-manifest` CLI: hashes saved preflight and receipt JSON,
             binds expected compose/app/OS-image policy by hash, and rejects raw
             card/API-key/secret-shaped inputs.
+      - [x] Add durable bounded artifact output for operator validation:
+            `funding-preflight --output` writes preflight JSON, and billing
+            receipt-producing commands can write attempt records via
+            `--receipt-output` for manifest binding.
       - [ ] Exercise the encrypted `/billing/card/encrypted` path against the
             deployed attested endpoint after quote verification.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
@@ -441,6 +445,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Add crash-dump/core-dump policy for browser and delegate processes:
             Python entrypoints set `RLIMIT_CORE=0`, and Tinker local/Phala
             compose services set `ulimits.core: 0`.
+      - [x] Make billing CLI output fail closed before printing or writing JSON
+            if a delegate response contains submitted card material or
+            secret-shaped fields.
 - [ ] `P1` Add funding receipt records:
       amount band, timestamp, payment method token/reference, Tinker balance band,
       CVM quote, and card payload destruction proof.
@@ -455,6 +462,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             receipt records so a capped operator validation attempt can publish
             hashes, bands, outcome, TDX quote hash, and card-destruction /
             no-raw-egress booleans without card material.
+      - [x] Add CLI `--receipt-output` support for bounded billing attempt
+            records so validation receipts can be saved without console
+            scraping.
       - [ ] Add payment-method token/reference to funding receipts once the
             live funding path exposes a safe non-card reference.
 - [ ] `P1` Add budget enforcement:

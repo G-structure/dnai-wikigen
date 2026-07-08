@@ -5,6 +5,8 @@ import json
 import os
 import time
 import sys
+from pathlib import Path
+from typing import Any
 
 from tinker_delegate.api_key_store import build_api_key_store
 from tinker_delegate.config import Settings
@@ -13,6 +15,43 @@ from tinker_delegate.redaction import redact_text
 from tinker_delegate.runtime_hardening import disable_core_dumps
 from tinker_delegate.runtime_state import reset_runtime_state, update_runtime_state
 from tinker_delegate.signup import AuthAccessBlockedError
+
+
+def _render_bounded_json(
+    payload: Any,
+    *,
+    forbidden_values: tuple[str, ...] = (),
+) -> str:
+    """Render JSON only if it does not contain obvious secret-shaped material."""
+    rendered = json.dumps(payload, indent=2, default=str)
+    if redact_text(rendered) != rendered:
+        raise ValueError("bounded CLI output contains secret-like material")
+    for value in forbidden_values:
+        if value and len(value) >= 4 and value in rendered:
+            raise ValueError("bounded CLI output contains submitted secret material")
+    return rendered
+
+
+def _emit_bounded_json(
+    payload: Any,
+    *,
+    output_path: str = "",
+    forbidden_values: tuple[str, ...] = (),
+) -> None:
+    rendered = _render_bounded_json(payload, forbidden_values=forbidden_values)
+    if output_path:
+        Path(output_path).write_text(rendered + "\n", encoding="utf-8")
+    else:
+        print(rendered)
+
+
+def _receipt_or_raise(response: dict[str, Any] | Any) -> dict[str, Any]:
+    if hasattr(response, "model_dump"):
+        response = response.model_dump(mode="json")
+    receipt = response.get("attempt_record") if isinstance(response, dict) else None
+    if not isinstance(receipt, dict):
+        raise ValueError("bounded receipt output requested, but response has no attempt_record")
+    return receipt
 
 
 def _wait_for_oracle(settings: Settings) -> None:
@@ -164,6 +203,7 @@ def cli():
         action="store_true",
         help="Live-fetch and verify /attestation?context=billing",
     )
+    funding_preflight_p.add_argument("--output", default="", help="Optional output path for preflight JSON")
 
     funding_manifest_p = sub.add_parser(
         "funding-manifest",
@@ -188,9 +228,11 @@ def cli():
     add_card_p.add_argument("--address-state", default="", help="State")
     add_card_p.add_argument("--address-postal", default="", help="Postal code")
     add_card_p.add_argument("--address-country", default="US", help="Country (default: US)")
+    add_card_p.add_argument("--receipt-output", default="", help="Optional output path for bounded receipt JSON")
 
     add_bal_p = sub.add_parser("add-balance", help="Add credit balance to Tinker account")
     add_bal_p.add_argument("amount", type=float, help="Amount in USD to add")
+    add_bal_p.add_argument("--receipt-output", default="", help="Optional output path for bounded receipt JSON")
 
     add_card_encrypted_p = sub.add_parser(
         "add-card-encrypted",
@@ -223,6 +265,7 @@ def cli():
         action="store_true",
         help="Allow local-mode attestation for development only",
     )
+    add_card_encrypted_p.add_argument("--receipt-output", default="", help="Optional output path for bounded receipt JSON")
 
     upload_artifact_p = sub.add_parser(
         "upload-artifact",
@@ -354,12 +397,10 @@ def cli():
             allow_local_attestation=args.allow_local_attestation,
             fetch_attestation=args.fetch_attestation,
         )
-        print(json.dumps(result.to_public_dict(), indent=2))
+        _emit_bounded_json(result.to_public_dict(), output_path=args.output)
         sys.exit(0 if result.ready else 1)
 
     elif args.command == "funding-manifest":
-        from pathlib import Path
-
         from tinker_delegate.funding_manifest import build_funding_validation_manifest
 
         preflight = json.loads(Path(args.preflight_json).read_text(encoding="utf-8"))
@@ -396,14 +437,20 @@ def cli():
             address_country=args.address_country,
         )
         result = asyncio.run(handle_card_update(payload, settings))
-        print(result.model_dump_json(indent=2))
+        body = result.model_dump(mode="json")
+        if args.receipt_output:
+            _emit_bounded_json(_receipt_or_raise(body), output_path=args.receipt_output)
+        _emit_bounded_json(body)
         sys.exit(0 if result.success else 1)
 
     elif args.command == "add-balance":
         from tinker_delegate.card_channel import BalancePayload, handle_add_balance
         payload = BalancePayload(amount_dollars=args.amount)
         result = asyncio.run(handle_add_balance(payload, settings))
-        print(result.model_dump_json(indent=2))
+        body = result.model_dump(mode="json")
+        if args.receipt_output:
+            _emit_bounded_json(_receipt_or_raise(body), output_path=args.receipt_output)
+        _emit_bounded_json(body)
         sys.exit(0 if result.success else 1)
 
     elif args.command == "add-card-encrypted":
@@ -443,10 +490,23 @@ def cli():
             for key in list(card):
                 card[key] = ""
 
-        print(json.dumps({
+        body = {
             "status_code": result.status_code,
             "response": result.response,
-        }, indent=2))
+        }
+        forbidden_values = (
+            args.number,
+            args.name,
+            args.address_line1,
+            args.address_postal,
+        )
+        if args.receipt_output:
+            _emit_bounded_json(
+                _receipt_or_raise(result.response),
+                output_path=args.receipt_output,
+                forbidden_values=forbidden_values,
+            )
+        _emit_bounded_json(body, forbidden_values=forbidden_values)
         sys.exit(0 if result.response.get("success") else 1)
 
     elif args.command == "upload-artifact":
@@ -521,8 +581,6 @@ def cli():
         }, indent=2))
 
     elif args.command == "verify-compose-hash":
-        from pathlib import Path
-
         from tinker_delegate.compose_hash import ComposeHashError, verify_compose_hash
 
         try:

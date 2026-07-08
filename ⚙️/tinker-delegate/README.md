@@ -30,9 +30,13 @@ timestamps, evidence hashes, amount bands, and card-payload destruction status.
 The encrypted client harness verifies `/attestation?context=billing`, encrypts
 locally, posts only ciphertext to `/billing/card/encrypted`, and locally
 reproduced the same bounded test-card decline with a persisted receipt. The
-`funding-manifest` CLI can turn a saved funding preflight plus bounded receipt
-into a public audit envelope of hashes, bands, outcome, TDX quote hash, and
-card-destruction/no-raw-egress booleans without card material. The
+operator CLIs can write bounded validation artifacts directly:
+`funding-preflight --output` saves preflight JSON, and billing receipt-producing
+commands can save bounded attempt records with `--receipt-output`. The
+`funding-manifest` CLI turns a saved funding preflight plus bounded receipt into
+a public audit envelope of hashes, bands, outcome, TDX quote hash, and
+card-destruction/no-raw-egress booleans without card material. CLI output fails
+closed if a delegate response tries to echo submitted card material. The
 plaintext card API endpoint is disabled by default and unavailable in dstack
 mode; it can only be enabled as a local-development test hook with
 `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT=true`. The add-balance HTTP mutation
@@ -162,19 +166,33 @@ uv venv && uv pip install playwright httpx pydantic pydantic-settings
   --cvc 123 --name "Dev Team" \
   --address-line1 "123 Main St" --address-city "SF" \
   --address-state "CA" --address-postal "94105" \
-  --allow-local-attestation
+  --allow-local-attestation \
+  --receipt-output ./payment-method-receipt.json
+
+# Save a bounded add-balance receipt if the validation reaches top-up
+.venv/bin/python -m tinker_delegate.main add-balance 5 \
+  --receipt-output ./add-balance-receipt.json
 
 # Start API server (for TEE deployment)
 .venv/bin/python -m tinker_delegate.main serve --port 8080
 ```
 
-After a capped validation attempt, build a bounded public manifest from saved
-preflight and receipt JSON:
+Before and after a capped validation attempt, save bounded JSON artifacts and
+build a public manifest:
 
 ```bash
+.venv/bin/python -m tinker_delegate.main funding-preflight \
+  --amount 5 \
+  --api-url https://delegate.example \
+  --compose-hash 0xEXPECTED_COMPOSE_HASH \
+  --app-id 0xEXPECTED_APP_ID \
+  --os-image-hash 0xEXPECTED_OS_IMAGE_HASH \
+  --fetch-attestation \
+  --output ./preflight.json
+
 .venv/bin/python -m tinker_delegate.main funding-manifest \
   --preflight-json ./preflight.json \
-  --receipt-json ./receipt.json \
+  --receipt-json ./payment-method-receipt.json \
   --validation-id operator-run-1 \
   --compose-hash 0xEXPECTED_COMPOSE_HASH \
   --app-id 0xEXPECTED_APP_ID \
@@ -416,7 +434,12 @@ contracts/
   tinker_delegate.main funding-preflight` check validation mode, amount cap,
   optional add-balance endpoint flag, encrypted receipt-store availability, and
   billing attestation policy before any card payload or browser launch. Passing
-  `--fetch-attestation` live-fetches `/attestation?context=billing`.
+  `--fetch-attestation` live-fetches `/attestation?context=billing`; passing
+  `--output` writes the bounded preflight JSON.
+- **Funding receipt artifacts**: `add-card`, `add-card-encrypted`, and
+  `add-balance` accept `--receipt-output` to write the bounded `attempt_record`
+  JSON for later manifest binding. The CLI refuses to print or write output
+  containing submitted card values or secret-shaped fields.
 - **Funding validation manifest**: `python -m tinker_delegate.main
   funding-manifest` builds a bounded public manifest from saved preflight and
   receipt JSON. It stores only hashes, bands, outcome, TDX quote hash,
