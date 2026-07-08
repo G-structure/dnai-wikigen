@@ -140,10 +140,15 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   auth surface and failed closed with `bootstrap_error_kind=auth_access_blocked`.
   The headed-Neko CDP retry verified the intended packaging and endpoint gates
   but failed closed with generic `bootstrap_error` before a bounded stage
-  receipt or API-key capture. Source/tests now add bounded early-stage
-  `tinker_auth` receipts for the next deployed retry. No API key was created,
-  no card or add-balance path was opened, and the normal compose was restored
-  after each attempt.
+  receipt or API-key capture. A later retry with GitHub-attested `74ad4b6`
+  images proved the bounded early-stage receipt path in Phala:
+  `/health.runtime.last_bootstrap_attempt_record` reported
+  `surface=tinker_auth`, `outcome=unknown_failure`,
+  `furthest_stage=not_started`, and `raw_secret_egress=false`. The outer
+  `bootstrap_error_kind` still flattened to generic `bootstrap_error`, so
+  preserving that bounded outcome in the top-level runtime field remains a
+  follow-up fix. No API key was created, no card or add-balance path was
+  opened, and the normal compose was restored after each attempt.
 
 PHASE 2: READY
   Control plane starts listening for on-chain deal events
@@ -162,7 +167,8 @@ not complete until the same flow is validated in the deployed CVM package. See
 - **Auth**: Passwordless magic-code (6-digit OTP via email)
 - **Email domain blocklist**: `cock.li`, `airmail.cc`, `firemail.cc` were historically blocked; `cock.email` was historically allowed
 - **Current local result**: local Neko/CDP reaches magic-code auth, receives OTP through the oracle, completes onboarding, and provisions API keys with bounded attempt records
-- **Current deployed gap**: Phala/deployed browser posture needs a fresh validation run
+- **Current deployed gap**: Phala/deployed browser posture emits bounded failure
+  evidence but still does not complete API-key sealing
 - **Onboarding**: Name + TOS checkbox (custom styled — click label, not hidden input)
 - **API key**: `/keys` uses "New key" / "Create API key" style actions, then a generate/confirm action; modal shows `tml-...` key once
 - **OTP sender**: `Thinking Machines Lab <no-reply@thinkingmachines.ai>`
@@ -975,7 +981,7 @@ session.save_for_sampling(name="eval", ttl_seconds=int(ttl))
 
 ## 12. Open Questions
 
-1. **Tinker console signup flow** — Local Neko/CDP automation works against the live Tinker UI as of 2026-07-08: OTP arrives through the email oracle, onboarding completes, and API-key provisioning captures a one-time `tml-...` key. The deployed one-shot bootstrap profile now uses headed Neko CDP instead of the Playwright sidecar and has been Phala-tested, but production signup is still not complete: the sidecar attempt failed closed with `auth_access_blocked`, and the headed-Neko retry failed closed with generic `bootstrap_error` before a bounded stage receipt or API-key sealing.
+1. **Tinker console signup flow** — Local Neko/CDP automation works against the live Tinker UI as of 2026-07-08: OTP arrives through the email oracle, onboarding completes, and API-key provisioning captures a one-time `tml-...` key. The deployed one-shot bootstrap profile now uses headed Neko CDP instead of the Playwright sidecar and has been Phala-tested, but production signup is still not complete: the sidecar attempt failed closed with `auth_access_blocked`; the first headed-Neko retry failed closed with generic `bootstrap_error`; and the latest instrumented headed-Neko retry captured a bounded `tinker_auth` `unknown_failure` receipt at `not_started` without API-key sealing.
 
 2. **Tinker billing settings page** — Browser automation and encrypted card-channel code exist. Local Neko reaches the Stripe Elements payment form, fills the test card, and has returned bounded decline/failure receipts without exposing card details. Add-balance fails closed with `Payment method required before adding balance` when no real card is on file. Payment-method and add-balance automation now use selector fallback families for Tinker billing controls and return bounded `selector_missing` receipts when top-up controls cannot be found. Add-balance also enforces `TINKER_MAX_ADD_BALANCE_USD` before browser launch, returning bounded `policy_denied` receipts for non-finite, non-positive, or over-cap requests. On 2026-07-08, the local billing path returned and encrypted/persisted bounded `payment_method` and `add_balance` attempt records with outcome classes, furthest-stage markers, timestamps, evidence hashes, amount bands, and card-payload destruction status. A fresh local FastAPI smoke with `TINKER_FUNDING_MODE=operator_capped_validation`, `TINKER_MAX_ADD_BALANCE_USD=5`, local billing attestation, and a Stripe test card returned ready preflight for `$5`, rejected `$10` plus required add-balance endpoint as not ready, posted only ciphertext to `/billing/card/encrypted`, reached a bounded `payment_submitted` receipt, and produced a temp encrypted receipt file that did not contain the test card number, CVC, cardholder name, postal code, or raw card field names. `add-card-encrypted-prompt` is the intended operator path for approved real-card validation because it prompts interactively instead of placing card fields in command-line arguments and requires deployed compose/app/OS-image attestation expectations unless explicitly run in local-development mode; `funding-validation-packet --prompt-card --run-card-attempt` brings that prompt boundary into the one-command evidence packet flow and rejects missing deployed measurement policy before prompting. Payment-method screenshots after card entry/submission are suppressed even with debug screenshots enabled, card submissions purge known secret-bearing trace/HAR/video/card screenshot artifacts from an explicitly configured debug artifact directory, and delegate/browser compose services disable core dumps. The plaintext card API endpoint is disabled by default and is not available in dstack mode. `TINKER_FUNDING_MODE=manual_prefund` is the default production model and denies encrypted card/add-balance automation before decryption or browser launch; `operator_capped_validation` is required for deliberate capped operator validation. `funding-preflight` and `/billing/funding-preflight` now check funding mode, amount cap, optional add-balance endpoint flag, encrypted receipt-store availability, and billing attestation policy before any card payload or browser launch. The add-balance HTTP mutation endpoint is additionally disabled by default and requires `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=true`. `docs/TINKER-FUNDING-MODEL.md` and `docs/STRIPE-PCI-FUNDING-SCOPE.md` limit raw-card encrypted delivery to a capped operator-owned validation path; production/repeated funding should use an official Tinker route, Stripe-hosted/tokenized collection, SetupIntent / PaymentMethod reuse with consent, or manual/developer prefunding until compliance review approves otherwise.
 

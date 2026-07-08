@@ -609,13 +609,24 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       exceptions with bounded stage/type receipts so the next deployed bootstrap
       failure preserves useful evidence without raw URL, page text, OTP, email,
       or API-key egress.
-      Done in source/tests 2026-07-08: `signup()` now returns bounded
+      Done in source/tests and Phala-proven 2026-07-08: `signup()` now returns bounded
       `tinker_auth` receipts for account lookup, CDP/browser connection,
       browser context/page setup, auth, and onboarding exceptions. Receipts
       expose only outcome, furthest stage, hashes, bounded message, and
       `raw_secret_egress=false`; tests inject fake email, OTP, URL, and
       key-shaped strings into exceptions and assert they do not appear in
-      result/stdout/runtime state. This is not yet redeployed to Phala.
+      result/stdout/runtime state. The 2026-07-08 Phala retry with the
+      GitHub-attested `74ad4b6` images captured a bounded
+      `last_bootstrap_attempt_record` with `surface=tinker_auth`,
+      `outcome=unknown_failure`, `furthest_stage=not_started`, and
+      `raw_secret_egress=false`; no API key was created and the CVM was
+      redeployed back to normal compose.
+- [ ] `P0` Preserve the bounded deployed-bootstrap attempt outcome in
+      `/health.runtime.bootstrap_error_kind` instead of flattening the
+      serve-level catch to generic `bootstrap_error`.
+      Evidence 2026-07-08: the instrumented Phala retry recorded
+      `last_bootstrap_attempt_record.outcome=unknown_failure`, but the outer
+      runtime field still reported `bootstrap_error`.
 - [ ] `P0` Capture a selector/frame/auth-flow map for:
       email input, magic-code page, OTP boxes, onboarding, keys page, billing,
       Stripe iframe, balance page, and auto-reload settings.
@@ -664,8 +675,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             Phala one-shot bootstrap using headed Neko CDP instead of the
             Playwright sidecar verified the packaging and endpoint gates, but
             failed closed with generic `bootstrap_error` before a bounded stage
-            receipt or API-key capture. Bounded failure instrumentation now
-            exists in source/tests but still needs a GHCR build and Phala retry.
+            receipt or API-key capture. A third retry using GitHub-attested
+            `74ad4b6` images captured a bounded `tinker_auth`
+            `unknown_failure` receipt at `not_started`, with no raw secret
+            egress and no API-key capture. The outer runtime
+            `bootstrap_error_kind` still needs the preservation fix above.
             Local Neko still works, so next work should either repair the
             supportable headed-browser posture or obtain an official/support-
             approved Tinker service-account/API-key route.
@@ -1359,15 +1373,18 @@ vision Wiki is reaching for.
             Refreshed again 2026-07-08 for bounded Tinker bootstrap evidence
             commit `24ba5edf3b9d56429499bdcd602b3a808e37ba12` with GitHub
             Actions run `28949229390`.
+            Refreshed again 2026-07-08 for bounded early-stage bootstrap
+            receipts commit `74ad4b6d7359d418507d131a5f30ad7e541987af` with
+            GitHub Actions run `28952111920`.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` now
       runs oracle image
-      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:447a66382c4f742c0af6ac7a53b4b521c23402e21a5a4deb342964ab5bcf7f10`
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:3a31f425d51bdc982212c5980ce39205bed7f3287bc74af02675cf7f2b0dc4c4`
       and delegate image
-      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:76d2f8bd1c264cffd25949820d33047b1f5874142bf7d48c55fa5d91d997d7ba`.
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:dd4f517d3281581063d6fa5c13430557a01d79cb029770dc11e96f9701e17998`.
       The Phala compose now hardcodes these digests and the disabled
       secret-bearing gates rather than passing them through encrypted env
       values, so the live attested compose hash changes when the deploy-critical
@@ -1392,16 +1409,16 @@ vision Wiki is reaching for.
       - [x] `verify-deployment-bundle` passes against the live log-hardened
             Phala deployment with GitHub image provenance/SBOM checks, required
             sidecar digests, local raw compose hash
-            `b57f1d97085c1910772b43086dc41bc859132f9d140edcf27e2bbe48f4d8c243`,
+            `02d7d15a519ba16687828ca0d6f295ac33206cacca5f5392c9837095f68c3aaa`,
             and live attested compose hash
-            `df36312196dc33ea2c9a1faf772549734da7ddfffe4d100fa2193d04d8839183`.
+            `47fed5cf1b082cb38275d95dca3542244c5b6aa69a0862cc51c0edaae955cf1d`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.
             Done 2026-07-08: live delegate image
-            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:76d2f8bd1c264cffd25949820d33047b1f5874142bf7d48c55fa5d91d997d7ba`
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:dd4f517d3281581063d6fa5c13430557a01d79cb029770dc11e96f9701e17998`
             is GitHub-attested from commit
-            `24ba5edf3b9d56429499bdcd602b3a808e37ba12`; `/pin` rejects
+            `74ad4b6d7359d418507d131a5f30ad7e541987af`; `/pin` rejects
             unauthenticated requests with `401`, `/credentials/encrypted`
             rejects while disabled with `403`, and `/billing/add-balance`
             rejects while disabled with `403`.
@@ -1594,7 +1611,8 @@ vision Wiki is reaching for.
 9. [x] Rework the one-shot deployed bootstrap browser path to headed Neko
        inside Phala.
        Done 2026-07-08 for `docker-compose.tinker-bootstrap.phala.yaml`; signup
-       remains blocked with generic `bootstrap_error`.
+       remains blocked, but the latest Phala retry now emits a bounded
+       `tinker_auth` `unknown_failure` receipt rather than a null attempt record.
 10. [ ] Get an official Tinker service-account/API route, or complete the
         bounded headed-Neko signup repair without evasion.
 11. [ ] Prove safe Tinker account funding with a low-value test.

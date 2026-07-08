@@ -681,10 +681,12 @@ Implementation status:
             storage and returns only bounded hash/status metadata.
 [real]      Startup bootstrap runtime state preserves the bounded
             `api_key_provisioning` attempt record from signup success or
-            selector/API-key-capture failure. Public `/health` can therefore
-            report `last_bootstrap_attempt_record` with outcome, furthest
-            stage, hashes, and `raw_secret_egress=false` without exposing the
-            mailbox, OTP, browser URL, page text, or API key.
+            selector/API-key-capture failure, plus early `tinker_auth`
+            failures during account lookup, CDP/browser connection,
+            context/page setup, auth, and onboarding. Public `/health` can
+            therefore report `last_bootstrap_attempt_record` with outcome,
+            furthest stage, hashes, and `raw_secret_egress=false` without
+            exposing the mailbox, OTP, browser URL, page text, or API key.
 [real]      Signup/signin observable egress is bounded before deployed bootstrap:
             stdout and return payloads expose `email_hash` / `url_hash` rather
             than raw mailbox addresses or Tinker browser URLs, and shared
@@ -916,14 +918,14 @@ Implementation status:
             attestations, delegate `/health` returning `ok`, oracle `/health`
             returning `ok` with sealed mailbox readiness/hash only, and live delegate
             attestation verification passing against local raw compose hash
-            `b57f1d97085c1910772b43086dc41bc859132f9d140edcf27e2bbe48f4d8c243`
+            `02d7d15a519ba16687828ca0d6f295ac33206cacca5f5392c9837095f68c3aaa`
             and live Phala attested compose hash
-            `df36312196dc33ea2c9a1faf772549734da7ddfffe4d100fa2193d04d8839183`.
+            `47fed5cf1b082cb38275d95dca3542244c5b6aa69a0862cc51c0edaae955cf1d`.
             The live delegate image is built from commit
-            `24ba5edf3b9d56429499bdcd602b3a808e37ba12`, so it includes the
-            bounded signup/signin egress fix and bounded startup-bootstrap
-            attempt records. Tinker bootstrap is disabled in the current normal
-            compose.
+            `74ad4b6d7359d418507d131a5f30ad7e541987af`, so it includes the
+            bounded signup/signin egress fix and bounded early-stage
+            startup-bootstrap attempt records. Tinker bootstrap is disabled in
+            the current normal compose.
 [real]      The temporary public-log debug exception has been reverted on the
             current main Phala CVM. Public logs and public sysinfo are disabled
             while runtime guards keep `ORACLE_AUTO_GENESIS=false`,
@@ -944,23 +946,26 @@ Implementation status:
             evidence mode so selector/posture failures can be inspected through
             `/health` runtime state, and now drives the headed Neko Chrome CDP
             endpoint instead of the headless Playwright sidecar.
-[partial]   Two Phala-proven Tinker bootstrap attempts have failed closed
+[partial]   Three Phala-proven Tinker bootstrap attempts have failed closed
             without API-key sealing. The first, using the headless Playwright
             sidecar, reached the Tinker auth surface with
             `bootstrap_error_kind=auth_access_blocked`. The second, using the
             headed Neko CDP endpoint, verified the intended browser packaging
             but failed with a generic `bootstrap_error` before a bounded stage
-            receipt was captured. Source/tests now add bounded `tinker_auth`
-            receipts for account lookup, CDP/browser connection, context/page
-            setup, auth, and onboarding exceptions, but that instrumentation
-            is not yet deployed to Phala. In both live attempts the oracle
-            mailbox stayed ready, no API key was configured or stored, endpoint
-            gates stayed closed, and the CVM was redeployed back to the normal
-            compose. Completing deployed Tinker signup now requires a new
-            instrumented Phala retry plus either a supportable headed-browser
-            posture inside Phala or an official/support-approved Tinker
-            API-key/service-account route; stealth/evasion remains out of
-            scope.
+            receipt was captured. The third, using GitHub-attested `74ad4b6`
+            images with bounded early-stage instrumentation, captured
+            `last_bootstrap_attempt_record.surface=tinker_auth`,
+            `outcome=unknown_failure`, `furthest_stage=not_started`, and
+            `raw_secret_egress=false`; the outer runtime
+            `bootstrap_error_kind` still flattened to generic
+            `bootstrap_error`, which is a remaining observability bug. In all
+            live attempts the oracle mailbox stayed ready, no API key was
+            configured or stored, endpoint gates stayed closed, and the CVM was
+            redeployed back to the normal compose. Completing deployed Tinker
+            signup now requires fixing that runtime-kind preservation issue and
+            then either a supportable headed-browser posture inside Phala or an
+            official/support-approved Tinker API-key/service-account route;
+            stealth/evasion remains out of scope.
 [partial]   Production OS posture is not solved. The main CVM still reports
             `dstack-dev-0.5.9` / `is_dev=true`; earlier attempts to update the
             existing CVM to `dstack-0.5.10*` with `--no-dev-os` failed in the
@@ -1865,7 +1870,9 @@ bounded aggregate results
 3. Tinker browser automation works locally through Neko/CDP. The deployed
    headed-Neko packaging is Phala-proven, but deployed signup still fails
    closed before API-key sealing. Bounded early-stage bootstrap receipts are
-   implemented in source/tests and need the next Phala image/deploy retry.
+   now Phala-proven, though the outer runtime error kind still needs to
+   preserve the bounded attempt outcome instead of flattening to
+   `bootstrap_error`.
 4. Reliable Tinker account funding through Stripe browser automation is in progress:
    the test-card path reaches Stripe and declines as expected, the plaintext
    card API is disabled by default, `manual_prefund` is the default production
