@@ -726,12 +726,17 @@ Implementation status:
             provide bounded browser-control diagnostics for the deployed
             selector-probe failure path. They report endpoint classes/hashes,
             CDP metadata reachability, raw WebSocket upgrade stage bands,
-            Playwright/CDP handshake success bands, and bounded error kinds
-            only. They do not navigate, click, type, screenshot, inspect pages,
-            return page text, send browser commands, or expose raw CDP/browser
-            URLs. The raw WebSocket diagnostic keeps the advertised debugger
-            URL in memory only and emits URL class/hash, TCP/TLS/upgrade stage
-            booleans, HTTP status band, and bounded error kind. The HTTP
+            one-command CDP protocol probe bands, Playwright/CDP handshake
+            success bands, and bounded error kinds only. They do not navigate,
+            click, type, screenshot, inspect pages/frames, return page text, or
+            expose raw CDP/browser URLs. The raw WebSocket diagnostic keeps the
+            advertised debugger URL in memory only and emits URL class/hash,
+            TCP/TLS/upgrade stage booleans, HTTP status band, and bounded error
+            kind. The post-upgrade protocol probe is source/test-real: it sends
+            exactly one browser-scoped `Browser.getVersion` command after a
+            successful Upgrade and emits only command/response booleans,
+            response kind, browser family, URL class/hash, status band, and
+            bounded error kind; it does not emit the CDP response body. The HTTP
             endpoint is disabled by default and normal Phala compose binds
             `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`; the one-shot
             measurement profile enables it temporarily. The pre-WebSocket-stage
@@ -740,7 +745,9 @@ Implementation status:
             compose returns 403. The raw WebSocket stage is now Phala-proven
             with GitHub-attested `7973b27` images: CDP metadata succeeded, the
             raw WebSocket TCP connect and HTTP Upgrade succeeded with status
-            band `101`, and Playwright `connect_over_cdp` still timed out.
+            band `101`, and Playwright `connect_over_cdp` still timed out. The
+            post-upgrade protocol probe still needs a GitHub-image Phala
+            measurement before it can be used as deployed evidence.
 [partial]   The selector-probe endpoint has been Phala-proven as an endpoint
             gate and fail-closed path using GitHub-attested `7973b27` images:
             one-shot bootstrap compose enabled the endpoint, live response was
@@ -749,9 +756,9 @@ Implementation status:
             endpoint showed CDP metadata reachable with Chromium WebSocket
             metadata advertised, raw WebSocket upgrade status `101`, then
             `connect_over_cdp` timeout. Actual selector/frame match evidence
-            from the deployed browser remains open until the post-upgrade CDP
-            protocol/client path is repaired or replaced by another bounded
-            browser-control path.
+            from the deployed browser remains open until the new post-upgrade
+            CDP protocol probe is measured on Phala and the CDP client path is
+            repaired or replaced by another bounded browser-control path.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,

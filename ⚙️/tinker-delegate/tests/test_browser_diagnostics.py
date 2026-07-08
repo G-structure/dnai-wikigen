@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from tinker_delegate import api
 from tinker_delegate.browser_diagnostics import (
     _http_probe_cdp,
+    _probe_cdp_protocol_command,
     _probe_cdp_websocket_handshake,
     browser_readiness,
 )
@@ -50,6 +51,40 @@ class FakeSocket:
 
     def close(self):
         self.closed = True
+
+
+class ChunkedFakeSocket:
+    def __init__(self, chunks: list[bytes]):
+        self.chunks = chunks
+        self.sent = b""
+        self.timeout = None
+        self.closed = False
+
+    def settimeout(self, timeout):
+        self.timeout = timeout
+
+    def sendall(self, payload: bytes):
+        self.sent += payload
+
+    def recv(self, size: int) -> bytes:
+        if not self.chunks:
+            return b""
+        chunk = self.chunks[0]
+        if len(chunk) <= size:
+            return self.chunks.pop(0)
+        self.chunks[0] = chunk[size:]
+        return chunk[:size]
+
+    def close(self):
+        self.closed = True
+
+
+def server_text_frame(payload: dict) -> bytes:
+    payload_bytes = json.dumps(payload).encode("utf-8")
+    length = len(payload_bytes)
+    if length < 126:
+        return bytes([0x81, length]) + payload_bytes
+    return bytes([0x81, 126, (length >> 8) & 0xFF, length & 0xFF]) + payload_bytes
 
 
 class BrowserDiagnosticsTest(unittest.IsolatedAsyncioTestCase):
@@ -135,6 +170,94 @@ class BrowserDiagnosticsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["http_status_band"], "4xx")
         rendered = _render_bounded_json(result)
         self.assertNotIn(raw_ws_url, rendered)
+
+    def test_cdp_protocol_probe_sends_minimal_command_and_is_bounded(self):
+        raw_cdp_url = "http://172.20.0.3:9223"
+        raw_ws_url = "ws://172.20.0.3:9223/devtools/browser/raw-session-id"
+        raw_product = "Chrome/123.0.0.0"
+        raw_user_agent = "Mozilla/5.0 internal browser string"
+        response = FakeResponse({"webSocketDebuggerUrl": raw_ws_url})
+        fake_socket = ChunkedFakeSocket(
+            [
+                b"HTTP/1.1 101 Switching Protocols\r\n"
+                b"Upgrade: websocket\r\n"
+                b"Connection: Upgrade\r\n\r\n",
+                server_text_frame(
+                    {
+                        "id": 1,
+                        "result": {
+                            "product": raw_product,
+                            "userAgent": raw_user_agent,
+                        },
+                    }
+                ),
+            ]
+        )
+
+        with (
+            patch("tinker_delegate.browser_diagnostics.urlopen", return_value=response),
+            patch("tinker_delegate.browser_diagnostics.socket.create_connection", return_value=fake_socket),
+        ):
+            result = _probe_cdp_protocol_command(Settings(cdp_url=raw_cdp_url))
+
+        self.assertTrue(result["success"])
+        self.assertTrue(result["metadata_success"])
+        self.assertTrue(result["upgrade_success"])
+        self.assertTrue(result["command_sent"])
+        self.assertTrue(result["response_received"])
+        self.assertTrue(result["response_json"])
+        self.assertEqual(result["response_kind"], "result")
+        self.assertEqual(result["browser_family"], "chromium")
+        self.assertGreater(len(fake_socket.sent), 0)
+        rendered = _render_bounded_json(result)
+        self.assertNotIn(raw_cdp_url, rendered)
+        self.assertNotIn(raw_ws_url, rendered)
+        self.assertNotIn(raw_product, rendered)
+        self.assertNotIn(raw_user_agent, rendered)
+
+    def test_cdp_protocol_probe_error_response_is_bounded(self):
+        raw_ws_url = "ws://172.20.0.3:9223/devtools/browser/raw-session-id"
+        response = FakeResponse({"webSocketDebuggerUrl": raw_ws_url})
+        fake_socket = ChunkedFakeSocket(
+            [
+                b"HTTP/1.1 101 Switching Protocols\r\n\r\n",
+                server_text_frame({"id": 1, "error": {"code": -32601, "message": "raw error text"}}),
+            ]
+        )
+
+        with (
+            patch("tinker_delegate.browser_diagnostics.urlopen", return_value=response),
+            patch("tinker_delegate.browser_diagnostics.socket.create_connection", return_value=fake_socket),
+        ):
+            result = _probe_cdp_protocol_command(Settings(cdp_url="http://172.20.0.3:9223"))
+
+        self.assertFalse(result["success"])
+        self.assertTrue(result["response_json"])
+        self.assertEqual(result["response_kind"], "error")
+        self.assertEqual(result["error_kind"], "unexpected_cdp_response")
+        rendered = _render_bounded_json(result)
+        self.assertNotIn(raw_ws_url, rendered)
+        self.assertNotIn("raw error text", rendered)
+
+    def test_cdp_protocol_probe_tolerates_event_before_response(self):
+        raw_ws_url = "ws://172.20.0.3:9223/devtools/browser/raw-session-id"
+        response = FakeResponse({"webSocketDebuggerUrl": raw_ws_url})
+        fake_socket = ChunkedFakeSocket(
+            [
+                b"HTTP/1.1 101 Switching Protocols\r\n\r\n",
+                server_text_frame({"method": "Target.targetInfoChanged", "params": {"ignored": True}}),
+                server_text_frame({"id": 1, "result": {"product": "Chrome/123.0.0.0"}}),
+            ]
+        )
+
+        with (
+            patch("tinker_delegate.browser_diagnostics.urlopen", return_value=response),
+            patch("tinker_delegate.browser_diagnostics.socket.create_connection", return_value=fake_socket),
+        ):
+            result = _probe_cdp_protocol_command(Settings(cdp_url="http://172.20.0.3:9223"))
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["response_kind"], "result")
 
     def test_browser_readiness_endpoint_disabled_by_default(self):
         api.settings = Settings(allow_browser_readiness_endpoint=False)

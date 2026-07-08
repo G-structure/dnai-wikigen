@@ -108,20 +108,27 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
   `GET /browser/readiness` now provide a bounded way to diagnose that deployed
   browser-control failure without logs, SSH, screenshots, page text, cookies,
   or raw browser/CDP URLs. Output is limited to endpoint classes/hashes, CDP
-  metadata reachability, raw WebSocket upgrade stage bands, Playwright/CDP
-  handshake status, context-count bands, and bounded error kinds. The raw
-  WebSocket diagnostic keeps the advertised debugger URL in memory only, sends
-  a single HTTP Upgrade request, and emits only URL class/hash, TCP/TLS/upgrade
-  stage booleans, HTTP status band, and bounded error kind. It does not
-  navigate, send browser commands, read page data, or return raw URLs/headers.
+  metadata reachability, raw WebSocket upgrade stage bands, a one-command CDP
+  protocol probe, Playwright/CDP handshake status, context-count bands, and
+  bounded error kinds. The raw WebSocket diagnostic keeps the advertised
+  debugger URL in memory only, sends a single HTTP Upgrade request, and emits
+  only URL class/hash, TCP/TLS/upgrade stage booleans, HTTP status band, and
+  bounded error kind. The post-upgrade protocol probe is source/test-real: it
+  sends exactly one browser-scoped `Browser.getVersion` command after a
+  successful Upgrade and emits only command/response booleans, response kind,
+  browser family, URL class/hash, status band, and bounded error kind. It does
+  not navigate, click, type, screenshot, inspect frames/pages, read page data,
+  expose raw URLs/headers, or return the CDP response body.
   Normal Phala compose keeps
   `TINKER_ALLOW_BROWSER_READINESS_ENDPOINT=false`; the one-shot bootstrap
   measurement compose enables it alongside the selector probe. This diagnostic
   is now Phala-proven with GitHub-attested `7973b27` images: the one-shot
   endpoint returned bounded `cdp_timeout` after successful CDP metadata
   discovery, raw WebSocket TCP connect, and HTTP Upgrade status band `101`; the
-  restored normal compose returns 403. The remaining browser-control blocker is
-  post-upgrade Playwright/CDP protocol timeout.
+  restored normal compose returns 403. The new post-upgrade protocol probe still
+  needs GitHub-image Phala measurement before it can be used as deployed
+  evidence. The remaining browser-control blocker is post-upgrade Playwright/CDP
+  protocol timeout.
 - `docker-compose.tinker-bootstrap.phala.yaml` is the bounded one-shot
   main-CVM profile for Tinker OTP/login/API-key provisioning. It enables only
   `TINKER_BOOTSTRAP_SIGNUP=true`, reuses the main `delegate-data` volume, keeps
@@ -1022,6 +1029,8 @@ explicitly legacy.
 Focused commands used for the currently built surfaces:
 
 ```bash
+cd "⚙️/tinker-delegate" && uv run python -m unittest tests.test_browser_diagnostics -v
+cd "⚙️/tinker-delegate" && uv run python -m unittest tests.test_browser_diagnostics tests.test_selector_map tests.test_compose_hardening -v
 cd "⚙️/tinker-delegate" && uv run python -m unittest discover -s tests -v
 cd "⚙️/tinker-delegate" && uv run python -m compileall tinker_delegate
 cd "⚙️/tinker-delegate" && uv lock --check

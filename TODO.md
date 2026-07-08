@@ -728,6 +728,20 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             403. Next step: add a bounded post-upgrade DevTools-protocol probe
             or replace the Playwright CDP client path before selector/frame
             matches can be captured.
+      - [x] Add a bounded post-upgrade DevTools-protocol probe.
+            Done in source/tests 2026-07-08: `browser-readiness` now includes
+            `cdp_protocol_probe`. It reuses the CDP metadata URL, keeps the
+            advertised WebSocket URL in memory only, performs the HTTP Upgrade,
+            sends one browser-scoped `Browser.getVersion` CDP command, and
+            emits only URL class/hash, TCP/TLS/upgrade stage booleans, command
+            and response booleans, response kind, browser family, HTTP status
+            band, and bounded error kind. It does not navigate, click, type,
+            screenshot, inspect frames/pages, return page text, expose raw
+            browser/CDP URLs, or return the CDP response body. Unit tests cover
+            accepted result and CDP error responses and prove rendered output
+            omits raw CDP URLs and returned browser strings. Phala measurement
+            with GitHub-built images remains pending before selector/frame
+            capture can be retried.
 - [x] `P0` Handle Tinker bot/fingerprint checks without evading legal or service
       boundaries.
       Done when the team can explain the account relationship and automation to
