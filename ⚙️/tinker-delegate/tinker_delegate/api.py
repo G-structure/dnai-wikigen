@@ -18,6 +18,8 @@ Endpoints:
   GET  /tinker/proxy/status       — bounded sealed Tinker proxy configuration
   GET  /tinker/proxy/issue-policy — bounded proxy issue-policy status
   PUT  /tinker/proxy/issue-policy — install hash-only proxy issue policy
+  GET  /tinker/proxy/identity-registry — bounded proxy identity-registry status
+  PUT  /tinker/proxy/identity-registry — install signed hash-only identity registry
   POST /tinker/proxy/token        — encrypted scoped proxy JWT issuance
   GET  /tinker/proxy/tokens       — bounded proxy token audit records
   POST /tinker/proxy/token/revoke — revoke proxy token by JWT-id hash
@@ -319,6 +321,12 @@ class TinkerProxyIssuePolicyRequestBody(BaseModel):
     policy: dict[str, Any]
 
 
+class TinkerProxyIdentityRegistryRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    registry: dict[str, Any]
+
+
 class TinkerProxyTokenRevokeRequestBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -360,6 +368,33 @@ def tinker_proxy_issue_policy_set(payload: TinkerProxyIssuePolicyRequestBody, au
 
     try:
         return save_proxy_issue_policy(settings, payload.policy)
+    except ValueError as exc:
+        raise HTTPException(400, redact_text(exc)) from exc
+
+
+@app.get("/tinker/proxy/identity-registry")
+def tinker_proxy_identity_registry(authorization: str = Header(default="")):
+    """Return bounded hash-only proxy identity-registry status."""
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_proxy import get_proxy_identity_registry_status
+
+    try:
+        return get_proxy_identity_registry_status(settings)
+    except ValueError as exc:
+        raise HTTPException(400, redact_text(exc)) from exc
+
+
+@app.put("/tinker/proxy/identity-registry")
+def tinker_proxy_identity_registry_set(
+    payload: TinkerProxyIdentityRegistryRequestBody,
+    authorization: str = Header(default=""),
+):
+    """Install a signed hash-only proxy identity registry for future token minting."""
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_proxy import save_proxy_identity_registry
+
+    try:
+        return save_proxy_identity_registry(settings, payload.registry)
     except ValueError as exc:
         raise HTTPException(400, redact_text(exc)) from exc
 

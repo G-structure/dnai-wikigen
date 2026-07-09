@@ -516,6 +516,26 @@ def cli():
         help="Optional path to hash-only policy JSON to install; omitted returns current status",
     )
     tinker_proxy_policy_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    tinker_proxy_identity_registry_p = sub.add_parser(
+        "tinker-proxy-identity-registry",
+        help="Return or install bounded hash-only Tinker proxy identity registry",
+    )
+    tinker_proxy_identity_registry_p.add_argument(
+        "--api-url",
+        default="",
+        help="Optional deployed Tinker delegate API base URL; omitted reads/writes local settings",
+    )
+    tinker_proxy_identity_registry_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token for --api-url",
+    )
+    tinker_proxy_identity_registry_p.add_argument(
+        "--registry-json",
+        default="",
+        help="Optional path to signed hash-only identity registry JSON to install; omitted returns current status",
+    )
+    tinker_proxy_identity_registry_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     tinker_proxy_registry_sign_p = sub.add_parser(
         "sign-tinker-proxy-identity-registry",
         help="Sign a hash-only proxy identity registry with a verifier key from env",
@@ -1773,6 +1793,61 @@ def cli():
                 "surface": "tinker_proxy_issue_policy",
                 "success": False,
                 "error_kind": "invalid_proxy_issue_policy",
+                "bounded_message": redact_text(exc),
+                "raw_secret_egress": False,
+            }
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "tinker-proxy-identity-registry":
+        registry = json.loads(Path(args.registry_json).read_text(encoding="utf-8")) if args.registry_json else None
+        if args.api_url:
+            import httpx
+
+            headers = _runtime_auth_headers(args.auth_token_env)
+            with httpx.Client(timeout=120.0) as client:
+                if registry is None:
+                    response = client.get(
+                        _api_endpoint(args.api_url, "/tinker/proxy/identity-registry"),
+                        headers=headers,
+                    )
+                else:
+                    response = client.put(
+                        _api_endpoint(args.api_url, "/tinker/proxy/identity-registry"),
+                        headers=headers,
+                        json={"registry": registry},
+                    )
+            try:
+                body = response.json()
+            except Exception:
+                body = {
+                    "surface": "tinker_proxy_identity_registry",
+                    "success": False,
+                    "outcome": "remote_non_json_response",
+                    "status_code": response.status_code,
+                    "error_kind": "non_json_response",
+                    "bounded_message": "remote endpoint returned non-json response",
+                    "raw_secret_egress": False,
+                }
+            _emit_bounded_json(body, output_path=args.output)
+            sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
+
+        from tinker_delegate.tinker_proxy import (
+            get_proxy_identity_registry_status,
+            save_proxy_identity_registry,
+        )
+
+        try:
+            result = (
+                save_proxy_identity_registry(settings, registry)
+                if registry is not None
+                else get_proxy_identity_registry_status(settings)
+            )
+        except ValueError as exc:
+            result = {
+                "surface": "tinker_proxy_identity_registry",
+                "success": False,
+                "error_kind": "invalid_proxy_identity_registry",
                 "bounded_message": redact_text(exc),
                 "raw_secret_egress": False,
             }

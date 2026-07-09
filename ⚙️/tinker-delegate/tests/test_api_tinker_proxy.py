@@ -5,11 +5,12 @@ import unittest
 
 from fastapi.testclient import TestClient
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+from eth_account import Account
 
 from tinker_delegate import api
 from tinker_delegate.config import Settings
 from tinker_delegate.run_metadata_store import stable_hash
-from tinker_delegate.tinker_proxy import issue_proxy_token
+from tinker_delegate.tinker_proxy import issue_proxy_token, sign_proxy_identity_registry
 
 
 SIGNING_KEY_HEX = "22" * 32
@@ -34,6 +35,28 @@ def _write_proxy_issue_policy(path: str, *, subject: str, recipient_public_key_h
     with open(path, "w") as handle:
         json.dump(policy, handle, sort_keys=True)
     return policy
+
+
+def _proxy_identity_registry(*, subject: str = "buyer-agent-1", reviewer: str = "reviewer-1") -> dict:
+    return {
+        "schema_version": 1,
+        "identities": [
+            {
+                "identity_hash": stable_hash(subject, prefix="proxy_subject"),
+                "role": "agent",
+                "status": "active",
+                "expires_at": 4_102_444_800,
+                "raw_label": subject,
+            },
+            {
+                "identity_hash": stable_hash(reviewer, prefix="proxy_grant_reviewer"),
+                "role": "reviewer",
+                "status": "active",
+                "expires_at": 4_102_444_800,
+                "raw_label": reviewer,
+            },
+        ],
+    }
 
 
 class TinkerProxyApiTest(unittest.TestCase):
@@ -175,6 +198,55 @@ class TinkerProxyApiTest(unittest.TestCase):
         self.assertNotIn("operator-secret", rendered)
         self.assertNotIn("buyer-agent-1", rendered)
         self.assertNotIn(recipient_public_key, rendered)
+
+    def test_proxy_identity_registry_endpoint_installs_signed_registry_bounded(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            registry_path = os.path.join(tmpdir, "proxy-identity-registry.json")
+            signer = Account.create("proxy identity registry api signer")
+            signed_registry, sign_receipt = sign_proxy_identity_registry(
+                _proxy_identity_registry(),
+                signer.key.hex(),
+            )
+            api.settings = self._settings(
+                tmpdir,
+                runtime_auth_required=True,
+                runtime_auth_token="operator-secret",
+                proxy_require_identity_registry=True,
+                proxy_identity_registry_path=registry_path,
+                proxy_require_identity_registry_signature=True,
+                proxy_identity_registry_signer=signer.address,
+            )
+            client = TestClient(api.app)
+
+            installed = client.put(
+                "/tinker/proxy/identity-registry",
+                headers={"Authorization": "Bearer operator-secret"},
+                json={"registry": signed_registry},
+            )
+            status = client.get(
+                "/tinker/proxy/identity-registry",
+                headers={"Authorization": "Bearer operator-secret"},
+            )
+            with open(registry_path, encoding="utf-8") as handle:
+                stored = json.loads(handle.read())
+
+        self.assertEqual(installed.status_code, 200)
+        self.assertEqual(status.status_code, 200)
+        body = status.json()
+        rendered = repr([installed.json(), body])
+        self.assertTrue(body["success"])
+        self.assertTrue(body["required"])
+        self.assertTrue(body["registry_present"])
+        self.assertEqual(body["registry_hash"], sign_receipt["registry_hash"])
+        self.assertTrue(body["signature_binding"]["verified"])
+        self.assertEqual(body["role_counts"], {"agent": 1, "reviewer": 1})
+        self.assertFalse(body["raw_secret_egress"])
+        self.assertNotIn("operator-secret", rendered)
+        self.assertNotIn("buyer-agent-1", rendered)
+        self.assertNotIn("reviewer-1", rendered)
+        self.assertNotIn(signer.address, rendered)
+        self.assertNotIn(signed_registry["signature"]["signature"], rendered)
+        self.assertNotIn("raw_label", repr(stored))
 
     def test_proxy_token_issuance_can_require_hash_only_policy(self):
         with tempfile.TemporaryDirectory() as tmpdir:

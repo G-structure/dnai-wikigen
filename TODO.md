@@ -268,6 +268,25 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                                     JWT issuance without printing raw
                                     identities, signer private key, signer
                                     address, raw signature, or plaintext JWT.
+                              - [x] Add operator-only signed identity-registry
+                                    install/status surfaces. Done 2026-07-09:
+                                    `GET/PUT /tinker/proxy/identity-registry`
+                                    and `tinker-proxy-identity-registry`
+                                    install or inspect a normalized hash-only
+                                    signed identity registry through runtime
+                                    bearer auth. The install path verifies the
+                                    registry signature when
+                                    `TINKER_PROXY_REQUIRE_IDENTITY_REGISTRY_SIGNATURE=true`,
+                                    writes the normalized registry artifact to
+                                    the configured CVM path, and returns only
+                                    registry hash, identity count, role counts,
+                                    signature binding status/hashes, and
+                                    `raw_secret_egress=false`. API and CLI
+                                    regression coverage proves signed registry
+                                    install/status can gate actual proxy JWT
+                                    issuance without returning raw identities,
+                                    runtime bearer token, signer address, raw
+                                    signature, or plaintext JWT.
                   - [ ] Redeploy the lifecycle/signature-required proxy issue
                         policy source slice to Phala, approve the resulting
                         compose hash, install an active lifecycle-bound issue

@@ -334,6 +334,100 @@ def get_proxy_issue_policy_status(settings) -> dict[str, Any]:
     )
 
 
+def save_proxy_identity_registry(settings, registry: dict[str, Any]) -> dict[str, Any]:
+    """Persist a normalized hash-only identity registry and return bounded status."""
+
+    path = _proxy_identity_registry_path(settings, required=True)
+    assert path is not None
+    normalized = _normalize_proxy_identity_registry(registry)
+    if bool(getattr(settings, "proxy_require_identity_registry_signature", False)):
+        _validate_proxy_identity_registry_signature(settings, normalized)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_canonical_json(normalized) + "\n", encoding="utf-8")
+    return summarize_proxy_identity_registry(
+        normalized,
+        configured=True,
+        required=bool(getattr(settings, "proxy_require_identity_registry", False)),
+        settings=settings,
+    )
+
+
+def get_proxy_identity_registry_status(settings) -> dict[str, Any]:
+    """Return bounded status for the configured proxy identity registry."""
+
+    registry_path = _proxy_identity_registry_path(settings, required=False)
+    required = bool(getattr(settings, "proxy_require_identity_registry", False))
+    if registry_path is None:
+        return {
+            "surface": "tinker_proxy_identity_registry",
+            "success": True,
+            "configured": False,
+            "required": required,
+            "registry_present": False,
+            "raw_secret_egress": False,
+        }
+    if not registry_path.exists():
+        return {
+            "surface": "tinker_proxy_identity_registry",
+            "success": True,
+            "configured": True,
+            "required": required,
+            "registry_present": False,
+            "raw_secret_egress": False,
+        }
+    registry = _load_proxy_identity_registry(str(registry_path))
+    return summarize_proxy_identity_registry(
+        registry,
+        configured=True,
+        required=required,
+        settings=settings,
+    )
+
+
+def summarize_proxy_identity_registry(
+    registry: dict[str, Any],
+    *,
+    configured: bool = True,
+    required: bool = True,
+    settings=None,
+) -> dict[str, Any]:
+    """Summarize a proxy identity registry without exposing raw identities."""
+
+    normalized = _normalize_proxy_identity_registry(registry)
+    unsigned = _proxy_identity_registry_unsigned(normalized)
+    signature_present = isinstance(normalized.get("signature"), dict)
+    signature_binding: dict[str, Any] = {
+        "required": bool(getattr(settings, "proxy_require_identity_registry_signature", False)) if settings else False,
+        "configured": signature_present,
+        "raw_secret_egress": False,
+    }
+    if signature_present and settings is not None:
+        try:
+            signature_binding = _validate_proxy_identity_registry_signature(settings, normalized)
+        except ValueError as exc:
+            if bool(getattr(settings, "proxy_require_identity_registry_signature", False)):
+                raise
+            signature_binding = {
+                "required": False,
+                "configured": True,
+                "verified": False,
+                "error_hash": stable_hash(str(exc), prefix="proxy_identity_registry_signature_error"),
+                "raw_secret_egress": False,
+            }
+    return {
+        "surface": "tinker_proxy_identity_registry",
+        "success": True,
+        "configured": configured,
+        "required": required,
+        "registry_present": True,
+        "registry_hash": _proxy_identity_registry_hash(unsigned),
+        "identity_count": len(unsigned.get("identities", [])),
+        "role_counts": _proxy_identity_registry_role_counts(unsigned),
+        "signature_binding": signature_binding,
+        "raw_secret_egress": False,
+    }
+
+
 def summarize_proxy_issue_policy(policy: dict[str, Any], *, configured: bool = True, required: bool = True) -> dict[str, Any]:
     """Return bounded policy summary without raw identities or credentials."""
 
@@ -1098,6 +1192,15 @@ def _proxy_issue_policy_path(settings, *, required: bool) -> Path | None:
     if not raw_path:
         if required:
             raise ValueError("proxy issue policy path is not configured")
+        return None
+    return Path(raw_path)
+
+
+def _proxy_identity_registry_path(settings, *, required: bool) -> Path | None:
+    raw_path = str(getattr(settings, "proxy_identity_registry_path", "") or "").strip()
+    if not raw_path:
+        if required:
+            raise ValueError("proxy identity registry path is not configured")
         return None
     return Path(raw_path)
 

@@ -642,6 +642,9 @@ class CliBoundedOutputsTest(unittest.TestCase):
             signed_registry_path = tmp / "signed-identity-registry.json"
             sign_receipt_path = tmp / "sign-receipt.json"
             verify_receipt_path = tmp / "verify-receipt.json"
+            install_receipt_path = tmp / "install-registry-receipt.json"
+            registry_status_path = tmp / "registry-status.json"
+            installed_registry_path = tmp / "installed-identity-registry.json"
             issue_receipt_path = tmp / "issue-receipt.json"
             recipient_private_key_path = tmp / "recipient.key"
             recipient_keygen_path = tmp / "recipient-keygen.json"
@@ -710,7 +713,7 @@ class CliBoundedOutputsTest(unittest.TestCase):
             policy_path.write_text(json.dumps(policy, sort_keys=True), encoding="utf-8")
             registry_path.write_text(json.dumps(registry, sort_keys=True), encoding="utf-8")
             env["TINKER_PROXY_ISSUE_POLICY_PATH"] = str(policy_path)
-            env["TINKER_PROXY_IDENTITY_REGISTRY_PATH"] = str(signed_registry_path)
+            env["TINKER_PROXY_IDENTITY_REGISTRY_PATH"] = str(installed_registry_path)
 
             signed = subprocess.run(
                 [
@@ -750,6 +753,38 @@ class CliBoundedOutputsTest(unittest.TestCase):
                 text=True,
                 capture_output=True,
             )
+            installed = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "tinker-proxy-identity-registry",
+                    "--registry-json",
+                    str(signed_registry_path),
+                    "--output",
+                    str(install_receipt_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            status = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "tinker-proxy-identity-registry",
+                    "--output",
+                    str(registry_status_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
             issued = subprocess.run(
                 [
                     sys.executable,
@@ -777,27 +812,41 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertEqual(keygen.returncode, 0, keygen.stderr)
             self.assertEqual(signed.returncode, 0, signed.stderr)
             self.assertEqual(verified.returncode, 0, verified.stderr)
+            self.assertEqual(installed.returncode, 0, installed.stderr)
+            self.assertEqual(status.returncode, 0, status.stderr)
             self.assertEqual(issued.returncode, 0, issued.stderr)
             self.assertEqual(signed.stdout, "")
             self.assertEqual(verified.stdout, "")
+            self.assertEqual(installed.stdout, "")
+            self.assertEqual(status.stdout, "")
             self.assertEqual(issued.stdout, "")
             sign_receipt = json.loads(sign_receipt_path.read_text(encoding="utf-8"))
             verify_receipt = json.loads(verify_receipt_path.read_text(encoding="utf-8"))
+            install_receipt = json.loads(install_receipt_path.read_text(encoding="utf-8"))
+            registry_status = json.loads(registry_status_path.read_text(encoding="utf-8"))
             signed_registry = json.loads(signed_registry_path.read_text(encoding="utf-8"))
+            installed_registry = json.loads(installed_registry_path.read_text(encoding="utf-8"))
             issue_receipt = json.loads(issue_receipt_path.read_text(encoding="utf-8"))
-            rendered_receipts = repr([sign_receipt, verify_receipt, issue_receipt])
-            rendered_registry = repr(signed_registry)
+            rendered_receipts = repr([sign_receipt, verify_receipt, install_receipt, registry_status, issue_receipt])
+            rendered_registry = repr([signed_registry, installed_registry])
 
             self.assertTrue(sign_receipt["success"])
             self.assertTrue(verify_receipt["success"])
+            self.assertTrue(install_receipt["success"])
+            self.assertTrue(registry_status["success"])
             self.assertTrue(issue_receipt["success"])
             self.assertTrue(verify_receipt["signature_binding"]["verified"])
             self.assertEqual(sign_receipt["registry_hash"], verify_receipt["registry_hash"])
+            self.assertEqual(sign_receipt["registry_hash"], install_receipt["registry_hash"])
+            self.assertEqual(sign_receipt["registry_hash"], registry_status["registry_hash"])
             self.assertEqual(
                 issue_receipt["policy_binding"]["identity_binding"]["signature_binding"]["registry_hash"],
                 sign_receipt["registry_hash"],
             )
             self.assertEqual(sign_receipt["role_counts"], {"agent": 1, "reviewer": 1})
+            self.assertEqual(registry_status["role_counts"], {"agent": 1, "reviewer": 1})
+            self.assertTrue(install_receipt["signature_binding"]["verified"])
+            self.assertTrue(registry_status["signature_binding"]["verified"])
             self.assertFalse(sign_receipt["signature"]["private_key_returned"])
             self.assertFalse(sign_receipt["signature"]["signature_returned"])
             self.assertFalse(sign_receipt["signature"]["signer_address_returned"])

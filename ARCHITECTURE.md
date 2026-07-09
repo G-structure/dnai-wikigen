@@ -406,6 +406,14 @@ run IDs, checkpoint paths, samples, or private reward data.
             `raw_secret_egress=false`. The signed registry artifact necessarily
             contains the verifier signature and signer address, but not raw
             user/reviewer identities; the receipt does not return either value.
+            `GET/PUT /tinker/proxy/identity-registry` and
+            `tinker-proxy-identity-registry` let a runtime-authenticated
+            operator install or inspect that signed registry without SSH or
+            image edits. Install verifies the signature when the signature gate
+            is required, writes only the normalized hash-only registry artifact
+            to the configured CVM path, and returns bounded registry
+            hash/count/role/signature-binding evidence. These surfaces are
+            source/test-real and are not yet live in the current Phala CVM.
             The current source compose carries disabled lifecycle and signed
             identity-registry env knobs; local raw/image-policy compose hash is
             `cea8860b87944f990e2afe30e0ef1e78d3aa91bccacee0aa76727fcc58381e2d`
