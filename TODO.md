@@ -324,6 +324,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                               `issue-tinker-proxy-token` correctly fails closed
                               with `compose_hash_not_approved` for
                               `0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7`.
+                              Follow-up 2026-07-09: remote
+                              `issue-tinker-proxy-token --api-url` now wraps
+                              HTTP rejection bodies into bounded
+                              `surface=tinker_proxy_token`,
+                              `outcome=remote_rejected` receipts instead of
+                              writing provider/API error JSON directly.
       - [x] Accept scoped proxy JWTs on the first bounded operation endpoints.
             Done 2026-07-09: `GET /tinker/proxy/status`,
             `POST /tinker/smoke`, `GET /billing/payment-method-status`, and

@@ -1940,6 +1940,18 @@ def cli():
                     "plaintext_token_returned": False,
                     "raw_secret_egress": False,
                 }
+            if response.status_code >= 400:
+                detail = body.get("detail", "") if isinstance(body, dict) else ""
+                body = {
+                    "surface": "tinker_proxy_token",
+                    "success": False,
+                    "outcome": "remote_rejected",
+                    "status_code": response.status_code,
+                    "error_kind": "remote_error",
+                    "bounded_message": redact_text(detail or "remote endpoint rejected proxy token issuance"),
+                    "plaintext_token_returned": False,
+                    "raw_secret_egress": False,
+                }
             _emit_bounded_json(body, output_path=args.output)
             sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
 

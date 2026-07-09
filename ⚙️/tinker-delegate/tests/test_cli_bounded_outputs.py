@@ -367,6 +367,91 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertNotIn("operator-secret", rendered)
             self.assertNotIn("buyer-agent-1", rendered)
 
+    def test_issue_proxy_token_remote_rejection_is_bounded(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "proxy-token-rejected.json"
+            seen_headers: list[str] = []
+            seen_body: list[dict] = []
+
+            class Handler(BaseHTTPRequestHandler):
+                def do_POST(self):
+                    if self.path != "/tinker/proxy/token":
+                        self.send_response(404)
+                        self.end_headers()
+                        return
+                    seen_headers.append(self.headers.get("Authorization", ""))
+                    length = int(self.headers.get("Content-Length", "0"))
+                    seen_body.append(json.loads(self.rfile.read(length).decode("utf-8")))
+                    body = json.dumps(
+                        {
+                            "detail": (
+                                "proxy deployment policy denied token issuance: "
+                                "compose_hash_not_approved"
+                            )
+                        }
+                    ).encode("utf-8")
+                    self.send_response(403)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
+                def log_message(self, format, *args):
+                    return
+
+            server = HTTPServer(("127.0.0.1", 0), Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                env = _env(tmpdir)
+                env["TINKER_RUNTIME_AUTH_TOKEN"] = "operator-secret"
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "tinker_delegate.main",
+                        "issue-tinker-proxy-token",
+                        "--api-url",
+                        f"http://127.0.0.1:{server.server_port}",
+                        "--auth-token-env",
+                        "TINKER_RUNTIME_AUTH_TOKEN",
+                        "--subject",
+                        "buyer-agent-1",
+                        "--scope",
+                        "proxy:status",
+                        "--recipient-public-key",
+                        "44" * 32,
+                        "--output",
+                        str(output_path),
+                    ],
+                    check=False,
+                    cwd=Path(__file__).resolve().parents[1],
+                    env=env,
+                    text=True,
+                    capture_output=True,
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(result.stdout, "")
+            self.assertEqual(seen_headers, ["Bearer operator-secret"])
+            self.assertEqual(seen_body[0]["subject"], "buyer-agent-1")
+            body = json.loads(output_path.read_text(encoding="utf-8"))
+            rendered = repr(body)
+            self.assertFalse(body["success"])
+            self.assertEqual(body["surface"], "tinker_proxy_token")
+            self.assertEqual(body["outcome"], "remote_rejected")
+            self.assertEqual(body["status_code"], 403)
+            self.assertEqual(body["error_kind"], "remote_error")
+            self.assertIn("compose_hash_not_approved", body["bounded_message"])
+            self.assertFalse(body["plaintext_token_returned"])
+            self.assertFalse(body["raw_secret_egress"])
+            self.assertNotIn("operator-secret", rendered)
+            self.assertNotIn("buyer-agent-1", rendered)
+            self.assertNotIn("44" * 32, rendered)
+
     def test_tinker_proxy_issue_policy_can_install_on_deployed_delegate_api(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "proxy-policy-status.json"
