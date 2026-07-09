@@ -1744,6 +1744,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `operator_action`, rejects unknown API payload fields instead of
             silently falling back to defaults, and defaults the paid smoke to
             the official quickstart pair `Qwen/Qwen3-8B` rank `32`.
+      - [x] Build and locally pin the project-aware delegate image with verified
+            GitHub provenance/SBOM. Done 2026-07-09: source
+            `6f5d557d1dab6641590c12ad96eecad74a101638` built
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:d7872a09b7fe28e25a53dafa721a355cb0677d42e2939f4babbbff7e167f306d`;
+            local `verify-ghcr-image-attestation` verified SLSA provenance and
+            SPDX SBOM predicates for the TEE image workflow, and
+            `docker-compose.tinker-funding-validation.phala.yaml` now pins that
+            digest. Local `verify-compose-hash` computes compose hash
+            `d0aea171db3483ae1dae4ff73294548ca5906481166893114ce048688bf2f3f9`
+            and rendered compose SHA
+            `c8d16bc2cefb5a01425defe6fe8fddbc7d850a18cf2ec709a0724ccfb199713d`.
+            This is not yet a live Phala redeploy or on-chain approval.
       - [ ] Run `tinker-smoke --api-url ... --max-usd 0.05
             --require-encumbrance` successfully from the deployed CVM and record
             the bounded receipt plus attestation evidence.
@@ -1760,7 +1772,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `BadRequestError` hash before training creation, so the current
             working hypothesis is missing project/account entitlement or a
             service-side account configuration requirement, not only the old
-            model/rank default.
+            model/rank default. Next step: redeploy the pinned project-aware
+            compose, approve the new compose hash, and test again with
+            `TINKER_PROJECT_ID` configured if the Tinker console exposes one.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
 - [x] `P0` Add real SDK integration tests gated by an env var and budget cap.

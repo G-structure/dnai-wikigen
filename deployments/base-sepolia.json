@@ -1380,7 +1380,22 @@
           "rawSecretEgress": false
         }
       ],
-      "nextStep": "Deploy project-aware bounded diagnostics, set TINKER_PROJECT_ID if the Tinker console exposes one, and resolve the service-side BadRequest at create_lora_training_client; do not mark real training complete until run/checkpoint/sample/cleanup evidence exists"
+      "projectAwareDeployCandidate": {
+        "status": "local_compose_pinned_not_yet_deployed",
+        "sourceDigest": "6f5d557d1dab6641590c12ad96eecad74a101638",
+        "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
+        "githubActionsRunId": 29020924145,
+        "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:d7872a09b7fe28e25a53dafa721a355cb0677d42e2939f4babbbff7e167f306d",
+        "githubProvenanceAttestation": "verified",
+        "githubSbomAttestation": "verified",
+        "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
+        "localComposeHash": "d0aea171db3483ae1dae4ff73294548ca5906481166893114ce048688bf2f3f9",
+        "renderedComposeSha256": "c8d16bc2cefb5a01425defe6fe8fddbc7d850a18cf2ec709a0724ccfb199713d",
+        "phalaRedeployed": false,
+        "composeApprovedOnChain": false,
+        "rawSecretEgress": false
+      },
+      "nextStep": "Redeploy the project-aware bounded diagnostics compose, approve the new compose hash, set TINKER_PROJECT_ID if the Tinker console exposes one, and resolve the service-side BadRequest at create_lora_training_client; do not mark real training complete until run/checkpoint/sample/cleanup evidence exists"
     },
     "selectorDiagnosticsEvidence20260709": {
       "status": "custom_neko_cdp_browser_ready_selector_probe_succeeded",

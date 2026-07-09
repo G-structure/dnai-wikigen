@@ -120,11 +120,11 @@ Latest Tinker execution buildout, 2026-07-09:
   `ServiceClient.get_server_capabilities`.
 - Source now adds bounded SDK failure diagnostics for the next deployed smoke
   attempt: receipts include an allowlisted `sdk_error.bucket`, normalized
-  redacted `sdk_error.message_hash`, coarse `message_length_band`, and bounded
-  `sdk_diagnostics` covering request shape plus capability probing. The next
-  diagnostics build also records enum `sdk_error.failure_site`,
-  `sdk_error.operator_action`, and optional `TINKER_PROJECT_ID` configured/hash
-  evidence without returning the raw project id. Focused tests prove raw
+  redacted `sdk_error.message_hash`, coarse `message_length_band`, bounded
+  `sdk_diagnostics` covering request shape plus capability probing, enum
+  `sdk_error.failure_site`, enum `sdk_error.operator_action`, and optional
+  `TINKER_PROJECT_ID` configured/hash evidence without returning the raw project
+  id. Focused tests prove raw
   provider-message text, supported model lists, API-key-shaped, email-shaped,
   card-shaped, request-ID-shaped, deal ID, run ID, checkpoint, and sample
   material do not leave the receipt.
@@ -136,6 +136,17 @@ Latest Tinker execution buildout, 2026-07-09:
   The source default has been moved to `Qwen/Qwen3-8B` rank `32`, but real
   execution remains unproven until a deployed receipt reaches
   `cleanup_completed`.
+- The project-aware delegate image is now a verified local deploy candidate, not
+  yet live. GitHub Actions run `29020924145` built source
+  `6f5d557d1dab6641590c12ad96eecad74a101638` into
+  `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:d7872a09b7fe28e25a53dafa721a355cb0677d42e2939f4babbbff7e167f306d`.
+  Local `verify-ghcr-image-attestation` verified SLSA provenance and SPDX SBOM
+  predicates for that digest, and the funding-validation Phala compose now pins
+  it locally. Local `verify-compose-hash` computes compose hash
+  `d0aea171db3483ae1dae4ff73294548ca5906481166893114ce048688bf2f3f9` with
+  rendered compose SHA
+  `c8d16bc2cefb5a01425defe6fe8fddbc7d850a18cf2ec709a0724ccfb199713d`.
+  That compose has not yet been redeployed to Phala or approved on-chain.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned
