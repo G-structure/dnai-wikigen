@@ -413,15 +413,20 @@ run IDs, checkpoint paths, samples, or private reward data.
             is required, writes only the normalized hash-only registry artifact
             to the configured CVM path, and returns bounded registry
             hash/count/role/signature-binding evidence. These surfaces are
-            source/test-real and are not yet live in the current Phala CVM.
-            The current source compose carries disabled lifecycle and signed
+            source/test-real and the lifecycle/signature-required env gate is
+            now live in the operator-validation Phala CVM. A fresh hash-only
+            issue policy and signed hash-only identity registry were installed
+            through the live runtime-authenticated API on 2026-07-09; issuance
+            currently fails closed with `compose_hash_not_approved` until the
+            current compose hash is approved in `TinkerAccountEncumbrance`.
+            The current source compose carries lifecycle and signed
             identity-registry env knobs; local raw/image-policy compose hash is
             `e682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7`
             and rendered compose SHA-256 is
             `4c99b0f73a14bd40292ee71df343fd5e08f889e1932f4318d64657107e78e595`.
-            It is not yet deployed as a lifecycle/signature-required Phala
-            policy, and the signer address is not yet bound to a production
-            verifier/reviewer identity source or governance contract.
+            The signer address is a temporary operator-validation verifier, not
+            yet a production verifier/reviewer identity source or governance
+            contract.
 [real]      Policy-issued proxy JWTs can now carry bounded per-scope spend
             limits. A policy grant may define `scope_limits`, and
             spend-bearing scopes such as `billing:add-balance` require

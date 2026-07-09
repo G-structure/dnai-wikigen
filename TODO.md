@@ -292,6 +292,35 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                         compose hash, install an active lifecycle-bound issue
                         policy plus signed hash-only identity registry, and
                         record bounded issuance evidence.
+                        - [x] Redeploy the signature-required runtime gate to
+                              the live Phala operator-validation CVM. Done
+                              2026-07-09: live `tinker-proxy-status` reports
+                              `issue_policy_required=true`,
+                              `deployment_policy_required=true`,
+                              `grant_lifecycle_required=true`,
+                              `identity_registry_required=true`,
+                              `identity_registry_signature_required=true`,
+                              `identity_registry_signer_configured=true`, and
+                              `raw_secret_egress=false`.
+                        - [x] Install an active lifecycle-bound issue policy
+                              plus signed hash-only identity registry through
+                              the live runtime-authenticated API. Done
+                              2026-07-09: policy hash
+                              `47a6c41964ffac98bc90fd03216f419b1c1a0cee7a3a5152f88cbd5a308938d7`,
+                              registry hash
+                              `162df4185df255268bb03857d37da10c658240ae5b7067b1ff7eee40477bbb6a`,
+                              two active identities (`agent`, `reviewer`),
+                              signature verified, and
+                              `raw_secret_egress=false`.
+                        - [ ] Approve the current compose hash on-chain and
+                              rerun encrypted token issuance/decrypt/status.
+                              Blocked 2026-07-09 on interactive Foundry
+                              keystore signing in the operator terminal:
+                              `cast send` from the headless shell failed with
+                              `Device not configured`, and live
+                              `issue-tinker-proxy-token` correctly fails closed
+                              with `compose_hash_not_approved` for
+                              `0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7`.
       - [x] Accept scoped proxy JWTs on the first bounded operation endpoints.
             Done 2026-07-09: `GET /tinker/proxy/status`,
             `POST /tinker/smoke`, `GET /billing/payment-method-status`, and

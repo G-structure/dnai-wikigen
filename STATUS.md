@@ -38,7 +38,54 @@ verification, live CVM-originated TEE-to-chain signing, and RLVR/bio-validation
 remain incomplete. Phala auth is configured for profile `wikigen` in workspace
 `wiki`.
 
-Latest proxy policy deployment, 2026-07-09:
+Latest signature-required proxy registry deployment attempt, 2026-07-09:
+
+- GitHub Actions run `29048558164` built source
+  `0aeb8182fe6552e2546d1f9d9b16acb06f655db4` into delegate image
+  `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:f3e98cc62009ef1d583545a4fab95651a87648f7f8594a290973dbcdbcb06f73`;
+  local `verify-ghcr-image-attestation` verified GitHub provenance and SPDX
+  SBOM attestations. Commit `94e3ea1` pins that digest in the
+  funding-validation compose. Local `verify-compose-hash --phala-raw-compose`
+  computes raw/image-policy hash
+  `e682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7` and
+  rendered compose SHA-256
+  `4c99b0f73a14bd40292ee71df343fd5e08f889e1932f4318d64657107e78e595`.
+- Phala redeploy provisioned app-compose hash
+  `4d62625b62354bae0831fcaf29a600b5a718d4db2ca00461e7dd3743ddfca2fe`
+  for app `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, but the deploy script
+  timed out waiting for that hash to become active while Phala reported an
+  intermediate live hash
+  `085fde3b8d36f4a4d26db65b1c29b5570f20c5262e6c8d230ef3f87645e6c9f9`.
+  The CVM later reported `running`, and the live delegate health endpoint
+  responded successfully.
+- Live `tinker-proxy-status` proves the stricter proxy gates are active in the
+  deployed CVM: `issue_policy_required=true`,
+  `deployment_policy_required=true`, `grant_lifecycle_required=true`,
+  `identity_registry_required=true`,
+  `identity_registry_signature_required=true`,
+  `identity_registry_signer_configured=true`, sealed Tinker API key available,
+  `project_id_configured=false`, and `raw_secret_egress=false`.
+- A fresh operator-validation policy and signed registry were installed through
+  the live runtime-authenticated API. Bounded receipts report policy hash
+  `47a6c41964ffac98bc90fd03216f419b1c1a0cee7a3a5152f88cbd5a308938d7`,
+  registry hash
+  `162df4185df255268bb03857d37da10c658240ae5b7067b1ff7eee40477bbb6a`,
+  two active identities (`agent`, `reviewer`), verified registry signature
+  binding, and `raw_secret_egress=false`.
+- Encrypted proxy-token issuance is intentionally blocked until the current
+  compose hash is approved on-chain. The live issue command returned the
+  bounded denial `proxy deployment policy denied token issuance:
+  compose_hash_not_approved`; read-only chain state reports
+  `approvedComposeHashes(0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7)=false`.
+  Headless `cast send` could not prompt for the Foundry keystore password and
+  failed locally with `Device not configured`, so the next required operator
+  action is approving that hash from an interactive terminal using the
+  `dev` keystore account.
+- This remains operator-validation, not production governance: the registry
+  signer is a temporary local verifier key kept in ignored `data/` scratch
+  storage, and `TINKER_PROJECT_ID` is still not sealed/configured.
+
+Previous proxy policy deployment, 2026-07-09:
 
 - GitHub Actions run `29043212028` built source
   `d9807a028702ff2b0ee1c077cc0970cafc334475` into delegate image
