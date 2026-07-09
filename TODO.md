@@ -291,6 +291,19 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       configured, payment-method and add-balance automation deny before
       decryption/browser launch unless the compose hash is approved, the
       contract is not halted, and the amount is within cap.
+- [x] `P0` Add a no-raw-key Base Sepolia deploy helper for
+      `TinkerAccountEncumbrance`.
+      Done in
+      `⚙️/tinker-delegate/contracts/script/TinkerAccountEncumbrance.s.sol`
+      and
+      `⚙️/tinker-delegate/contracts/scripts/deploy-tinker-encumbrance-base-sepolia.sh`.
+      The helper reads `.env`, uses Foundry `--account dev` instead of raw
+      private keys, validates bytes32/cap inputs, defaults the initial compose
+      hash from the current Phala deployment manifest, defaults the initial
+      account commitment to the bounded `oracleEmailHash` when no stronger
+      Tinker account commitment is supplied, runs build/tests, dry-runs first,
+      and rewrites `deployments/base-sepolia.json` only after a successful
+      broadcast plus on-chain reads.
 - [ ] `P1` Add funding rail policy:
       developer prefund, buyer compute deposit, crypto top-up, A2A/ACH/card
       path, and manual emergency funding.
@@ -1981,6 +1994,23 @@ vision Wiki is reaching for.
       - [ ] Deploy `TinkerAccountEncumbrance`, set initial account commitment,
             compose hash, add-balance/spend caps, and record the address/policy
             in `deployments/base-sepolia.json`.
+            - [x] Source/helper and dry-run are ready. Done 2026-07-08:
+                  dry-run used account commitment
+                  `0x535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132`,
+                  compose hash
+                  `0xa43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`,
+                  `$5` add-balance/spend caps in policy units, Base Sepolia
+                  chain ID `84532`, funded deployer
+                  `0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`, `forge build
+                  --sizes`, 9 focused Foundry tests, and a successful
+                  simulation estimating `0.00001471492 ETH`.
+            - [ ] Broadcast the helper from an interactive terminal so Foundry
+                  can unlock keystore account `dev`, then verify code and
+                  on-chain policy reads. Codex non-interactive broadcast
+                  attempts did not deploy: nonce stayed `3`, balance stayed
+                  `0.015959606501019536`, predicted address had no code, and
+                  Foundry failed with `Device not configured` while opening the
+                  keystore prompt.
 - [ ] `Deploy` Verify contracts on BaseScan.
 - [ ] `Deploy` Register compose hashes in `EmailOracleAuth`.
 - [ ] `Deploy` Register consumer app/compose hash for Tinker delegate.

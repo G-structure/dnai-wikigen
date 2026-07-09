@@ -346,6 +346,21 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   operations fail closed before card decryption/browser launch unless public
   contract reads show the compose hash is approved, emergency halt is off, and
   the add-balance/spend amount is within cap.
+- A no-raw-key Base Sepolia deploy helper now exists for
+  `TinkerAccountEncumbrance`. It uses Foundry `--account dev`, validates
+  bytes32 commitments and policy caps, defaults the initial compose hash from
+  the deployment manifest, defaults the account commitment to the bounded
+  `oracleEmailHash` when not supplied, and updates the manifest only after
+  successful broadcast plus on-chain reads. A 2026-07-08 dry-run built the
+  contracts, passed 9 focused Foundry tests, and simulated deployment with
+  account commitment
+  `0x535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132`,
+  compose hash
+  `0xa43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`,
+  and `$5` add-balance/spend caps. Non-interactive broadcast did not deploy:
+  Foundry failed while opening the encrypted keystore prompt with
+  `Device not configured`, and chain checks showed nonce `3`, unchanged
+  balance, and no code at the predicted address.
 
 [real] `tinker-delegate` bounded run metadata:
 
@@ -512,8 +527,8 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
 - A minimal `TinkerAccountEncumbrance.sol` contract now exists locally with
   tests proving managers cannot exceed owner-set caps or change owner-only
   policy. The runtime now has a read-only policy preflight and optional
-  fail-closed card/add-balance gate, but the contract is not yet deployed or
-  recorded in the Base Sepolia manifest.
+  fail-closed card/add-balance gate, plus a validated no-raw-key deploy helper,
+  but the contract is not yet deployed or recorded in the Base Sepolia manifest.
 - Test-card billing reaches a clear declined-card outcome.
 - Payment-method and add-balance operations return bounded attempt records with
   outcome class, furthest stage, issued timestamp, evidence hash, amount/balance

@@ -677,9 +677,24 @@ Implementation status:
             deny before card decryption or browser launch unless public
             contract reads show the compose hash is approved, emergency halt is
             off, and the amount is within cap.
+[real]      A no-raw-key Base Sepolia deploy helper exists for
+            TinkerAccountEncumbrance. It uses Foundry `--account dev`, validates
+            the account commitment, initial compose hash, and caps, defaults the
+            initial compose hash from the current Phala manifest, defaults the
+            initial account commitment to the bounded `oracleEmailHash` only
+            when no stronger Tinker account commitment is provided, runs
+            build/tests and a simulation before broadcast, and updates
+            `deployments/base-sepolia.json` only after successful on-chain
+            reads.
 [partial]   TinkerAccountEncumbrance is not yet deployed or recorded in the
-            Base Sepolia manifest, so deployed funding still needs the live
-            contract address, compose hash, policy caps, and on-chain evidence.
+            Base Sepolia manifest. The helper dry-runs successfully with the
+            current Phala compose hash
+            `a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`
+            and `$5` policy caps, but actual broadcast is blocked in this
+            non-interactive Codex shell because Foundry cannot open the
+            encrypted keystore prompt (`Device not configured`). The next
+            evidence step is an interactive terminal broadcast followed by code
+            and policy reads.
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
 [real]      Signup/bootstrap stores captured Tinker API keys in encrypted
             storage and returns only bounded hash/status metadata.
