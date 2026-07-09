@@ -265,6 +265,25 @@ waits about 30 seconds on oracle health. This fix still needs GitHub image
 build, Phala redeploy, live attestation verification, on-chain compose approval,
 and then a fresh bounded add-balance packet.
 
+Gateway timeout follow-up, 2026-07-09: the delegate event-loop fix was built by
+GitHub Actions from source `9e72eec59f5ea784ffbe9d0702e1569bb1ac1a29`, verified
+with provenance and SPDX SBOM attestations for delegate digest
+`tinker-delegate@sha256:5f53e8d09d53fc76b17155ce40bd51a0333a85c4e77a0e82a511551895f02995`,
+pinned in the funding-validation compose in `d4b325c`, and redeployed to the
+existing debug-posture Phala CVM. Live public
+`/attestation?context=billing` returned `200` in about 1.7 seconds and
+`/health` returned quickly instead of hanging behind oracle health. The
+remaining runtime blocker is now narrower: the oracle container still reports
+IMAP failures against `mail.cock.li:993`, and its healthcheck was reconnecting
+IMAP too aggressively. Source now makes oracle `/health` non-mutating and
+cache-based, with `/pin` owning real IMAP work and failing closed on mailbox
+errors. Validation passed with `uv run python -m unittest tests.test_api_auth`
+(22 tests), `uv run python -m unittest discover -s tests` (44 tests), and
+`uv run python -m py_compile email_oracle/api.py tests/test_api_auth.py`. This
+oracle fix still needs GitHub image build, attestation verification, digest pin,
+Phala redeploy, and live health/preflight verification before any new
+add-balance attempt.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce

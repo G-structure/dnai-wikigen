@@ -15,6 +15,7 @@ def _reset_state(settings: Settings) -> None:
     state.store = None
     state.creds = None
     state.imap = None
+    state.imap_connected = False
     state.otp_replay_store = None
     state.otp_replay_store_ready = True
     state.used_otp_hashes = set()
@@ -59,6 +60,11 @@ class FakeIMAP:
 
     def _ensure_connected(self) -> None:
         return None
+
+
+class ExplodingHealthIMAP(FakeIMAP):
+    def _ensure_connected(self) -> None:
+        raise RuntimeError("health should not reconnect imap")
 
 
 class FakeReplayStore:
@@ -290,6 +296,7 @@ class ApiAuthTest(unittest.TestCase):
         _reset_state(Settings())
         state.creds = EmailCredentials("oracle", "example.com", "secret-password")
         state.imap = FakeIMAP()
+        state.imap_connected = True
 
         response = self.client.get("/health")
 
@@ -301,6 +308,20 @@ class ApiAuthTest(unittest.TestCase):
         self.assertEqual(body["oracle_email"], "")
         self.assertEqual(len(body["oracle_email_hash"]), 64)
         self.assertNotIn("oracle@example.com", response.text)
+
+    def test_health_does_not_touch_imap_connection(self):
+        _reset_state(Settings())
+        state.creds = EmailCredentials("oracle", "example.com", "secret-password")
+        state.imap = ExplodingHealthIMAP()
+        state.imap_connected = True
+
+        response = self.client.get("/health")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertTrue(body["oracle_ready"])
+        self.assertTrue(body["imap_connected"])
 
     def test_email_address_requires_runtime_auth_when_enabled(self):
         _reset_state(Settings(runtime_auth_required=True, runtime_auth_token="shared-secret"))

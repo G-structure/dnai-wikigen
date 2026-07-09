@@ -1428,6 +1428,14 @@ Implementation status:
             monopolizing Uvicorn's event loop. A regression test starts the
             real ASGI server, makes oracle health sleep, and proves billing
             attestation still returns promptly.
+[real]      Source/tests now make oracle `/health` a non-mutating readiness
+            view. It reports cached mailbox connection state and credential
+            hashes only; it no longer calls IMAP reconnect logic from a Docker
+            or delegate health probe. `/pin` remains the operation that touches
+            IMAP, fails closed with a bounded `503 IMAP unavailable` response,
+            and updates cached connection state. This prevents healthcheck
+            reconnect storms, but the live Phala oracle image still needs to be
+            rebuilt and redeployed before this behavior is Phala-proven.
 [real]      Main-CVM mailbox genesis has been Phala-proven without enabling
             Tinker bootstrap or billing. A one-shot
             `docker-compose.mailbox-genesis.phala.yaml` deployment reached

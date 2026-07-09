@@ -2247,12 +2247,28 @@ vision Wiki is reaching for.
                   starvation cause by moving blocking synchronous API handlers
                   to FastAPI's threadpool (`def` handlers). `tests/test_api_event_loop.py`
                   proves `/attestation` is not blocked by slow oracle health.
-            - [ ] Build the fixed delegate image on GitHub, verify SLSA/SBOM
+            - [x] Build the fixed delegate image on GitHub, verify SLSA/SBOM
+                  attestations, pin the digest in the Phala funding-validation
+                  compose, and redeploy. Done from source
+                  `9e72eec59f5ea784ffbe9d0702e1569bb1ac1a29` with delegate
+                  digest
+                  `5f53e8d09d53fc76b17155ce40bd51a0333a85c4e77a0e82a511551895f02995`;
+                  the pin landed in `d4b325c`.
+            - [x] Re-test live public `/attestation?context=billing` after the
+                  delegate event-loop fix. Public attestation returned `200` in
+                  about 1.7 seconds and public `/health` returned quickly
+                  instead of zero-byte timing out.
+            - [x] Source/test fix: make oracle `/health` non-mutating so Docker
+                  healthchecks and delegate readiness probes do not reconnect
+                  IMAP or create reconnect storms when the mailbox provider is
+                  flaky. `/pin` now performs the real IMAP operation and updates
+                  cached connection state.
+            - [ ] Build the fixed oracle image on GitHub, verify SLSA/SBOM
                   attestations, pin the digest in the Phala funding-validation
                   compose, and redeploy.
-            - [ ] Re-test live public `/attestation?context=billing` and
-                  `/billing/funding-preflight` before approving the new compose
-                  hash on-chain.
+            - [ ] Re-test live public `/health`, `/attestation?context=billing`,
+                  and `/billing/funding-preflight` before approving any new
+                  compose hash on-chain.
       - [ ] `Deploy` Revert the 2026-07-09 public logs/public sysinfo/dev-SSH
             diagnostic exception after collecting enough evidence; record the
             reverted live compose hash and rerun `verify-cvm-attestation`.

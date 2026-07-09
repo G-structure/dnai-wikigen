@@ -170,6 +170,7 @@ class OracleState:
         self.store: CredentialStore | None = None
         self.creds: EmailCredentials | None = None
         self.imap: IMAPClient | None = None
+        self.imap_connected: bool = False
         self.otp_replay_store: OtpReplayStore | None = None
         self.otp_replay_store_ready: bool = True
         self.used_otp_hashes: set[str] = set()
@@ -347,12 +348,15 @@ def _attestation_payload(context: str) -> dict:
 def _connect_imap(creds: EmailCredentials) -> bool:
     settings = state.settings
     if not settings:
+        state.imap_connected = False
         return False
     if state.imap:
         state.imap.disconnect()
+    state.imap_connected = False
     state.imap = IMAPClient(creds, settings)
     try:
         state.imap.connect()
+        state.imap_connected = True
         return True
     except Exception as exc:
         print(f"[api] IMAP connection failed after credential provisioning: {redact_text(exc)}")
@@ -477,7 +481,9 @@ async def lifespan(app: FastAPI):
         state.imap = IMAPClient(state.creds, settings)
         try:
             state.imap.connect()
+            state.imap_connected = True
         except Exception as e:
+            state.imap_connected = False
             print(f"[api] IMAP connection failed (will retry on request): {redact_text(e)}")
 
     yield
@@ -485,6 +491,7 @@ async def lifespan(app: FastAPI):
     # Cleanup
     if state.imap:
         state.imap.disconnect()
+    state.imap_connected = False
 
 
 app = FastAPI(
@@ -502,12 +509,18 @@ async def extract_pin(req: PinRequest):
     if not state.creds or not state.imap:
         raise HTTPException(503, "Oracle not initialized — no credentials")
 
-    result = state.imap.search_and_extract(
-        from_filter=req.expected_sender,
-        subject_contains=req.expected_subject_contains,
-        max_age_seconds=req.max_age_seconds,
-        extract_pattern=req.extract_pattern,
-    )
+    try:
+        result = state.imap.search_and_extract(
+            from_filter=req.expected_sender,
+            subject_contains=req.expected_subject_contains,
+            max_age_seconds=req.max_age_seconds,
+            extract_pattern=req.extract_pattern,
+        )
+        state.imap_connected = True
+    except Exception as exc:
+        state.imap_connected = False
+        print(f"[api] IMAP pin search failed: {redact_text(exc)}")
+        raise HTTPException(503, "IMAP unavailable") from exc
 
     if not result:
         raise HTTPException(404, "No matching pin found in inbox")
@@ -544,15 +557,15 @@ async def extract_pin(req: PinRequest):
 
 
 @app.get("/health", response_model=HealthResponse)
-async def health():
-    """Service health check."""
-    imap_ok = False
-    if state.imap:
-        try:
-            state.imap._ensure_connected()
-            imap_ok = True
-        except Exception:
-            pass
+def health():
+    """Service health check.
+
+    Keep this endpoint non-mutating. Docker and delegate health probes call it
+    frequently; reconnecting IMAP here can block the API and create reconnect
+    storms when the mailbox provider is flaky. `/pin` performs the real IMAP
+    operation and updates this cached connection state.
+    """
+    imap_ok = bool(state.imap and state.imap_connected)
 
     oracle_email_hash = _hash_text(state.creds.email) if state.creds else ""
     return HealthResponse(
