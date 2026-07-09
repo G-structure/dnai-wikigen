@@ -1250,13 +1250,15 @@ Implementation status:
             normal Phala profile was redeployed with this policy and reports
             `allowed_env_count=7` instead of the earlier broad 90-key surface.
 [real]      `.github/workflows/build-tee-images.yml` builds the deploy-critical
-            `tee-email-oracle` and `tinker-delegate` images on GitHub-hosted
-            runners for `linux/amd64`, pushes SHA-tagged images to GHCR, asks
-            BuildKit to attach SBOM/provenance attestations, generates an SPDX
-            SBOM with Syft, and emits GitHub-native signed provenance and SBOM
-            attestations bound to the pushed image digest. The Dockerfiles for
-            those two services pin the Python runtime image and `uv` helper
-            image by versioned digest.
+            `tee-email-oracle`, `tinker-delegate`, and custom `neko-chrome`
+            browser images on GitHub-hosted runners for `linux/amd64`, pushes
+            SHA-tagged images to GHCR, asks BuildKit to attach SBOM/provenance
+            attestations, generates an SPDX SBOM with Syft, and emits
+            GitHub-native signed provenance and SBOM attestations bound to the
+            pushed image digest. The delegate/oracle Dockerfiles pin the
+            Python runtime image and `uv` helper image by versioned digest; the
+            custom Neko browser Dockerfile pins the upstream Neko base by
+            linux/amd64 manifest digest.
 [real]      `scripts/verify-ghcr-image-attestation.sh` is the pre-Phala image
             gate: it accepts only digest-pinned GHCR image references and uses
             `gh attestation verify` against OCI-attached attestations to enforce
@@ -1322,7 +1324,11 @@ Implementation status:
             only `TINKER_BOOTSTRAP_SIGNUP=true`, uses fail-open bounded
             evidence mode so selector/posture failures can be inspected through
             `/health` runtime state, and now drives the headed Neko Chrome CDP
-            endpoint instead of the headless Playwright sidecar.
+            endpoint instead of the headless Playwright sidecar. The currently
+            committed Phala bootstrap/diagnostic composes still use the
+            upstream digest-pinned Neko image plus inline container startup CDP
+            rewiring; they have not yet been updated to the new
+            GitHub-attested custom `neko-chrome` digest.
 [partial]   Three Phala-proven Tinker bootstrap attempts have failed closed
             without API-key sealing. The first, using the headless Playwright
             sidecar, reached the Tinker auth surface with

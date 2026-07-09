@@ -608,6 +608,19 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `bootstrap_error_kind=auth_access_blocked`; no API key was created,
             billing/add-balance and credential provisioning remained disabled,
             and the CVM was redeployed back to normal compose.
+      - [x] Put the local custom Neko Chrome/CDP image on the same
+            GitHub-attested GHCR build path as the delegate and oracle.
+            Done 2026-07-09: `.github/workflows/build-tee-images.yml` now
+            builds `neko-chrome` from `⚙️/tee-email-oracle/neko-chrome`,
+            the Neko base image is pinned to the linux/amd64 manifest digest
+            instead of `latest`, tests assert the workflow and digest pin, and
+            a local Docker build of the pinned image succeeded. This does not
+            yet prove deployed Tinker auth; it creates the browser digest and
+            provenance path needed for the next Phala retry.
+      - [ ] Replace the one-shot Tinker bootstrap/selector diagnostic Phala
+            Neko service with the GitHub-attested custom `neko-chrome`
+            digest once CI publishes it, then rerun `/browser/readiness`,
+            `/browser/selector-probe`, and authenticated `/auth/reauth`.
 - [x] `P0` Replace the deployed headless Playwright sidecar in the one-shot
       Tinker bootstrap profile with a headed browser path that survives Phala
       packaging if browser automation remains the route.

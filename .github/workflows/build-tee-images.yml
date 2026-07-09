@@ -38,6 +38,10 @@ jobs:
             context: ./⚙️/tee-email-oracle
             dockerfile: ./⚙️/tee-email-oracle/Dockerfile
             image_suffix: tee-email-oracle
+          - name: neko-chrome
+            context: ./⚙️/tee-email-oracle/neko-chrome
+            dockerfile: ./⚙️/tee-email-oracle/neko-chrome/Dockerfile
+            image_suffix: neko-chrome
 
     steps:
       - name: Check out repository

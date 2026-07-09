@@ -57,6 +57,17 @@ size `5010`. Public logs remain disabled. Health is OK, the oracle is ready,
 IMAP is connected, and unauthenticated `/auth/reauth` plus
 `/billing/add-balance` fail closed with `401 Bearer token required`.
 
+Browser auth repair in progress, 2026-07-09: the repo now has a verified local
+build path for the custom Neko Chrome/CDP image that previously only existed as
+a local compose build. `.github/workflows/build-tee-images.yml` includes
+`neko-chrome`, and `⚙️/tee-email-oracle/neko-chrome/Dockerfile` pins the
+upstream Neko linux/amd64 base digest instead of `latest`. Focused tests passed
+and a local `docker build --platform linux/amd64` succeeded. This is not a
+deployed auth fix yet: the next required step is to let GitHub publish and
+attest the `neko-chrome` GHCR digest, verify it, pin that digest into the
+one-shot Tinker bootstrap/selector diagnostic compose, and rerun the Phala
+browser/auth probes.
+
 Funding profile live result, 2026-07-09: remote preflight for `$5` with
 `operator_capped_validation`, the add-balance endpoint requirement, and live
 deployment identity configured returned ready; external

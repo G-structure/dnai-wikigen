@@ -27,7 +27,17 @@ class GithubImageWorkflowTest(unittest.TestCase):
         self.assertIn("sbom-path: ${{ matrix.name }}.spdx.json", workflow)
         self.assertIn("context: ./⚙️/tinker-delegate", workflow)
         self.assertIn("context: ./⚙️/tee-email-oracle", workflow)
+        self.assertIn("context: ./⚙️/tee-email-oracle/neko-chrome", workflow)
+        self.assertIn("image_suffix: neko-chrome", workflow)
         self.assertIn("ghcr.io", workflow)
+
+    def test_neko_chrome_base_image_is_digest_pinned(self):
+        dockerfile = (
+            REPO_ROOT / "⚙️" / "tee-email-oracle" / "neko-chrome" / "Dockerfile"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("FROM ghcr.io/m1k1o/neko/base@sha256:", dockerfile)
+        self.assertNotIn("FROM ghcr.io/m1k1o/neko/base:latest", dockerfile)
 
     def test_attestation_verifier_script_enforces_signed_digest_policy(self):
         script = (
