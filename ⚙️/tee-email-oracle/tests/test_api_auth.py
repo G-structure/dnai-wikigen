@@ -99,6 +99,30 @@ class ConnectableIMAP:
         self.connected = False
 
 
+class ExplodingConnectIMAP(ConnectableIMAP):
+    def connect(self):
+        raise RuntimeError("startup should not connect imap")
+
+
+class StartupCredentialStore:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def exists(self):
+        return True
+
+    def load(self):
+        return EmailCredentials("oracle", "example.com", "secret-password")
+
+
+class StartupReplayStore:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def load(self):
+        return set()
+
+
 class ApiAuthTest(unittest.TestCase):
     def setUp(self) -> None:
         self.client = TestClient(app)
@@ -322,6 +346,22 @@ class ApiAuthTest(unittest.TestCase):
         self.assertEqual(body["status"], "ok")
         self.assertTrue(body["oracle_ready"])
         self.assertTrue(body["imap_connected"])
+
+    def test_startup_defers_imap_connect_until_pin_request(self):
+        with (
+            patch("email_oracle.api.CredentialStore", StartupCredentialStore),
+            patch("email_oracle.api.OtpReplayStore", StartupReplayStore),
+            patch("email_oracle.api.IMAPClient", ExplodingConnectIMAP),
+            TestClient(app) as client,
+        ):
+            response = client.get("/health")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["status"], "degraded")
+        self.assertFalse(body["oracle_ready"])
+        self.assertFalse(body["imap_connected"])
+        self.assertEqual(len(body["oracle_email_hash"]), 64)
 
     def test_email_address_requires_runtime_auth_when_enabled(self):
         _reset_state(Settings(runtime_auth_required=True, runtime_auth_token="shared-secret"))

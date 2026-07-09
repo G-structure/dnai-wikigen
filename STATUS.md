@@ -302,6 +302,25 @@ raw-compose hash is
 `4124f22bca1ea7a3a6f8117ccdad4079d8d70c5bcfa930b2abff252b35938d5e`. This pin
 still needs Phala redeploy and live health/preflight verification.
 
+Oracle startup blocker follow-up, 2026-07-09: the health-only oracle image was
+redeployed to the existing debug-posture Phala CVM. Delegate public
+`/attestation?context=billing` returned `200` in about 0.9 seconds and reported
+live compose hash
+`917caeff047da50b79a4077233ad275d01a5edbbe51b63d19c6a21b58d9f408a`, but
+delegate `/health` still reported oracle connection refused and public oracle
+`/health` closed without a response. Oracle logs showed the process loaded
+sealed credentials and then blocked at `connecting to mail.cock.li:993` during
+FastAPI lifespan startup. Source now defers startup IMAP connection entirely:
+startup loads sealed credentials, constructs the IMAP client, reports
+`status=degraded` / `oracle_ready=false` until IMAP is proven, and leaves the
+first real IMAP connection to `/pin`. Regression coverage passed with
+`uv run python -m unittest tests.test_api_auth` (23 tests),
+`uv run python -m unittest discover -s tests` (45 tests), and
+`uv run python -m py_compile email_oracle/api.py tests/test_api_auth.py`. This
+startup-deferred oracle fix still needs GitHub image build, attestation
+verification, digest pin, Phala redeploy, and live health/preflight
+verification.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce

@@ -2262,7 +2262,10 @@ vision Wiki is reaching for.
                   healthchecks and delegate readiness probes do not reconnect
                   IMAP or create reconnect storms when the mailbox provider is
                   flaky. `/pin` now performs the real IMAP operation and updates
-                  cached connection state.
+                  cached connection state. Follow-up source/test fix also
+                  defers IMAP connection during FastAPI startup so a slow
+                  mailbox provider cannot prevent `/health` and `/attestation`
+                  from serving at all.
             - [x] Build the fixed oracle image on GitHub and verify SLSA/SBOM
                   attestations. Done from source
                   `2f2a7d9f94ca29261ce0f5352e289e5071c7e38e` with oracle
@@ -2275,7 +2278,15 @@ vision Wiki is reaching for.
                   `ba674f8267972b2942aa7243127365aab0973812f8533b8abcdb173f59addd44`,
                   and Phala raw-compose hash is
                   `4124f22bca1ea7a3a6f8117ccdad4079d8d70c5bcfa930b2abff252b35938d5e`.
-            - [ ] Redeploy the fixed-oracle funding-validation compose to Phala.
+            - [x] Redeploy the health-only oracle funding-validation compose to
+                  Phala and identify the remaining startup blocker. Live
+                  `/attestation?context=billing` returned `200` in under a
+                  second with compose hash
+                  `917caeff047da50b79a4077233ad275d01a5edbbe51b63d19c6a21b58d9f408a`,
+                  but oracle `/health` still disconnected because startup was
+                  blocked in `IMAPClient.connect()`.
+            - [ ] Build, verify, pin, and redeploy the startup-deferred oracle
+                  image.
             - [ ] Re-test live public `/health`, `/attestation?context=billing`,
                   and `/billing/funding-preflight` before approving any new
                   compose hash on-chain.

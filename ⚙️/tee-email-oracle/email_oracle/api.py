@@ -476,15 +476,13 @@ async def lifespan(app: FastAPI):
     else:
         print("[api] no credentials found — run genesis first")
 
-    # Connect IMAP if we have creds
+    # Prepare IMAP if we have creds. Do not connect during startup: a slow or
+    # flaky mailbox provider would prevent the API from serving health and
+    # attestation. `/pin` performs the first real mailbox operation.
     if state.creds:
         state.imap = IMAPClient(state.creds, settings)
-        try:
-            state.imap.connect()
-            state.imap_connected = True
-        except Exception as e:
-            state.imap_connected = False
-            print(f"[api] IMAP connection failed (will retry on request): {redact_text(e)}")
+        state.imap_connected = False
+        print("[api] IMAP connection deferred until pin request")
 
     yield
 

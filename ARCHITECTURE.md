@@ -1434,9 +1434,11 @@ Implementation status:
             or delegate health probe. `/pin` remains the operation that touches
             IMAP, fails closed with a bounded `503 IMAP unavailable` response,
             and updates cached connection state. This prevents healthcheck
-            reconnect storms. The fixed oracle image is GitHub-built and pinned
-            in the funding-validation Phala compose, but the live CVM still
-            needs to be redeployed before this behavior is Phala-proven.
+            reconnect storms. Source/tests also defer IMAP connection during
+            FastAPI startup so a flaky mailbox provider cannot prevent
+            `/health` or `/attestation` from serving. The startup-deferred
+            oracle image still needs to be GitHub-built, pinned, and redeployed
+            before this behavior is Phala-proven.
 [real]      Main-CVM mailbox genesis has been Phala-proven without enabling
             Tinker bootstrap or billing. A one-shot
             `docker-compose.mailbox-genesis.phala.yaml` deployment reached
