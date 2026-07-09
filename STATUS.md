@@ -151,9 +151,21 @@ receipt reached `add_balance_submitted` but ended as `unknown_failure`; this is
 not a proven charge or top-up. Local source now dismisses an open billing dialog
 before tab fallback, keeps browser-exception receipt messages to classified
 outcomes instead of raw Playwright/page text, and fixes masked-prompt newlines.
-This source-side browser hardening still needs a GitHub-attested image build,
-Phala redeploy, new compose-hash approval, and a fresh bounded `$10` packet
-before funding can be marked real.
+This source-side browser hardening was then built by GitHub Actions run
+`29001302688` from source
+`658f6020db9972e0f7e1e914f72422ff5d08535f`; the new delegate image
+`tinker-delegate@sha256:35bcc693300644445af40e7d4eb5d488848a2006ed2d42b7f56638c60963c92c`
+has verified GitHub SLSA provenance and SPDX SBOM attestations. The existing
+CVM was redeployed with that delegate image and now reports live attested
+compose hash `7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476`;
+`verify-cvm-attestation` passed against the new delegate image, app ID, OS
+image hash, and live TDX envelope. `/auth/reauth` succeeded after restart and
+bounded card status is again `card_on_file=false` / count band `zero`. The new
+compose is deliberately blocked at the on-chain encumbrance layer:
+`approvedComposeHashes(0x7edf41...)` is false and
+`tinker-encumbrance-preflight --operation add-balance --amount 10` returns
+`compose_hash_not_approved`. The next live funding packet must wait until the
+operator approves this new compose hash.
 
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia

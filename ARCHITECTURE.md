@@ -1198,11 +1198,19 @@ Implementation status:
             source now dismisses open billing dialogs before tab fallback,
             constrains browser-exception receipt messages to bounded outcome
             strings, and fixes prompt newlines; those browser-side source
-            changes still need image build/redeploy/approval before another
-            live funding attempt. The profile is still not production-final
-            because the CVM reports dev OS, quote internals are not parsed, and
-            a successful live real-card add-balance receipt has not yet been
-            produced.
+            changes were built by GitHub Actions run `29001302688` from source
+            `658f6020db9972e0f7e1e914f72422ff5d08535f` into verified delegate
+            digest
+            `35bcc693300644445af40e7d4eb5d488848a2006ed2d42b7f56638c60963c92c`
+            and redeployed to the existing CVM. The live TDX envelope now
+            reports compose hash
+            `7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476`;
+            reauth succeeds and card status is bounded `zero`. The funding
+            path is currently fail-closed on the encumbrance contract because
+            that new compose hash is not approved on-chain. The profile is
+            still not production-final because the CVM reports dev OS, quote
+            internals are not parsed, and a successful live real-card
+            add-balance receipt has not yet been produced.
 [real]      Source/tests now distinguish billing selector drift from auth-state
             failure before card fields or top-up controls are touched. The
             payment-method and add-balance flows classify a billing navigation

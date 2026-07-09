@@ -1495,6 +1495,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   boundaries.
             - [ ] Build, attest, redeploy, and approve the new modal-dismiss
                   funding-validation image before the next real-card packet.
+                  Build/redeploy evidence 2026-07-09: source
+                  `658f6020db9972e0f7e1e914f72422ff5d08535f` built in GitHub
+                  Actions run `29001302688`; delegate image
+                  `35bcc693300644445af40e7d4eb5d488848a2006ed2d42b7f56638c60963c92c`
+                  has verified provenance/SBOM attestations; Phala now attests
+                  compose hash
+                  `7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476`
+                  and `/auth/reauth` plus bounded card-status succeed. This
+                  subtask remains unchecked only because the new compose hash
+                  is not yet approved on-chain:
+                  `approvedComposeHashes(0x7edf41...) == false`.
             The item remains unchecked until a bounded add-balance receipt and
             live balance read prove a low-value top-up succeeded; the CVM
             dev-OS warning also remains before production.

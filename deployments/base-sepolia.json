@@ -63,7 +63,7 @@
       "latestApprovedComposeHashApproved": true,
       "latestComposeApprovalTx": "0xb7e6d0fc504146d88005339bd859142a5f2d6c3f99315d81cb00742ebc15d48e",
       "latestComposeApprovalBlock": 43905420,
-      "currentFundingComposeHash": "0x9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
+      "currentFundingComposeHash": "0x7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
       "lastReviewedAt": "2026-07-09T06:59:00Z",
       "pendingComposeHashApproval": "",
       "pendingComposeHashApproved": true
@@ -1105,21 +1105,21 @@
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "fundingValidationEvidence": {
-      "status": "live_redeployed_compose_approved_card_add_timeout",
+      "status": "live_redeployed_modal_fix_pending_compose_approval",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
-      "sourceDigest": "8a571347d946fd6c23a84db256fd99f7169061e5",
-      "githubActionsRunId": 28998076083,
+      "sourceDigest": "658f6020db9972e0f7e1e914f72422ff5d08535f",
+      "githubActionsRunId": 29001302688,
       "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:beedfc6c3f1f0c9dca8604d6adf6522110e8dc2f15af1e8a9145e0e3227939a9",
-      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3e03e4dccde8ef732641fdd091597a683674ca3b065b950a983aab16c6b88878",
-      "deployHelperComposeHash": "9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
-      "localRawComposeImagePolicyHash": "880db4987c00ecd8643aedc794415accd83c47a337b4512810d9fe5cadab8e6a",
-      "renderedComposeSha256": "962e0352a468460eaa6085a2a32a6b7005798c7e3e5f3ff71e9799fa0cf67ea7",
-      "attestedComposeHash": "9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:35bcc693300644445af40e7d4eb5d488848a2006ed2d42b7f56638c60963c92c",
+      "deployHelperComposeHash": "7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
+      "localRawComposeImagePolicyHash": "90b870f4bf03bcb2a12b9ee41f87fdea8b530d77d5cf01df58ffd509558ad8aa",
+      "renderedComposeSha256": "43034efa35e6a99a26b18ca2778fb2f471701688031a414d7742fe5dff669d59",
+      "attestedComposeHash": "7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
       "deploymentBundleVerification": "verify_cvm_attestation_passed_with_github_provenance_sbom_and_live_tdx_attestation",
       "billingAttestation": {
-        "reportData": "23d2c8668e4d916ca32673d79f6041a2009a9be2f8c295986ed5f0ff5620b7fa",
-        "encryptionPublicKey": "6fbfeb67bb86fccab51fc31076f07e637c74b31f2f1d56c90cdac89e48f22c7c",
-        "quoteSize": 5010
+        "reportData": "41b9f8ab6987f7f79ee5b1d3fbfb1fea102f3f442c6e9ef1e4cc964d695e684a",
+        "encryptionPublicKey": "dbd5f6e91a995d41b6a20d2afa5aaa29bbe2afd09108564b243023275b4d8719",
+        "quoteSize": 10020
       },
       "runtimeEnv": {
         "policy": "compose-refs",
@@ -1143,15 +1143,16 @@
         "bootstrapAttempted": false
       },
       "fundingPreflight": {
-        "ready": true,
+        "ready": false,
         "amount": 10,
-        "attestationFetch": "live_attestation_matched_expected_9f0754be_compose_hash",
+        "attestationFetch": "live_attestation_matched_expected_7edf41_compose_hash",
         "addBalanceEndpoint": "enabled_behind_runtime_bearer_auth",
         "fundingMode": "operator_capped_validation",
         "minAddBalanceUsd": 10,
         "maxAddBalanceUsd": 10,
-        "stalePreviousReadyAmount": 5,
-        "staleReason": ""
+        "encumbranceAllowed": false,
+        "stalePreviousReadyAmount": 10,
+        "staleReason": "compose_hash_not_approved"
       },
       "reauthAttempt": {
         "success": true,
@@ -1178,18 +1179,18 @@
         "storesRawCookiesOrLocalStorageInPlaintext": false
       },
       "fundingCommandPlan": {
-        "status": "ready_after_compose_approval_card_add_timeout_observed",
+        "status": "blocked_until_7edf41_compose_approval",
         "amount": 10,
         "encumbranceContract": "0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e",
-        "composeHashApproved": true,
+        "composeHashApproved": false,
         "runtimeAuthRequired": true,
         "rawSecretEgress": false,
-        "latestLocalPlanCheck": "ready_true_raw_secret_egress_false_after_compose_approval"
+        "latestLocalPlanCheck": "tinker_encumbrance_preflight_compose_hash_not_approved"
       },
-      "nextStep": "rerun the funding-validation packet from local source after client fix 5ab9e81; it should show masked card input with backspace and wait 180s for the encrypted-card browser workflow; do not commit or echo card details; production still requires non-dev OS before claiming final deployment",
+      "nextStep": "operator must approve compose hash 0x7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476 in TinkerAccountEncumbrance, then rerun the $10 funding-validation packet; do not commit or echo card details; production still requires non-dev OS before claiming final deployment",
       "postSelectorDiagnosticsRestore": {
         "date": "2026-07-09",
-        "attestedComposeHash": "9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
+        "attestedComposeHash": "7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
         "healthStatus": "ok",
         "cdpUrl": "http://172.20.0.3:9222",
         "browserWsEndpoint": "",
@@ -1213,10 +1214,12 @@
         "rawSecretEgress": false
       },
       "composeApproval": {
-        "composeHash": "0x9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
-        "approved": true,
-        "tx": "0xb7e6d0fc504146d88005339bd859142a5f2d6c3f99315d81cb00742ebc15d48e",
-        "block": 43905420
+        "composeHash": "0x7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
+        "approved": false,
+        "tx": "",
+        "block": 0,
+        "previousApprovedComposeHash": "0x9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
+        "previousApprovalTx": "0xb7e6d0fc504146d88005339bd859142a5f2d6c3f99315d81cb00742ebc15d48e"
       },
       "latestPacketAttempt": {
         "packetDir": "/tmp/dnai-tinker-funding-validation-packet-20260709T065233Z",
@@ -1233,11 +1236,14 @@
         "rawSecretEgress": false
       },
       "clientFix": {
-        "commit": "5ab9e81",
+        "commit": "658f602",
         "maskedPromptEcho": true,
         "backspaceSupported": true,
         "encryptedCardUploadTimeoutSeconds": 180,
-        "requiresCvmRedeploy": false
+        "modalDismissBeforeTabFallback": true,
+        "browserExceptionReceiptsUseOutcomeOnly": true,
+        "requiresCvmRedeploy": false,
+        "requiresComposeApproval": true
       }
     },
     "selectorDiagnosticsEvidence20260709": {
