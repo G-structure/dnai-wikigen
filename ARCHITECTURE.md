@@ -686,18 +686,17 @@ Implementation status:
             build/tests and a simulation before broadcast, and updates
             `deployments/base-sepolia.json` only after successful on-chain
             reads.
-[partial]   TinkerAccountEncumbrance is not yet deployed or recorded in the
-            Base Sepolia manifest. The helper dry-ran successfully with the
-            earlier Phala compose hash
-            `a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`
-            and `$5` policy caps; the current manifest now points at the
-            refreshed funding-validation attested compose hash
-            `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`,
-            which the helper will use on the next run. Actual broadcast is
-            blocked in this non-interactive Codex shell because Foundry cannot
-            open the encrypted keystore prompt (`Device not configured`). The
-            next evidence step is an interactive terminal broadcast followed by
-            code and policy reads.
+[real]      TinkerAccountEncumbrance is deployed on Base Sepolia and recorded
+            in the manifest as operator-controlled at
+            `0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e` with deployment tx
+            `0x7679df09aa2e939d748be0e017f380f5e7e44331a482531380198e93bdcaed01`.
+            On-chain reads confirm nonzero bytecode, owner
+            `0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`, approved compose
+            hash
+            `0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`,
+            emergency halt false, measurements frozen false, and `$5`
+            add-balance/spend caps. This makes the pre-card on-chain policy
+            gate real for the current funding-validation compose hash.
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
 [real]      Signup/bootstrap stores captured Tinker API keys in encrypted
             storage and returns only bounded hash/status metadata.
@@ -1064,17 +1063,16 @@ Implementation status:
             operator command plan. It reads only public deployment evidence
             (`delegate` endpoint, compose hash, app ID, OS image hash, and
             TinkerAccountEncumbrance policy) and emits argv/shell templates for
-            funding preflight, encumbrance preflight, the encumbrance deploy
-            dry-run/broadcast helper, and the eventual prompt-card
-            funding-validation packet. It references `TINKER_RUNTIME_AUTH_TOKEN`
+            funding preflight, encumbrance preflight, and the eventual
+            prompt-card funding-validation packet. It references
+            `TINKER_RUNTIME_AUTH_TOKEN`
             and `BASE_SEPOLIA_RPC_URL` by environment-variable name only and
             never prints bearer tokens, card fields, API keys, OTPs, RPC
             values, cookies, or browser/session material. The deploy helper
-            commands use Foundry `--account` through the encrypted keystore and
-            require an interactive terminal for broadcast; no raw private-key
-            path is emitted. The current manifest-derived plan is intentionally
-            `ready=false` until TinkerAccountEncumbrance is deployed and
-            recorded.
+            used Foundry `--account` through the encrypted keystore; no raw
+            private-key path was emitted. The current manifest-derived plan is
+            `ready=true` for the bounded policy/encumbrance checks, with a
+            remaining warning that the CVM still reports dev OS.
 [real]      Operator-only mutation endpoints now have delegate runtime bearer
             auth. When `TINKER_RUNTIME_AUTH_REQUIRED=true`,
             `/auth/reauth`, `/billing/card/encrypted`,
@@ -1121,18 +1119,21 @@ Implementation status:
             Health is OK, the email oracle is ready, IMAP is connected, public
             logs remain disabled, and unauthenticated reauth/add-balance calls
             fail closed with `401 Bearer token required`.
-[partial]   The funding-validation profile is live and quote-bound, but it is
-            not ready for approved real-card funding. Remote
-            `/billing/funding-preflight` is ready for `$5` when supplied with
-            the recorded deployment identity, but the manifest-driven command
-            plan still returns `ready=false` because
-            `TinkerAccountEncumbrance` is not deployed. Authenticated
-            `/auth/reauth` on the refreshed profile still returns bounded
-            `auth_access_blocked` at `auth_email_submitted`, before OTP or
-            session-state save; authenticated `$5` add-balance without a card
-            returns bounded `auth_required` at `billing_page_loaded`. The next
-            live steps are the interactive encumbrance broadcast and Tinker
-            auth/session repair on Phala, not a real-card prompt.
+[partial]   The funding-validation profile is live, quote-bound, and now
+            backed by a deployed TinkerAccountEncumbrance policy, but it is not
+            ready for approved real-card funding. Remote
+            `/billing/funding-preflight` passes local policy checks for `$5`
+            when supplied with the recorded deployment identity; one direct
+            live attestation fetch through that preflight path timed out and
+            should be retried before a card prompt. The manifest-driven command
+            plan returns `ready=true` with the deployed encumbrance address and
+            `raw_secret_egress=false`, but authenticated `/auth/reauth` on the
+            refreshed profile still returns bounded `auth_access_blocked` at
+            `auth_email_submitted`, before OTP or session-state save;
+            authenticated `$5` add-balance without a card returns bounded
+            `auth_required` at `billing_page_loaded`; and the CVM still reports
+            dev OS. The next live step is Tinker auth/session repair on Phala,
+            not a real-card prompt.
 [real]      Source/tests now distinguish billing selector drift from auth-state
             failure before card fields or top-up controls are touched. The
             payment-method and add-balance flows classify a billing navigation

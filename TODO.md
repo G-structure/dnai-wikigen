@@ -35,7 +35,7 @@ The honest current gap:
 
 ```text
 Email encumbrance: real but runtime enforcement is incomplete.
-Tinker encumbrance: local contract plus runtime preflight exist; deployment and live funding remain incomplete.
+Tinker encumbrance: contract, runtime preflight, and Base Sepolia deployment are real; live Tinker auth/funding remain incomplete.
 TTT/RL bio validation: not built; current evaluator is stub/SFT-oriented.
 Private verified reward/RLVR environments: concept now clarified, not built.
 DNAI settlement: core escrow exists; live attestation, watcher, and full product flow are incomplete.
@@ -1356,8 +1356,14 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             predicting deployment address
             `0x9F2616f3F7B0dc363bBa19F7d72b9061f791a06e` against compose hash
             `0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`;
-            the manifest records this as dry-run evidence only, not a deployed
-            contract.
+            the operator then broadcast the same helper successfully. The
+            manifest records deployed address
+            `0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`, tx
+            `0x7679df09aa2e939d748be0e017f380f5e7e44331a482531380198e93bdcaed01`,
+            approved compose hash
+            `0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`,
+            owner `0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`, and `$5`
+            add-balance/spend caps.
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
             attempt after the funding-validation compose is deployed on Phala,
             its live attested compose hash is recorded, and the operator CLI
@@ -1367,11 +1373,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             preflight is ready when supplied with the recorded deployment
             identity, and `funding-command-plan` now targets attested compose
             hash
-            `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`,
-            but it returns `ready=false` because
-            `TinkerAccountEncumbrance` is not deployed. Authenticated
-            `/auth/reauth` still returns `auth_access_blocked` and
-            authenticated `$5` add-balance still returns `auth_required`.
+            `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`
+            plus the deployed `TinkerAccountEncumbrance` address, returning
+            `ready=true`. Real-card funding is still blocked because
+            authenticated `/auth/reauth` returns `auth_access_blocked` at
+            `auth_email_submitted`, authenticated `$5` add-balance still
+            returns `auth_required`, and the CVM still reports dev OS.
 - [x] `P0` Confirm PCI and Stripe obligations.
       Research whether the current encrypted-card-to-TEE flow is acceptable or
       whether the system must use Stripe-hosted tokenization / SetupIntent /
@@ -2117,7 +2124,7 @@ vision Wiki is reaching for.
       - [ ] Redeploy `DiligenceRoom` after the verifier-signature
             `submitResult()` ABI change, set `DILIGENCE_RESULT_VERIFIER`, and
             record `resultVerifier()` in `deployments/base-sepolia.json`.
-      - [ ] Deploy `TinkerAccountEncumbrance`, set initial account commitment,
+      - [x] Deploy `TinkerAccountEncumbrance`, set initial account commitment,
             compose hash, add-balance/spend caps, and record the address/policy
             in `deployments/base-sepolia.json`.
             - [x] Source/helper and dry-run are ready. Done 2026-07-08:
@@ -2133,13 +2140,16 @@ vision Wiki is reaching for.
                   The manifest now points at refreshed compose hash
                   `0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`;
                   the next interactive helper run will use that current hash.
-            - [ ] Broadcast the helper from an interactive terminal so Foundry
+            - [x] Broadcast the helper from an interactive terminal so Foundry
                   can unlock keystore account `dev`, then verify code and
-                  on-chain policy reads. Codex non-interactive broadcast
-                  attempts did not deploy: nonce stayed `3`, balance stayed
-                  `0.015959606501019536`, predicted address had no code, and
-                  Foundry failed with `Device not configured` while opening the
-                  keystore prompt.
+                  on-chain policy reads. Done 2026-07-09: broadcast tx
+                  `0x7679df09aa2e939d748be0e017f380f5e7e44331a482531380198e93bdcaed01`
+                  deployed
+                  `0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`; local
+                  `cast code` returned nonzero bytecode, `owner()` returned
+                  `0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`, and
+                  `approvedComposeHashes(0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7)`
+                  returned true.
 - [ ] `Deploy` Verify contracts on BaseScan.
 - [ ] `Deploy` Register compose hashes in `EmailOracleAuth`.
 - [ ] `Deploy` Register consumer app/compose hash for Tinker delegate.

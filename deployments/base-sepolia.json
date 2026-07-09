@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-09T04:07:39Z",
+  "lastReviewedAt": "2026-07-09T04:18:59Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -38,6 +38,23 @@
       "allowAnyDevice": true,
       "oracleCodeFrozen": false,
       "consumerRegistryFrozen": false,
+      "currentOperatorControlled": true
+    },
+    "tinkerAccountEncumbrance": {
+      "status": "deployed_current_operator_controlled",
+      "address": "0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e",
+      "baseScanUrl": "https://sepolia.basescan.org/address/0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e",
+      "deploymentTx": "0x7679df09aa2e939d748be0e017f380f5e7e44331a482531380198e93bdcaed01",
+      "transactionUrl": "https://sepolia.basescan.org/tx/0x7679df09aa2e939d748be0e017f380f5e7e44331a482531380198e93bdcaed01",
+      "owner": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
+      "accountCommitment": "0x535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
+      "initialComposeHash": "0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
+      "initialComposeHashApproved": true,
+      "maxAddBalanceWei": 5000000000000000000,
+      "maxSpendWei": 5000000000000000000,
+      "policyUnitsPerUsdWei": 1000000000000000000,
+      "emergencyHalted": false,
+      "measurementsFrozen": false,
       "currentOperatorControlled": true
     }
   },
@@ -1234,29 +1251,8 @@
     "status": "broadcast_complete",
     "helper": "⚙️/tinker-delegate/contracts/scripts/deploy-base-sepolia.sh",
     "tinkerAccountEncumbrance": {
-      "status": "dry_run_complete_interactive_broadcast_required",
-      "reviewedAt": "2026-07-09T04:07:39Z",
-      "helper": "⚙️/tinker-delegate/contracts/scripts/deploy-tinker-encumbrance-base-sepolia.sh",
-      "account": "dev",
-      "deployer": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
-      "owner": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
-      "chainId": 84532,
-      "balanceEthAtDryRun": "0.015959606501019536",
-      "nonceAtDryRun": 3,
-      "accountCommitment": "0x535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
-      "initialComposeHash": "0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
-      "maxAddBalanceWei": 5000000000000000000,
-      "maxSpendWei": 5000000000000000000,
-      "freezeMeasurements": false,
-      "predictedDryRunAddress": "0x9F2616f3F7B0dc363bBa19F7d72b9061f791a06e",
-      "estimatedGasPriceGwei": "0.011",
-      "estimatedEthRequired": "0.00001471492",
-      "contractTestResult": "9_passed_0_failed",
-      "broadcastCommandSource": "funding-command-plan.encumbrance_deploy_broadcast_shell",
-      "usesFoundryKeystoreAccount": true,
-      "rawPrivateKeyRequired": false,
-      "rawSecretEgress": false,
-      "blocker": "interactive_foundry_keystore_prompt_required_for_broadcast"
+      "status": "broadcast_complete",
+      "helper": "⚙️/tinker-delegate/contracts/scripts/deploy-tinker-encumbrance-base-sepolia.sh"
     }
   }
 }

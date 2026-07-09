@@ -62,27 +62,35 @@ Funding profile live result, 2026-07-09: remote preflight for `$5` with
 deployment identity configured returned ready; external
 `verify-deployment-bundle` matched the live TDX envelope. The manifest-driven
 `funding-command-plan --amount 5` now targets attested compose hash
-`b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7` but still
-returns `ready=false` with `missing_tinker_encumbrance_contract`. Authenticated
-`/auth/reauth` reached the delegate but failed bounded with
+`b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7` plus the
+deployed `TinkerAccountEncumbrance`
+`0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`, and now returns `ready=true`
+with `raw_secret_egress=false`. Authenticated `/auth/reauth` reached the
+delegate but failed bounded with
 `auth_access_blocked` at `auth_email_submitted`, before OTP
 (`raw_secret_egress=false`). Authenticated `$5` add-balance without a card
 reached `billing_page_loaded` and failed bounded with `auth_required`
 (`raw_secret_egress=false`). Therefore the Phala funding profile is live and
-guarded, but approved real-card funding is still blocked on both
-`TinkerAccountEncumbrance` deployment and Tinker auth/session repair and must
-not be attempted yet.
+guarded, but approved real-card funding is still blocked on Tinker
+auth/session repair and the CVM dev-OS warning and must not be attempted yet.
 
-Encumbrance handoff follow-up, 2026-07-09: the
+Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce
 were read; build passed; `TinkerAccountEncumbrance.t.sol` passed 9 tests; and
 the dry-run predicted deployment address
 `0x9F2616f3F7B0dc363bBa19F7d72b9061f791a06e` with about
-`0.00001471492` ETH required. The manifest records this as dry-run evidence
-only. `funding-command-plan` now emits absolute dry-run and broadcast helper
-commands for the encumbrance contract, but the real broadcast still needs an
-interactive Foundry keystore prompt and must not use a raw private key.
+`0.00001471492` ETH required. The operator then broadcast the same no-raw-key
+helper from an interactive terminal. The manifest records deployed address
+`0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`, tx
+`0x7679df09aa2e939d748be0e017f380f5e7e44331a482531380198e93bdcaed01`, owner
+`0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`, account commitment
+`0x535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132`,
+initial compose hash
+`0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`,
+approved compose hash true, emergency halt false, measurements frozen false,
+and `$5` add-balance/spend caps. Local `cast` reads also confirmed nonzero
+bytecode, the owner, and the approved compose hash.
 
 Selector diagnostics follow-up, 2026-07-09: a tracked one-shot Phala profile,
 `⚙️/tinker-delegate/docker-compose.selector-diagnostics.phala.yaml`, was added
@@ -1294,6 +1302,11 @@ Developer:       0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD
 EmailOracleAuth: 0xf52c18a33bd172ae94282132649d80bcd4b872ff
 Deployment tx:   0xa29d749517a69f868db1785c7f091ea75f60a76ef657badedb0848e44be7a349
 Owner:           0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD
+
+TinkerAccountEncumbrance: 0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e
+Deployment tx:             0x7679df09aa2e939d748be0e017f380f5e7e44331a482531380198e93bdcaed01
+Owner:                     0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD
+Approved compose hash:     0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7
 ```
 
 On-chain verification reads from the deploy helper:
