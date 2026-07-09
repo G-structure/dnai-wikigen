@@ -91,6 +91,15 @@ OTP. The next push is to repair the Tinker auth access-blocked posture so
 reauth can reach OTP, save session state, and authenticate billing before any
 approved real-card prompt.
 
+Auth-stage receipt follow-up, 2026-07-08: source/tests now preserve bounded
+Tinker auth-flow stage evidence for `auth_access_blocked`. Signup and
+`/auth/reauth` can report whether the blocker happened at `auth_page_loaded`,
+`auth_email_submitted`, or `auth_otp_page_reached` instead of collapsing the
+receipt to `not_started`. These are enum-only public labels; page text, raw
+URLs, OTPs, cookies, API keys, and account identifiers still do not leave the
+delegate boundary. This is not Phala-proven yet; the next deploy should rebuild,
+pin, attest, and rerun `/auth/reauth` against the live funding-validation CVM.
+
 ## Built
 
 [real] Contracts:

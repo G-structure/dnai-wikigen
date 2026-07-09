@@ -1,8 +1,9 @@
 import unittest
 from unittest.mock import AsyncMock, patch
 
+from tinker_delegate.automation_receipts import AutomationStage
 from tinker_delegate.config import Settings
-from tinker_delegate.signup import _authenticate, _handle_onboarding, enter_otp
+from tinker_delegate.signup import AuthAccessBlockedError, _authenticate, _handle_onboarding, enter_otp
 
 
 class FakeFillable:
@@ -190,6 +191,57 @@ class SignupAuthOnboardingTest(unittest.IsolatedAsyncioTestCase):
         wait_for_otp.assert_awaited_once()
         enter_code.assert_awaited_once_with(page, "123456")
         self.assertEqual(page.waited_urls, ["**/tinker-console.thinkingmachines.ai/**"])
+
+    async def test_authenticate_access_blocked_on_initial_page_preserves_stage(self):
+        page = FakeAuthPage()
+        state = {
+            "url": "https://auth.thinkingmachines.ai/",
+            "text": "Access blocked, please contact support.",
+            "hasEmailInput": False,
+            "hasFirstNameInput": False,
+            "hasFullNameInput": False,
+            "hasOtpInputs": 0,
+        }
+
+        with (
+            patch("tinker_delegate.signup._navigate", new=AsyncMock()),
+            patch("tinker_delegate.signup._page_state", new=AsyncMock(return_value=state)),
+        ):
+            with self.assertRaises(AuthAccessBlockedError) as raised:
+                await _authenticate(page, "oracle@example.com", object(), Settings())
+
+        self.assertEqual(raised.exception.furthest_stage, AutomationStage.AUTH_PAGE_LOADED)
+
+    async def test_authenticate_access_blocked_after_email_submit_preserves_stage(self):
+        page = FakeAuthPage()
+        states = [
+            {
+                "url": "https://auth.thinkingmachines.ai/",
+                "text": "Sign in",
+                "hasEmailInput": True,
+                "hasFirstNameInput": False,
+                "hasFullNameInput": False,
+                "hasOtpInputs": 0,
+            },
+            {
+                "url": "https://auth.thinkingmachines.ai/",
+                "text": "Access blocked, please contact support.",
+                "hasEmailInput": False,
+                "hasFirstNameInput": False,
+                "hasFullNameInput": False,
+                "hasOtpInputs": 0,
+            },
+        ]
+
+        with (
+            patch("tinker_delegate.signup._navigate", new=AsyncMock()),
+            patch("tinker_delegate.signup._page_state", new=AsyncMock(side_effect=states)),
+            patch("tinker_delegate.signup.asyncio.sleep", new=AsyncMock()),
+        ):
+            with self.assertRaises(AuthAccessBlockedError) as raised:
+                await _authenticate(page, "oracle@example.com", object(), Settings())
+
+        self.assertEqual(raised.exception.furthest_stage, AutomationStage.AUTH_EMAIL_SUBMITTED)
 
     async def test_onboarding_fills_name_accepts_tos_and_continues(self):
         page = FakeOnboardingPage(has_tos=True)

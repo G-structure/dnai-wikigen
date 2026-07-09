@@ -1218,6 +1218,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   The encrypted browser-session store is now deployed and ready
                   to persist the session after auth succeeds; the remaining
                   blocker is Tinker's access-blocked auth posture.
+                  - [x] Source/test 2026-07-08: preserve bounded
+                        auth-flow furthest-stage evidence for
+                        `auth_access_blocked` failures. `/auth/reauth` and
+                        signup now return `auth_page_loaded`,
+                        `auth_email_submitted`, or `auth_otp_page_reached`
+                        instead of flattening deployed auth blocks to
+                        `not_started`, without exposing raw page text, URLs,
+                        OTPs, or account identifiers.
+                  - [ ] Rebuild/pin/deploy the auth-stage receipt image to
+                        Phala and rerun `/auth/reauth` so the next live blocker
+                        is tied to a precise bounded stage.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
       account and a safe test card or approved real card.
       - [x] Stripe test card reaches live Tinker/Stripe submission and returns

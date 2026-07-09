@@ -1078,6 +1078,15 @@ Implementation status:
             surface as bounded `auth_access_blocked`, both at
             `billing_page_loaded` without echoing page text. This extends the
             bounded receipt vocabulary with `auth_required`.
+[real]      Source/tests now preserve bounded auth-flow stage evidence for
+            Tinker auth blocks. `AuthAccessBlockedError`, signup, and
+            `/auth/reauth` carry `auth_page_loaded`, `auth_email_submitted`, or
+            `auth_otp_page_reached` as the receipt `furthest_stage` rather than
+            collapsing every auth block to `not_started`. The stage values are
+            enum labels only; page text, raw URLs, OTPs, cookies, API keys, and
+            account identifiers remain outside the public receipt. This slice
+            still needs GitHub-attested image rebuild and Phala repro before it
+            is live deployment evidence.
 [real]      The billing auth-state classifier was rebuilt by GitHub Actions,
             verified with provenance/SBOM attestations, pinned by digest,
             redeployed to the funding-validation Phala profile, and live-tested

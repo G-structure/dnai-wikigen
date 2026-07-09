@@ -36,6 +36,15 @@ from tinker_delegate.redaction import redact_text
 class AuthAccessBlockedError(RuntimeError):
     """Raised when the Tinker auth flow rejects the browser session."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        furthest_stage: AutomationStage = AutomationStage.NOT_STARTED,
+    ):
+        super().__init__(message)
+        self.furthest_stage = furthest_stage
+
 
 API_KEY_CREATE_SELECTORS = (
     'button:has-text("New key")',
@@ -256,6 +265,7 @@ async def signup(settings: Settings | None = None) -> dict:
             # Step 3: Create API key
             api_key = await _create_api_key(page, settings)
     except AuthAccessBlockedError as exc:
+        stage = exc.furthest_stage if exc.furthest_stage != AutomationStage.NOT_STARTED else stage
         return _signup_failure_result(
             email=email,
             outcome=AutomationOutcome.AUTH_ACCESS_BLOCKED,
@@ -366,7 +376,7 @@ async def reauth(settings: Settings | None = None) -> dict:
         receipt = _auth_receipt(
             email=email,
             outcome=AutomationOutcome.AUTH_ACCESS_BLOCKED,
-            furthest_stage=AutomationStage.NOT_STARTED,
+            furthest_stage=exc.furthest_stage,
             bounded_message="auth_access_blocked",
             evidence=exc,
         )
@@ -432,20 +442,25 @@ async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: 
     await _navigate(page, settings.tinker_console_url)
 
     state = await _page_state(page)
+    stage = AutomationStage.AUTH_PAGE_LOADED
 
-    def ensure_not_access_blocked(state: dict) -> None:
+    def ensure_not_access_blocked(state: dict, furthest_stage: AutomationStage) -> None:
         if "access blocked" in state["text"].lower():
             raise AuthAccessBlockedError(
                 "Tinker auth returned 'Access blocked, please contact support.' "
                 "The current headed local Chrome control passes, but the deployed "
-                "headless automation path is being blocked."
+                "headless automation path is being blocked.",
+                furthest_stage=furthest_stage,
             )
+
+    ensure_not_access_blocked(state, stage)
 
     # If on leftover OTP page, start fresh
     if state["hasOtpInputs"] > 0 or "magic-code" in state["url"]:
         print("[auth] clearing stale OTP page...")
         await _navigate(page, settings.tinker_console_url)
         state = await _page_state(page)
+        ensure_not_access_blocked(state, stage)
 
     # Already authenticated?
     if "tinker-console" in state["url"] and not state["hasEmailInput"]:
@@ -465,7 +480,8 @@ async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: 
         await asyncio.sleep(4)
 
         state = await _page_state(page)
-        ensure_not_access_blocked(state)
+        stage = AutomationStage.AUTH_EMAIL_SUBMITTED
+        ensure_not_access_blocked(state, stage)
 
         # If landed on sign-up form (new account via sign-in flow)
         if state["hasFirstNameInput"]:
@@ -480,6 +496,8 @@ async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: 
             await page.click(AUTH_SUBMIT_SELECTORS[0])
             await asyncio.sleep(4)
             state = await _page_state(page)
+            stage = AutomationStage.AUTH_EMAIL_SUBMITTED
+            ensure_not_access_blocked(state, stage)
 
         # Should be on magic-code page now
         if "magic-code" not in state["url"] and "Check your email" not in state["text"]:
@@ -500,11 +518,14 @@ async def _authenticate(page: Page, email: str, oracle: OracleClient, settings: 
                 await page.click(AUTH_SUBMIT_SELECTORS[0])
                 await asyncio.sleep(4)
                 state = await _page_state(page)
+                stage = AutomationStage.AUTH_EMAIL_SUBMITTED
+                ensure_not_access_blocked(state, stage)
 
-        ensure_not_access_blocked(state)
+        ensure_not_access_blocked(state, stage)
 
     # Complete OTP
     if "magic-code" in state["url"] or "Check your email" in state["text"]:
+        stage = AutomationStage.AUTH_OTP_PAGE_REACHED
         print("[auth] on OTP page, waiting for code...")
         code = await wait_for_otp(oracle, settings)
         print("[auth] entering verification code")

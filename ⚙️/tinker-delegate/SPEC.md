@@ -294,6 +294,13 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   return `auth_required`, and Tinker's access-blocked surface returns
   `auth_access_blocked`, both without exposing page text or clicking billing
   controls. This classifier is now Phala-proven with GitHub-attested images.
+  Source/tests also preserve bounded auth-stage evidence for
+  `auth_access_blocked` during signup and `/auth/reauth`: receipts can now say
+  `auth_page_loaded`, `auth_email_submitted`, or `auth_otp_page_reached` rather
+  than collapsing every deployed auth block to `not_started`. These stage labels
+  do not include raw page text, URLs, OTPs, cookies, API keys, or account
+  identifiers, and this auth-stage slice still needs GitHub-attested image
+  rebuild plus Phala repro.
   Browser-session persistence is also source/test-real and Phala-deployed:
   successful auth will save Playwright `storage_state` into encrypted
   `/data/browser_session.enc` under the separate `tinker/browser_session`

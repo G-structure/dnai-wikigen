@@ -5,6 +5,7 @@ from contextlib import redirect_stdout
 from unittest.mock import AsyncMock, Mock, patch
 
 from tinker_delegate.config import Settings
+from tinker_delegate.automation_receipts import AutomationStage
 from tinker_delegate.signup import AuthAccessBlockedError, reauth, signin, signup
 
 
@@ -237,7 +238,8 @@ class SignupKeyEgressTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_reauth_auth_blocked_returns_bounded_receipt(self):
         error = AuthAccessBlockedError(
-            "Access blocked for oracle@example.com with OTP 123456 at https://tinker-console.thinkingmachines.ai"
+            "Access blocked for oracle@example.com with OTP 123456 at https://tinker-console.thinkingmachines.ai",
+            furthest_stage=AutomationStage.AUTH_EMAIL_SUBMITTED,
         )
 
         with (
@@ -256,6 +258,7 @@ class SignupKeyEgressTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["error_kind"], "auth_access_blocked")
         self.assertEqual(result["attempt_record"]["surface"], "tinker_auth")
         self.assertEqual(result["attempt_record"]["outcome"], "auth_access_blocked")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "auth_email_submitted")
         rendered = repr(result)
         self.assertNotIn("oracle@example.com", rendered)
         self.assertNotIn("123456", rendered)
