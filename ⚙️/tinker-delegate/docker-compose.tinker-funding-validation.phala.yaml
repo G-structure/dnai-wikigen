@@ -81,7 +81,7 @@ services:
       start_period: 180s
 
   delegate:
-    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3ed351ed41540d7e47970b9b4d6a288d600b3856bc64c6f01996f4507d15b1eb
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b0e7c63d276469d586a574a94bf0fc91feb0a223fa2cdb0dd3d49cd64c41a5ee
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -133,6 +133,7 @@ services:
       TINKER_ENCUMBRANCE_REQUIRED: "true"
       TINKER_ENCUMBRANCE_CONTRACT_ADDRESS: "0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e"
       TINKER_ENCUMBRANCE_RPC_URL: ${BASE_SEPOLIA_RPC_URL:-}
+      TINKER_ENCUMBRANCE_COMPOSE_HASH: ${TINKER_ENCUMBRANCE_COMPOSE_HASH:-}
       TINKER_ENCUMBRANCE_POLICY_UNITS_PER_USD_WEI: "1000000000000000000"
       TINKER_ALLOW_AUTH_AUTOMATION_ENDPOINT: "true"
       TINKER_ALLOW_TINKER_PROXY_ENDPOINT: "true"

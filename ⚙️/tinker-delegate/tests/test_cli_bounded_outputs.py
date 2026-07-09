@@ -1,4 +1,5 @@
 import json
+import hashlib
 import os
 import subprocess
 import sys
@@ -9,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from tinker_delegate.main import _render_bounded_json
+from tinker_delegate.run_metadata_store import stable_hash
 
 
 def _env(tmpdir: str, *, funding_mode: str = "manual_prefund") -> dict[str, str]:
@@ -595,7 +597,23 @@ class CliBoundedOutputsTest(unittest.TestCase):
             rendered = repr([keygen_receipt, issue_receipt, decrypt_receipt, audit_receipt, revoke_receipt])
             self.assertTrue(keygen_receipt["private_key_saved"])
             self.assertFalse(keygen_receipt["private_key_returned"])
+            self.assertEqual(
+                keygen_receipt["public_key_hash"],
+                stable_hash(public_key.lower(), prefix="proxy_recipient_public_key"),
+            )
+            self.assertNotEqual(
+                keygen_receipt["public_key_hash"],
+                hashlib.sha256(bytes.fromhex(public_key)).hexdigest(),
+            )
             self.assertFalse(issue_receipt["plaintext_token_returned"])
+            self.assertEqual(
+                issue_receipt["recipient_public_key_hash"],
+                keygen_receipt["public_key_hash"],
+            )
+            self.assertEqual(
+                issue_receipt["audit_record"]["recipient_public_key_hash"],
+                keygen_receipt["public_key_hash"],
+            )
             self.assertEqual(issue_receipt["audit_record"]["event"], "issued")
             self.assertTrue(decrypt_receipt["plaintext_token_saved"])
             self.assertFalse(decrypt_receipt["plaintext_token_returned"])

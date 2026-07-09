@@ -6,8 +6,8 @@
     "rpcEnv": "BASE_SEPOLIA_RPC_URL",
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
-  "status": "current_operator_contracts_deployed_tinker_proxy_verifier_validation",
-  "lastReviewedAt": "2026-07-09T18:31:00Z",
+  "status": "current_operator_contracts_deployed_tinker_proxy_issue_deployment_policy_validation",
+  "lastReviewedAt": "2026-07-09T19:38:09Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -59,24 +59,24 @@
       "emergencyHalted": false,
       "measurementsFrozen": false,
       "currentOperatorControlled": true,
-      "latestApprovedComposeHash": "0x5bea582098b3767eec52d05a4f5a6773c59c44b606776421888479f58324956c",
+      "latestApprovedComposeHash": "0x40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
       "latestApprovedComposeHashApproved": true,
-      "latestComposeApprovalTx": "0x5af4fd76e922afc821c1db847aa3b65cbd44bc328a48786d6f7cca4a0e41d2cb",
-      "latestComposeApprovalBlock": 43926723,
-      "currentFundingComposeHash": "0x5bea582098b3767eec52d05a4f5a6773c59c44b606776421888479f58324956c",
-      "lastReviewedAt": "2026-07-09T18:31:00Z",
+      "latestComposeApprovalTx": "0x5eea5735154e18cb94e198c1d7fc7867f1f2f095de4db2b85d7eb051a9dd73d6",
+      "latestComposeApprovalBlock": 43928500,
+      "currentFundingComposeHash": "0x40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
+      "lastReviewedAt": "2026-07-09T19:38:09Z",
       "pendingComposeHashApproval": null,
       "pendingComposeHashApproved": false
     }
   },
   "phala": {
-    "status": "running_proxy_token_verifier_validation_tinker_smoke_still_blocked_at_missing_project_config",
+    "status": "running_proxy_issue_deployment_policy_validation_tinker_smoke_still_open",
     "cvmId": "cvm_1w85mGjo",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "5bea582098b3767eec52d05a4f5a6773c59c44b606776421888479f58324956c",
-    "deployHelperComposeHash": "5bea582098b3767eec52d05a4f5a6773c59c44b606776421888479f58324956c",
-    "localRawComposeImagePolicyHash": "049c89d04c8e3b5452c12568a4f2c550bd123e7a3fe4489cd1a7c39e854b8489",
-    "renderedComposeSha256": "e2728a0bf803aff975034db4314d525c2d7092bb5f2c772219e1768a21da4423",
+    "composeHash": "40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
+    "deployHelperComposeHash": "40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
+    "localRawComposeImagePolicyHash": "a860ba168b0334d8317fc56f0d2a971b79ad13bc206f5b43f3d04833d32f8eb7",
+    "renderedComposeSha256": "b718208409a73f0bff4f2ab0efdead239111b7ff8fccc688ff889d103aad69d4",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -90,18 +90,21 @@
       "ORACLE_RUNTIME_AUTH_KEY_PATH",
       "TINKER_BROWSER_SESSION_KEY_PATH",
       "TINKER_DSTACK_KEY_PATH",
+      "TINKER_ENCUMBRANCE_COMPOSE_HASH",
       "TINKER_FUNDING_RECEIPT_KEY_PATH",
       "TINKER_ORACLE_AUTH_KEY_PATH",
+      "TINKER_PROXY_REQUIRE_DEPLOYMENT_POLICY",
+      "TINKER_PROXY_REQUIRE_ISSUE_POLICY",
       "TINKER_RUNTIME_AUTH_KEY_PATH",
       "TINKER_RUNTIME_AUTH_TOKEN",
       "TINKER_RUN_METADATA_KEY_PATH"
     ],
-    "allowedEnvKeysNote": "Current funding-validation profile has a nine-key runtime surface selected by compose refs. TINKER_PROJECT_ID and TINKER_BASE_URL are absent from the current runtime env, so the live smoke proves the missing-project configuration blocker without exposing raw secrets.",
+    "allowedEnvKeysNote": "Current funding-validation profile has a twelve-key runtime surface selected by compose refs. It includes the proxy issue/deployment policy flags and TINKER_ENCUMBRANCE_COMPOSE_HASH so token issuance is bound to the live attested compose hash without exposing raw secrets. TINKER_PROJECT_ID and TINKER_BASE_URL remain absent, so Tinker SDK smoke/training is still open.",
     "temporaryDebugException": {
       "active": true,
       "enabledAt": "2026-07-09T11:00:00Z",
       "revertedAt": null,
-      "reason": "Temporary Tinker funding-validation debugging: public logs/sysinfo/TCB info and dev OS remain enabled while proving capped add-balance and proxy-token verifier lanes.",
+      "reason": "Temporary Tinker funding/proxy validation debugging: public logs/sysinfo/TCB info and dev OS remain enabled while proving capped add-balance, proxy-token verifier, and proxy issue/deployment-policy lanes.",
       "publicLogs": true,
       "publicSysinfo": true,
       "devOs": true,
@@ -121,13 +124,16 @@
         "ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT": "false",
         "TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT": "false",
         "TINKER_ALLOW_TINKER_PROXY_ENDPOINT": "true",
-        "TINKER_ALLOW_TINKER_PROXY_TOKEN_ISSUANCE": "true"
+        "TINKER_ALLOW_TINKER_PROXY_TOKEN_ISSUANCE": "true",
+        "TINKER_PROXY_REQUIRE_ISSUE_POLICY": "true",
+        "TINKER_PROXY_REQUIRE_DEPLOYMENT_POLICY": "true",
+        "TINKER_ENCUMBRANCE_COMPOSE_HASH": "40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace"
       }
     },
-    "sourceDigest": "7cce6a2bc7897afba7a1599f9b51a381ac09a7dd",
+    "sourceDigest": "d9807a028702ff2b0ee1c077cc0970cafc334475",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 29039324890,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29039324890",
+    "githubActionsRunId": 29043212028,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29043212028",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -143,8 +149,8 @@
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3ed351ed41540d7e47970b9b4d6a288d600b3856bc64c6f01996f4507d15b1eb",
-        "sourceDigest": "7cce6a2bc7897afba7a1599f9b51a381ac09a7dd",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b0e7c63d276469d586a574a94bf0fc91feb0a223fa2cdb0dd3d49cd64c41a5ee",
+        "sourceDigest": "d9807a028702ff2b0ee1c077cc0970cafc334475",
         "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
@@ -157,12 +163,12 @@
       }
     ],
     "quoteEvidence": {
-      "status": "current_proxy_token_verifier_envelope_verified",
+      "status": "current_proxy_issue_deployment_policy_verified",
       "mode": "tdx",
       "context": "billing",
       "quoteSize": 5010,
-      "reportData": "09934d56f646c25d54876f4d9a360c0b8c93d90b096509bcb6b6db8adde897d2",
-      "encryptionPublicKey": "3655ecc95a870abf43acc6bf35cd507542003c50af672804800ad6675ff21115",
+      "reportData": "e9f1bff6d81b11d8d88c7b87635e4473b9da37a8e6fba4b6625e662ca7485cf1",
+      "encryptionPublicKey": "a61ea59bf0c9b7713a5c868da993eb8fde2fad9245c90e5209a4525462394a3b",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -1107,8 +1113,8 @@
       "mode": "tdx",
       "context": "artifact",
       "quoteSize": 5010,
-      "reportData": "7ba7329a3d915a6fbe6e6b26afa7ae6b13eb063ba4c7f89c32f7f4b73a006d5e",
-      "encryptionPublicKey": "409666dc58a0f0e2bf7cc706c2129c807827965ea383b55990e3edf6ad52f357",
+      "reportData": "e9f1bff6d81b11d8d88c7b87635e4473b9da37a8e6fba4b6625e662ca7485cf1",
+      "encryptionPublicKey": "a61ea59bf0c9b7713a5c868da993eb8fde2fad9245c90e5209a4525462394a3b",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "fundingValidationEvidence": {
@@ -1588,6 +1594,128 @@
         "selectorProbe": "403_disabled_in_funding_profile"
       },
       "conclusion": "custom_neko_chrome_with_baked_cdp_proxy_removed_the_deployed_page_enable_timeout_blocker"
+    },
+    "proxyPolicyDeploymentEvidence": {
+      "status": "live_operator_validation_complete_not_production_governance",
+      "recordedAt": "2026-07-09T19:38:09Z",
+      "cvmId": "cvm_1w85mGjo",
+      "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
+      "sourceDigest": "d9807a028702ff2b0ee1c077cc0970cafc334475",
+      "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
+      "githubActionsRunId": 29043212028,
+      "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29043212028",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b0e7c63d276469d586a574a94bf0fc91feb0a223fa2cdb0dd3d49cd64c41a5ee",
+      "deployHelperComposeHash": "40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
+      "attestedComposeHash": "40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
+      "localRawComposeImagePolicyHash": "a860ba168b0334d8317fc56f0d2a971b79ad13bc206f5b43f3d04833d32f8eb7",
+      "renderedComposeSha256": "b718208409a73f0bff4f2ab0efdead239111b7ff8fccc688ff889d103aad69d4",
+      "composeApproval": {
+        "composeHash": "0x40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
+        "approved": true,
+        "tx": "0x5eea5735154e18cb94e198c1d7fc7867f1f2f095de4db2b85d7eb051a9dd73d6",
+        "block": 43928500
+      },
+      "encumbrancePreflight": {
+        "operation": "add_balance",
+        "amountUsd": 10,
+        "allowed": true,
+        "composeApproved": true,
+        "maxAmountWei": "10000000000000000000",
+        "rawSecretEgress": false
+      },
+      "issuePolicy": {
+        "policyHash": "e4db29bfded844e0402e7ce61aba51360eb0fbe2aa1bab2013cd200b0164ea16",
+        "grantHash": "c2b23202b441ad6f9b80565f1b2b6cfc8402113b7c969485c76a7135a8a92a84",
+        "scopeLimitAddBalanceUsd": 10,
+        "rawSecretEgress": false
+      },
+      "issuance": {
+        "subjectHash": "979fb71132214bf62a7f332696061f0be32b1e60f00d02256d589df198393af8",
+        "recipientPublicKeyHash": "d9baf0bd658d18ef3b6e5cffb3c8dedceb41a3672d6a68d5becf08542fc1d1fa",
+        "jwtIdHash": "0891923ea9aa068d058adcdfaf864ec9da88d2027c1cc30f397fb7c111806df7",
+        "tokenHash": "f795f81f6d399a285fabacb903c3384060f89371d3e918b52d5ce227516ceda4",
+        "plaintextTokenReturned": false,
+        "rawSecretEgress": false
+      },
+      "proxyStatusViaJwt": {
+        "success": true,
+        "authKind": "proxy",
+        "requiredScope": "proxy:status",
+        "issuePolicyRequired": true,
+        "issuePolicyConfigured": true,
+        "deploymentPolicyRequired": true,
+        "encumbranceContractConfigured": true,
+        "encumbranceComposeHashConfigured": true,
+        "rawSecretEgress": false
+      },
+      "remainingOpen": [
+        "production_identity_and_reviewer_grant_lifecycle",
+        "tinker_sdk_smoke_training_creation",
+        "email_oracle_imap_degraded",
+        "temporary_dev_os_and_public_debug_posture",
+        "quote_internal_tdx_parsing_freshness"
+      ]
+    },
+    "tinkerProxyIssueDeploymentPolicyEvidence20260709": {
+      "status": "live_operator_validation_complete_not_production_governance",
+      "recordedAt": "2026-07-09T19:38:09Z",
+      "cvmId": "cvm_1w85mGjo",
+      "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
+      "sourceDigest": "d9807a028702ff2b0ee1c077cc0970cafc334475",
+      "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
+      "githubActionsRunId": 29043212028,
+      "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29043212028",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b0e7c63d276469d586a574a94bf0fc91feb0a223fa2cdb0dd3d49cd64c41a5ee",
+      "deployHelperComposeHash": "40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
+      "attestedComposeHash": "40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
+      "localRawComposeImagePolicyHash": "a860ba168b0334d8317fc56f0d2a971b79ad13bc206f5b43f3d04833d32f8eb7",
+      "renderedComposeSha256": "b718208409a73f0bff4f2ab0efdead239111b7ff8fccc688ff889d103aad69d4",
+      "composeApproval": {
+        "composeHash": "0x40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
+        "approved": true,
+        "tx": "0x5eea5735154e18cb94e198c1d7fc7867f1f2f095de4db2b85d7eb051a9dd73d6",
+        "block": 43928500
+      },
+      "encumbrancePreflight": {
+        "operation": "add_balance",
+        "amountUsd": 10,
+        "allowed": true,
+        "composeApproved": true,
+        "maxAmountWei": "10000000000000000000",
+        "rawSecretEgress": false
+      },
+      "issuePolicy": {
+        "policyHash": "e4db29bfded844e0402e7ce61aba51360eb0fbe2aa1bab2013cd200b0164ea16",
+        "grantHash": "c2b23202b441ad6f9b80565f1b2b6cfc8402113b7c969485c76a7135a8a92a84",
+        "scopeLimitAddBalanceUsd": 10,
+        "rawSecretEgress": false
+      },
+      "issuance": {
+        "subjectHash": "979fb71132214bf62a7f332696061f0be32b1e60f00d02256d589df198393af8",
+        "recipientPublicKeyHash": "d9baf0bd658d18ef3b6e5cffb3c8dedceb41a3672d6a68d5becf08542fc1d1fa",
+        "jwtIdHash": "0891923ea9aa068d058adcdfaf864ec9da88d2027c1cc30f397fb7c111806df7",
+        "tokenHash": "f795f81f6d399a285fabacb903c3384060f89371d3e918b52d5ce227516ceda4",
+        "plaintextTokenReturned": false,
+        "rawSecretEgress": false
+      },
+      "proxyStatusViaJwt": {
+        "success": true,
+        "authKind": "proxy",
+        "requiredScope": "proxy:status",
+        "issuePolicyRequired": true,
+        "issuePolicyConfigured": true,
+        "deploymentPolicyRequired": true,
+        "encumbranceContractConfigured": true,
+        "encumbranceComposeHashConfigured": true,
+        "rawSecretEgress": false
+      },
+      "remainingOpen": [
+        "production_identity_and_reviewer_grant_lifecycle",
+        "tinker_sdk_smoke_training_creation",
+        "email_oracle_imap_degraded",
+        "temporary_dev_os_and_public_debug_posture",
+        "quote_internal_tdx_parsing_freshness"
+      ]
     }
   },
   "freshDeployment": {

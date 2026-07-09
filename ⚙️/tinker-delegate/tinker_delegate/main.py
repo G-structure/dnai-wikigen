@@ -1852,6 +1852,7 @@ def cli():
         sys.exit(0)
 
     elif args.command == "tinker-proxy-recipient-keygen":
+        from tinker_delegate.run_metadata_store import stable_hash
         from tinker_delegate.tinker_proxy import generate_proxy_recipient_keypair
 
         private_key_hex, public_key_hex = generate_proxy_recipient_keypair()
@@ -1860,7 +1861,9 @@ def cli():
             "surface": "tinker_proxy_recipient_keygen",
             "success": True,
             "public_key": public_key_hex,
-            "public_key_hash": hashlib.sha256(bytes.fromhex(public_key_hex)).hexdigest(),
+            "public_key_hash": stable_hash(
+                public_key_hex.lower(), prefix="proxy_recipient_public_key"
+            ),
             "private_key_path": str(Path(args.private_key_output)),
             "private_key_saved": True,
             "private_key_returned": False,

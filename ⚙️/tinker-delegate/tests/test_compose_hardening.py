@@ -226,6 +226,8 @@ class ComposeHardeningTest(unittest.TestCase):
         self.assertIn('TINKER_FUNDING_MODE: "operator_capped_validation"', delegate)
         self.assertIn('TINKER_MIN_ADD_BALANCE_USD: "10.0"', delegate)
         self.assertIn('TINKER_MAX_ADD_BALANCE_USD: "10.0"', delegate)
+        self.assertIn('TINKER_ENCUMBRANCE_REQUIRED: "true"', delegate)
+        self.assertIn("TINKER_ENCUMBRANCE_COMPOSE_HASH: ${TINKER_ENCUMBRANCE_COMPOSE_HASH:-}", delegate)
         self.assertIn('TINKER_ALLOW_AUTH_AUTOMATION_ENDPOINT: "true"', delegate)
         self.assertIn('TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "true"', delegate)
         self.assertIn('TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT: "false"', delegate)

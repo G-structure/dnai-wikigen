@@ -30,10 +30,57 @@ email-oracle + tinker-delegate CVM is running from digest-pinned registry
 images and has live TDX envelope verification. Low-value operator validation
 funding has now produced a bounded `$10.00` Tinker balance read, and the
 smoke-capable Phala compose has been deployed and approved for bounded compute
-spend, but the deployed SDK smoke fails before training creation. Production or
-repeated funding, full quote-internal TDX verification, live CVM-originated
-TEE-to-chain signing, and RLVR/bio-validation remain incomplete. Phala auth is
-configured for profile `wikigen` in workspace `wiki`.
+spend, and the live proxy issue/deployment-policy gate is now deployed,
+attested, approved on-chain, and proven with encrypted token delivery. The
+deployed SDK smoke still fails before training creation. Production or repeated
+funding, production identity/reviewer governance, full quote-internal TDX
+verification, live CVM-originated TEE-to-chain signing, and RLVR/bio-validation
+remain incomplete. Phala auth is configured for profile `wikigen` in workspace
+`wiki`.
+
+Latest proxy policy deployment, 2026-07-09:
+
+- GitHub Actions run `29043212028` built source
+  `d9807a028702ff2b0ee1c077cc0970cafc334475` into delegate image
+  `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b0e7c63d276469d586a574a94bf0fc91feb0a223fa2cdb0dd3d49cd64c41a5ee`;
+  the local deployment gate verified GitHub provenance and SPDX SBOM
+  attestations.
+- The live Phala funding-validation CVM `cvm_1w85mGjo` / app
+  `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717` now reports status `running`
+  and app-compose hash
+  `40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace`.
+  The verified local raw/image-policy hash is
+  `a860ba168b0334d8317fc56f0d2a971b79ad13bc206f5b43f3d04833d32f8eb7`,
+  rendered compose SHA-256 is
+  `b718208409a73f0bff4f2ab0efdead239111b7ff8fccc688ff889d103aad69d4`,
+  OS image hash is
+  `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`,
+  quote size is `5010`, report data is
+  `e9f1bff6d81b11d8d88c7b87635e4473b9da37a8e6fba4b6625e662ca7485cf1`,
+  and encryption public key is
+  `a61ea59bf0c9b7713a5c868da993eb8fde2fad9245c90e5209a4525462394a3b`.
+- The runtime env allowlist now includes the policy flags and
+  `TINKER_ENCUMBRANCE_COMPOSE_HASH`, so proxy issuance can be self-bound to
+  the exact attested compose hash. `TinkerAccountEncumbrance` approved the live
+  compose hash in tx
+  `0x5eea5735154e18cb94e198c1d7fc7867f1f2f095de4db2b85d7eb051a9dd73d6`
+  at block `43928500`; read-only preflight returned `allowed=true`,
+  `compose_approved=true`, `$10` max amount, and `raw_secret_egress=false`.
+- The deployed operator installed a hash-only issue policy with policy hash
+  `e4db29bfded844e0402e7ce61aba51360eb0fbe2aa1bab2013cd200b0164ea16` and
+  grant hash
+  `c2b23202b441ad6f9b80565f1b2b6cfc8402113b7c969485c76a7135a8a92a84`.
+  Live token issuance returned encrypted delivery only, deployment-policy
+  evidence, JWT-id hash
+  `0891923ea9aa068d058adcdfaf864ec9da88d2027c1cc30f397fb7c111806df7`,
+  token hash
+  `f795f81f6d399a285fabacb903c3384060f89371d3e918b52d5ce227516ceda4`,
+  and `raw_secret_egress=false`; the recipient-decrypted scoped proxy JWT
+  successfully called `tinker-proxy-status`.
+- Remaining open: production identity/reviewer-controlled grant lifecycle,
+  quote-internal TDX parsing/freshness, reverting the temporary dev OS/public
+  debug posture before production claims, the email oracle IMAP degradation,
+  and the Tinker SDK smoke blocker around project/client configuration.
 
 Latest live funding/debug state, 2026-07-09:
 
@@ -120,16 +167,10 @@ Latest Tinker execution buildout, 2026-07-09:
   `TinkerAccountEncumbrance` contract and compose hash before minting
   add-balance or Tinker-smoke scoped JWTs, using only bounded spend caps from
   the issue-policy grant. Live funding-validation deployment, attestation,
-  audit replay, and compose/contract binding are now proven for the
-  operator-validation slice below, but this new policy-management/spend-limit
-  and pre-mint deployment-policy source slice is not yet deployed. The source
-  compose now carries disabled-by-default policy env knobs for the next Phala
-  redeploy; local
-  `verify-compose-hash --phala-raw-compose` with the new policy env knobs
-  allowed computes raw/image-policy hash
-  `471f673a03da3e2941869b505c5259cca9e0216cdcf2baeae2eb4682e745e86e`
-  and rendered compose SHA-256
-  `973d2d4ae39e51841107a388556f8061ff6e430f37ba779393945cff2425f733`.
+  audit replay, compose/contract binding, policy install, pre-mint
+  deployment-policy checks, and encrypted proxy-token delivery are now proven
+  in the deployed operator-validation slice above. Production identity and
+  reviewer-controlled grant lifecycle remain open.
 - First proxy-token authorization wiring is source/test-real:
   `GET /tinker/proxy/status`, `POST /tinker/smoke`,
   `GET /billing/payment-method-status`, and `POST /billing/add-balance` accept
@@ -152,8 +193,9 @@ Latest Tinker execution buildout, 2026-07-09:
   counts, chronology, supported scopes, expiry, revocation timing, receipt
   boundedness, and `proxy_auth_context` binding when present or required.
   Production identity/spend policy binding remains open.
-- The proxy-token verifier/context build is now live on the Phala
-  funding-validation CVM. Source
+- The previous proxy-token verifier/context build was live on the Phala
+  funding-validation CVM before the newer proxy issue/deployment-policy
+  deployment recorded above. Source
   `7cce6a2bc7897afba7a1599f9b51a381ac09a7dd` was built by GitHub Actions run
   `29039324890` into delegate image
   `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3ed351ed41540d7e47970b9b4d6a288d600b3856bc64c6f01996f4507d15b1eb`;
@@ -1941,7 +1983,10 @@ Owner:           0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD
 TinkerAccountEncumbrance: 0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e
 Deployment tx:             0x7679df09aa2e939d748be0e017f380f5e7e44331a482531380198e93bdcaed01
 Owner:                     0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD
-Approved compose hash:     0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7
+Initial compose hash:      0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7
+Latest approved compose:   0x40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace
+Latest approval tx:        0x5eea5735154e18cb94e198c1d7fc7867f1f2f095de4db2b85d7eb051a9dd73d6
+Latest approval block:     43928500
 ```
 
 On-chain verification reads from the deploy helper:
@@ -1985,7 +2030,9 @@ explicitly legacy.
   CVM now consumes the bounded oracle image. In the current steady profile
   `ORACLE_AUTO_GENESIS=false` means the main CVM is not auto-generating fresh
   mailbox credentials, but deployed Tinker login/API-key sealing has already
-  been proven for the operator-validation account.
+  been proven for the operator-validation account. The live combined oracle
+  health remains degraded with IMAP disconnected, so email-oracle production
+  readiness is still open.
 - The main Phala CVM still runs a dev OS image (`dstack-dev-0.5.9`,
   `is_dev=true`). For the current funding debug push, public logs/sysinfo/TCB
   info are also enabled. Production wrap-up must disable those debug surfaces

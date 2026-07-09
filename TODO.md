@@ -133,11 +133,45 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   only bounded deployment checks and `raw_secret_egress=false`;
                   tests cover approved compose issuance and denied-compose
                   fail-closed behavior before token creation.
-            - [ ] Redeploy the proxy issue/deployment policy source slice to
+            - [x] Redeploy the proxy issue/deployment policy source slice to
                   Phala, enable the policy flags, install a hash-only issue
                   policy, approve the new compose hash on-chain, and record CVM
                   ID, app ID, image digest, compose hash, quote evidence, policy
                   hash, and bounded issuance evidence.
+                  Done 2026-07-09: GitHub Actions run `29043212028` built
+                  source `d9807a028702ff2b0ee1c077cc0970cafc334475` into
+                  delegate image
+                  `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b0e7c63d276469d586a574a94bf0fc91feb0a223fa2cdb0dd3d49cd64c41a5ee`,
+                  with provenance and SBOM attestations verified. The existing
+                  Phala CVM `cvm_1w85mGjo` / app
+                  `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717` now attests live
+                  app-compose hash
+                  `40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace`
+                  and OS image hash
+                  `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`.
+                  Local verification binds raw/image-policy hash
+                  `a860ba168b0334d8317fc56f0d2a971b79ad13bc206f5b43f3d04833d32f8eb7`,
+                  rendered compose SHA-256
+                  `b718208409a73f0bff4f2ab0efdead239111b7ff8fccc688ff889d103aad69d4`,
+                  allowed policy env keys, app ID, OS image hash, and digest
+                  pinned images. `TinkerAccountEncumbrance` approved the live
+                  compose hash in tx
+                  `0x5eea5735154e18cb94e198c1d7fc7867f1f2f095de4db2b85d7eb051a9dd73d6`
+                  at block `43928500`; preflight returned
+                  `allowed=true`, `compose_approved=true`,
+                  `max_amount_wei=10000000000000000000`, and
+                  `raw_secret_egress=false`. A hash-only issue policy was
+                  installed with policy hash
+                  `e4db29bfded844e0402e7ce61aba51360eb0fbe2aa1bab2013cd200b0164ea16`
+                  and grant hash
+                  `c2b23202b441ad6f9b80565f1b2b6cfc8402113b7c969485c76a7135a8a92a84`.
+                  Live token issuance returned only encrypted delivery,
+                  deployment-policy evidence, JWT-id hash
+                  `0891923ea9aa068d058adcdfaf864ec9da88d2027c111806df7`,
+                  token hash
+                  `f795f81f6d399a285fabacb903c3384060f89371d3e918b52d5ce227516ceda4`,
+                  and `raw_secret_egress=false`; the decrypted scoped proxy JWT
+                  successfully called `tinker-proxy-status`.
             - [ ] Bind proxy grants to production user/agent identity approval
                   and reviewer-controlled grant lifecycle before treating this
                   as production governance.
@@ -2677,7 +2711,8 @@ vision Wiki is reaching for.
       - [ ] `Deploy` Revert the 2026-07-09 public logs/public sysinfo/dev-SSH
             diagnostic exception after collecting enough evidence; record the
             reverted live compose hash and rerun `verify-cvm-attestation`.
-            Current exception reopened 2026-07-09 for the Tinker funding push:
+            Current exception reopened 2026-07-09 for the Tinker funding and
+            proxy issue/deployment-policy validation push:
             `phala cvms get` reports `public_logs=true`,
             `public_sysinfo=true`, `public_tcbinfo=true`, dev OS
             `is_dev=true`, `secure_time=false`, and browser/CDP debug ports
@@ -2766,16 +2801,16 @@ vision Wiki is reaching for.
                   returned true.
 - [ ] `Deploy` Verify contracts on BaseScan.
 - [ ] `Deploy` Register compose hashes in `EmailOracleAuth`.
-- [x] `Deploy` Register consumer app/compose hash for Tinker delegate.
-      Done for the current operator-validation Tinker delegate lane on
-      2026-07-09: `TinkerAccountEncumbrance` approved the latest live
-      app-compose hash
-      `0xcdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180`
-      in tx
-      `0xc597c8e2bbfcc58255c6d407ce615ec4befd992b4e4ef2c34854b99a4d4c52b2`
-      after `verify-cvm-attestation` passed for the client-config diagnostic
-      image. Production registration still requires hardened non-dev CVM
-      posture.
+	- [x] `Deploy` Register consumer app/compose hash for Tinker delegate.
+	      Done for the current operator-validation Tinker delegate lane on
+	      2026-07-09: `TinkerAccountEncumbrance` approved the latest live
+	      proxy issue/deployment-policy app-compose hash
+	      `0x40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace`
+	      in tx
+	      `0x5eea5735154e18cb94e198c1d7fc7867f1f2f095de4db2b85d7eb051a9dd73d6`
+	      at block `43928500` after `verify-cvm-attestation` passed for the
+	      digest-pinned policy-gated image. Production registration still
+	      requires hardened non-dev CVM posture.
 - [x] `Deploy` Create a test Tinker account under TEE custody.
       Done for the current operator-validation CVM: live reauth succeeds
       through the TEE-held email oracle path, the delegate has sealed Tinker

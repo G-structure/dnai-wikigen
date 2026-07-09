@@ -373,8 +373,9 @@ run IDs, checkpoint paths, samples, or private reward data.
             that bounded limit in a `limits` claim, `verify_proxy_token()`
             returns it as `scope_limits`, and `/billing/add-balance` rejects a
             proxy-authorized request above the cap before browser or payment
-            automation starts. This is source/test-real; live deployment
-            evidence and production identity binding remain separate.
+            automation starts. This is live in the temporary
+            operator-validation Phala deployment for the bounded proxy issuance
+            slice; production identity binding remains separate.
 [real]      Runtime operators can now install and inspect the hash-only issue
             policy without SSH or image edits. `GET/PUT
             /tinker/proxy/issue-policy` and `tinker-proxy-issue-policy` require
@@ -382,9 +383,11 @@ run IDs, checkpoint paths, samples, or private reward data.
             configured delegate path, and return only bounded policy/grant
             hashes, subject hashes, recipient-key hashes, scopes, TTL caps,
             spend caps, and `raw_secret_egress=false`. The funding-validation
-            compose carries disabled-by-default policy env knobs for the next
-            Phala redeploy. The current live `5bea...` deployment does not yet
-            include this source slice.
+            compose now carries the required policy env knobs and the live
+            Phala deployment includes `TINKER_PROXY_REQUIRE_ISSUE_POLICY`,
+            `TINKER_PROXY_REQUIRE_DEPLOYMENT_POLICY`, and
+            `TINKER_ENCUMBRANCE_COMPOSE_HASH` in its attested allowed-env
+            surface.
 [real]      Proxy-token issuance can now be source-bound to the on-chain Tinker
             encumbrance policy before minting. When
             `TINKER_PROXY_REQUIRE_DEPLOYMENT_POLICY=true`,
@@ -396,8 +399,9 @@ run IDs, checkpoint paths, samples, or private reward data.
             `scope_limits.max_amount_usd` from the hash-only issue-policy
             grant. A denied or missing encumbrance policy fails closed before
             JWT creation; successful issuance returns only bounded deployment
-            check records and `raw_secret_egress=false`. This is source/test
-            real and not yet present in the live Phala deployment.
+            check records and `raw_secret_egress=false`. This is now deployed
+            in the operator-validation Phala profile for bounded proxy issuance,
+            and remains separate from production user/governance approval.
 [real]      The first bounded operation endpoints now accept scoped proxy JWTs:
             `proxy:status` for proxy status, `tinker:smoke` for the paid smoke
             surface, `billing:payment-method-status` for card-on-file status,
@@ -426,24 +430,36 @@ run IDs, checkpoint paths, samples, or private reward data.
             supported scopes, expiry windows, revocation timing, receipt
             boundedness, and `proxy_auth_context` binding when present or
             required.
-[real]      The proxy-token verifier/context build is live in the temporary
-            Phala funding-validation profile. Source
-            `7cce6a2bc7897afba7a1599f9b51a381ac09a7dd` built into
-            GitHub-attested delegate image
-            `tinker-delegate@sha256:3ed351ed41540d7e47970b9b4d6a288d600b3856bc64c6f01996f4507d15b1eb`,
-            the compose pins that digest and proxy-token env, and the live CVM
-            attests app-compose hash
-            `5bea582098b3767eec52d05a4f5a6773c59c44b606776421888479f58324956c`
+[real]      The proxy-token issue/deployment-policy build is live in the
+            temporary Phala funding-validation profile. Source
+            `d9807a028702ff2b0ee1c077cc0970cafc334475` built in GitHub
+            Actions run `29043212028` into GitHub-attested delegate image
+            `tinker-delegate@sha256:b0e7c63d276469d586a574a94bf0fc91feb0a223fa2cdb0dd3d49cd64c41a5ee`;
+            provenance and SPDX SBOM attestations were verified before
+            deployment. The live CVM `cvm_1w85mGjo` / app
+            `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717` attests app-compose
+            hash
+            `40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace`
             with raw/image-policy compose hash
-            `049c89d04c8e3b5452c12568a4f2c550bd123e7a3fe4489cd1a7c39e854b8489`.
+            `a860ba168b0334d8317fc56f0d2a971b79ad13bc206f5b43f3d04833d32f8eb7`
+            and rendered compose SHA-256
+            `b718208409a73f0bff4f2ab0efdead239111b7ff8fccc688ff889d103aad69d4`.
             `TinkerAccountEncumbrance` approved the live compose in tx
-            `0x5af4fd76e922afc821c1db847aa3b65cbd44bc328a48786d6f7cca4a0e41d2cb`.
-            Live packet `/tmp/dnai-proxy-audit-live-20260709T182943Z`
-            issued an encrypted recipient-bound proxy JWT, used it against the
-            bounded `billing:payment-method-status` operation, exported the
-            bounded token audit log, and replay-verified the operation receipt
-            with one bound receipt and `raw_secret_egress=false`. This still is
-            not a production identity/spend approval policy.
+            `0x5eea5735154e18cb94e198c1d7fc7867f1f2f095de4db2b85d7eb051a9dd73d6`
+            at block `43928500`. A live hash-only issue policy was installed
+            with policy hash
+            `e4db29bfded844e0402e7ce61aba51360eb0fbe2aa1bab2013cd200b0164ea16`
+            and grant hash
+            `c2b23202b441ad6f9b80565f1b2b6cfc8402113b7c969485c76a7135a8a92a84`.
+            Bounded encrypted token issuance proved deployment-policy
+            `allowed=true`, emitted only JWT-id hash
+            `0891923ea9aa068d058adcdfaf864ec9da88d2027c1cc30f397fb7c111806df7`,
+            token hash
+            `f795f81f6d399a285fabacb903c3384060f89371d3e918b52d5ce227516ceda4`,
+            and encrypted delivery material with `raw_secret_egress=false`;
+            the recipient-decrypted scoped proxy JWT successfully called proxy
+            status. This still is not a production identity/spend approval
+            policy.
 
 ### Bounded Output
 
@@ -866,13 +882,19 @@ Implementation status:
             `0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`, approved compose
             hash
             `0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`,
-            emergency halt false, and measurements frozen false. A follow-up
+            emergency halt false, and measurements frozen false. The latest
+            operator-approved live policy hash for the deployed proxy
+            issue/deployment-policy slice is
+            `0x40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace`,
+            approved in tx
+            `0x5eea5735154e18cb94e198c1d7fc7867f1f2f095de4db2b85d7eb051a9dd73d6`
+            at block `43928500`. A follow-up
             owner transaction
             `0x3ab263bb7cb7758787fa1136dd043cca002db9cf511b29ad20ef4d1216199d3f`
             raised both add-balance and spend caps to `$10`, with read-back
             returning `10000000000000000000` for both policy values. This makes
             the pre-card on-chain policy gate real for the current
-            funding-validation compose hash.
+            funding-validation and proxy issuance compose hashes.
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
 [real]      Signup/bootstrap stores captured Tinker API keys in encrypted
             storage and returns only bounded hash/status metadata.
