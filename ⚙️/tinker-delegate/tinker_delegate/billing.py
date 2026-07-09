@@ -27,6 +27,7 @@ from tinker_delegate.automation_receipts import (
 from tinker_delegate.browser_ready import connect_chromium, get_browser_context
 from tinker_delegate.config import Settings
 from tinker_delegate.debug_artifacts import purge_secret_debug_artifacts
+from tinker_delegate.redaction import redact_text
 
 BILLING_BALANCE_URL = "https://tinker-console.thinkingmachines.ai/billing/balance"
 
@@ -496,6 +497,43 @@ async def _billing_auth_blocker(page: Page) -> str | None:
     return None
 
 
+async def _try_inline_billing_reauth(page: Page, context, settings: Settings) -> bool:
+    """Refresh auth in the same browser context before a billing retry."""
+    if not settings.allow_auth_automation_endpoint:
+        return False
+    try:
+        from tinker_delegate.oracle_client import OracleClient
+        from tinker_delegate.signup import _authenticate, _save_browser_session_state
+
+        oracle = OracleClient(settings)
+        email = settings.email or oracle.get_email()
+        print("[billing] auth required; attempting same-context bounded reauth")
+        await _authenticate(page, email, oracle, settings)
+        await _save_browser_session_state(context, settings)
+        return True
+    except Exception as exc:
+        print(f"[billing] same-context reauth failed: {redact_text(exc)}")
+        return False
+
+
+async def _ensure_billing_authenticated(
+    page: Page,
+    context,
+    settings: Settings,
+    *,
+    wait_after_retry: float = 3,
+) -> str | None:
+    """Return an auth blocker after one same-context reauth retry."""
+    auth_blocker = await _billing_auth_blocker(page)
+    if not auth_blocker:
+        return None
+    if not await _try_inline_billing_reauth(page, context, settings):
+        return auth_blocker
+    await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
+    await asyncio.sleep(wait_after_retry)
+    return await _billing_auth_blocker(page)
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -532,7 +570,7 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
         await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
         await asyncio.sleep(3)
         furthest_stage = AutomationStage.BILLING_PAGE_LOADED
-        auth_blocker = await _billing_auth_blocker(page)
+        auth_blocker = await _ensure_billing_authenticated(page, context, settings)
         if auth_blocker:
             return _payment_method_result(False, auth_blocker, furthest_stage, auth_blocker)
 
@@ -541,7 +579,7 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
         if await _click_first_available(page, ADD_TO_BALANCE_SELECTORS):
             await asyncio.sleep(3)
             furthest_stage = AutomationStage.PAYMENT_MODAL_OPENED
-            auth_blocker = await _billing_auth_blocker(page)
+            auth_blocker = await _ensure_billing_authenticated(page, context, settings)
             if auth_blocker:
                 return _payment_method_result(False, auth_blocker, furthest_stage, auth_blocker)
 
@@ -658,7 +696,7 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
         await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
         await asyncio.sleep(3)
         furthest_stage = AutomationStage.BILLING_PAGE_LOADED
-        auth_blocker = await _billing_auth_blocker(page)
+        auth_blocker = await _ensure_billing_authenticated(page, context, settings)
         if auth_blocker:
             return _add_balance_result(False, auth_blocker, amount_dollars, furthest_stage, auth_blocker)
 
@@ -668,7 +706,7 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
             return _add_balance_result(False, error, amount_dollars, furthest_stage, error)
         await asyncio.sleep(3)
         furthest_stage = AutomationStage.ADD_BALANCE_MODAL_OPENED
-        auth_blocker = await _billing_auth_blocker(page)
+        auth_blocker = await _ensure_billing_authenticated(page, context, settings)
         if auth_blocker:
             return _add_balance_result(False, auth_blocker, amount_dollars, furthest_stage, auth_blocker)
 
@@ -724,7 +762,7 @@ async def get_payment_method_status(settings: Settings | None = None) -> dict:
         await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
         await asyncio.sleep(3)
         furthest_stage = AutomationStage.BILLING_PAGE_LOADED
-        auth_blocker = await _billing_auth_blocker(page)
+        auth_blocker = await _ensure_billing_authenticated(page, context, settings)
         if auth_blocker:
             return _payment_method_status_result(False, auth_blocker, furthest_stage, auth_blocker)
 
@@ -752,7 +790,7 @@ async def remove_payment_method(settings: Settings | None = None) -> dict:
         await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
         await asyncio.sleep(3)
         furthest_stage = AutomationStage.BILLING_PAGE_LOADED
-        auth_blocker = await _billing_auth_blocker(page)
+        auth_blocker = await _ensure_billing_authenticated(page, context, settings)
         if auth_blocker:
             return _payment_method_removal_result(False, auth_blocker, furthest_stage, auth_blocker)
 

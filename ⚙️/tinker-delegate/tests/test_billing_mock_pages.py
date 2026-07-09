@@ -433,6 +433,34 @@ class BillingMockPagesTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["attempt_record"]["amount_band"], "5_25_usd")
         self.assertEqual(page.actions, [])
 
+    async def test_add_balance_retries_after_inline_reauth(self):
+        page = FakeBillingPage(
+            initial_text="Sign in to continue",
+            result_text="Credit added to your balance.",
+        )
+
+        with (
+            patch("tinker_delegate.billing.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.billing.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.billing.get_browser_context", new=AsyncMock(return_value=FakeContext(page))),
+            patch("tinker_delegate.billing._try_inline_billing_reauth", new=AsyncMock(return_value=True)) as reauth,
+            patch("tinker_delegate.billing.asyncio.sleep", new=AsyncMock()),
+        ):
+            result = await add_balance(
+                10.0,
+                Settings(
+                    allow_auth_automation_endpoint=True,
+                    min_add_balance_usd=10.0,
+                    max_add_balance_usd=10.0,
+                ),
+            )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["attempt_record"]["surface"], "add_balance")
+        self.assertEqual(result["attempt_record"]["outcome"], "success")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "add_balance_submitted")
+        reauth.assert_awaited_once()
+
     async def test_add_balance_reports_missing_open_selector_before_amount_entry(self):
         page = FakeBillingPage(
             initial_text="Current balance $0",
