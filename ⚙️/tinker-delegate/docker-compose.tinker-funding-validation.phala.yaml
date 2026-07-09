@@ -81,7 +81,7 @@ services:
       start_period: 180s
 
   delegate:
-    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:06c8d0fadd98922f0c6f5bded92b414be2bf423fc3c3e6af1b8e9e36b8c6975f
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:5f53e8d09d53fc76b17155ce40bd51a0333a85c4e77a0e82a511551895f02995
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
