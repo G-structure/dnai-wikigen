@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -18,6 +19,7 @@ from tinker_delegate.tinker_proxy import (
     verify_proxy_token,
 )
 from tinker_delegate.tinker_proxy_store import build_proxy_token_store
+from tinker_delegate.run_metadata_store import stable_hash
 
 
 UPSTREAM_KEY = "tml-secretsecretsecretsecretsecret"
@@ -45,6 +47,25 @@ def _decrypt_token(private_key, payload: dict) -> str:
     ).decode("utf-8")
 
 
+def _write_proxy_issue_policy(path: str, *, subject: str, recipient_public_key_hex: str, scopes: list[str], ttl: int):
+    policy = {
+        "schema_version": 1,
+        "grants": [
+            {
+                "subject_hash": stable_hash(subject, prefix="proxy_subject"),
+                "recipient_public_key_hash": stable_hash(
+                    recipient_public_key_hex.lower(),
+                    prefix="proxy_recipient_public_key",
+                ),
+                "scopes": scopes,
+                "max_ttl_seconds": ttl,
+            }
+        ],
+    }
+    with open(path, "w") as handle:
+        json.dump(policy, handle, sort_keys=True)
+
+
 class TinkerProxyTest(unittest.TestCase):
     def _settings(self, tmpdir: str, **overrides) -> Settings:
         values = {
@@ -60,6 +81,8 @@ class TinkerProxyTest(unittest.TestCase):
             project_id=PROJECT_ID,
             base_url=BASE_URL,
             proxy_jwt_key=SIGNING_KEY_HEX,
+            proxy_require_issue_policy=True,
+            proxy_issue_policy_path="/sealed/policy.json",
         )
 
         with patch.dict(os.environ, {"TINKER_API_KEY": UPSTREAM_KEY}, clear=False):
@@ -70,6 +93,8 @@ class TinkerProxyTest(unittest.TestCase):
         self.assertEqual(status["sealed_client_config"]["api_key_configured"], True)
         self.assertEqual(status["sealed_client_config"]["project_id_configured"], True)
         self.assertEqual(status["sealed_client_config"]["base_url_host_family"], "thinkingmachines")
+        self.assertTrue(status["token_issuer"]["issue_policy_required"])
+        self.assertTrue(status["token_issuer"]["issue_policy_configured"])
         self.assertFalse(status["raw_secret_egress"])
         self.assertNotIn(UPSTREAM_KEY, rendered)
         self.assertNotIn(PROJECT_ID, rendered)
@@ -108,6 +133,116 @@ class TinkerProxyTest(unittest.TestCase):
         self.assertFalse(issued["raw_secret_egress"])
         self.assertNotIn(token, rendered)
         self.assertNotIn("buyer-agent-1", rendered)
+
+    def test_issue_encrypted_proxy_token_binds_to_hash_only_issue_policy(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            private_key, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status", "billing:payment-method-status"],
+                ttl=60,
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+            )
+
+            issued = issue_encrypted_proxy_token(
+                settings,
+                subject="buyer-agent-1",
+                scopes=["billing:payment-method-status"],
+                recipient_public_key_hex=public_key_hex,
+                ttl_seconds=60,
+                now=1000,
+            )
+            token = _decrypt_token(private_key, issued)
+            verification = verify_proxy_token(
+                settings,
+                token,
+                required_scope="billing:payment-method-status",
+                now=1001,
+            )
+
+        rendered = repr(issued)
+        self.assertTrue(issued["success"])
+        self.assertTrue(issued["policy_binding"]["required"])
+        self.assertTrue(issued["policy_binding"]["configured"])
+        self.assertEqual(issued["policy_binding"]["requested_scopes"], ["billing:payment-method-status"])
+        self.assertEqual(verification["scopes"], ["billing:payment-method-status"])
+        self.assertFalse(issued["policy_binding"]["raw_secret_egress"])
+        self.assertNotIn("buyer-agent-1", rendered)
+        self.assertNotIn(public_key_hex, rendered)
+
+    def test_issue_policy_rejects_unapproved_recipient_key(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, approved_public_key_hex = _recipient_keypair()
+            _, other_public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=approved_public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+            )
+
+            with self.assertRaisesRegex(ValueError, "not allowed by policy"):
+                issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=other_public_key_hex,
+                    ttl_seconds=60,
+                )
+
+    def test_issue_policy_rejects_ttl_over_policy_cap(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=30,
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+            )
+
+            with self.assertRaisesRegex(ValueError, "ttl exceeds policy cap"):
+                issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                )
+
+    def test_issue_policy_required_fails_closed_without_policy_path(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            settings = self._settings(tmpdir, proxy_require_issue_policy=True)
+
+            with self.assertRaisesRegex(ValueError, "policy is required"):
+                issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                )
 
     def test_issuer_rejects_unapproved_subject(self):
         with tempfile.TemporaryDirectory() as tmpdir:

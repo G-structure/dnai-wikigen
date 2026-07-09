@@ -112,7 +112,10 @@ For the current implementation this means:
   funding receipts stay inside the CVM boundary.
 - The delegate may issue short-lived scoped JWTs only through an
   operator-approved issuance path, and production issuance should additionally
-  bind approved users/agents to policy records.
+  bind approved users/agents to policy records. The first source-real policy
+  layer is hash-only: a configured issue-policy file can require subject hash,
+  recipient public-key hash, scope subset, and TTL cap matches before minting a
+  token.
 - JWT delivery should use an attestation-verified encrypted channel to the
   recipient, not plaintext logs, shell history, or documentation.
 - JWT issuance and revocation should leave bounded sealed audit records so a

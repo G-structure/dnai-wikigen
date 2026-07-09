@@ -16,6 +16,7 @@ import os
 import time
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -144,6 +145,8 @@ def build_tinker_proxy_status(settings) -> dict[str, Any]:
             "format": "jwt_hs256",
             "delivery": "x25519_aes_256_gcm_envelope",
             "audit_store": "sealed",
+            "issue_policy_required": bool(getattr(settings, "proxy_require_issue_policy", False)),
+            "issue_policy_configured": bool(getattr(settings, "proxy_issue_policy_path", "")),
             "plaintext_token_returned": False,
             "supported_scopes": sorted(SUPPORTED_PROXY_SCOPES),
         },
@@ -186,25 +189,35 @@ def issue_encrypted_proxy_token(
 ) -> dict[str, Any]:
     """Issue a scoped JWT and encrypt it to the approved recipient public key."""
 
+    subject = _normalize_subject(subject)
+    normalized_scopes = _normalize_scopes(scopes)
+    normalized_ttl = _normalize_ttl(settings, ttl_seconds)
     _validate_approved_subject(settings, subject)
+    recipient_public_key = _decode_x25519_public_key(recipient_public_key_hex)
+    recipient_public_key_hash = stable_hash(
+        recipient_public_key_hex.lower(),
+        prefix="proxy_recipient_public_key",
+    )
+    policy_binding = _validate_proxy_issue_policy(
+        settings,
+        subject=subject,
+        scopes=normalized_scopes,
+        recipient_public_key_hash=recipient_public_key_hash,
+        ttl_seconds=normalized_ttl,
+    )
     claims, token = issue_proxy_token(
         settings,
         subject=subject,
-        scopes=scopes,
-        ttl_seconds=ttl_seconds,
+        scopes=normalized_scopes,
+        ttl_seconds=normalized_ttl,
         now=now,
     )
-    recipient_public_key = _decode_x25519_public_key(recipient_public_key_hex)
     associated_data = _proxy_token_associated_data(claims)
     envelope = encrypt_for_tee(
         token.encode("utf-8"),
         recipient_public_key,
         info=PROXY_TOKEN_HKDF_INFO,
         associated_data=associated_data,
-    )
-    recipient_public_key_hash = stable_hash(
-        recipient_public_key_hex.lower(),
-        prefix="proxy_recipient_public_key",
     )
     audit_record = build_proxy_token_store(settings).append(
         make_proxy_token_issue_record(
@@ -225,6 +238,7 @@ def issue_encrypted_proxy_token(
         "associated_data": associated_data.hex(),
         "token": claims.to_public_dict(),
         "recipient_public_key_hash": recipient_public_key_hash,
+        "policy_binding": policy_binding,
         "associated_data_hash": stable_hash(
             associated_data.hex(),
             prefix="proxy_token_aad",
@@ -353,6 +367,90 @@ def _validate_approved_subject(settings, subject: str) -> None:
     ]
     if approved and subject.strip() not in approved:
         raise ValueError("proxy token subject is not approved")
+
+
+def _validate_proxy_issue_policy(
+    settings,
+    *,
+    subject: str,
+    scopes: tuple[str, ...],
+    recipient_public_key_hash: str,
+    ttl_seconds: int,
+) -> dict[str, Any]:
+    policy_path = str(getattr(settings, "proxy_issue_policy_path", "") or "").strip()
+    require_policy = bool(getattr(settings, "proxy_require_issue_policy", False))
+    if not policy_path:
+        if require_policy:
+            raise ValueError("proxy issue policy is required")
+        return {
+            "required": False,
+            "configured": False,
+            "raw_secret_egress": False,
+        }
+
+    policy = _load_proxy_issue_policy(policy_path)
+    grants = policy.get("grants")
+    if not isinstance(grants, list):
+        raise ValueError("proxy issue policy grants must be a list")
+    subject_hash = stable_hash(subject, prefix="proxy_subject")
+    requested_scopes = set(scopes)
+    policy_hash = stable_hash(_canonical_json(policy), prefix="proxy_issue_policy")
+    ttl_cap_fail = False
+
+    for grant in grants:
+        if not isinstance(grant, dict):
+            raise ValueError("proxy issue policy grant must be an object")
+        grant_subject_hash = str(grant.get("subject_hash", "")).lower()
+        grant_recipient_hash = str(grant.get("recipient_public_key_hash", "")).lower()
+        grant_scopes = grant.get("scopes", [])
+        if not isinstance(grant_scopes, list) or not all(isinstance(scope, str) for scope in grant_scopes):
+            raise ValueError("proxy issue policy grant scopes must be strings")
+        normalized_grant_scopes = set(_normalize_scopes(tuple(grant_scopes)))
+        if grant_subject_hash != subject_hash or grant_recipient_hash != recipient_public_key_hash:
+            continue
+        if not requested_scopes.issubset(normalized_grant_scopes):
+            continue
+        max_ttl = int(grant.get("max_ttl_seconds", 0) or 0)
+        if max_ttl <= 0:
+            raise ValueError("proxy issue policy grant ttl cap is required")
+        if ttl_seconds > max_ttl:
+            ttl_cap_fail = True
+            continue
+        return {
+            "required": True,
+            "configured": True,
+            "policy_hash": policy_hash,
+            "grant_hash": stable_hash(_canonical_json(grant), prefix="proxy_issue_grant"),
+            "subject_hash": subject_hash,
+            "recipient_public_key_hash": recipient_public_key_hash,
+            "requested_scopes": list(scopes),
+            "granted_scopes": sorted(normalized_grant_scopes),
+            "max_ttl_seconds": max_ttl,
+            "ttl_seconds": ttl_seconds,
+            "raw_secret_egress": False,
+        }
+    if ttl_cap_fail:
+        raise ValueError("proxy token ttl exceeds policy cap")
+    raise ValueError("proxy token issuance is not allowed by policy")
+
+
+def _load_proxy_issue_policy(policy_path: str) -> dict[str, Any]:
+    path = Path(policy_path)
+    try:
+        policy = json.loads(path.read_text())
+    except OSError as exc:
+        raise ValueError("proxy issue policy is unavailable") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError("proxy issue policy is invalid JSON") from exc
+    if not isinstance(policy, dict):
+        raise ValueError("proxy issue policy must be an object")
+    if policy.get("schema_version") != 1:
+        raise ValueError("proxy issue policy schema_version must be 1")
+    return policy
+
+
+def _canonical_json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
 def _signing_key_source(settings) -> str:

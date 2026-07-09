@@ -336,10 +336,9 @@ run IDs, checkpoint paths, samples, or private reward data.
 [planned]   Production proxy credential issuance still needs a full approval
             policy binding users/agents to scopes, spend caps, expirations,
             delivery public keys, revocation/audit records, and settlement
-            policy. The first implementation slice may expose an
-            operator-authenticated, disabled-by-default issuer for scoped JWTs
-            and encrypted delivery evidence, but that is not yet a production
-            user-management system.
+            policy. The source-real hash-only issue policy below is the first
+            approval primitive, but it is not yet a production user-management
+            or spend-governance system.
 [real]      Source now includes the first Tinker proxy credential slice:
             `tinker_delegate.tinker_proxy` creates scoped HS256 delegate JWTs
             from explicit local test key material or dstack-derived CVM-only
@@ -354,6 +353,18 @@ run IDs, checkpoint paths, samples, or private reward data.
             now deployed in the temporary funding-validation Phala profile for
             operator validation, but it is not yet bound to a production
             user/scope/spend approval policy.
+[real]      Proxy-token issuance can now require a hash-only issue policy before
+            minting. When `TINKER_PROXY_REQUIRE_ISSUE_POLICY=true` and
+            `TINKER_PROXY_ISSUE_POLICY_PATH` points at a schema-v1 policy file,
+            issuance fails closed unless a grant matches the subject hash,
+            recipient public-key hash, requested scope subset, and TTL cap.
+            Successful responses include only bounded `policy_binding` hashes,
+            requested/granted scopes, TTL cap, and `raw_secret_egress=false`;
+            they still do not return the raw subject, recipient public key, or
+            plaintext JWT. Source/API tests cover success, wrong recipient,
+            TTL cap denial, and missing required policy. On-chain compose
+            binding, spend-cap binding, and production identity approval remain
+            open.
 [real]      The first bounded operation endpoints now accept scoped proxy JWTs:
             `proxy:status` for proxy status, `tinker:smoke` for the paid smoke
             surface, `billing:payment-method-status` for card-on-file status,

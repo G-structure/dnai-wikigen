@@ -1,3 +1,5 @@
+import json
+import os
 import tempfile
 import unittest
 
@@ -6,11 +8,34 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
 from tinker_delegate import api
 from tinker_delegate.config import Settings
+from tinker_delegate.run_metadata_store import stable_hash
 from tinker_delegate.tinker_proxy import issue_proxy_token
 
 
 SIGNING_KEY_HEX = "22" * 32
 STORE_KEY_HEX = "77" * 32
+
+
+def _write_proxy_issue_policy(path: str, *, subject: str, recipient_public_key_hex: str, scopes: list[str], ttl: int):
+    with open(path, "w") as handle:
+        json.dump(
+            {
+                "schema_version": 1,
+                "grants": [
+                    {
+                        "subject_hash": stable_hash(subject, prefix="proxy_subject"),
+                        "recipient_public_key_hash": stable_hash(
+                            recipient_public_key_hex.lower(),
+                            prefix="proxy_recipient_public_key",
+                        ),
+                        "scopes": scopes,
+                        "max_ttl_seconds": ttl,
+                    }
+                ],
+            },
+            handle,
+            sort_keys=True,
+        )
 
 
 class TinkerProxyApiTest(unittest.TestCase):
@@ -108,6 +133,47 @@ class TinkerProxyApiTest(unittest.TestCase):
         self.assertFalse(body["raw_secret_egress"])
         self.assertNotIn("operator-secret", rendered)
         self.assertNotIn("buyer-agent-1", rendered)
+
+    def test_proxy_token_issuance_can_require_hash_only_policy(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recipient_public_key = X25519PrivateKey.generate().public_key().public_bytes_raw().hex()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=recipient_public_key,
+                scopes=["proxy:status", "billing:payment-method-status"],
+                ttl=60,
+            )
+            api.settings = self._settings(
+                tmpdir,
+                allow_tinker_proxy_token_issuance=True,
+                runtime_auth_required=True,
+                runtime_auth_token="operator-secret",
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+            )
+            client = TestClient(api.app)
+
+            response = client.post(
+                "/tinker/proxy/token",
+                headers={"Authorization": "Bearer operator-secret"},
+                json={
+                    "subject": "buyer-agent-1",
+                    "scopes": ["billing:payment-method-status"],
+                    "recipient_public_key": recipient_public_key,
+                    "ttl_seconds": 60,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        rendered = repr(body)
+        self.assertTrue(body["policy_binding"]["required"])
+        self.assertEqual(body["policy_binding"]["requested_scopes"], ["billing:payment-method-status"])
+        self.assertFalse(body["policy_binding"]["raw_secret_egress"])
+        self.assertNotIn("buyer-agent-1", rendered)
+        self.assertNotIn(recipient_public_key, rendered)
 
     def test_proxy_status_accepts_scoped_proxy_jwt(self):
         with tempfile.TemporaryDirectory() as tmpdir:

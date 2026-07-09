@@ -100,6 +100,8 @@ class Settings(BaseSettings):
     proxy_jwt_issuer: str = "dnai-wikigen:tinker-proxy"
     proxy_jwt_audience: str = "dnai-wikigen:tinker-delegate"
     proxy_approved_subjects: str = ""
+    proxy_require_issue_policy: bool = False
+    proxy_issue_policy_path: str = ""
     proxy_token_store_path: str = "./data/proxy_tokens.enc"
     proxy_token_store_key: str = ""
     proxy_token_key_path: str = "tinker/proxy_tokens"

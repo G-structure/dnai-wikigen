@@ -89,6 +89,20 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             approved user/agent identity, delivery public key, scopes, spend
             caps, expiration, revocation, audit record, and contract/compose
             policy.
+            - [x] Add a hash-only proxy issue policy gate for subject,
+                  recipient delivery key, scopes, and TTL cap. Done
+                  2026-07-09: `TINKER_PROXY_REQUIRE_ISSUE_POLICY=true` plus
+                  `TINKER_PROXY_ISSUE_POLICY_PATH` makes token issuance fail
+                  closed unless a JSON policy grant matches the subject hash,
+                  recipient public-key hash, requested scope subset, and TTL
+                  cap. Issuance responses expose only bounded
+                  `policy_binding` hashes/scopes/caps and never the raw subject
+                  or recipient public key. Unit/API tests cover success,
+                  wrong-recipient denial, TTL-cap denial, and required-policy
+                  missing-path denial.
+            - [ ] Bind proxy issue policy grants to on-chain compose policy,
+                  operation spend caps, and production user/agent identity
+                  approval before treating this as production governance.
       - [x] Accept scoped proxy JWTs on the first bounded operation endpoints.
             Done 2026-07-09: `GET /tinker/proxy/status`,
             `POST /tinker/smoke`, `GET /billing/payment-method-status`, and

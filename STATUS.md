@@ -101,9 +101,15 @@ Latest Tinker execution buildout, 2026-07-09:
   `tinker-proxy-recipient-keygen` writes a `0600` X25519 private-key file and
   emits only the public key; `decrypt-tinker-proxy-token` decrypts an issuance
   envelope into a `0600` JWT file and emits only hashes/status. Production user
-  approval, spend caps, and production governance remain open; live
-  funding-validation deployment, attestation, audit replay, and compose/contract
-  binding are now proven for the operator-validation slice below.
+  approval, spend caps, and production governance remain open; however source
+  now has a hash-only issue-policy gate. With
+  `TINKER_PROXY_REQUIRE_ISSUE_POLICY=true` and
+  `TINKER_PROXY_ISSUE_POLICY_PATH`, issuance fails closed unless a policy grant
+  matches the subject hash, recipient public-key hash, requested scope subset,
+  and TTL cap. Successful responses expose only bounded `policy_binding`
+  hashes/scopes/caps and `raw_secret_egress=false`. Live funding-validation
+  deployment, attestation, audit replay, and compose/contract binding are now
+  proven for the operator-validation slice below.
 - First proxy-token authorization wiring is source/test-real:
   `GET /tinker/proxy/status`, `POST /tinker/smoke`,
   `GET /billing/payment-method-status`, and `POST /billing/add-balance` accept
