@@ -2521,15 +2521,39 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 ### ConSECA-Style Policy Kernel
 
-- [ ] `P0` Keep the gate as a pure function of `(AccessRequest, CorpusPolicy)`.
-- [ ] `P0` Replace hardcoded illustrative gate verdicts with a deterministic
-      policy engine.
+- [x] `P0` Keep the gate as a pure function of `(AccessRequest, CorpusPolicy)`.
+      Done 2026-07-09: `tinker_delegate.policy_kernel.gate_access_request()`
+      takes frozen `AccessRequest` and `CorpusPolicy` records and returns a
+      bounded `PolicyGateResult` with no network, browser, email, Tinker, chain,
+      clock, random, or mutable-store dependency.
+- [x] `P0` Replace hardcoded illustrative gate verdicts with a deterministic
+      policy engine. Done 2026-07-09: `tinker_delegate.policy_kernel` enforces
+      allowed/denied purposes, pipeline and output-schema allowlists,
+      operation allowlists, known data classes, restricted categories, and
+      review/ambiguous categories with stable pass/hold/deny outcomes. The
+      pure `gate_turn_requests()` fan-out adapter converts per-corpus access
+      requests into the existing `coordination.GateResults` shape without
+      making the coordination reducer call services or policy code implicitly.
 - [ ] `P0` Add LLM-drafted policy authoring only as a drafting step.
       Enforcement must be deterministic and testable.
-- [ ] `P0` Add fail-closed behavior for unknown policy fields, unknown purposes,
-      unsupported pipelines, and ambiguous restricted categories.
-- [ ] `P1` Add policy tests for every allowed purpose, denied purpose, hold route,
-      and restricted category.
+      Enforcement is now deterministic/tested in `policy_kernel`; LLM
+      draft-to-policy compilation remains open.
+- [x] `P0` Add fail-closed behavior for unknown policy fields, unknown purposes,
+      unsupported pipelines, and ambiguous restricted categories. Done
+      2026-07-09: strict dict entrypoints reject unknown request/policy fields
+      into bounded deny receipts; unknown purposes, unsupported pipelines,
+      unsupported output schemas/operations, unknown data classes, restricted
+      categories, and unsupported policy versions fail closed; ambiguous
+      categories route to hold/review with bounded category hashes.
+- [x] `P1` Add policy tests for the initial source-real allowed purpose, denied
+      purpose, hold route, and restricted category. Done 2026-07-09:
+      `tests.test_policy_kernel` covers allowed pass, denied/unknown purposes,
+      unsupported pipeline/output, unknown fields, unknown data classes,
+      restricted-deny, hold-route, ambiguous-review, unsupported policy version,
+      coordination `GatedQuery` conversion, fan-out coverage checks, and policy
+      deny beating consent.
+- [ ] `P1` Extend policy tests for every additional production purpose, route,
+      and restricted category when the production policy catalog exists.
 - [ ] `P1` Add policy versioning and migration.
 - [ ] `P1` Add policy diff review for corpus owners and reviewers.
 

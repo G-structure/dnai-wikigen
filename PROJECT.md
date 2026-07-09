@@ -789,9 +789,12 @@ The current repo does not yet guarantee:
 - durable human reviewer queue; the source-modeled reducer can create and
   resolve bounded hold tickets, but notification, expiry, UI, and reviewer
   custody are not production
-- production multi-party coordination engine; the pure local reducer now covers
-  fail-closed fan-out, consent, revocation, joint attestations, and royalty
-  meters, but tee-email-oracle/DiligenceRoom effect wiring remains open
+- production multi-party coordination engine; the source now has a deterministic
+  pure ConSECA-style `policy_kernel` for per-corpus AccessRequest/CorpusPolicy
+  enforcement and a pure local reducer for fail-closed fan-out, consent,
+  revocation, joint attestations, and royalty meters, but LLM policy authoring,
+  policy migration/diff review, tee-email-oracle/DiligenceRoom effect wiring,
+  and production governance remain open
 - production frontend wired to real APIs
 - Proof-of-Cloud or equivalent platform provenance
 

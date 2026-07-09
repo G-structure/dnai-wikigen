@@ -157,11 +157,13 @@ Important current status:
             than full cryptographic Intel TDX quote parsing/freshness.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
 [partial]   Multi-party coordination, corpus policy, royalty metering,
-            consent/revocation. The source now has a pure coordination reducer
-            for strict per-corpus result composition, consent matching,
-            reviewer-release flow, revocation, joint attestations, and royalty
-            meters. Service wiring, durable reviewer queues, M-of-N review, and
-            production governance remain incomplete.
+            consent/revocation. The source now has a deterministic pure
+            `tinker_delegate.policy_kernel` for per-corpus policy enforcement
+            and a pure coordination reducer for strict per-corpus result
+            composition, consent matching, reviewer-release flow, revocation,
+            joint attestations, and royalty meters. Service wiring, durable
+            reviewer queues, M-of-N review, policy authoring/migration/diff
+            review, and production governance remain incomplete.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
 ```
 
@@ -2026,6 +2028,22 @@ Implementation status:
             checkpoint paths, and sample text out of public output. This is a
             local modeled proof only; deployed CVM execution and real Tinker SDK
             training remain separate blockers.
+[real]      `tinker_delegate.policy_kernel` implements the first deterministic
+            ConSECA-style corpus policy gate. `AccessRequest` and `CorpusPolicy`
+            are frozen source records; `gate_access_request()` is a pure
+            function with no network, browser, email, chain, Tinker, clock,
+            random, or mutable-store effects. It enforces allowed/denied
+            purposes, allowed pipelines, output schemas, operations, known data
+            classes, restricted categories, hold/review categories, ambiguous
+            categories, and policy version support. Strict dict entrypoints
+            fail closed on unknown request/policy fields and malformed payloads.
+            Public results expose stable decisions, stage, reason code, route,
+            policy/request hashes, category hashes/counts, and
+            `raw_secret_egress=false`; raw policy clauses, raw private category
+            labels, artifacts, reward values, samples, and credentials are not
+            returned. `gate_turn_requests()` is the explicit fan-out adapter
+            into `coordination.GateResults`; the coordination reducer remains
+            event-driven and does not call gates implicitly.
 [real]      `TinkerAccountEncumbrance` is deployed on Base Sepolia at
             `0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`. It enforces approved
             compose hashes, operation caps for add-balance and Tinker-compute
@@ -2202,6 +2220,12 @@ Implementation status:
             reducer with no network, browser, email, chain, or Tinker effects.
             Events are `SubmitTurn`, `GateResults`, `ReviewerDecision`, and
             `RevokeCorpus`; every transition returns a new `CoordinationState`.
+[real]      `tinker_delegate.policy_kernel` supplies the source-real
+            deterministic gate beneath this layer. The fan-out boundary validates
+            one access request and one policy per corpus, evaluates each pair,
+            and emits `GateResults` with `coordination.GateDecision` values.
+            Policy denies remain terminal even if consent grants exist; holds
+            carry stable reviewer-route labels into hold tickets.
 [real]      Strict composition is executable: any deny denies, any hold opens a
             ticket and withholds output, only all-pass can reach consent and
             settlement, and gate results must cover exactly the turn's corpus set.

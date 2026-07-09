@@ -28,7 +28,7 @@ the wikigen / NDAI Attested Diligence Room stack — and how real each function 
 | Function | What the user does | Status | Where |
 |---|---|---|---|
 | Register a sealed corpus | Publish a data store as *pointer + policy*, never a raw dump | 🟡 modeled | `CorpusPolicy`; `props-room` `ControllerRecord` stub |
-| Set corpus policy | Declare sensitivity tier, required assurance, allowed purposes, pipeline allowlist, restricted categories, royalty/query | 🟡 modeled | `corpora.ts` (demo); enforcement kernel 🔴 |
+| Set corpus policy | Declare sensitivity tier, required assurance, allowed purposes, pipeline allowlist, restricted categories, royalty/query | 🟡 partial | `tinker_delegate.policy_kernel` enforces source-level `CorpusPolicy`; production authoring/migration/review 🔴 |
 | Per-corpus key sealing | Data unsealed only inside the same enclave measurement | 🟡 partial | dstack-KMS sealing works for 2 fixed paths; per-`corpusRef` keying 🔴 |
 | Bounded output only | Guarantee raw values never leave — only score bands / yes-no / hash | ✅ real | `control_plane` ScoreBand + `submitResult` posts band+hash |
 | Egress / DLP control | Give the locality axis runtime teeth; block raw egress on hybrid/api-only | 🔴 needs work | locality is UI-only today |
@@ -38,12 +38,12 @@ the wikigen / NDAI Attested Diligence Room stack — and how real each function 
 
 | Function | What the user does | Status | Where |
 |---|---|---|---|
-| Submit an access request | Ask to run a pipeline against a corpus for a declared purpose | 🟡 modeled | `AccessRequest`; simulator |
-| Four-stage pre-inference gate | Identity → purpose → bio-risk (screen-and-deny) → attested execution; stop at first non-pass | ✅ real (pure fn) | `evaluate.ts`, 17 tests — **but verdict logic is illustrative scaffolding** 🔴 |
-| Purpose + allowlist enforcement | Only allowed purposes/pipelines clear | ✅ real | gate stage 2 |
-| Bio-risk screen-and-deny | Restricted categories (germline, re-id, de-novo design, pathogen) deny + escalate | ✅ deterministic | gate stage 3; real biosecurity classifier 🔴 |
-| Hold → human review | Ambiguous/dual-use requests routed to a reviewer | 🔴 needs work | `reviewer` is always null; no queue |
-| ConSECA policy authoring | LLM-drafted policies compiled to a deterministic, fail-closed enforcer | 🔴 needs work | screening is hardcoded heuristics today |
+| Submit an access request | Ask to run a pipeline against a corpus for a declared purpose | 🟡 partial | `AccessRequest` + `gate_turn_requests`; service/API wiring 🔴 |
+| Four-stage pre-inference gate | Purpose → pipeline/output → category risk/review → bounded pass; stop at first non-pass | ✅ real (pure fn) | `tinker_delegate.policy_kernel`, focused tests; attested service wiring 🔴 |
+| Purpose + allowlist enforcement | Only allowed purposes/pipelines clear | ✅ real | deterministic policy stages 1-2 |
+| Bio-risk screen-and-deny | Restricted categories deny; ambiguous/dual-use categories hold for review | 🟡 partial | deterministic stage 3; real biosecurity classifier 🔴 |
+| Hold → human review | Ambiguous/dual-use requests routed to a reviewer | 🟡 partial | route labels and coordination hold tickets real; durable queue/UI 🔴 |
+| ConSECA policy authoring | LLM-drafted policies compiled to a deterministic, fail-closed enforcer | 🔴 needs work | deterministic enforcement exists; LLM draft compiler/review workflow 🔴 |
 
 ## 4. Bidding & Economics (NDAI)
 
