@@ -119,8 +119,9 @@ class FakeRestClient:
 class FakeServiceClient:
     last_instance = None
 
-    def __init__(self, api_key):
+    def __init__(self, api_key, project_id=None):
         self.api_key = api_key
+        self.project_id = project_id
         self.training_client = FakeTrainingClient("run-secret")
         self.sampling_paths = []
         self.rest_client = FakeRestClient()
@@ -253,10 +254,28 @@ class TinkerSmokeTest(unittest.TestCase):
         self.assertNotIn("this sample must never leave", rendered)
 
         service_client = FakeServiceClient.last_instance
-        self.assertEqual(service_client.training_kwargs["base_model"], "meta-llama/Llama-3.2-1B")
-        self.assertEqual(service_client.training_kwargs["rank"], 4)
+        self.assertEqual(service_client.training_kwargs["base_model"], "Qwen/Qwen3-8B")
+        self.assertEqual(service_client.training_kwargs["rank"], 32)
         self.assertEqual(service_client.training_client.save_calls, [("budgeted-smoke", 3600)])
         self.assertEqual(service_client.rest_client.deleted, [("run-secret", "cp-secret")])
+
+    def test_smoke_passes_project_id_without_leaking_it(self):
+        with (
+            patch.object(session_module, "tinker", FAKE_TINKER),
+            patch("tinker_delegate.tinker_smoke.resolve_api_key", return_value="tml-secret-value"),
+            patch("tinker_delegate.tinker_smoke.preflight_tinker_operation", return_value=_allowed_policy()),
+        ):
+            result = run_tinker_sdk_smoke(
+                Settings(real_sdk_max_usd=0.05, project_id="proj-secret"),
+                TinkerSmokeRequest(deal_id="deal-secret", max_usd=0.05),
+            )
+
+        rendered = json.dumps(result)
+        self.assertTrue(result["success"])
+        self.assertEqual(FakeServiceClient.last_instance.project_id, "proj-secret")
+        self.assertTrue(result["sdk_diagnostics"]["project"]["configured"])
+        self.assertRegex(result["sdk_diagnostics"]["project"]["project_hash"], r"^[0-9a-f]{64}$")
+        self.assertNotIn("proj-secret", rendered)
 
     def test_smoke_fails_closed_when_encumbrance_denies(self):
         denied = TinkerEncumbrancePolicyResult(
@@ -319,16 +338,28 @@ class TinkerSmokeTest(unittest.TestCase):
         self.assertEqual(result["error_kind"], "BadRequestError")
         self.assertEqual(result["sdk_error"]["bucket"], "model_or_rank")
         self.assertEqual(result["sdk_error"]["http_status_class"], "4xx")
+        self.assertEqual(result["sdk_error"]["failure_site"], "create_training_client")
+        self.assertEqual(result["sdk_error"]["operator_action"], "check_project_or_account_entitlement")
         self.assertRegex(result["sdk_error"]["message_hash"], r"^[0-9a-f]{64}$")
         self.assertIn(result["sdk_error"]["message_length_band"], {"<=64", "<=256", "<=512"})
         diagnostics = result["sdk_diagnostics"]
         self.assertEqual(diagnostics["training_create"]["method"], "ServiceClient.create_lora_training_client")
         self.assertEqual(diagnostics["training_create"]["explicit_kwargs"], ["base_model", "rank"])
         self.assertEqual(diagnostics["training_create"]["injected_user_metadata_keys"], ["deal_id"])
-        self.assertEqual(diagnostics["training_create"]["model_family"], "meta-llama")
-        self.assertEqual(diagnostics["training_create"]["rank_band"], "<=8")
+        self.assertEqual(diagnostics["training_create"]["model_family"], "qwen")
+        self.assertEqual(diagnostics["training_create"]["rank_band"], "<=32")
+        self.assertEqual(
+            diagnostics["training_create"]["request_shape"],
+            {
+                "has_base_model": True,
+                "has_rank": True,
+                "has_user_metadata_deal_id": True,
+                "extra_kwargs_count": 0,
+            },
+        )
+        self.assertFalse(diagnostics["project"]["configured"])
         self.assertEqual(diagnostics["capabilities"]["checked"], True)
-        self.assertEqual(diagnostics["capabilities"]["attempted_model_supported"], False)
+        self.assertEqual(diagnostics["capabilities"]["attempted_model_supported"], True)
         self.assertEqual(diagnostics["capabilities"]["supported_model_count_band"], "1-10")
         self.assertEqual(diagnostics["capabilities"]["max_batch_size_band"], "<=32")
         self.assertRegex(diagnostics["capabilities"]["supported_models_hash"], r"^[0-9a-f]{64}$")

@@ -67,6 +67,22 @@ class TinkerSmokeApiTest(unittest.TestCase):
         self.assertEqual(ok.json(), BOUNDED_SMOKE_RESULT)
         smoke.assert_called_once()
 
+    def test_smoke_endpoint_rejects_unknown_model_alias_fields(self):
+        api.settings = Settings(allow_tinker_smoke_endpoint=True)
+        client = TestClient(api.app)
+
+        with patch("tinker_delegate.tinker_smoke.run_tinker_sdk_smoke", return_value=BOUNDED_SMOKE_RESULT) as smoke:
+            response = client.post(
+                "/tinker/smoke",
+                json={"max_usd": 0.05, "base_model": "Qwen/Qwen3-8B"},
+            )
+
+        self.assertEqual(response.status_code, 422)
+        rendered = str(response.json())
+        self.assertIn("extra_forbidden", rendered)
+        self.assertNotIn("operator-secret", rendered)
+        smoke.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -13,7 +13,7 @@ BUDGET_ENV = "TINKER_REAL_SDK_MAX_USD"
 MODEL_ENV = "TINKER_REAL_SDK_MODEL"
 RANK_ENV = "TINKER_REAL_SDK_RANK"
 HARD_MAX_USD = Decimal("0.50")
-DEFAULT_MODEL = "meta-llama/Llama-3.2-1B"
+DEFAULT_MODEL = "Qwen/Qwen3-8B"
 
 
 def _enabled() -> bool:

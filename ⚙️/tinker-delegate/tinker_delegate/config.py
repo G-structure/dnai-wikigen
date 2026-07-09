@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     # Tinker auth
     tinker_console_url: str = "https://tinker-console.thinkingmachines.ai"
+    project_id: str = ""
 
     # Account details (auto-fetched from oracle if not set)
     email: str = ""
@@ -91,5 +92,5 @@ class Settings(BaseSettings):
     # funded, attested operator-validation CVM or explicit local test context.
     allow_tinker_smoke_endpoint: bool = False
     real_sdk_max_usd: float = 0.05
-    real_sdk_model: str = "meta-llama/Llama-3.2-1B"
-    real_sdk_rank: int = 4
+    real_sdk_model: str = "Qwen/Qwen3-8B"
+    real_sdk_rank: int = 32

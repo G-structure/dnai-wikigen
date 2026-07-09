@@ -150,9 +150,9 @@ class CliBoundedOutputsTest(unittest.TestCase):
                         "--max-usd",
                         "0.05",
                         "--model",
-                        "meta-llama/Llama-3.2-1B",
+                        "Qwen/Qwen3-8B",
                         "--rank",
-                        "4",
+                        "32",
                         "--output",
                         str(output_path),
                     ],
@@ -170,7 +170,7 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertEqual(result.stdout, "")
             self.assertEqual(seen_headers, ["Bearer operator-secret"])
             self.assertEqual(seen_body[0]["max_usd"], 0.05)
-            self.assertEqual(seen_body[0]["rank"], 4)
+            self.assertEqual(seen_body[0]["rank"], 32)
             body = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertTrue(body["success"])
             self.assertTrue(body["sample_observed"])

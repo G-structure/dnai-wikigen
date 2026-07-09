@@ -112,6 +112,7 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
     furthest_stage = "api_key_loaded"
     checkpoint_path = ""
     cleanup = None
+    failure_site = "service_client_create"
     sdk_diagnostics = _bounded_sdk_diagnostics(
         service_client=None,
         model=model,
@@ -121,17 +122,21 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
     try:
         import tinker
 
-        service_client = tinker.ServiceClient(api_key=api_key)
+        project_id = getattr(settings, "project_id", "")
+        service_client = _create_service_client(tinker, api_key, project_id)
         sdk_diagnostics = _bounded_sdk_diagnostics(
             service_client=service_client,
             model=model,
             rank=rank,
             deal_id=deal_id,
+            project_id=project_id,
         )
         session = IsolatedTinkerSession(service_client, deal_id)
 
+        failure_site = "create_training_client"
         session.create_training(base_model=model, rank=rank)
         furthest_stage = "training_created"
+        failure_site = "tokenizer"
         tokenizer = session.get_tokenizer()
 
         prompt_tokens = tokenizer.encode("Question: What is 2 + 2?\nAnswer:", add_special_tokens=True)
@@ -161,17 +166,22 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
             },
         )
 
+        failure_site = "forward_backward"
         _wait(session.forward_backward([datum], loss_fn="cross_entropy"))
         furthest_stage = "forward_backward_completed"
         _enforce_meter_cap(session, max_usd)
+        failure_site = "optimizer_step"
         _wait(session.optim_step(tinker.AdamParams(learning_rate=1e-4)))
         furthest_stage = "optimizer_step_completed"
 
+        failure_site = "checkpoint_save"
         checkpoint_path = session.save_for_sampling("budgeted-smoke", ttl_seconds=ttl_seconds)
         furthest_stage = "checkpoint_saved"
+        failure_site = "sampler_create"
         sampler = session.create_sampler(checkpoint_path)
 
         sampling_params = tinker.SamplingParams(max_tokens=1, temperature=0)
+        failure_site = "sample"
         sample_result = _wait(
             session.sample(
                 sampler,
@@ -183,6 +193,7 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
         furthest_stage = "sample_completed"
         _enforce_meter_cap(session, max_usd)
 
+        failure_site = "cleanup"
         cleanup = session.cleanup()
         furthest_stage = "cleanup_completed"
         return _success_receipt(
@@ -217,7 +228,7 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
             policy=policy.to_public_dict(),
             error_kind=exc.__class__.__name__,
             bounded_message=redact_text(exc.__class__.__name__),
-            sdk_error=_bounded_sdk_error(exc),
+            sdk_error=_bounded_sdk_error(exc, failure_site=failure_site),
             session=session,
             checkpoint_path=checkpoint_path,
             cleanup=cleanup,
@@ -240,6 +251,13 @@ def _wait(value):
     if hasattr(value, "result"):
         return value.result()
     return value
+
+
+def _create_service_client(tinker_module, api_key: str, project_id: str):
+    kwargs: dict[str, str] = {"api_key": api_key}
+    if project_id:
+        kwargs["project_id"] = project_id
+    return tinker_module.ServiceClient(**kwargs)
 
 
 def _enforce_meter_cap(session: IsolatedTinkerSession, max_usd: float) -> None:
@@ -379,18 +397,23 @@ def _empty_sdk_error() -> dict[str, Any]:
         "message_hash": "",
         "message_length_band": "zero",
         "http_status_class": "",
+        "failure_site": "",
+        "operator_action": "",
     }
 
 
-def _bounded_sdk_error(exc: Exception) -> dict[str, Any]:
+def _bounded_sdk_error(exc: Exception, *, failure_site: str) -> dict[str, Any]:
     """Return a correlation-safe SDK error fingerprint without raw provider text."""
 
     normalized = _normalize_exception_message(exc)
+    bucket = _classify_sdk_error(exc, normalized)
     return {
-        "bucket": _classify_sdk_error(exc, normalized),
+        "bucket": bucket,
         "message_hash": stable_hash(normalized or exc.__class__.__name__, prefix="tinker_sdk_error"),
         "message_length_band": _message_length_band(normalized),
         "http_status_class": _http_status_class(exc),
+        "failure_site": failure_site,
+        "operator_action": _operator_action(bucket, failure_site),
     }
 
 
@@ -400,6 +423,10 @@ def _empty_sdk_diagnostics() -> dict[str, Any]:
         "sdk_package": "tinker",
         "sdk_version": "unknown",
         "training_create": {},
+        "project": {
+            "configured": False,
+            "project_hash": "",
+        },
         "capabilities": {
             "checked": False,
             "method": "",
@@ -419,6 +446,7 @@ def _bounded_sdk_diagnostics(
     model: str,
     rank: int,
     deal_id: str,
+    project_id: str = "",
 ) -> dict[str, Any]:
     return {
         "schema_version": 1,
@@ -439,6 +467,16 @@ def _bounded_sdk_diagnostics(
             "rank": rank,
             "rank_band": _rank_band(rank),
             "deal_hash": stable_hash(deal_id, prefix="deal"),
+            "request_shape": {
+                "has_base_model": bool(model),
+                "has_rank": True,
+                "has_user_metadata_deal_id": True,
+                "extra_kwargs_count": 0,
+            },
+        },
+        "project": {
+            "configured": bool(project_id),
+            "project_hash": stable_hash(project_id, prefix="tinker_project") if project_id else "",
         },
         "capabilities": _bounded_capability_probe(service_client, model),
     }
@@ -649,6 +687,28 @@ def _classify_sdk_error(exc: Exception, normalized_message: str) -> str:
     if "connection" in text or "network" in text:
         return "transient_network"
     return "unknown"
+
+
+def _operator_action(bucket: str, failure_site: str) -> str:
+    if failure_site == "service_client_create":
+        if bucket == "auth_or_entitlement":
+            return "refresh_or_reseal_api_key"
+        return "check_sdk_client_configuration"
+    if failure_site == "create_training_client":
+        if bucket in {"invalid_request", "model_or_rank", "auth_or_entitlement"}:
+            return "check_project_or_account_entitlement"
+        if bucket == "quota_or_funding":
+            return "check_tinker_balance_or_quota"
+        if bucket in {"rate_limited", "transient_timeout", "transient_network"}:
+            return "retry_later"
+        return "escalate_with_message_hash"
+    if failure_site in {"forward_backward", "optimizer_step", "checkpoint_save", "sample"}:
+        if bucket in {"rate_limited", "transient_timeout", "transient_network"}:
+            return "retry_later"
+        return "inspect_bounded_training_inputs"
+    if failure_site == "cleanup":
+        return "inspect_cleanup_receipt"
+    return "escalate_with_message_hash"
 
 
 def _message_length_band(value: str) -> str:

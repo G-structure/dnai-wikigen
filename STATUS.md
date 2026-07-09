@@ -121,10 +121,21 @@ Latest Tinker execution buildout, 2026-07-09:
 - Source now adds bounded SDK failure diagnostics for the next deployed smoke
   attempt: receipts include an allowlisted `sdk_error.bucket`, normalized
   redacted `sdk_error.message_hash`, coarse `message_length_band`, and bounded
-  `sdk_diagnostics` covering request shape plus capability probing. Focused
-  tests prove raw provider-message text, supported model lists, API-key-shaped,
-  email-shaped, card-shaped, request-ID-shaped, deal ID, run ID, checkpoint, and
-  sample material do not leave the receipt.
+  `sdk_diagnostics` covering request shape plus capability probing. The next
+  diagnostics build also records enum `sdk_error.failure_site`,
+  `sdk_error.operator_action`, and optional `TINKER_PROJECT_ID` configured/hash
+  evidence without returning the raw project id. Focused tests prove raw
+  provider-message text, supported model lists, API-key-shaped, email-shaped,
+  card-shaped, request-ID-shaped, deal ID, run ID, checkpoint, and sample
+  material do not leave the receipt.
+- Additional bounded live probes on the same deployed compose tried the
+  official quickstart model `Qwen/Qwen3-8B` at ranks `32` and `16`; both failed
+  before training creation with the same bounded `BadRequestError` message hash
+  as the original Llama/rank-4 attempt. The current working hypothesis is a
+  project/account entitlement or service-side account configuration requirement.
+  The source default has been moved to `Qwen/Qwen3-8B` rank `32`, but real
+  execution remains unproven until a deployed receipt reaches
+  `cleanup_completed`.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned
@@ -1817,8 +1828,9 @@ explicitly legacy.
   prerequisites, but the live run fails closed with `BadRequestError` at
   `api_key_loaded` before training creation. The current diagnostic receipt
   classifies the failure as `invalid_request` / `4xx` from Tinker SDK `0.15.0`;
-  no deployed Tinker run ID, checkpoint, sample, cleanup receipt, or spend proof
-  exists yet.
+  `Qwen/Qwen3-8B` rank `16` and rank `32` retries failed with the same bounded
+  hash. No deployed Tinker run ID, checkpoint, sample, cleanup receipt, or spend
+  proof exists yet.
 - Bio-validation must remain fail-closed until risk screening, reviewer queues,
   and bounded schemas exist.
 

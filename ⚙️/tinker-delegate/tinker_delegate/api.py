@@ -32,7 +32,7 @@ from typing import Any, Optional
 from fastapi import FastAPI, Header, HTTPException, status
 from fastapi.responses import JSONResponse
 from cryptography.exceptions import InvalidTag
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from tinker_delegate.api_key_store import resolve_api_key
 from tinker_delegate.artifacts import (
@@ -204,6 +204,8 @@ class EvaluationResultResponse(BaseModel):
     fee_wei: int
 
 class TinkerSmokeRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     deal_id: str = ""
     max_usd: Optional[float] = None
     model: str = ""

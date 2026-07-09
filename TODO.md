@@ -1737,6 +1737,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `sdk_diagnostics` for request shape plus capability probing without
             returning raw provider text, model lists, API keys, emails,
             card-shaped strings, request IDs, run IDs, or samples.
+      - [x] Add project-aware Tinker smoke diagnostics and safe default request
+            shape. Done 2026-07-09: the smoke path now passes optional
+            `TINKER_PROJECT_ID` into `tinker.ServiceClient`, returns only
+            project configured/hash evidence, records enum `failure_site` and
+            `operator_action`, rejects unknown API payload fields instead of
+            silently falling back to defaults, and defaults the paid smoke to
+            the official quickstart pair `Qwen/Qwen3-8B` rank `32`.
       - [ ] Run `tinker-smoke --api-url ... --max-usd 0.05
             --require-encumbrance` successfully from the deployed CVM and record
             the bounded receipt plus attestation evidence.
@@ -1748,7 +1755,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             model family `meta-llama`, rank band `<=8`, and no capability probe
             result from `ServiceClient.get_server_capabilities`. No run ID,
             checkpoint, sample, cleanup proof, or spend proof exists yet, so
-            this parent P0 remains open.
+            this parent P0 remains open. Follow-up live probes with
+            `Qwen/Qwen3-8B` rank `32` and rank `16` produced the same bounded
+            `BadRequestError` hash before training creation, so the current
+            working hypothesis is missing project/account entitlement or a
+            service-side account configuration requirement, not only the old
+            model/rank default.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
 - [x] `P0` Add real SDK integration tests gated by an env var and budget cap.
@@ -2556,7 +2568,10 @@ vision Wiki is reaching for.
       is deployed and approved for `SPEND_TINKER_COMPUTE`, but the real smoke
       fails closed with `BadRequestError` at `api_key_loaded` before training
       creation. The bounded diagnostic receipt reports `invalid_request` /
-      `4xx` from Tinker SDK `0.15.0`.
+      `4xx` from Tinker SDK `0.15.0`. `Qwen/Qwen3-8B` rank `16` and rank `32`
+      retries failed with the same bounded hash; next deployment should include
+      project-aware diagnostics and test with `TINKER_PROJECT_ID` if the console
+      exposes one.
 - [ ] `Deploy` Create a synthetic test room on Base Sepolia.
 - [ ] `Deploy` Fund the synthetic test deal.
 - [ ] `Deploy` Upload encrypted synthetic artifact.
@@ -2716,6 +2731,8 @@ vision Wiki is reaching for.
        Current blocker: deployed smoke fails with `BadRequestError` at
        `api_key_loaded` before Tinker training creation; bounded diagnostics
        classify it as `invalid_request` / `4xx` from Tinker SDK `0.15.0`.
+       Official-model retries with `Qwen/Qwen3-8B` rank `16` and `32` still
+       failed before run creation.
 13. [ ] Merge the `gate-health-frontend` UI and wire it to real verifier/status
        APIs.
 

@@ -1350,7 +1350,37 @@
         "sampleObserved": false,
         "rawSecretEgress": false
       },
-      "nextStep": "Resolve Tinker SDK BadRequest at create_lora_training_client by checking supported model/request shape or an official Tinker service-account route; do not mark real training complete until run/checkpoint/sample/cleanup evidence exists"
+      "liveProbeRetries": [
+        {
+          "path": "/tmp/dnai-tinker-smoke-qwen32-20260709T125022Z.json",
+          "modelFamily": "qwen",
+          "rankBand": "<=32",
+          "success": false,
+          "outcome": "smoke_failed",
+          "furthestStage": "api_key_loaded",
+          "errorKind": "BadRequestError",
+          "sdkErrorBucket": "invalid_request",
+          "httpStatusClass": "4xx",
+          "messageHashMatchesInitialFailure": true,
+          "trainingRunCreated": false,
+          "rawSecretEgress": false
+        },
+        {
+          "path": "/tmp/dnai-tinker-smoke-qwen16-20260709T125329Z.json",
+          "modelFamily": "qwen",
+          "rankBand": "<=32",
+          "success": false,
+          "outcome": "smoke_failed",
+          "furthestStage": "api_key_loaded",
+          "errorKind": "BadRequestError",
+          "sdkErrorBucket": "invalid_request",
+          "httpStatusClass": "4xx",
+          "messageHashMatchesInitialFailure": true,
+          "trainingRunCreated": false,
+          "rawSecretEgress": false
+        }
+      ],
+      "nextStep": "Deploy project-aware bounded diagnostics, set TINKER_PROJECT_ID if the Tinker console exposes one, and resolve the service-side BadRequest at create_lora_training_client; do not mark real training complete until run/checkpoint/sample/cleanup evidence exists"
     },
     "selectorDiagnosticsEvidence20260709": {
       "status": "custom_neko_cdp_browser_ready_selector_probe_succeeded",
