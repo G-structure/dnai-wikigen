@@ -33,37 +33,41 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
 `wikigen` in workspace `wiki`.
 
 Latest Phala evidence, 2026-07-08: GitHub Actions built source commit
-`f553a13da7276d56b5284bb55706887c5766455d` into GHCR digest-pinned
-`tee-email-oracle@sha256:ac5d30a8150d840dcbef28f87444fa1916e99fc301c4287db281a9f0d3d48401`
+`266264870becc5f697d6375b96341d252317ba94` into GHCR digest-pinned
+`tee-email-oracle@sha256:e45eb105a546f276c478e265d7181a94e071e7a5fb42f4af151381cc334bb130`
 and
-`tinker-delegate@sha256:359b67f68e50e4ceb68052eb123a25811106a5ee6f8de0b7d4b87b4470895fd4`
+`tinker-delegate@sha256:455722601044214b948ee24ee09abcc75845d0534fc8cd2b6d1c8233d80916f8`
 images. Local `verify-ghcr-image-attestation` checks passed for both SLSA
 provenance and SPDX SBOM attestations. The current CVM `cvm_1w85mGjo` is
 temporarily running the auth-gated funding-validation profile for app ID
 `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, not the normal locked-down compose.
 The live Phala attested compose hash is
-`f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8`; the local
-raw compose/image-policy hash is
-`4365f1d16482eeac1ad5441847d18487955afdf5eb8f4736b799e3a3e9bf7924`, and the
-rendered compose SHA-256 is
-`2874b7227e308b611860f141fd661df7b11147746403b1c5d08faf7201fcf0e4`.
-`verify-deployment-bundle` passed against the live endpoint with OS image hash
+`a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`,
+matching the redeploy helper's local policy hash for the pinned compose and
+six-key runtime env surface. The standalone raw-compose verifier reports
+`7a0a82403c0b19e737f53c397b29879ab1e612fb65c4ef8f38719c53445b4f6b`
+for the all-env view of the same file, so the attested deploy hash is treated
+as the Phala-bound verifier target for this redeploy. Direct attestation checks
+against the live endpoint
+returned OS image hash
 `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`, artifact
 context report data
-`2f893a68d499c304749a0e525498f7370c5538b29156cb41aac53902a2a2694c`,
+`e66e4fe6b85ec5949eb5d11c3c7aac98fbf82f7e3b3f72a80ebd6dd4c48cbef8`,
 encryption public key
-`cff9b903fba9ac2c6fab4a7340b7b2df0eab11d9ee6a9d1e4145e52956956a3a`, and quote
-size `5010`; billing-context attestation returned the same compose/app/OS-image
+`bb1e21e7d6fae491f670d5430415b0d9cebbd4d8c11d458b9ae416f03d742c15`, and quote
+size `10020`; billing-context attestation returned the same compose/app/OS-image
 with report data
-`d3f783599a5db219a7370cacb7955ff1d2288899c7539620aef069516b08d5d4` and quote
+`600bad986a0c4368e4f4863bfcac309f55fb08b9b36932c81e70b79fae679f20` and quote
 size `10020`. Public logs remain disabled. Health is OK, the oracle is ready,
 IMAP is connected, and unauthenticated `/auth/reauth` plus
 `/billing/add-balance` fail closed with `401 Bearer token required`.
 
-Funding profile live result, 2026-07-08: local preflight for `$5` with
+Funding profile live result, 2026-07-08: remote preflight for `$5` with
 `operator_capped_validation`, the add-balance endpoint requirement, and live
-billing attestation returned ready. Authenticated `/auth/reauth` reached the
-delegate but failed bounded with `auth_access_blocked` before OTP
+billing measurement policy configured returned ready; direct billing
+attestation verification matched the live TDX envelope. Authenticated
+`/auth/reauth` reached the delegate but failed bounded with
+`auth_access_blocked` at `auth_email_submitted`, before OTP
 (`raw_secret_egress=false`). Authenticated `$5` add-balance without a card
 reached `billing_page_loaded` and failed bounded with `auth_required`.
 Authenticated encrypted Stripe test-card payment-method submission destroyed the
@@ -86,19 +90,21 @@ Successful signup/signin/reauth saves Playwright `storage_state` into
 `/data/browser_session.enc` using the separate `tinker/browser_session` dstack
 key path, and billing loads that sealed state for fresh contexts. The deployed
 profile is verified, but the store has not yet captured a useful live session
-because `/auth/reauth` still fails with bounded `auth_access_blocked` before
-OTP. The next push is to repair the Tinker auth access-blocked posture so
+because `/auth/reauth` still fails with bounded `auth_access_blocked` at
+`auth_email_submitted`, before OTP. The next push is to repair the Tinker
+post-email-submit auth access-blocked posture so
 reauth can reach OTP, save session state, and authenticate billing before any
 approved real-card prompt.
 
-Auth-stage receipt follow-up, 2026-07-08: source/tests now preserve bounded
+Auth-stage receipt follow-up, 2026-07-08: source/tests and Phala now preserve bounded
 Tinker auth-flow stage evidence for `auth_access_blocked`. Signup and
 `/auth/reauth` can report whether the blocker happened at `auth_page_loaded`,
 `auth_email_submitted`, or `auth_otp_page_reached` instead of collapsing the
 receipt to `not_started`. These are enum-only public labels; page text, raw
 URLs, OTPs, cookies, API keys, and account identifiers still do not leave the
-delegate boundary. This is not Phala-proven yet; the next deploy should rebuild,
-pin, attest, and rerun `/auth/reauth` against the live funding-validation CVM.
+delegate boundary. The live funding-validation CVM returned
+`auth_access_blocked` at `auth_email_submitted`, so the next repair target is
+the post-email-submit Tinker auth posture, not browser launch or email typing.
 
 ## Built
 

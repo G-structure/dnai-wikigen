@@ -1048,22 +1048,21 @@ Implementation status:
             `TINKER_FUNDING_MODE=operator_capped_validation`, caps top-ups at
             `$5`, and routes browser work through the Playwright sidecar rather
             than the currently blocked Neko CDP path.
-[real]      The funding-validation profile was deployed to Phala on 2026-07-08
-            with GitHub-attested source
-            `f553a13da7276d56b5284bb55706887c5766455d` images, local raw
-            compose/image-policy hash
-            `4365f1d16482eeac1ad5441847d18487955afdf5eb8f4736b799e3a3e9bf7924`,
-            rendered compose SHA-256
-            `2874b7227e308b611860f141fd661df7b11147746403b1c5d08faf7201fcf0e4`,
-            and live attested compose hash
-            `f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8`.
+[real]      The funding-validation profile was redeployed to Phala on
+            2026-07-08 with GitHub-attested source
+            `266264870becc5f697d6375b96341d252317ba94` images, redeploy-helper
+            compose hash
+            `a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`,
+            and matching live attested compose hash
+            `a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`.
             Health is OK, the email oracle is ready, IMAP is connected, public
             logs remain disabled, and unauthenticated reauth/add-balance calls
             fail closed with `401 Bearer token required`.
 [partial]   The funding-validation profile is live and quote-bound, but it is
             not ready for approved real-card funding. Authenticated
-            `/auth/reauth` currently returns bounded `auth_access_blocked`
-            before OTP; authenticated encrypted Stripe test-card
+            `/auth/reauth` currently returns bounded `auth_access_blocked` at
+            `auth_email_submitted`, before OTP or session-state save;
+            authenticated encrypted Stripe test-card
             payment-method submission destroys the card payload but returns
             bounded `payment_method` / `auth_required` at
             `billing_page_loaded`; authenticated `$5` add-balance without a
@@ -1078,15 +1077,16 @@ Implementation status:
             surface as bounded `auth_access_blocked`, both at
             `billing_page_loaded` without echoing page text. This extends the
             bounded receipt vocabulary with `auth_required`.
-[real]      Source/tests now preserve bounded auth-flow stage evidence for
-            Tinker auth blocks. `AuthAccessBlockedError`, signup, and
-            `/auth/reauth` carry `auth_page_loaded`, `auth_email_submitted`, or
+[real]      Source/tests and the live Phala funding-validation profile now
+            preserve bounded auth-flow stage evidence for Tinker auth blocks.
+            `AuthAccessBlockedError`, signup, and `/auth/reauth` carry
+            `auth_page_loaded`, `auth_email_submitted`, or
             `auth_otp_page_reached` as the receipt `furthest_stage` rather than
-            collapsing every auth block to `not_started`. The stage values are
-            enum labels only; page text, raw URLs, OTPs, cookies, API keys, and
-            account identifiers remain outside the public receipt. This slice
-            still needs GitHub-attested image rebuild and Phala repro before it
-            is live deployment evidence.
+            collapsing every auth block to `not_started`. The 2026-07-08 live
+            repro returned `auth_access_blocked` at `auth_email_submitted` with
+            `raw_secret_egress=false`. The stage values are enum labels only;
+            page text, raw URLs, OTPs, cookies, API keys, and account
+            identifiers remain outside the public receipt.
 [real]      The billing auth-state classifier was rebuilt by GitHub Actions,
             verified with provenance/SBOM attestations, pinned by digest,
             redeployed to the funding-validation Phala profile, and live-tested

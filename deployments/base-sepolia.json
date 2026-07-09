@@ -43,11 +43,12 @@
   },
   "phala": {
     "status": "running_tinker_funding_validation_profile_auth_gated_billing_auth_required_real_card_blocked",
-    "cvmId": "670b3b21-4338-4d4e-ae72-7c8922579f59",
+    "cvmId": "cvm_1w85mGjo",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8",
-    "localRawComposeImagePolicyHash": "4365f1d16482eeac1ad5441847d18487955afdf5eb8f4736b799e3a3e9bf7924",
-    "renderedComposeSha256": "2874b7227e308b611860f141fd661df7b11147746403b1c5d08faf7201fcf0e4",
+    "composeHash": "a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d",
+    "deployHelperComposeHash": "a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d",
+    "localRawComposeImagePolicyHash": "7a0a82403c0b19e737f53c397b29879ab1e612fb65c4ef8f38719c53445b4f6b",
+    "renderedComposeSha256": "75a344e3a3e84769e5c8381640b47a48644145ea7b9d86d739af86225e7968ee",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -62,10 +63,9 @@
       "TINKER_FUNDING_RECEIPT_KEY_PATH",
       "TINKER_ORACLE_AUTH_KEY_PATH",
       "TINKER_RUN_METADATA_KEY_PATH",
-      "TINKER_RUNTIME_AUTH_KEY_PATH",
       "TINKER_RUNTIME_AUTH_TOKEN"
     ],
-    "allowedEnvKeysNote": "Current Phala metadata lists the narrowed seven-key runtime surface; deploy-critical oracle/delegate image refs, capped funding policy, and disabled secret-bearing gates are hardcoded directly in compose.",
+    "allowedEnvKeysNote": "Current redeploy helper lists the narrowed six-key runtime surface; deploy-critical oracle/delegate image refs, capped funding policy, and disabled secret-bearing gates are hardcoded directly in compose.",
     "temporaryDebugException": {
       "active": false,
       "enabledAt": "2026-07-08T11:50:13Z",
@@ -90,10 +90,10 @@
         "TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "f553a13da7276d56b5284bb55706887c5766455d",
+    "sourceDigest": "266264870becc5f697d6375b96341d252317ba94",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 28979167606,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28979167606",
+    "githubActionsRunId": 28986442238,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28986442238",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -103,13 +103,13 @@
     "imageDigests": [
       {
         "service": "oracle",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ac5d30a8150d840dcbef28f87444fa1916e99fc301c4287db281a9f0d3d48401",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:e45eb105a546f276c478e265d7181a94e071e7a5fb42f4af151381cc334bb130",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:359b67f68e50e4ceb68052eb123a25811106a5ee6f8de0b7d4b87b4470895fd4",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:455722601044214b948ee24ee09abcc75845d0534fc8cd2b6d1c8233d80916f8",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
@@ -121,9 +121,9 @@
     "quoteEvidence": {
       "mode": "tdx",
       "context": "artifact",
-      "quoteSize": 5010,
-      "reportData": "2f893a68d499c304749a0e525498f7370c5538b29156cb41aac53902a2a2694c",
-      "encryptionPublicKey": "cff9b903fba9ac2c6fab4a7340b7b2df0eab11d9ee6a9d1e4145e52956956a3a",
+      "quoteSize": 10020,
+      "reportData": "e66e4fe6b85ec5949eb5d11c3c7aac98fbf82f7e3b3f72a80ebd6dd4c48cbef8",
+      "encryptionPublicKey": "bb1e21e7d6fae491f670d5430415b0d9cebbd4d8c11d458b9ae416f03d742c15",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -1048,17 +1048,18 @@
     "fundingValidationEvidence": {
       "status": "live_auth_gated_profile_billing_auth_required_real_card_blocked",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
-      "sourceDigest": "f553a13da7276d56b5284bb55706887c5766455d",
-      "githubActionsRunId": 28979167606,
-      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ac5d30a8150d840dcbef28f87444fa1916e99fc301c4287db281a9f0d3d48401",
-      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:359b67f68e50e4ceb68052eb123a25811106a5ee6f8de0b7d4b87b4470895fd4",
-      "localRawComposeImagePolicyHash": "4365f1d16482eeac1ad5441847d18487955afdf5eb8f4736b799e3a3e9bf7924",
-      "renderedComposeSha256": "2874b7227e308b611860f141fd661df7b11147746403b1c5d08faf7201fcf0e4",
-      "attestedComposeHash": "f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8",
-      "deploymentBundleVerification": "verified",
+      "sourceDigest": "266264870becc5f697d6375b96341d252317ba94",
+      "githubActionsRunId": 28986442238,
+      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:e45eb105a546f276c478e265d7181a94e071e7a5fb42f4af151381cc334bb130",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:455722601044214b948ee24ee09abcc75845d0534fc8cd2b6d1c8233d80916f8",
+      "deployHelperComposeHash": "a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d",
+      "localRawComposeImagePolicyHash": "7a0a82403c0b19e737f53c397b29879ab1e612fb65c4ef8f38719c53445b4f6b",
+      "renderedComposeSha256": "75a344e3a3e84769e5c8381640b47a48644145ea7b9d86d739af86225e7968ee",
+      "attestedComposeHash": "a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d",
+      "deploymentBundleVerification": "not_run_for_auth_stage_redeploy_direct_attestation_matches_deploy_hash",
       "billingAttestation": {
-        "reportData": "d3f783599a5db219a7370cacb7955ff1d2288899c7539620aef069516b08d5d4",
-        "encryptionPublicKey": "cff9b903fba9ac2c6fab4a7340b7b2df0eab11d9ee6a9d1e4145e52956956a3a",
+        "reportData": "600bad986a0c4368e4f4863bfcac309f55fb08b9b36932c81e70b79fae679f20",
+        "encryptionPublicKey": "bb1e21e7d6fae491f670d5430415b0d9cebbd4d8c11d458b9ae416f03d742c15",
         "quoteSize": 10020
       },
       "runtimeEnv": {
@@ -1082,12 +1083,12 @@
       "fundingPreflight": {
         "ready": true,
         "amount": 5,
-        "attestationFetch": "tdx_verified"
+        "attestationFetch": "direct_tdx_verified_remote_preflight_fetch_timed_out_once"
       },
       "reauthAttempt": {
         "success": false,
         "outcome": "auth_access_blocked",
-        "furthestStage": "not_started",
+        "furthestStage": "auth_email_submitted",
         "sessionStateSaved": false,
         "rawSecretEgress": false
       },

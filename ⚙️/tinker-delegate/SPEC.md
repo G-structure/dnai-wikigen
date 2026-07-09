@@ -277,15 +277,16 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   FUNDING VALIDATION PROFILE: on 2026-07-08 the temporary
   `docker-compose.tinker-funding-validation.phala.yaml` profile was deployed to
   Phala with GitHub-attested source
-  `f553a13da7276d56b5284bb55706887c5766455d` images, local raw compose hash
-  `4365f1d16482eeac1ad5441847d18487955afdf5eb8f4736b799e3a3e9bf7924`, and
-  live attested compose hash
-  `f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8`.
+  `266264870becc5f697d6375b96341d252317ba94` images, redeploy-helper compose
+  hash `a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`,
+  and matching live attested compose hash
+  `a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`.
   Health is OK, the email oracle is ready, IMAP is connected, public logs remain
   disabled, and unauthenticated funding mutations return `401 Bearer token
   required`. `$5` preflight with live billing attestation is ready, but real-card
   funding is blocked: authenticated reauth returns bounded
-  `auth_access_blocked` before OTP, and authenticated payment-method/add-balance
+  `auth_access_blocked` at `auth_email_submitted`, before OTP, and
+  authenticated payment-method/add-balance
   attempts reach `billing_page_loaded` but return bounded `auth_required`
   receipts. Do not run approved real-card material until this deployed path is
   repaired with a bounded test-card success/failure receipt.
@@ -294,13 +295,14 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   return `auth_required`, and Tinker's access-blocked surface returns
   `auth_access_blocked`, both without exposing page text or clicking billing
   controls. This classifier is now Phala-proven with GitHub-attested images.
-  Source/tests also preserve bounded auth-stage evidence for
+  Source/tests and Phala also preserve bounded auth-stage evidence for
   `auth_access_blocked` during signup and `/auth/reauth`: receipts can now say
   `auth_page_loaded`, `auth_email_submitted`, or `auth_otp_page_reached` rather
   than collapsing every deployed auth block to `not_started`. These stage labels
   do not include raw page text, URLs, OTPs, cookies, API keys, or account
-  identifiers, and this auth-stage slice still needs GitHub-attested image
-  rebuild plus Phala repro.
+  identifiers. The live funding-validation CVM now returns
+  `auth_access_blocked` at `auth_email_submitted`, proving browser launch and
+  email submission work on Phala but Tinker blocks the flow before OTP.
   Browser-session persistence is also source/test-real and Phala-deployed:
   successful auth will save Playwright `storage_state` into encrypted
   `/data/browser_session.enc` under the separate `tinker/browser_session`

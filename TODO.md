@@ -1226,9 +1226,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                         instead of flattening deployed auth blocks to
                         `not_started`, without exposing raw page text, URLs,
                         OTPs, or account identifiers.
-                  - [ ] Rebuild/pin/deploy the auth-stage receipt image to
+                  - [x] Rebuild/pin/deploy the auth-stage receipt image to
                         Phala and rerun `/auth/reauth` so the next live blocker
-                        is tied to a precise bounded stage.
+                        is tied to a precise bounded stage. Done 2026-07-08:
+                        GitHub-attested source
+                        `266264870becc5f697d6375b96341d252317ba94` images
+                        were pinned and deployed to live attested compose hash
+                        `a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`.
+                        Authenticated `/auth/reauth` now fails closed with
+                        `auth_access_blocked` at `auth_email_submitted`
+                        (`raw_secret_egress=false`), proving the deployed
+                        browser reaches email submission before Tinker blocks
+                        the flow.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
       account and a safe test card or approved real card.
       - [x] Stripe test card reaches live Tinker/Stripe submission and returns
