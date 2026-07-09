@@ -2255,10 +2255,19 @@ Implementation status:
             `awaiting-consent`; revocation fails in-flight/future turns closed
             while preserving already-settled turns; settled turns carry bounded
             meter bands and a joint royalty hash.
-[partial]   Human-review queue is source-modeled only. Hold tickets include role
-            routing and reviewer release/deny identity, but there is no durable
-            queue, expiry worker, tee-email-oracle notification, reviewer UI, or
-            two-person/M-of-N approval path yet.
+[real]      `tinker_delegate.review_queue` adds a bounded source-level human
+            review queue. It can ingest coordination `HandoffTicket`s, persist
+            and load bounded queue JSON, filter pending tickets by routed role,
+            record release/deny decisions with reviewer identity hashes, expire
+            stale tickets, and maintain an append-only audit hash. The public
+            queue shape contains ticket IDs, turn/corpus refs, route labels,
+            reason hashes, reviewer hashes, decision hashes, status counts, and
+            `raw_secret_egress=false`; it does not expose raw hold reasons or
+            raw reviewer identities.
+[partial]   Human-review service integration remains incomplete. There is no
+            tee-email-oracle notification, reviewer UI, two-person/M-of-N
+            approval path, production reviewer key custody, or deployed queue
+            expiry worker yet.
 [planned]   Wire coordination effects to tee-email-oracle for reviewer/owner
             confirmation and to DiligenceRoom/tinker-delegate for settlement and
             attested execution.

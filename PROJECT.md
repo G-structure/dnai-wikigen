@@ -786,9 +786,10 @@ The current repo does not yet guarantee:
 - candidate sandboxing for generated computational-bio code
 - differential privacy for individual-level bio data
 - real DLP/egress controls
-- durable human reviewer queue; the source-modeled reducer can create and
-  resolve bounded hold tickets, but notification, expiry, UI, and reviewer
-  custody are not production
+- production human reviewer workflow; the source-modeled reducer and bounded
+  review queue can create, persist, expire, release/deny, and audit hold
+  tickets without raw review reasons or reviewer identities, but notification,
+  UI, M-of-N approval, and production reviewer custody are not production
 - production multi-party coordination engine; the source now has a deterministic
   pure ConSECA-style `policy_kernel` for per-corpus AccessRequest/CorpusPolicy
   enforcement, a bounded `policy-gate` CLI proof path, and a pure local reducer

@@ -2585,6 +2585,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             release/deny identity, and returns to `gating` after release so the
             turn must be re-gated. Durable queue storage, expiry, email
             notification, and reviewer UI remain open.
+      - [x] Add a bounded source-level review queue with expiry and audit trail.
+            Done 2026-07-09: `tinker_delegate.review_queue` can enqueue
+            coordination `HandoffTicket`s, persist/load a bounded JSON queue,
+            filter pending tickets by reviewer role, record release/deny
+            decisions with reviewer hashes, expire stale pending tickets, and
+            maintain an append-only bounded audit hash. Tests prove no raw
+            review reason or reviewer identity is emitted. tee-email-oracle
+            notification, reviewer UI, and production reviewer custody remain
+            open.
 - [x] `P0` Enforce that delegated agents cannot resolve their own holds.
       Done 2026-07-09: reviewer decisions from the turn issuer/requester fail
       closed as `self_approval_denied`; tests prove the agent cannot release
