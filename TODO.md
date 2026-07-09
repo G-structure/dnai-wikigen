@@ -2232,6 +2232,20 @@ vision Wiki is reaching for.
             `b87cbfa8b8d956d8b8d3840b3c47394e956940f4eb1412f57f4ea91fa8f6ab2b`,
             and live attested compose hash
             `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`.
+      - [ ] `Blocker` Fix current Phala public gateway timeout for the Python
+            delegate/oracle services before any further real-card top-up
+            attempt. Evidence from 2026-07-09: debug redeploy with public
+            logs/sysinfo reports live compose hash
+            `a479a1ca1595e7b717e8c8e28ea60dfcef5430bb7792800180453a6b3790aa89`;
+            delegate logs show internal `/health` and
+            `/attestation?context=billing` `200 OK`, but local curl/httpx
+            clients receive zero bytes from the public 8080/8000 endpoints
+            after 60-90 seconds. Neko 52000 responds and CDP 9222 returns the
+            expected host-header rejection. Also resolve oracle IMAP TLS EOFs
+            against `mail.cock.li:993`.
+      - [ ] `Deploy` Revert the 2026-07-09 public logs/public sysinfo/dev-SSH
+            diagnostic exception after collecting enough evidence; record the
+            reverted live compose hash and rerun `verify-cvm-attestation`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.

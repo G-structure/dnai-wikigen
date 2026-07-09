@@ -214,6 +214,37 @@ and `raw_secret_egress=false`. On-chain `tinker-encumbrance-preflight` for
 with `compose_hash_not_approved`; the next top-up attempt is blocked until the
 operator approves this new compose hash.
 
+Funding retry follow-up 5, 2026-07-09: the operator approved compose hash
+`0xa3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9` on-chain,
+and `tinker-encumbrance-preflight --operation add-balance --amount 10` returned
+`allowed=true`, `compose_approved=true`, and `raw_secret_egress=false`.
+However, the two add-balance packet directories
+`/tmp/dnai-tinker-add-balance-packet-20260709T081455Z` and
+`/tmp/dnai-tinker-add-balance-packet-20260709T081805Z` did not run reauth or
+add-balance browser mutations: both stopped at preflight with
+`error_kind=preflight_not_ready`, and both have `add_balance_attempt_run=false`.
+No top-up or charge is proven by those packets. The immediate blocker was a
+deployed endpoint timeout while fetching billing attestation. The existing CVM
+was restarted, then temporarily redeployed with public logs/public sysinfo and
+SSH key injection for diagnosis. This is an explicit non-production debug
+exception. The debug redeploy reports live compose hash
+`a479a1ca1595e7b717e8c8e28ea60dfcef5430bb7792800180453a6b3790aa89`, public
+logs/sysinfo enabled, and the same digest-pinned delegate/browser/oracle images
+as the prior funding-validation compose. Container logs show delegate internal
+health checks and `/attestation?context=billing` returning `200 OK`, but local
+HTTP clients receive zero bytes from the public Phala gateway for the Python
+delegate/oracle ports even with 60-90 second timeouts. Neko's public port
+returns normally, and the public CDP port returns the expected Chrome
+host-header rejection, so the current blocker is the Phala gateway/Python
+service delivery path rather than the add-balance selector itself. The oracle
+also currently reloads sealed mailbox credentials but reports repeated IMAP TLS
+EOF failures against `mail.cock.li:993`; reauth and OTP use should be treated
+as not ready until this clears. The debug hash is not approved on-chain, and
+`verify-cvm-attestation` cannot pass while the public attestation endpoint
+times out. Do not run a charge-capable add-balance packet until the gateway
+timeout is fixed, attestation fetch passes again, and the resulting compose
+hash is approved.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce

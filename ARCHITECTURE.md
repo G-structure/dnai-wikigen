@@ -1382,7 +1382,7 @@ Implementation status:
             attestation envelope. The bundle records `raw_secret_egress=false`
             and does not include raw quotes, app-compose bodies, secrets, OTPs,
             card material, artifacts, or API keys.
-[real]      Current Phala deployment runs the combined oracle/delegate/browser stack in
+[partial]   Current Phala deployment runs the combined oracle/delegate/browser stack in
             CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` / `cvm_1w85mGjo`
             with app ID `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`,
             digest-pinned GHCR images verified by GitHub attestations,
@@ -1406,12 +1406,19 @@ Implementation status:
             are disabled in the current funding-validation profile; add-balance
             and reauth are enabled only behind runtime bearer auth for capped
             operator validation.
-[real]      The temporary public-log debug exception has been reverted on the
-            current main Phala CVM. Public logs and public sysinfo are disabled
-            while runtime guards keep `ORACLE_AUTO_GENESIS=false`,
-            `TINKER_BOOTSTRAP_SIGNUP=false`, `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`,
-            `TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT=false`, and credential
-            provisioning disabled.
+[partial]   2026-07-09 debug exception: the current main CVM was temporarily
+            redeployed with public logs, public sysinfo, dev OS, and SSH key
+            injection to diagnose a deployed Python-service gateway timeout.
+            This is not production posture and must be reverted before claiming
+            a locked-down deployment. The debug redeploy reports live compose
+            hash
+            `a479a1ca1595e7b717e8c8e28ea60dfcef5430bb7792800180453a6b3790aa89`.
+            Container logs show the delegate returning internal `/health` and
+            `/attestation?context=billing` `200 OK` responses, while local
+            clients still receive zero bytes from the public Phala gateway for
+            delegate/oracle ports. Neko and Chrome/CDP public ports respond, so
+            the active blocker is the Phala gateway/Python service delivery path
+            plus oracle IMAP TLS EOFs, not a broadened trust claim.
 [real]      Main-CVM mailbox genesis has been Phala-proven without enabling
             Tinker bootstrap or billing. A one-shot
             `docker-compose.mailbox-genesis.phala.yaml` deployment reached
