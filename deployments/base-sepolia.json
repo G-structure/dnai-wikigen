@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed_tinker_funded_validation",
-  "lastReviewedAt": "2026-07-09T13:40:58Z",
+  "lastReviewedAt": "2026-07-09T14:24:13Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -59,24 +59,24 @@
       "emergencyHalted": false,
       "measurementsFrozen": false,
       "currentOperatorControlled": true,
-      "latestApprovedComposeHash": "0x314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
+      "latestApprovedComposeHash": "0xcdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180",
       "latestApprovedComposeHashApproved": true,
-      "latestComposeApprovalTx": "0x17c7064496711ae93c39f0489667fe7555d6455f18f01eae174c1aa5a92fa3f6",
-      "latestComposeApprovalBlock": 43918070,
-      "currentFundingComposeHash": "0x314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
-      "lastReviewedAt": "2026-07-09T13:40:58Z",
+      "latestComposeApprovalTx": "0xc597c8e2bbfcc58255c6d407ce615ec4befd992b4e4ef2c34854b99a4d4c52b2",
+      "latestComposeApprovalBlock": 43919367,
+      "currentFundingComposeHash": "0xcdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180",
+      "lastReviewedAt": "2026-07-09T14:24:13Z",
       "pendingComposeHashApproval": null,
       "pendingComposeHashApproved": false
     }
   },
   "phala": {
-    "status": "running_project_aware_tinker_smoke_diagnostics_blocked_at_service_client_create",
+    "status": "running_client_config_tinker_smoke_diagnostics_blocked_at_missing_project_config",
     "cvmId": "cvm_1w85mGjo",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
-    "deployHelperComposeHash": "314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
-    "localRawComposeImagePolicyHash": "8d02c205c595d073b9c965c10134c0e8cf120cc56b8c2485f1e388cb141de744",
-    "renderedComposeSha256": "c8d16bc2cefb5a01425defe6fe8fddbc7d850a18cf2ec709a0724ccfb199713d",
+    "composeHash": "cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180",
+    "deployHelperComposeHash": "cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180",
+    "localRawComposeImagePolicyHash": "60046a718ba13c71f015a8633b4a9ee6892661762414e9e61636a897327a2d82",
+    "renderedComposeSha256": "06accaea50035be3d85306df02e485eeeb7659fb8ac96728d816bd3ee235065f",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -86,17 +86,17 @@
     "publicTcbinfo": true,
     "deployCriticalImageRefsBoundInCompose": true,
     "allowedEnvKeys": [
-      "ORACLE_RUNTIME_AUTH_KEY_PATH",
       "BASE_SEPOLIA_RPC_URL",
+      "ORACLE_RUNTIME_AUTH_KEY_PATH",
       "TINKER_BROWSER_SESSION_KEY_PATH",
       "TINKER_DSTACK_KEY_PATH",
       "TINKER_FUNDING_RECEIPT_KEY_PATH",
       "TINKER_ORACLE_AUTH_KEY_PATH",
-      "TINKER_RUN_METADATA_KEY_PATH",
       "TINKER_RUNTIME_AUTH_KEY_PATH",
-      "TINKER_RUNTIME_AUTH_TOKEN"
+      "TINKER_RUNTIME_AUTH_TOKEN",
+      "TINKER_RUN_METADATA_KEY_PATH"
     ],
-    "allowedEnvKeysNote": "Current funding-validation profile has a nine-key runtime surface selected by compose refs. Secrets remain in Phala/runtime env or dstack-sealed storage; deploy-critical image refs, capped funding policy, encumbrance contract address, and disabled secret-bearing gates are hardcoded directly in compose.",
+    "allowedEnvKeysNote": "Current funding-validation profile has a nine-key runtime surface selected by compose refs. TINKER_PROJECT_ID and TINKER_BASE_URL are absent from the current runtime env, so the live smoke proves the missing-project configuration blocker without exposing raw secrets.",
     "temporaryDebugException": {
       "active": true,
       "enabledAt": "2026-07-09T11:00:00Z",
@@ -122,10 +122,10 @@
         "TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "6f5d557d1dab6641590c12ad96eecad74a101638",
+    "sourceDigest": "76609fbe6617a8c7162c4dbfbbbc060e9b01322e",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 29020924145,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29020924145",
+    "githubActionsRunId": 29023713771,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29023713771",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -141,8 +141,8 @@
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:d7872a09b7fe28e25a53dafa721a355cb0677d42e2939f4babbbff7e167f306d",
-        "sourceDigest": "6f5d557d1dab6641590c12ad96eecad74a101638",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:83e58d165cc30374feb70f475dc6bf30da07d63895f6d871feb4f7828926758b",
+        "sourceDigest": "76609fbe6617a8c7162c4dbfbbbc060e9b01322e",
         "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
@@ -1286,23 +1286,23 @@
       }
     },
     "tinkerSdkSmokeEvidence": {
-      "status": "blocked_at_service_client_create_with_project_aware_diagnostics",
+      "status": "blocked_at_service_client_create_with_live_client_config_diagnostics",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
-      "sourceDigest": "6f5d557d1dab6641590c12ad96eecad74a101638",
-      "githubActionsRunId": 29020924145,
-      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:d7872a09b7fe28e25a53dafa721a355cb0677d42e2939f4babbbff7e167f306d",
+      "sourceDigest": "76609fbe6617a8c7162c4dbfbbbc060e9b01322e",
+      "githubActionsRunId": 29023713771,
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:83e58d165cc30374feb70f475dc6bf30da07d63895f6d871feb4f7828926758b",
       "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ee3d5b21597304e5c7e677b091ca01bc3b51703728e663056e6d690da16fe08f",
       "nekoImage": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:422f2ba4f350f329a8a52a6502a91717da2dd39a2e22e8250bdcce65788bee81",
-      "deployHelperComposeHash": "314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
-      "attestedComposeHash": "314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
-      "localRawComposeImagePolicyHash": "8d02c205c595d073b9c965c10134c0e8cf120cc56b8c2485f1e388cb141de744",
-      "renderedComposeSha256": "c8d16bc2cefb5a01425defe6fe8fddbc7d850a18cf2ec709a0724ccfb199713d",
-      "deploymentBundleVerification": "verified_with_project_aware_delegate_github_provenance_sbom_sidecar_digest_pins_and_live_tdx_envelope",
+      "deployHelperComposeHash": "cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180",
+      "attestedComposeHash": "cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180",
+      "localRawComposeImagePolicyHash": "60046a718ba13c71f015a8633b4a9ee6892661762414e9e61636a897327a2d82",
+      "renderedComposeSha256": "06accaea50035be3d85306df02e485eeeb7659fb8ac96728d816bd3ee235065f",
+      "deploymentBundleVerification": "verified_with_client_config_delegate_github_provenance_sbom_sidecar_digest_pins_and_live_tdx_envelope",
       "quoteEvidence": {
         "mode": "tdx",
         "context": "artifact",
-        "reportData": "90d0d7867737ff45d151572b1b19b488f8c77d53611e6a44cf8d340aaf8eeefb",
-        "encryptionPublicKey": "14a147b674a90183be8663df5e9bdf08862c26cb3d1c04426b8997a86c54d209",
+        "reportData": "8800fcac5da2dcc1c0e244a4fccc1afa82ce04000c4bf595e2e74b64a4bb5ba2",
+        "encryptionPublicKey": "50a714a81fdfebbe71f750f7424a7ae6f52ab1d2ea55e5649bf095e5d15af513",
         "quoteSize": 5010,
         "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
       },
@@ -1310,13 +1310,15 @@
         "policy": "compose-refs",
         "allowedEnvCount": 9,
         "keysSha256": "720f4d6ebdde8e23cf66aa825e3ff0da957ac85bda6c841e2dc920d644485bba",
-        "containsRuntimeAuthToken": true
+        "containsRuntimeAuthToken": true,
+        "containsTinkerProjectId": false,
+        "containsTinkerBaseUrl": false
       },
       "composeApproval": {
-        "composeHash": "0x314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
+        "composeHash": "0xcdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180",
         "approved": true,
-        "tx": "0x17c7064496711ae93c39f0489667fe7555d6455f18f01eae174c1aa5a92fa3f6",
-        "block": 43918070
+        "tx": "0xc597c8e2bbfcc58255c6d407ce615ec4befd992b4e4ef2c34854b99a4d4c52b2",
+        "block": 43919367
       },
       "encumbrancePreflight": {
         "operation": "spend_tinker_compute",
@@ -1330,10 +1332,11 @@
         "status": "ok",
         "apiKeyConfigured": true,
         "apiKeySource": "encrypted_store",
-        "bootstrapAttempted": false
+        "bootstrapAttempted": false,
+        "oracleStatus": "degraded"
       },
       "smokeReceipt": {
-        "path": "/tmp/dnai-tinker-smoke-project-aware-20260709T134058Z.json",
+        "path": "/tmp/dnai-tinker-smoke-client-config-live-20260709T142413Z.json",
         "success": false,
         "outcome": "smoke_failed",
         "furthestStage": "api_key_loaded",
@@ -1344,12 +1347,15 @@
         "failureSite": "service_client_create",
         "operatorAction": "check_sdk_client_configuration",
         "projectConfigured": false,
+        "clientConfig": {
+          "apiKeyArgument": "provided",
+          "projectIdArgument": "omitted",
+          "baseUrlArgument": "sdk_default",
+          "baseUrlHostFamily": "sdk_default",
+          "baseUrlHash": ""
+        },
         "capabilitiesChecked": false,
         "capabilityMethod": "ServiceClient.get_server_capabilities",
-        "modelFamily": "qwen",
-        "rankBand": "<=32",
-        "requestShapeHasBaseModel": true,
-        "requestShapeHasRank": true,
         "trainingRunCreated": false,
         "checkpointCreated": false,
         "sampleObserved": false,
@@ -1401,7 +1407,25 @@
         "rawSecretEgress": false,
         "liveComposeHash": "314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816"
       },
-      "nextStep": "Set TINKER_PROJECT_ID if the Tinker console exposes one or obtain the correct Tinker service/client configuration, then rerun the same bounded smoke; do not mark real training complete until run/checkpoint/sample/cleanup evidence exists"
+      "nextStep": "Set TINKER_PROJECT_ID if the Tinker console exposes one or obtain the correct Tinker service/client configuration, redeploy with that encrypted runtime env, approve the resulting compose hash, then rerun bounded smoke; do not mark real training complete until run/checkpoint/sample/cleanup evidence exists",
+      "clientConfigDeployCandidate": {
+        "status": "deployed_approved_smoke_still_blocked_at_missing_project_config",
+        "sourceDigest": "76609fbe6617a8c7162c4dbfbbbc060e9b01322e",
+        "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
+        "githubActionsRunId": 29023713771,
+        "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:83e58d165cc30374feb70f475dc6bf30da07d63895f6d871feb4f7828926758b",
+        "githubProvenanceAttestation": "verified",
+        "githubSbomAttestation": "verified",
+        "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
+        "localRawComposeHash": "60046a718ba13c71f015a8633b4a9ee6892661762414e9e61636a897327a2d82",
+        "renderedComposeSha256": "06accaea50035be3d85306df02e485eeeb7659fb8ac96728d816bd3ee235065f",
+        "phalaRedeployed": true,
+        "deployHelperTimedOut": true,
+        "deployHelperTimeoutReason": "helper polled intermediate hash ddeb603e2af86d3c0c696a714b49e1bb80efdff6ea80e9df0fbaaba56d3219ac, while direct CVM state and attestation later proved app-compose cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180 running",
+        "composeApprovedOnChain": true,
+        "liveComposeHash": "cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180",
+        "rawSecretEgress": false
+      }
     },
     "selectorDiagnosticsEvidence20260709": {
       "status": "custom_neko_cdp_browser_ready_selector_probe_succeeded",

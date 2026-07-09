@@ -177,8 +177,27 @@ Latest Tinker execution buildout, 2026-07-09:
   rendered compose SHA
   `49cec4b25620ffb96bf38e57f3ed554a60f0ca4c98c9dc9b017d082a1d971af9`;
   `verify-compose-hash` reported `allowed_envs=[]` for this local check. This
-  follow-up has not yet been redeployed to Phala, checked with the Phala
-  raw-compose/allowed-env deploy mode, TDX-verified, or approved on-chain.
+  follow-up has now been redeployed to Phala and approved on-chain. Deploy
+  helper provisioned app-compose hash
+  `cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180` with
+  nine runtime env keys selected by compose refs; the helper timed out while
+  polling intermediate hash
+  `ddeb603e2af86d3c0c696a714b49e1bb80efdff6ea80e9df0fbaaba56d3219ac`, but
+  direct `phala cvms get`, serial logs, `/health`, and
+  `verify-cvm-attestation` proved the CVM running the intended app-compose.
+  Attestation verification passed against raw compose hash
+  `60046a718ba13c71f015a8633b4a9ee6892661762414e9e61636a897327a2d82`, live
+  app-compose hash `cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180`,
+  app ID, OS image hash, and all three digest-pinned images. On-chain approval
+  tx `0xc597c8e2bbfcc58255c6d407ce615ec4befd992b4e4ef2c34854b99a4d4c52b2`
+  landed in block `43919367`, and encumbrance preflight for
+  `spend_tinker_compute` at `$0.05` passed. Live smoke receipt
+  `/tmp/dnai-tinker-smoke-client-config-live-20260709T142413Z.json` still
+  fails before training creation at `service_client_create`, but now confirms
+  bounded `client_config.api_key_argument=provided`,
+  `client_config.project_id_argument=omitted`, and
+  `client_config.base_url_argument=sdk_default`, with `raw_secret_egress=false`.
+  The blocker is now specifically missing Tinker project/client configuration.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned
@@ -888,8 +907,10 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   only by environment-variable name and returns bounded JSON with
   `raw_secret_egress=false`. Against the earlier `$5` validation path it
   reported `ready=true` with the deployed encumbrance contract, approved compose
-  hash, and runtime-authenticated endpoint references. The current `$10`
-  Tinker-minimum path is blocked until the deployed encumbrance cap is raised.
+  hash, and runtime-authenticated endpoint references. The later `$10`
+  Tinker-minimum operator-validation lane raised the deployed caps, executed a
+  bounded add-balance packet, and verified a `$10.00` balance; production or
+  repeated funding remains blocked on hardening and approval.
 - A no-raw-key Base Sepolia deploy helper now exists for
   `TinkerAccountEncumbrance`. It uses Foundry `--account dev`, validates
   bytes32 commitments and policy caps, defaults the initial compose hash from
@@ -1844,8 +1865,10 @@ explicitly legacy.
 - Cock.li account genesis inside Phala is source-fixed and debug-proven for the
   standalone oracle-genesis compose, including bounded public `/health` and
   `/attestation` plus runtime-authenticated `/email`. The main combined Phala
-  CVM now consumes the bounded oracle image, but `ORACLE_AUTO_GENESIS=false`
-  means it still has no generated mailbox credentials for Tinker OTP/login.
+  CVM now consumes the bounded oracle image. In the current steady profile
+  `ORACLE_AUTO_GENESIS=false` means the main CVM is not auto-generating fresh
+  mailbox credentials, but deployed Tinker login/API-key sealing has already
+  been proven for the operator-validation account.
 - The main Phala CVM still runs a dev OS image (`dstack-dev-0.5.9`,
   `is_dev=true`). For the current funding debug push, public logs/sysinfo/TCB
   info are also enabled. Production wrap-up must disable those debug surfaces
@@ -1869,11 +1892,13 @@ explicitly legacy.
   proven.
 - The deployed Tinker SDK smoke path is now past image/redeploy/compose-approval
   prerequisites, but the live run fails closed with `BadRequestError` at
-  `api_key_loaded` before training creation. The current diagnostic receipt
-  classifies the failure as `invalid_request` / `4xx` from Tinker SDK `0.15.0`;
-  `Qwen/Qwen3-8B` rank `16` and rank `32` retries failed with the same bounded
-  hash. No deployed Tinker run ID, checkpoint, sample, cleanup receipt, or spend
-  proof exists yet.
+  `service_client_create` before training creation. The current diagnostic
+  receipt classifies the failure as `invalid_request` / `4xx` from Tinker SDK
+  `0.15.0` and confirms
+  `client_config.project_id_argument=omitted`; older `Qwen/Qwen3-8B` rank `16`
+  and rank `32` retries failed with the same bounded hash before this
+  client-config receipt was live. No deployed Tinker run ID, checkpoint, sample,
+  cleanup receipt, or spend proof exists yet.
 - Bio-validation must remain fail-closed until risk screening, reviewer queues,
   and bounded schemas exist.
 

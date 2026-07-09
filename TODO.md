@@ -87,9 +87,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       Done when `rg "fully working|no captcha|cock.email alone|RESOLVED"` has no
       misleading claims outside historical notes.
 - [x] `P0` Update `⚙️/tinker-delegate/SPEC.md` to match current evidence:
-      local Neko auth/API-key provisioning works, deployed CVM validation is
-      pending, and funding reaches test-card decline but not real account
-      funding.
+      local Neko auth/API-key provisioning works, deployed CVM validation was
+      pending at the time, and funding reached test-card decline before later
+      one-off capped real funding evidence landed.
 - [x] `P0` Add a `STATUS.md` or status block in `README.md` with:
       built, partial, modeled, planned, deployed addresses, current blockers,
       and test commands.
@@ -1458,7 +1458,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   preflight or any add-balance attempt. Done in tx
                   `0x3ab263bb7cb7758787fa1136dd043cca002db9cf511b29ad20ef4d1216199d3f`
                   at block `43904511`; read-back returned `10e18` for both caps.
-            - [ ] Approve the refreshed funding-validation compose hash and run
+            - [x] Approve the refreshed funding-validation compose hash and run
                   a bounded `$10` add-card plus add-balance packet.
                   Build/attest/pin/redeploy is done for source
                   `8a571347d946fd6c23a84db256fd99f7169061e5`; GitHub Actions
@@ -1778,9 +1778,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `76609fbe6617a8c7162c4dbfbbbc060e9b01322e` into
             `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:83e58d165cc30374feb70f475dc6bf30da07d63895f6d871feb4f7828926758b`,
             and local `verify-ghcr-image-attestation` verified provenance and
-            SPDX SBOM attestations for that digest. This source/compose fix is
-            not yet Phala-deployed, checked with the Phala raw-compose/
-            allowed-env deploy mode, TDX-verified, or approved on-chain.
+            SPDX SBOM attestations for that digest. Follow-up live evidence:
+            the image was redeployed to Phala as app-compose hash
+            `cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180`;
+            `verify-cvm-attestation` passed against raw compose hash
+            `60046a718ba13c71f015a8633b4a9ee6892661762414e9e61636a897327a2d82`,
+            app ID, OS hash, and all three digest-pinned images; and
+            `TinkerAccountEncumbrance` approved the new compose hash in tx
+            `0xc597c8e2bbfcc58255c6d407ce615ec4befd992b4e4ef2c34854b99a4d4c52b2`
+            at block `43919367`.
       - [ ] Run `tinker-smoke --api-url ... --max-usd 0.05
             --require-encumbrance` successfully from the deployed CVM and record
             the bounded receipt plus attestation evidence.
@@ -1808,7 +1814,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             Qwen/rank-32 request shape, and `project.configured=false`. Next
             step: set `TINKER_PROJECT_ID` if the Tinker console exposes one or
             obtain the correct Tinker service/client configuration, then rerun
-            this same smoke command.
+            this same smoke command. Follow-up live evidence 2026-07-09:
+            `/tmp/dnai-tinker-smoke-client-config-live-20260709T142413Z.json`
+            ran against the client-config diagnostic image at live compose hash
+            `cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180`.
+            It still failed before training creation at
+            `service_client_create`, but now confirms bounded
+            `client_config.api_key_argument=provided`,
+            `client_config.project_id_argument=omitted`, and
+            `client_config.base_url_argument=sdk_default`; `raw_secret_egress`
+            remained false. The next blocker is therefore concrete missing
+            Tinker project/client configuration, not the Phala/contract/image
+            verification chain.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
 - [x] `P0` Add real SDK integration tests gated by an env var and budget cap.
@@ -2593,7 +2610,16 @@ vision Wiki is reaching for.
                   returned true.
 - [ ] `Deploy` Verify contracts on BaseScan.
 - [ ] `Deploy` Register compose hashes in `EmailOracleAuth`.
-- [ ] `Deploy` Register consumer app/compose hash for Tinker delegate.
+- [x] `Deploy` Register consumer app/compose hash for Tinker delegate.
+      Done for the current operator-validation Tinker delegate lane on
+      2026-07-09: `TinkerAccountEncumbrance` approved the latest live
+      app-compose hash
+      `0xcdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180`
+      in tx
+      `0xc597c8e2bbfcc58255c6d407ce615ec4befd992b4e4ef2c34854b99a4d4c52b2`
+      after `verify-cvm-attestation` passed for the client-config diagnostic
+      image. Production registration still requires hardened non-dev CVM
+      posture.
 - [x] `Deploy` Create a test Tinker account under TEE custody.
       Done for the current operator-validation CVM: live reauth succeeds
       through the TEE-held email oracle path, the delegate has sealed Tinker
@@ -2611,15 +2637,16 @@ vision Wiki is reaching for.
       returned `$10.00`. The add-balance receipt remains intentionally
       conservative because it did not observe explicit success copy.
 - [ ] `Deploy` Run a tiny funded Tinker job and record the attestation.
-      Blocked 2026-07-09: project-aware Phala compose
-      `314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816`
+      Blocked 2026-07-09: client-config diagnostic Phala compose
+      `cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180`
       is deployed, attested, and approved for `SPEND_TINKER_COMPUTE`, but the
       real smoke still fails before training creation at
       `sdk_error.failure_site=service_client_create` with
-      `sdk_error.operator_action=check_sdk_client_configuration`, correct
-      Qwen/rank-32 request shape, and `project.configured=false`. Next step:
-      obtain or configure the correct Tinker project/client/base-url settings,
-      rebuild/redeploy/approve the new bounded client-config follow-up, then
+      `sdk_error.operator_action=check_sdk_client_configuration`,
+      `project.configured=false`, and bounded
+      `client_config.project_id_argument=omitted`. Next step: obtain or
+      configure the correct Tinker project/client/base-url settings, redeploy
+      with that encrypted runtime env, approve the resulting compose hash, then
       rerun smoke.
 - [ ] `Deploy` Create a synthetic test room on Base Sepolia.
 - [ ] `Deploy` Fund the synthetic test deal.
@@ -2766,9 +2793,11 @@ vision Wiki is reaching for.
 8. [ ] Build a fake Tinker backend and full local synthetic room test.
 9. [x] Rework the one-shot deployed bootstrap browser path to headed Neko
        inside Phala.
-       Done 2026-07-08 for `docker-compose.tinker-bootstrap.phala.yaml`; signup
-       remains blocked, but the latest Phala retry now emits a bounded
-       `tinker_auth` `unknown_failure` receipt rather than a null attempt record.
+       Done 2026-07-08 for `docker-compose.tinker-bootstrap.phala.yaml`; later
+       funding-validation work superseded the initial signup blocker by proving
+       deployed Tinker login, API-key sealing, reauth, and one-off capped
+       funding through the main CVM. The remaining live Tinker blocker is now
+       client configuration for SDK training creation, not browser bootstrap.
 10. [ ] Get an official Tinker service-account/API route, or complete the
         bounded headed-Neko signup repair without evasion.
 11. [x] Prove safe Tinker account funding with a low-value test.
@@ -2780,9 +2809,11 @@ vision Wiki is reaching for.
        Current blocker: deployed smoke fails with `BadRequestError` at
        `sdk_error.failure_site=service_client_create` before Tinker training
        creation; bounded diagnostics classify it as client-configuration work
-       with `project.configured=false`. Obtain or configure the correct Tinker
-       project/client/base-url settings, rebuild/redeploy/approve the bounded
-       client-config follow-up, then rerun smoke.
+       with `project.configured=false` and
+       `client_config.project_id_argument=omitted`. Obtain or configure the
+       correct Tinker project/client/base-url settings, redeploy with that
+       encrypted runtime env, approve the resulting compose hash, then rerun
+       smoke.
 13. [ ] Merge the `gate-health-frontend` UI and wire it to real verifier/status
        APIs.
 
