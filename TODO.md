@@ -444,7 +444,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       hashes. Quotes are fresh evidence; compose hashes are stable policy.
 - [ ] `P0` Agents can request, evaluate, and report; agents cannot self-approve
       holds, widen grants, or bypass policy.
+      - [x] Add source-modeled coordination enforcement for delegated-agent
+            limits and self-approval denial. Done 2026-07-09:
+            `tinker_delegate.coordination` denies delegated turns that exceed
+            the grantor's corpus/purpose/pipeline scope at submit time and
+            turns attempted self-approval of holds into a bounded terminal
+            `self_approval_denied` state.
 - [ ] `P0` Coordination composes policies by intersection, never union.
+      - [x] Add a pure coordination reducer that combines per-corpus gate
+            results by strict intersection. Done 2026-07-09: any deny denies,
+            any hold holds, only all-pass can proceed to consent/settlement, and
+            gate results must cover exactly the turn's corpus set.
 - [ ] `P0` Bounded outputs are the only egress: score bands, yes/no, hashes,
       offers within cap, methodology summaries, cost/fee records, and audit
       attestations.
@@ -2525,22 +2535,47 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 ## Milestone 6: Coordination, Consent, Review, And Governance
 
-- [ ] `P0` Implement the pure coordination reducer described in
+- [x] `P0` Implement the pure coordination reducer described in
       `⚙️/tinker-delegate/docs/COORDINATION-ENGINE-SPEC.md`.
-- [ ] `P0` Add tests for:
+      Done 2026-07-09: `tinker_delegate.coordination.coordinate()` implements
+      source-modeled submit, gate-result, reviewer-decision, and revocation
+      events with immutable state records and bounded public turn records.
+- [x] `P0` Add tests for:
       all-pass, one-deny, one-hold, restricted-deny, missing consent, revoke
       mid-turn, and delegate-exceeds-scope.
+      Done 2026-07-09 in `tests/test_coordination.py`.
 - [ ] `P0` Implement human-review queue:
       ticket creation, role routing, release/deny, reviewer identity, expiry,
       audit trail.
-- [ ] `P0` Enforce that delegated agents cannot resolve their own holds.
+      - [x] Add source-modeled handoff tickets and reviewer decisions.
+            The reducer creates hold tickets with role routing, records reviewer
+            release/deny identity, and returns to `gating` after release so the
+            turn must be re-gated. Durable queue storage, expiry, email
+            notification, and reviewer UI remain open.
+- [x] `P0` Enforce that delegated agents cannot resolve their own holds.
+      Done 2026-07-09: reviewer decisions from the turn issuer/requester fail
+      closed as `self_approval_denied`; tests prove the agent cannot release
+      its own ticket.
 - [ ] `P0` Implement consent grants:
       purpose, pipeline, requester, expiry, revocation, quorum, and owner.
-- [ ] `P0` Implement revocation:
+      - [x] Add source-modeled active consent matching for owner, corpus,
+            purpose, pipeline, requester, and expiry. Missing consent leaves
+            the turn `awaiting-consent` with no meters or surfaced result.
+            M-of-N quorum management and consent-confirmation effects remain
+            open.
+- [x] `P0` Implement revocation:
       future and in-flight turns fail closed; prior settled attestations remain
       valid.
-- [ ] `P1` Implement joint attestations for multi-corpus turns.
-- [ ] `P1` Implement royalty metering for multi-owner surfaced turns.
+      Done 2026-07-09: owner revocation marks the corpus revoked, converts
+      in-flight/future turns touching it to `revoked`, and leaves already
+      settled turns unchanged.
+- [x] `P1` Implement joint attestations for multi-corpus turns.
+      Done 2026-07-09: terminal and held coordination records carry a bounded
+      `JointAttestation` with query/ticket/royalty hashes, reviewer refs, corpus
+      refs, and `raw_secret_egress=false`.
+- [x] `P1` Implement royalty metering for multi-owner surfaced turns.
+      Done 2026-07-09: all-pass plus active consent produces per-corpus owner
+      `RoyaltyMeter` records with amount bands and a joint royalty hash.
 - [ ] `P1` Implement M-of-N and two-person review for high-stakes routes.
 - [ ] `P1` Add separation-of-duties enforcement:
       data owner, session custodian, reviewer, auditor, requester, sponsor.

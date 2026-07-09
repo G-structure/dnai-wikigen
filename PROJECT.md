@@ -786,8 +786,12 @@ The current repo does not yet guarantee:
 - candidate sandboxing for generated computational-bio code
 - differential privacy for individual-level bio data
 - real DLP/egress controls
-- human reviewer queue
-- multi-party coordination engine
+- durable human reviewer queue; the source-modeled reducer can create and
+  resolve bounded hold tickets, but notification, expiry, UI, and reviewer
+  custody are not production
+- production multi-party coordination engine; the pure local reducer now covers
+  fail-closed fan-out, consent, revocation, joint attestations, and royalty
+  meters, but tee-email-oracle/DiligenceRoom effect wiring remains open
 - production frontend wired to real APIs
 - Proof-of-Cloud or equivalent platform provenance
 

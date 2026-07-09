@@ -156,7 +156,12 @@ Important current status:
             and they still rely on bounded dstack quote envelope checks rather
             than full cryptographic Intel TDX quote parsing/freshness.
 [modeled]   TTT/RL bio validation. Current evaluator is stub/SFT-oriented.
-[modeled]   Multi-party coordination, corpus policy, royalty metering, consent/revocation.
+[partial]   Multi-party coordination, corpus policy, royalty metering,
+            consent/revocation. The source now has a pure coordination reducer
+            for strict per-corpus result composition, consent matching,
+            reviewer-release flow, revocation, joint attestations, and royalty
+            meters. Service wiring, durable reviewer queues, M-of-N review, and
+            production governance remain incomplete.
 [planned]   Real on-chain quote verification, DLP/egress enforcement, production frontend.
 ```
 
@@ -2182,6 +2187,42 @@ Implementation status:
 [planned]   Hardened production sandbox and deployed side-channel controls,
             domain-specific bio benchmark, risk classifier, and validation
             report schema.
+```
+
+### Coordination, Consent, And Review
+
+The coordination layer sits above single-corpus gates. It never merges policies
+into a broader permission; it composes independent per-corpus results by
+intersection and fails closed.
+
+Implementation status:
+
+```
+[real]      `tinker_delegate.coordination` implements a pure source-modeled
+            reducer with no network, browser, email, chain, or Tinker effects.
+            Events are `SubmitTurn`, `GateResults`, `ReviewerDecision`, and
+            `RevokeCorpus`; every transition returns a new `CoordinationState`.
+[real]      Strict composition is executable: any deny denies, any hold opens a
+            ticket and withholds output, only all-pass can reach consent and
+            settlement, and gate results must cover exactly the turn's corpus set.
+[real]      Delegated agents cannot widen access or self-approve holds in the
+            reducer. Agent turns are denied at submit time if they exceed the
+            grantor's corpus/purpose/pipeline delegation, and release attempts
+            from the turn issuer/requester become bounded `self_approval_denied`
+            terminal records.
+[real]      Source-modeled consent, revocation, joint attestations, and royalty
+            meters exist. Active consent grants match owner, corpus, requester,
+            purpose, pipeline, and expiry; missing consent leaves the turn
+            `awaiting-consent`; revocation fails in-flight/future turns closed
+            while preserving already-settled turns; settled turns carry bounded
+            meter bands and a joint royalty hash.
+[partial]   Human-review queue is source-modeled only. Hold tickets include role
+            routing and reviewer release/deny identity, but there is no durable
+            queue, expiry worker, tee-email-oracle notification, reviewer UI, or
+            two-person/M-of-N approval path yet.
+[planned]   Wire coordination effects to tee-email-oracle for reviewer/owner
+            confirmation and to DiligenceRoom/tinker-delegate for settlement and
+            attested execution.
 ```
 
 ### 4. DNAI
