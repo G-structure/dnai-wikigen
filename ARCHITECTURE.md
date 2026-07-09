@@ -1324,11 +1324,12 @@ Implementation status:
             only `TINKER_BOOTSTRAP_SIGNUP=true`, uses fail-open bounded
             evidence mode so selector/posture failures can be inspected through
             `/health` runtime state, and now drives the headed Neko Chrome CDP
-            endpoint instead of the headless Playwright sidecar. The currently
-            committed Phala bootstrap/diagnostic composes still use the
-            upstream digest-pinned Neko image plus inline container startup CDP
-            rewiring; they have not yet been updated to the new
-            GitHub-attested custom `neko-chrome` digest.
+            endpoint instead of the headless Playwright sidecar. The Tinker
+            bootstrap and selector-diagnostics Phala composes now use the
+            GitHub-attested custom `neko-chrome` digest and the baked Nginx CDP
+            proxy on port `9222`; they no longer rewrite Chrome/CDP with an
+            inline Python TCP proxy at container startup. This browser-image
+            repair is not yet Phala-measured against live Tinker auth.
 [partial]   Three Phala-proven Tinker bootstrap attempts have failed closed
             without API-key sealing. The first, using the headless Playwright
             sidecar, reached the Tinker auth surface with

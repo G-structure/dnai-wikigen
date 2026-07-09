@@ -617,10 +617,20 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             a local Docker build of the pinned image succeeded. This does not
             yet prove deployed Tinker auth; it creates the browser digest and
             provenance path needed for the next Phala retry.
-      - [ ] Replace the one-shot Tinker bootstrap/selector diagnostic Phala
-            Neko service with the GitHub-attested custom `neko-chrome`
-            digest once CI publishes it, then rerun `/browser/readiness`,
-            `/browser/selector-probe`, and authenticated `/auth/reauth`.
+      - [x] Replace the one-shot Tinker bootstrap/selector diagnostic Phala
+            Neko service with the GitHub-attested custom `neko-chrome` digest.
+            Done 2026-07-09: GitHub Actions run `28994301855` built
+            `neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07`
+            from source `6ff5531aabb952b3266210afa6c0b6bfb8860103`.
+            Local `verify-ghcr-image-attestation` accepted both SLSA
+            provenance and SPDX SBOM attestations. The Tinker bootstrap and
+            selector-diagnostics Phala composes now use that digest, port CDP
+            through the baked Nginx proxy on `9222`, and no longer rewrite
+            Chrome/CDP with an inline Python proxy at container startup.
+      - [ ] Rerun deployed Phala browser/auth probes with the custom
+            `neko-chrome` compose: `/browser/readiness`,
+            `/browser/selector-probe`, and authenticated `/auth/reauth`, then
+            record whether `Page.enable`/auth still block.
 - [x] `P0` Replace the deployed headless Playwright sidecar in the one-shot
       Tinker bootstrap profile with a headed browser path that survives Phala
       packaging if browser automation remains the route.

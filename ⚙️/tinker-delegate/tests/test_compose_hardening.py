@@ -177,19 +177,25 @@ class ComposeHardeningTest(unittest.TestCase):
 
     def test_tinker_bootstrap_compose_only_enables_tinker_bootstrap(self):
         compose = (ROOT / "docker-compose.tinker-bootstrap.phala.yaml").read_text()
+        neko = _service_block(compose, "neko")
         oracle = _service_block(compose, "oracle")
         delegate = _service_block(compose, "delegate")
 
         self.assertIn("Temporary Main-CVM Tinker Bootstrap Compose", compose)
+        self.assertIn("neko-chrome@sha256:", neko)
+        self.assertNotIn("google-chrome@sha256:", neko)
+        self.assertNotIn("cdp_proxy.py", neko)
+        self.assertIn('"9222:9222"', neko)
         self.assertIn("tee-email-oracle@sha256:", oracle)
         self.assertIn("tinker-delegate@sha256:", delegate)
         self.assertNotIn("  delegate-browser:", compose)
         self.assertNotIn("delegate-browser:", delegate)
         self.assertIn('ORACLE_AUTO_GENESIS: "false"', oracle)
+        self.assertIn("ORACLE_CDP_URL: http://172.20.0.3:9222", oracle)
         self.assertIn('ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: "false"', oracle)
         self.assertIn('ORACLE_CREDENTIAL_PROVISIONING_TOKEN: ""', oracle)
         self.assertIn('TINKER_BROWSER_WS_ENDPOINT: ""', delegate)
-        self.assertIn("TINKER_CDP_URL: http://172.20.0.3:9223", delegate)
+        self.assertIn("TINKER_CDP_URL: http://172.20.0.3:9222", delegate)
         self.assertIn('TINKER_BOOTSTRAP_SIGNUP: "true"', delegate)
         self.assertIn('TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "false"', delegate)
         self.assertIn('TINKER_ALLOW_BROWSER_READINESS_ENDPOINT: "true"', delegate)
@@ -229,12 +235,16 @@ class ComposeHardeningTest(unittest.TestCase):
         delegate = _service_block(compose, "delegate")
 
         self.assertIn("Temporary Main-CVM Selector Diagnostics Compose", compose)
-        self.assertIn("google-chrome@sha256:", neko)
+        self.assertIn("neko-chrome@sha256:", neko)
+        self.assertNotIn("google-chrome@sha256:", neko)
+        self.assertNotIn("cdp_proxy.py", neko)
+        self.assertIn('"9222:9222"', neko)
         self.assertIn("tee-email-oracle@sha256:", oracle)
         self.assertIn("tinker-delegate@sha256:", delegate)
         self.assertNotIn("  delegate-browser:", compose)
         self.assertIn('ORACLE_AUTO_GENESIS: "false"', oracle)
         self.assertIn('ORACLE_RUNTIME_AUTH_REQUIRED: "true"', oracle)
+        self.assertIn("ORACLE_CDP_URL: http://172.20.0.3:9222", oracle)
         self.assertIn('ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: "false"', oracle)
         self.assertIn('TINKER_RUNTIME_AUTH_REQUIRED: "true"', delegate)
         self.assertIn('TINKER_ALLOW_AUTH_AUTOMATION_ENDPOINT: "false"', delegate)
@@ -244,7 +254,7 @@ class ComposeHardeningTest(unittest.TestCase):
         self.assertIn('TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT: "true"', delegate)
         self.assertIn('TINKER_BOOTSTRAP_SIGNUP: "false"', delegate)
         self.assertIn('TINKER_BROWSER_WS_ENDPOINT: ""', delegate)
-        self.assertIn("TINKER_CDP_URL: http://172.20.0.3:9223", delegate)
+        self.assertIn("TINKER_CDP_URL: http://172.20.0.3:9222", delegate)
 
 
 if __name__ == "__main__":

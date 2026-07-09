@@ -57,16 +57,21 @@ size `5010`. Public logs remain disabled. Health is OK, the oracle is ready,
 IMAP is connected, and unauthenticated `/auth/reauth` plus
 `/billing/add-balance` fail closed with `401 Bearer token required`.
 
-Browser auth repair in progress, 2026-07-09: the repo now has a verified local
-build path for the custom Neko Chrome/CDP image that previously only existed as
-a local compose build. `.github/workflows/build-tee-images.yml` includes
-`neko-chrome`, and `⚙️/tee-email-oracle/neko-chrome/Dockerfile` pins the
-upstream Neko linux/amd64 base digest instead of `latest`. Focused tests passed
-and a local `docker build --platform linux/amd64` succeeded. This is not a
-deployed auth fix yet: the next required step is to let GitHub publish and
-attest the `neko-chrome` GHCR digest, verify it, pin that digest into the
-one-shot Tinker bootstrap/selector diagnostic compose, and rerun the Phala
-browser/auth probes.
+Browser auth repair in progress, 2026-07-09: the custom Neko Chrome/CDP image
+that previously only existed as a local compose build is now on the
+GitHub-attested GHCR path. `.github/workflows/build-tee-images.yml` includes
+`neko-chrome`, `⚙️/tee-email-oracle/neko-chrome/Dockerfile` pins the upstream
+Neko linux/amd64 base digest instead of `latest`, focused tests passed, and a
+local `docker build --platform linux/amd64` succeeded. GitHub Actions run
+`28994301855` built
+`ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07`
+from source `6ff5531aabb952b3266210afa6c0b6bfb8860103`; local
+`verify-ghcr-image-attestation` accepted both SLSA provenance and SPDX SBOM
+attestations. The Tinker bootstrap and selector-diagnostics Phala composes now
+use that digest, route CDP through the baked Nginx proxy on `9222`, and remove
+the inline Python CDP proxy/runtime Chrome config rewrite. This is not a
+deployed auth fix yet: the next required step is to redeploy the one-shot
+diagnostic/bootstrap compose and rerun the Phala browser/auth probes.
 
 Funding profile live result, 2026-07-09: remote preflight for `$5` with
 `operator_capped_validation`, the add-balance endpoint requirement, and live
