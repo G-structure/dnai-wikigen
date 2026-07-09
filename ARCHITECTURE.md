@@ -1039,6 +1039,14 @@ Implementation status:
             exclusive with test-card flags, and deployed compose/app/OS-image
             attestation expectations are required before prompting unless
             local-development attestation is explicitly allowed.
+[real]      Prompt-based real-card operator paths can also require the deployed
+            TinkerAccountEncumbrance policy before any card field prompt.
+            `add-card-encrypted-prompt` and
+            `funding-validation-packet --prompt-card --run-card-attempt` accept
+            `--require-encumbrance` plus contract/RPC/compose inputs; they run
+            read-only contract checks for add-payment-method and, when a top-up
+            amount is part of the same packet, add-balance cap approval. Denied
+            or unavailable policy exits before card material is entered.
 [real]      Operator-only mutation endpoints now have delegate runtime bearer
             auth. When `TINKER_RUNTIME_AUTH_REQUIRED=true`,
             `/auth/reauth`, `/billing/card/encrypted`,

@@ -133,7 +133,35 @@ def _prompt_billing_card_payload(prompt_fn=getpass.getpass) -> dict[str, str]:
     return payload
 
 
-def _validate_prompt_billing_policy(args) -> None:
+def _add_encumbrance_gate_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--require-encumbrance",
+        action="store_true",
+        help="Require live TinkerAccountEncumbrance policy approval before prompting for card details",
+    )
+    parser.add_argument(
+        "--encumbrance-contract-address",
+        default="",
+        help="TinkerAccountEncumbrance address; defaults to TINKER_ENCUMBRANCE_CONTRACT_ADDRESS",
+    )
+    parser.add_argument(
+        "--encumbrance-rpc-url",
+        default="",
+        help="JSON-RPC URL for encumbrance reads; defaults to TINKER_ENCUMBRANCE_RPC_URL or TINKER_CHAIN_RPC_URL",
+    )
+    parser.add_argument(
+        "--encumbrance-compose-hash",
+        default="",
+        help="Compose hash to check against TinkerAccountEncumbrance; defaults to --compose-hash or TINKER_ENCUMBRANCE_COMPOSE_HASH",
+    )
+
+
+def _validate_prompt_billing_policy(
+    args,
+    settings: Settings | None = None,
+    *,
+    amount_dollars: float | None = None,
+) -> None:
     """Require a concrete deployed attestation policy for prompt-based card entry."""
     if args.allow_local_attestation:
         return
@@ -153,6 +181,59 @@ def _validate_prompt_billing_policy(args) -> None:
             f"{command} requires deployed billing attestation expectations "
             f"({joined}) unless --allow-local-attestation is set for local development"
         )
+    if getattr(args, "require_encumbrance", False):
+        _validate_prompt_encumbrance_policy(args, settings or Settings(), amount_dollars=amount_dollars)
+
+
+def _validate_prompt_encumbrance_policy(
+    args,
+    settings: Settings,
+    *,
+    amount_dollars: float | None,
+) -> None:
+    """Fail closed before card prompts unless the live encumbrance permits billing."""
+    from tinker_delegate.tinker_encumbrance import (
+        TinkerEncumbranceError,
+        TinkerOperationKind,
+        preflight_tinker_operation,
+    )
+
+    compose_hash = (
+        getattr(args, "encumbrance_compose_hash", "")
+        or getattr(args, "compose_hash", "")
+        or getattr(settings, "encumbrance_compose_hash", "")
+    )
+    common_kwargs = {
+        "compose_hash": compose_hash,
+        "contract_address": getattr(args, "encumbrance_contract_address", ""),
+        "rpc_url": getattr(args, "encumbrance_rpc_url", ""),
+        "required": True,
+    }
+    try:
+        checks = [
+            preflight_tinker_operation(
+                settings,
+                operation_kind=TinkerOperationKind.ADD_PAYMENT_METHOD,
+                amount_dollars=0,
+                **common_kwargs,
+            )
+        ]
+        if amount_dollars is not None:
+            checks.append(
+                preflight_tinker_operation(
+                    settings,
+                    operation_kind=TinkerOperationKind.ADD_BALANCE,
+                    amount_dollars=amount_dollars,
+                    **common_kwargs,
+                )
+            )
+    except TinkerEncumbranceError as exc:
+        raise ValueError(f"Tinker encumbrance policy check failed: {redact_text(exc)}") from exc
+
+    denied = [check for check in checks if not check.allowed]
+    if denied:
+        reasons = ", ".join(sorted({check.reason for check in denied}))
+        raise ValueError(f"Tinker encumbrance policy denied prompt billing: {reasons}")
 
 
 def _wait_for_oracle(settings: Settings) -> None:
@@ -488,6 +569,7 @@ def cli():
         action="store_true",
         help="Live-fetch and verify /attestation?context=billing during preflight",
     )
+    _add_encumbrance_gate_args(validation_packet_p)
     validation_packet_p.add_argument(
         "--run-card-attempt",
         action="store_true",
@@ -621,6 +703,7 @@ def cli():
         default="TINKER_RUNTIME_AUTH_TOKEN",
         help="Environment variable containing delegate runtime bearer token",
     )
+    _add_encumbrance_gate_args(add_card_encrypted_prompt_p)
     add_card_encrypted_prompt_p.add_argument(
         "--receipt-output",
         default="",
@@ -1234,7 +1317,11 @@ def cli():
         required_card_fields = ("card_number", "exp_month", "exp_year", "cvc", "cardholder_name")
         if args.run_card_attempt and args.prompt_card:
             try:
-                _validate_prompt_billing_policy(args)
+                _validate_prompt_billing_policy(
+                    args,
+                    settings,
+                    amount_dollars=args.amount if args.run_add_balance_attempt else None,
+                )
             except ValueError as exc:
                 print(f"[funding-validation-packet] policy rejected: {redact_text(exc)}")
                 sys.exit(1)
@@ -1384,7 +1471,7 @@ def cli():
         )
 
         try:
-            _validate_prompt_billing_policy(args)
+            _validate_prompt_billing_policy(args, settings)
         except ValueError as exc:
             print(f"[add-card-encrypted-prompt] policy rejected: {redact_text(exc)}")
             sys.exit(1)

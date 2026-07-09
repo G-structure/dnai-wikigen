@@ -346,6 +346,12 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   operations fail closed before card decryption/browser launch unless public
   contract reads show the compose hash is approved, emergency halt is off, and
   the add-balance/spend amount is within cap.
+- Prompt-based real-card operator CLI paths can now require that same on-chain
+  policy before asking for card material. `add-card-encrypted-prompt` and
+  `funding-validation-packet --prompt-card --run-card-attempt` support
+  `--require-encumbrance` with contract/RPC/compose inputs; add-balance packet
+  runs also check the requested amount against the deployed cap before any
+  prompt.
 - A no-raw-key Base Sepolia deploy helper now exists for
   `TinkerAccountEncumbrance`. It uses Foundry `--account dev`, validates
   bytes32 commitments and policy caps, defaults the initial compose hash from
@@ -527,8 +533,9 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
 - A minimal `TinkerAccountEncumbrance.sol` contract now exists locally with
   tests proving managers cannot exceed owner-set caps or change owner-only
   policy. The runtime now has a read-only policy preflight and optional
-  fail-closed card/add-balance gate, plus a validated no-raw-key deploy helper,
-  but the contract is not yet deployed or recorded in the Base Sepolia manifest.
+  fail-closed card/add-balance gate, prompt-time real-card encumbrance checks,
+  plus a validated no-raw-key deploy helper, but the contract is not yet
+  deployed or recorded in the Base Sepolia manifest.
 - Test-card billing reaches a clear declined-card outcome.
 - Payment-method and add-balance operations return bounded attempt records with
   outcome class, furthest stage, issued timestamp, evidence hash, amount/balance

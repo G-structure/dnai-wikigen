@@ -251,9 +251,14 @@ secret-shaped inputs. To run an encrypted card attempt inside the packet
 command for approved operator validation, pass `--run-card-attempt
 --prompt-card` with deployed compose/app/OS-image expectations; prompt mode is
 mutually exclusive with test-card flags and rejects missing measurement policy
-before asking for card material. To run top-up inside the packet command, pass
-`--run-add-balance-attempt` with `--amount`; this posts only the amount and
-still requires the delegate add-balance endpoint to be explicitly enabled.
+before asking for card material. Add `--require-encumbrance`,
+`--encumbrance-contract-address 0x...`, `--encumbrance-rpc-url
+"$BASE_SEPOLIA_RPC_URL"`, and `--encumbrance-compose-hash 0x...` to require a
+live `TinkerAccountEncumbrance` read before the prompt; same-packet top-ups
+also check the requested amount against the deployed cap. To run top-up inside
+the packet command, pass `--run-add-balance-attempt` with `--amount`; this posts
+only the amount and still requires the delegate add-balance endpoint to be
+explicitly enabled.
 
 The CLI card flags are for local test-card development only. Read
 `docs/STRIPE-PCI-FUNDING-SCOPE.md` before any real-card attempt. The encrypted
@@ -543,8 +548,9 @@ contracts/
 - **Operator card entry**: `add-card-encrypted-prompt` prompts interactively
   instead of taking card fields as command-line flags, requires deployed
   compose/app/OS-image attestation expectations unless explicitly run with
-  local-development attestation, zeros the in-memory card dictionary after
-  upload, and emits only bounded JSON.
+  local-development attestation, can require live `TinkerAccountEncumbrance`
+  approval with `--require-encumbrance` before prompting, zeros the in-memory
+  card dictionary after upload, and emits only bounded JSON.
 - **Funding model and Stripe/PCI stance**: see `docs/TINKER-FUNDING-MODEL.md`
   and `docs/STRIPE-PCI-FUNDING-SCOPE.md`; production or repeated funding should
   use an official Tinker route, Stripe-hosted/tokenized collection,

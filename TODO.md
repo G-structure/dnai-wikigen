@@ -1267,11 +1267,21 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Locally verify `POST /billing/add-balance` rejects with 403 while
             `TINKER_ALLOW_ADD_BALANCE_ENDPOINT=false`, even when
             `operator_capped_validation` mode is enabled.
+      - [x] Add a prompt-time encumbrance gate for approved real-card operator
+            validation. `add-card-encrypted-prompt` and
+            `funding-validation-packet --prompt-card --run-card-attempt` now
+            accept `--require-encumbrance` plus contract/RPC/compose inputs and
+            run read-only `TinkerAccountEncumbrance` policy checks before
+            prompting for card fields. If the contract is missing, the compose
+            hash is not approved, emergency halt is on, or the requested
+            add-balance amount exceeds the cap, the CLI exits before card
+            material is entered.
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
             attempt after the funding-validation compose is deployed on Phala,
             its live attested compose hash is recorded, and the operator CLI
-            command targets that hash with `--fetch-attestation`. Blocked
-            2026-07-08 by deployed Tinker auth/billing automation:
+            command targets that hash with `--fetch-attestation` and
+            `--require-encumbrance`. Blocked 2026-07-08 by deployed
+            Tinker auth/billing automation:
             `auth_access_blocked` on reauth and `auth_required` on both
             payment-method and add-balance surfaces.
 - [x] `P0` Confirm PCI and Stripe obligations.

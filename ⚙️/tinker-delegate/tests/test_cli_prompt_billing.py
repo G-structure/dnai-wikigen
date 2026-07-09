@@ -1,10 +1,13 @@
 import types
 import unittest
+from unittest.mock import patch
 
+from tinker_delegate.config import Settings
 from tinker_delegate.main import (
     _prompt_billing_card_payload,
     _validate_prompt_billing_policy,
 )
+from tinker_delegate.tinker_encumbrance import TinkerEncumbrancePolicyResult
 
 
 class PromptBillingCliTest(unittest.TestCase):
@@ -60,6 +63,93 @@ class PromptBillingCliTest(unittest.TestCase):
         )
 
         _validate_prompt_billing_policy(args)
+
+    def test_prompt_policy_requires_live_encumbrance_when_flagged(self):
+        args = types.SimpleNamespace(
+            command="add-card-encrypted-prompt",
+            allow_local_attestation=False,
+            compose_hash="0x" + "11" * 32,
+            app_id="app-ok",
+            os_image_hash="os-ok",
+            require_encumbrance=True,
+            encumbrance_contract_address="0x" + "22" * 20,
+            encumbrance_rpc_url="https://sepolia.base.org",
+            encumbrance_compose_hash="",
+        )
+        allowed = TinkerEncumbrancePolicyResult(
+            checked=True,
+            allowed=True,
+            reason="allowed",
+            operation="add_payment_method",
+            operation_kind=0,
+        )
+
+        with patch(
+            "tinker_delegate.tinker_encumbrance.preflight_tinker_operation",
+            return_value=allowed,
+        ) as preflight:
+            _validate_prompt_billing_policy(args, Settings())
+
+        self.assertEqual(preflight.call_count, 1)
+        self.assertEqual(preflight.call_args.kwargs["compose_hash"], "0x" + "11" * 32)
+        self.assertTrue(preflight.call_args.kwargs["required"])
+
+    def test_prompt_policy_checks_add_balance_before_prompt_when_amount_is_present(self):
+        args = types.SimpleNamespace(
+            command="funding-validation-packet",
+            allow_local_attestation=False,
+            compose_hash="0x" + "11" * 32,
+            app_id="app-ok",
+            os_image_hash="os-ok",
+            require_encumbrance=True,
+            encumbrance_contract_address="0x" + "22" * 20,
+            encumbrance_rpc_url="https://sepolia.base.org",
+            encumbrance_compose_hash="0x" + "33" * 32,
+        )
+        allowed = TinkerEncumbrancePolicyResult(
+            checked=True,
+            allowed=True,
+            reason="allowed",
+            operation="add_payment_method",
+            operation_kind=0,
+        )
+
+        with patch(
+            "tinker_delegate.tinker_encumbrance.preflight_tinker_operation",
+            return_value=allowed,
+        ) as preflight:
+            _validate_prompt_billing_policy(args, Settings(), amount_dollars=5.0)
+
+        self.assertEqual(preflight.call_count, 2)
+        self.assertTrue(all(call.kwargs["required"] for call in preflight.call_args_list))
+        self.assertTrue(all(call.kwargs["compose_hash"] == "0x" + "33" * 32 for call in preflight.call_args_list))
+
+    def test_prompt_policy_denies_when_encumbrance_denies(self):
+        args = types.SimpleNamespace(
+            command="add-card-encrypted-prompt",
+            allow_local_attestation=False,
+            compose_hash="0x" + "11" * 32,
+            app_id="app-ok",
+            os_image_hash="os-ok",
+            require_encumbrance=True,
+            encumbrance_contract_address="0x" + "22" * 20,
+            encumbrance_rpc_url="https://sepolia.base.org",
+            encumbrance_compose_hash="",
+        )
+        denied = TinkerEncumbrancePolicyResult(
+            checked=True,
+            allowed=False,
+            reason="compose_hash_not_approved",
+            operation="add_payment_method",
+            operation_kind=0,
+        )
+
+        with patch(
+            "tinker_delegate.tinker_encumbrance.preflight_tinker_operation",
+            return_value=denied,
+        ):
+            with self.assertRaisesRegex(ValueError, "compose_hash_not_approved"):
+                _validate_prompt_billing_policy(args, Settings())
 
 
 if __name__ == "__main__":
