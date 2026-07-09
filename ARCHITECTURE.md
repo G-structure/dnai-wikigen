@@ -416,9 +416,9 @@ run IDs, checkpoint paths, samples, or private reward data.
             source/test-real and are not yet live in the current Phala CVM.
             The current source compose carries disabled lifecycle and signed
             identity-registry env knobs; local raw/image-policy compose hash is
-            `efe2008fac1468d294c231528c610c6994ee8654a4b4835c9113d97d7295e438`
+            `e682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7`
             and rendered compose SHA-256 is
-            `1e634a04c44120f9424020461e0058f5f414753b308fcfa08868a17134a6e923`.
+            `4c99b0f73a14bd40292ee71df343fd5e08f889e1932f4318d64657107e78e595`.
             It is not yet deployed as a lifecycle/signature-required Phala
             policy, and the signer address is not yet bound to a production
             verifier/reviewer identity source or governance contract.
