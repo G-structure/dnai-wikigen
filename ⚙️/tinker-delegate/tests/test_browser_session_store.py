@@ -81,6 +81,27 @@ class BrowserSessionStoreTest(unittest.TestCase):
         self.assertIs(context, existing_context)
         self.assertIsNone(browser.created_storage_state)
 
+    def test_get_browser_context_can_prefer_saved_state_over_existing_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "browser_session.enc"
+            state = {"cookies": [{"name": "session", "value": "secret"}], "origins": []}
+            BrowserSessionStore(str(path), "33" * 32, dstack_enabled=False).save(state)
+            settings = Settings(
+                browser_session_store_path=str(path),
+                browser_session_store_key="33" * 32,
+            )
+            existing_context = object()
+            browser = FakeBrowser()
+            browser.contexts = [existing_context]
+
+            context = asyncio.run(
+                get_browser_context(browser, settings, prefer_saved_state=True)
+            )
+
+            self.assertIsNot(context, existing_context)
+            self.assertIs(context, browser.contexts[-1])
+            self.assertEqual(browser.created_storage_state, state)
+
 
 if __name__ == "__main__":
     unittest.main()

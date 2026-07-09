@@ -127,13 +127,19 @@ async def connect_chromium(playwright: Playwright, settings: Settings) -> Browse
     )
 
 
-async def get_browser_context(browser: Browser, settings: Settings | None = None) -> BrowserContext:
-    """Reuse the first context, or create one from encrypted Tinker session state."""
-    if browser.contexts:
-        return browser.contexts[0]
-    if settings is not None:
+async def get_browser_context(
+    browser: Browser,
+    settings: Settings | None = None,
+    *,
+    prefer_saved_state: bool = False,
+) -> BrowserContext:
+    """Return a context, optionally preferring encrypted Tinker session state."""
+    should_load_state = settings is not None and (prefer_saved_state or not browser.contexts)
+    if should_load_state:
         state = build_browser_session_store(settings).load()
-        if state:
+        if state and (prefer_saved_state or not browser.contexts):
             print("[browser] creating context from encrypted Tinker session state")
             return await browser.new_context(storage_state=state)
+    if browser.contexts:
+        return browser.contexts[0]
     return await browser.new_context()
