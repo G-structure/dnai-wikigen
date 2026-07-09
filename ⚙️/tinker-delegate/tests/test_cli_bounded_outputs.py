@@ -1026,6 +1026,73 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertFalse(failed_receipt["raw_secret_egress"])
             self.assertNotIn(signer_key.replace("0x", ""), repr(failed_receipt))
 
+    def test_proxy_grant_lifecycle_sign_cli_is_bounded(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            env = _env(tmpdir)
+            reviewer = Account.create("proxy grant lifecycle reviewer")
+            reviewer_key = reviewer.key.hex()
+            env["TINKER_PROXY_GRANT_REVIEWER_KEY"] = reviewer_key
+            grant_path = tmp / "grant.json"
+            signed_grant_path = tmp / "signed-grant.json"
+            sign_receipt_path = tmp / "grant-sign-receipt.json"
+            recipient_public_key = "ab" * 32
+            grant = {
+                "subject_hash": stable_hash("buyer-agent-1", prefix="proxy_subject"),
+                "recipient_public_key_hash": stable_hash(
+                    recipient_public_key,
+                    prefix="proxy_recipient_public_key",
+                ),
+                "scopes": ["proxy:status"],
+                "max_ttl_seconds": 60,
+                "lifecycle": {
+                    "status": "active",
+                    "approved_by_hash": stable_hash(reviewer.address.lower(), prefix="proxy_grant_reviewer"),
+                    "approval_event_hash": stable_hash("approval-event-1", prefix="proxy_grant_approval"),
+                    "approved_at": 1,
+                    "expires_at": 4_102_444_800,
+                },
+            }
+            grant_path.write_text(json.dumps(grant, sort_keys=True), encoding="utf-8")
+
+            signed = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "sign-tinker-proxy-grant-lifecycle",
+                    "--grant-json",
+                    str(grant_path),
+                    "--signed-grant-output",
+                    str(signed_grant_path),
+                    "--output",
+                    str(sign_receipt_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(signed.returncode, 0, signed.stderr)
+            self.assertEqual(signed.stdout, "")
+            receipt = json.loads(sign_receipt_path.read_text(encoding="utf-8"))
+            signed_grant = json.loads(signed_grant_path.read_text(encoding="utf-8"))
+            rendered_receipt = repr(receipt)
+            self.assertTrue(receipt["success"])
+            self.assertEqual(receipt["surface"], "tinker_proxy_grant_lifecycle_sign")
+            self.assertTrue(receipt["signed_grant_written"])
+            self.assertFalse(receipt["signed_grant_returned"])
+            self.assertFalse(receipt["signature"]["private_key_returned"])
+            self.assertFalse(receipt["signature"]["signature_returned"])
+            self.assertFalse(receipt["signature"]["signer_address_returned"])
+            self.assertIn("approval_signature", signed_grant["lifecycle"])
+            self.assertNotIn(reviewer_key.replace("0x", ""), rendered_receipt)
+            self.assertNotIn(reviewer.address, rendered_receipt)
+            self.assertNotIn(signed_grant["lifecycle"]["approval_signature"]["signature"], rendered_receipt)
+            self.assertNotIn("buyer-agent-1", rendered_receipt)
+
     def test_tinker_smoke_non_json_remote_response_writes_bounded_failure(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "smoke.json"

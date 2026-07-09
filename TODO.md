@@ -290,6 +290,42 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                                     issuance without returning raw identities,
                                     runtime bearer token, signer address, raw
                                     signature, or plaintext JWT.
+                              - [x] Add source/test-real reviewer-signed grant
+                                    lifecycle approvals. Done 2026-07-09:
+                                    `TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE_SIGNATURE=true`
+                                    makes proxy JWT issuance fail closed unless
+                                    the active grant lifecycle carries an
+                                    Ethereum signed-message signature over the
+                                    canonical hash-only grant approval payload.
+                                    The recovered signer address must hash to
+                                    lifecycle `approved_by_hash`, so a policy
+                                    editor cannot silently name a reviewer
+                                    without reviewer key control. Issuance and
+                                    policy summaries expose only approval hash,
+                                    signer hash, signature hash, lifecycle
+                                    status/timestamps, and
+                                    `raw_secret_egress=false`.
+                                    `sign-tinker-proxy-grant-lifecycle` writes
+                                    the signed grant to an explicit output file
+                                    using a reviewer key supplied only by env,
+                                    and its bounded receipt proves no reviewer
+                                    private key, raw signer address, raw
+                                    signature, subject label, plaintext JWT, or
+                                    upstream Tinker credential egress.
+                                    Focused proxy and CLI tests cover valid
+                                    signed grant issuance plus missing/wrong
+                                    reviewer fail-closed behavior. The Phala
+                                    funding-validation compose now carries the
+                                    disabled
+                                    `TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE_SIGNATURE`
+                                    env knob; reviewer private-key env is
+                                    local-only and is not included in compose.
+                                    Local `verify-compose-hash
+                                    --phala-raw-compose` computes raw/image
+                                    policy hash
+                                    `af76ae49abfb8860bed46259de8a631f9f7c6c2056070ea31956f9a034ae0cc8`
+                                    and rendered compose SHA-256
+                                    `49b353c2b3d974e6f0e055ccde8e28b27cb31814351a5108d773ecbb9b2fd601`.
                   - [x] Redeploy the lifecycle/signature-required proxy issue
                         policy source slice to Phala, approve the resulting
                         compose hash, install an active lifecycle-bound issue

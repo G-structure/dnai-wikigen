@@ -129,7 +129,12 @@ For the current implementation this means:
   Ethereum address before minting, so an operator-supplied JSON file is not
   enough when the signature gate is enabled. The verifier workflow should
   produce signed hash-only registry artifacts and bounded receipts, not raw
-  identity exports. A deployment-policy gate can also require public
+  identity exports. Grant lifecycle approval can additionally require an
+  Ethereum signed-message signature over a canonical hash-only grant approval
+  payload, where the recovered reviewer address must hash to the grant's
+  `approved_by_hash`; bounded receipts expose only approval, signer, and
+  signature hashes, not signer addresses or raw signatures. A deployment-policy
+  gate can also require public
   `TinkerAccountEncumbrance` compose/cap approval before minting spend-bearing
   proxy JWTs; production verifier/reviewer governance and secure recipient
   approval workflow remain separate work.

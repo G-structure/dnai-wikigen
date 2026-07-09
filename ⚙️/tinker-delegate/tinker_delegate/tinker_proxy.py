@@ -160,6 +160,9 @@ def build_tinker_proxy_status(settings) -> dict[str, Any]:
             "issue_policy_configured": bool(getattr(settings, "proxy_issue_policy_path", "")),
             "deployment_policy_required": bool(getattr(settings, "proxy_require_deployment_policy", False)),
             "grant_lifecycle_required": bool(getattr(settings, "proxy_require_grant_lifecycle", False)),
+            "grant_lifecycle_signature_required": bool(
+                getattr(settings, "proxy_require_grant_lifecycle_signature", False)
+            ),
             "identity_registry_required": bool(getattr(settings, "proxy_require_identity_registry", False)),
             "identity_registry_configured": bool(getattr(settings, "proxy_identity_registry_path", "")),
             "identity_registry_signature_required": bool(
@@ -449,7 +452,7 @@ def summarize_proxy_issue_policy(policy: dict[str, Any], *, configured: bool = T
                 "recipient_public_key_hash": grant["recipient_public_key_hash"],
                 "scopes": grant["scopes"],
                 "scope_limits": grant.get("scope_limits", {}),
-                "lifecycle": grant.get("lifecycle", {}),
+                "lifecycle": _public_proxy_grant_lifecycle(grant.get("lifecycle", {})),
                 "max_ttl_seconds": grant["max_ttl_seconds"],
                 "raw_secret_egress": False,
             }
@@ -695,7 +698,9 @@ def _validate_proxy_issue_policy(
         try:
             grant_lifecycle = _validate_proxy_grant_lifecycle(
                 grant.get("lifecycle", {}),
+                grant=grant,
                 required=lifecycle_required,
+                signature_required=bool(getattr(settings, "proxy_require_grant_lifecycle_signature", False)),
                 now=now_int,
             )
         except ValueError as exc:
@@ -838,6 +843,10 @@ def _normalize_proxy_grant_lifecycle(raw_lifecycle: Any) -> dict[str, Any]:
         lifecycle["approved_at"] = approved_at
     if expires_at:
         lifecycle["expires_at"] = expires_at
+    if "approval_signature" in raw_lifecycle:
+        lifecycle["approval_signature"] = _normalize_proxy_grant_lifecycle_signature_block(
+            raw_lifecycle.get("approval_signature")
+        )
     if status == "active":
         if "approved_by_hash" not in lifecycle:
             raise ValueError("proxy issue policy active grant lifecycle requires approved_by_hash")
@@ -853,7 +862,9 @@ def _normalize_proxy_grant_lifecycle(raw_lifecycle: Any) -> dict[str, Any]:
 def _validate_proxy_grant_lifecycle(
     lifecycle: dict[str, Any],
     *,
+    grant: dict[str, Any],
     required: bool,
+    signature_required: bool,
     now: int,
 ) -> dict[str, Any]:
     if not lifecycle:
@@ -869,12 +880,162 @@ def _validate_proxy_grant_lifecycle(
         raise ValueError("proxy issue policy grant lifecycle is not active yet")
     if expires_at <= now:
         raise ValueError("proxy issue policy grant lifecycle expired")
+    signature_binding = _validate_proxy_grant_lifecycle_signature(
+        grant,
+        normalized,
+        required=signature_required,
+    )
     return {
-        **normalized,
+        **_public_proxy_grant_lifecycle(normalized),
+        "approval_signature_binding": signature_binding,
         "checked": True,
         "raw_secret_egress": False,
     }
 
+
+def _public_proxy_grant_lifecycle(lifecycle: dict[str, Any]) -> dict[str, Any]:
+    """Return lifecycle evidence with raw signatures and signer addresses removed."""
+
+    if not lifecycle:
+        return {}
+    public = {
+        field: lifecycle[field]
+        for field in ("status", "approved_by_hash", "approval_event_hash", "approved_at", "expires_at")
+        if field in lifecycle
+    }
+    signature = lifecycle.get("approval_signature")
+    if isinstance(signature, dict):
+        public["approval_signature"] = {
+            "kind": signature.get("kind", "ethereum_signed_message"),
+            "approval_hash": str(signature.get("approval_hash", "") or ""),
+            "signer_hash": stable_hash(
+                str(signature.get("signer", "")).lower(),
+                prefix="proxy_grant_lifecycle_signer",
+            )
+            if signature.get("signer")
+            else "",
+            "signature_hash": stable_hash(
+                str(signature.get("signature", "")),
+                prefix="proxy_grant_lifecycle_signature",
+            )
+            if signature.get("signature")
+            else "",
+            "signature_returned": False,
+            "signer_address_returned": False,
+            "raw_secret_egress": False,
+        }
+    return public
+
+
+def _normalize_proxy_grant_lifecycle_signature_block(raw_signature: Any) -> dict[str, str]:
+    if not isinstance(raw_signature, dict):
+        raise ValueError("proxy issue policy grant lifecycle signature must be an object")
+    kind = str(raw_signature.get("kind", "")).strip().lower()
+    if kind not in {"ethereum_signed_message", "ethereum_personal_sign"}:
+        raise ValueError("proxy issue policy grant lifecycle signature kind is invalid")
+    signer = normalize_address(str(raw_signature.get("signer", "")))
+    signature = str(raw_signature.get("signature", "")).strip().lower()
+    if signature.startswith("0x"):
+        signature_hex = signature[2:]
+    else:
+        signature_hex = signature
+    if len(signature_hex) != 130:
+        raise ValueError("proxy issue policy grant lifecycle signature must be 65 bytes")
+    try:
+        bytes.fromhex(signature_hex)
+    except ValueError as exc:
+        raise ValueError("proxy issue policy grant lifecycle signature must be hex") from exc
+    approval_hash = str(raw_signature.get("approval_hash", "") or "").strip().lower()
+    if approval_hash:
+        approval_hash = _normalize_hex_hash(
+            approval_hash[2:] if approval_hash.startswith("0x") else approval_hash,
+            "approval_hash",
+        )
+    return {
+        "kind": "ethereum_signed_message",
+        "signer": signer,
+        "approval_hash": approval_hash,
+        "signature": "0x" + signature_hex,
+    }
+
+
+def _proxy_grant_lifecycle_unsigned(lifecycle: dict[str, Any]) -> dict[str, Any]:
+    return {
+        field: lifecycle[field]
+        for field in ("status", "approved_by_hash", "approval_event_hash", "approved_at", "expires_at")
+        if field in lifecycle
+    }
+
+
+def _proxy_grant_approval_payload(grant: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "subject_hash": grant["subject_hash"],
+        "recipient_public_key_hash": grant["recipient_public_key_hash"],
+        "scopes": list(grant["scopes"]),
+        "scope_limits": grant.get("scope_limits", {}),
+        "max_ttl_seconds": int(grant["max_ttl_seconds"]),
+        "lifecycle": _proxy_grant_lifecycle_unsigned(lifecycle),
+    }
+
+
+def _proxy_grant_approval_hash(grant: dict[str, Any], lifecycle: dict[str, Any]) -> str:
+    return stable_hash(
+        _canonical_json(_proxy_grant_approval_payload(grant, lifecycle)),
+        prefix="proxy_grant_lifecycle_approval",
+    )
+
+
+def _validate_proxy_grant_lifecycle_signature(
+    grant: dict[str, Any],
+    lifecycle: dict[str, Any],
+    *,
+    required: bool,
+) -> dict[str, Any]:
+    signature_block = lifecycle.get("approval_signature")
+    if not signature_block:
+        if required:
+            raise ValueError("proxy issue policy grant lifecycle signature is required")
+        return {
+            "required": required,
+            "configured": False,
+            "raw_secret_egress": False,
+        }
+
+    approval_hash = _proxy_grant_approval_hash(grant, lifecycle)
+    signed_hash = str(signature_block.get("approval_hash", "") or "").strip().lower()
+    if signed_hash and signed_hash != approval_hash:
+        raise ValueError("proxy issue policy grant lifecycle signature hash mismatch")
+    try:
+        recovered = Account.recover_message(
+            encode_defunct(hexstr="0x" + approval_hash),
+            signature=signature_block["signature"],
+        )
+        recovered_normalized = normalize_address(recovered)
+    except Exception as exc:
+        raise ValueError("proxy issue policy grant lifecycle signature is invalid") from exc
+    declared_signer = normalize_address(str(signature_block.get("signer", "")))
+    if recovered_normalized != declared_signer:
+        raise ValueError("proxy issue policy grant lifecycle signer mismatch")
+    reviewer_hash = stable_hash(recovered_normalized, prefix="proxy_grant_reviewer")
+    if reviewer_hash != lifecycle.get("approved_by_hash"):
+        raise ValueError("proxy issue policy grant lifecycle signer is not the approved reviewer")
+    return {
+        "required": required,
+        "configured": True,
+        "verified": True,
+        "kind": signature_block["kind"],
+        "approval_hash": approval_hash,
+        "signer_hash": stable_hash(
+            recovered_normalized,
+            prefix="proxy_grant_lifecycle_signer",
+        ),
+        "signature_hash": stable_hash(
+            signature_block["signature"],
+            prefix="proxy_grant_lifecycle_signature",
+        ),
+        "raw_secret_egress": False,
+    }
 
 def _validate_proxy_identity_registry(
     settings,
@@ -1113,6 +1274,63 @@ def sign_proxy_identity_registry(registry: dict[str, Any], signer_private_key: s
         "raw_secret_egress": False,
     }
     return signed_registry, receipt
+
+
+def sign_proxy_grant_lifecycle(grant: dict[str, Any], signer_private_key: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Sign a hash-only proxy grant lifecycle and return bounded signer evidence."""
+
+    if not isinstance(grant, dict):
+        raise ValueError("proxy issue policy grant must be an object")
+    normalized_policy = normalize_proxy_issue_policy({"schema_version": 1, "grants": [grant]})
+    normalized_grant = normalized_policy["grants"][0]
+    lifecycle = normalized_grant.get("lifecycle", {})
+    if not lifecycle:
+        raise ValueError("proxy issue policy grant lifecycle is required")
+    lifecycle_unsigned = _proxy_grant_lifecycle_unsigned(lifecycle)
+    if lifecycle_unsigned.get("status") != "active":
+        raise ValueError("proxy issue policy grant lifecycle is not active")
+    account = Account.from_key(signer_private_key)
+    signer = normalize_address(account.address)
+    reviewer_hash = stable_hash(signer, prefix="proxy_grant_reviewer")
+    if lifecycle_unsigned.get("approved_by_hash") != reviewer_hash:
+        raise ValueError("signer does not match proxy grant approved_by_hash")
+    approval_hash = _proxy_grant_approval_hash(normalized_grant, lifecycle_unsigned)
+    signed = account.sign_message(encode_defunct(hexstr="0x" + approval_hash))
+    signature = "0x" + bytes(signed.signature).hex()
+    signed_lifecycle = {
+        **lifecycle_unsigned,
+        "approval_signature": {
+            "kind": "ethereum_signed_message",
+            "signer": signer,
+            "approval_hash": "0x" + approval_hash,
+            "signature": signature,
+        },
+    }
+    signed_grant = {
+        **{key: value for key, value in normalized_grant.items() if key != "lifecycle"},
+        "lifecycle": signed_lifecycle,
+    }
+    receipt = {
+        "surface": "tinker_proxy_grant_lifecycle_sign",
+        "success": True,
+        "grant_hash": stable_hash(_canonical_json(signed_grant), prefix="proxy_issue_grant"),
+        "approval_hash": approval_hash,
+        "subject_hash": signed_grant["subject_hash"],
+        "recipient_public_key_hash": signed_grant["recipient_public_key_hash"],
+        "scopes": signed_grant["scopes"],
+        "lifecycle": _public_proxy_grant_lifecycle(signed_lifecycle),
+        "signature": {
+            "kind": "ethereum_signed_message",
+            "signer_hash": stable_hash(signer, prefix="proxy_grant_lifecycle_signer"),
+            "signature_hash": stable_hash(signature, prefix="proxy_grant_lifecycle_signature"),
+            "signature_returned": False,
+            "signer_address_returned": False,
+            "private_key_returned": False,
+            "raw_secret_egress": False,
+        },
+        "raw_secret_egress": False,
+    }
+    return signed_grant, receipt
 
 
 def verify_signed_proxy_identity_registry(registry: dict[str, Any], expected_signer: str) -> dict[str, Any]:

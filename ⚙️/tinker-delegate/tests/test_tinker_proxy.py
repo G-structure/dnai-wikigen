@@ -21,6 +21,7 @@ from tinker_delegate.tinker_proxy import (
     get_proxy_issue_policy_status,
     issue_encrypted_proxy_token,
     save_proxy_issue_policy,
+    sign_proxy_grant_lifecycle,
     verify_proxy_token,
 )
 from tinker_delegate.tinker_proxy_store import build_proxy_token_store
@@ -90,6 +91,16 @@ def _active_grant_lifecycle(*, approved_at: int = 900, expires_at: int = 2000) -
     return {
         "status": "active",
         "approved_by_hash": stable_hash("reviewer-1", prefix="proxy_grant_reviewer"),
+        "approval_event_hash": stable_hash("approval-event-1", prefix="proxy_grant_approval"),
+        "approved_at": approved_at,
+        "expires_at": expires_at,
+    }
+
+
+def _active_signed_grant_lifecycle(account, *, approved_at: int = 900, expires_at: int = 2000) -> dict:
+    return {
+        "status": "active",
+        "approved_by_hash": stable_hash(account.address.lower(), prefix="proxy_grant_reviewer"),
         "approval_event_hash": stable_hash("approval-event-1", prefix="proxy_grant_approval"),
         "approved_at": approved_at,
         "expires_at": expires_at,
@@ -200,6 +211,7 @@ class TinkerProxyTest(unittest.TestCase):
             proxy_jwt_key=SIGNING_KEY_HEX,
             proxy_require_issue_policy=True,
             proxy_issue_policy_path="/sealed/policy.json",
+            proxy_require_grant_lifecycle_signature=True,
             proxy_require_identity_registry_signature=True,
             proxy_identity_registry_signer=Account.create("status signer").address,
         )
@@ -214,6 +226,7 @@ class TinkerProxyTest(unittest.TestCase):
         self.assertEqual(status["sealed_client_config"]["base_url_host_family"], "thinkingmachines")
         self.assertTrue(status["token_issuer"]["issue_policy_required"])
         self.assertTrue(status["token_issuer"]["issue_policy_configured"])
+        self.assertTrue(status["token_issuer"]["grant_lifecycle_signature_required"])
         self.assertTrue(status["token_issuer"]["identity_registry_signature_required"])
         self.assertTrue(status["token_issuer"]["identity_registry_signer_configured"])
         self.assertFalse(status["raw_secret_egress"])
@@ -495,6 +508,105 @@ class TinkerProxyTest(unittest.TestCase):
                     ttl_seconds=60,
                     now=1000,
                 )
+
+    def test_issue_policy_can_require_reviewer_signed_grant_lifecycle(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            private_key, public_key_hex = _recipient_keypair()
+            reviewer = Account.create("reviewer signs proxy grant lifecycle")
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            unsigned_policy = _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=_active_signed_grant_lifecycle(reviewer),
+            )
+            signed_grant, sign_receipt = sign_proxy_grant_lifecycle(
+                unsigned_policy["grants"][0],
+                reviewer.key.hex(),
+            )
+            with open(policy_path, "w") as handle:
+                json.dump({"schema_version": 1, "grants": [signed_grant]}, handle, sort_keys=True)
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+                proxy_require_grant_lifecycle_signature=True,
+            )
+
+            issued = issue_encrypted_proxy_token(
+                settings,
+                subject="buyer-agent-1",
+                scopes=["proxy:status"],
+                recipient_public_key_hex=public_key_hex,
+                ttl_seconds=60,
+                now=1000,
+            )
+            token = _decrypt_token(private_key, issued)
+            verification = verify_proxy_token(settings, token, required_scope="proxy:status", now=1001)
+
+        binding = issued["policy_binding"]["grant_lifecycle"]["approval_signature_binding"]
+        rendered = repr([issued, sign_receipt])
+        self.assertTrue(binding["required"])
+        self.assertTrue(binding["verified"])
+        self.assertEqual(binding["approval_hash"], sign_receipt["approval_hash"])
+        self.assertEqual(verification["scopes"], ["proxy:status"])
+        self.assertFalse(binding["raw_secret_egress"])
+        self.assertNotIn(reviewer.key.hex(), rendered)
+        self.assertNotIn(reviewer.address, rendered)
+        self.assertNotIn(signed_grant["lifecycle"]["approval_signature"]["signature"], rendered)
+        self.assertNotIn("buyer-agent-1", rendered)
+
+    def test_issue_policy_requires_reviewer_signature_when_enabled(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            reviewer = Account.create("unsigned proxy grant reviewer")
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=_active_signed_grant_lifecycle(reviewer),
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+                proxy_require_grant_lifecycle_signature=True,
+            )
+
+            with self.assertRaisesRegex(ValueError, "grant lifecycle signature is required"):
+                issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
+
+    def test_grant_lifecycle_signature_must_match_approved_reviewer_hash(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            approved_reviewer = Account.create("approved proxy grant reviewer")
+            wrong_reviewer = Account.create("wrong proxy grant reviewer")
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            unsigned_policy = _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=_active_signed_grant_lifecycle(approved_reviewer),
+            )
+
+            with self.assertRaisesRegex(ValueError, "signer does not match"):
+                sign_proxy_grant_lifecycle(unsigned_policy["grants"][0], wrong_reviewer.key.hex())
 
     def test_issue_policy_can_require_hash_only_identity_registry(self):
         with tempfile.TemporaryDirectory() as tmpdir:

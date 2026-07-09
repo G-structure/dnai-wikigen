@@ -380,6 +380,27 @@ run IDs, checkpoint paths, samples, or private reward data.
             operator, user, or agent identities. This is source/test-real and
             wired into the funding-validation compose as a disabled-by-default
             env knob.
+[real]      Proxy grant lifecycle approval can now be reviewer-signed in
+            source/test. When
+            `TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE_SIGNATURE=true`, an active
+            grant lifecycle must carry an Ethereum signed-message signature
+            over a canonical hash-only grant approval payload: subject hash,
+            recipient public-key hash, scopes, spend caps, TTL cap, lifecycle
+            status, approval-event hash, approval time, and expiry. The
+            recovered signer address must hash to lifecycle
+            `approved_by_hash`, so a JSON policy editor cannot silently assign
+            reviewer approval without the reviewer key. Issuance bindings and
+            `tinker-proxy-issue-policy` summaries return only approval hash,
+            signer hash, signature hash, lifecycle status/timestamps, and
+            `raw_secret_egress=false`; raw signer addresses, raw signatures,
+            reviewer private keys, subject labels, and plaintext JWTs do not
+            leave the signing or CVM boundary. `sign-tinker-proxy-grant-lifecycle`
+            is a local bounded helper that reads the reviewer key only from env
+            and writes the signed grant to an explicit output file. The Phala
+            funding-validation compose exposes only the verification flag, not
+            a reviewer private-key env. This is still not production governance
+            until reviewer key custody and approval workflow are operationally
+            defined and deployed.
 [real]      Proxy issuance can now require a hash-only identity registry before
             minting. When `TINKER_PROXY_REQUIRE_IDENTITY_REGISTRY=true`, the
             requester's `subject_hash` must be an active user/agent identity,

@@ -104,6 +104,7 @@ class Settings(BaseSettings):
     proxy_issue_policy_path: str = ""
     proxy_require_deployment_policy: bool = False
     proxy_require_grant_lifecycle: bool = False
+    proxy_require_grant_lifecycle_signature: bool = False
     proxy_require_identity_registry: bool = False
     proxy_identity_registry_path: str = ""
     proxy_require_identity_registry_signature: bool = False

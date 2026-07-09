@@ -556,6 +556,26 @@ def cli():
         help="Path to write normalized signed identity registry JSON",
     )
     tinker_proxy_registry_sign_p.add_argument("--output", default="", help="Optional bounded receipt path")
+    tinker_proxy_grant_sign_p = sub.add_parser(
+        "sign-tinker-proxy-grant-lifecycle",
+        help="Sign a hash-only proxy issue-policy grant lifecycle with a reviewer key from env",
+    )
+    tinker_proxy_grant_sign_p.add_argument(
+        "--grant-json",
+        required=True,
+        help="Path to one hash-only proxy issue-policy grant JSON",
+    )
+    tinker_proxy_grant_sign_p.add_argument(
+        "--signer-key-env",
+        default="TINKER_PROXY_GRANT_REVIEWER_KEY",
+        help="Environment variable containing reviewer Ethereum private key",
+    )
+    tinker_proxy_grant_sign_p.add_argument(
+        "--signed-grant-output",
+        required=True,
+        help="Path to write normalized signed grant JSON",
+    )
+    tinker_proxy_grant_sign_p.add_argument("--output", default="", help="Optional bounded receipt path")
     tinker_proxy_registry_verify_p = sub.add_parser(
         "verify-tinker-proxy-identity-registry",
         help="Verify a signed hash-only proxy identity registry against an expected signer",
@@ -1925,6 +1945,46 @@ def cli():
                 "raw_secret_egress": False,
             }
         _emit_bounded_json(result, output_path=args.output, forbidden_values=(args.expected_signer,))
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "sign-tinker-proxy-grant-lifecycle":
+        from tinker_delegate.tinker_proxy import sign_proxy_grant_lifecycle
+
+        signer_private_key = os.environ.get(args.signer_key_env, "").strip()
+        if not signer_private_key:
+            result = {
+                "surface": "tinker_proxy_grant_lifecycle_sign",
+                "success": False,
+                "error_kind": "missing_signer_key",
+                "bounded_message": "signer key environment variable is not configured",
+                "private_key_returned": False,
+                "raw_secret_egress": False,
+            }
+            _emit_bounded_json(result, output_path=args.output)
+            sys.exit(1)
+        grant = json.loads(Path(args.grant_json).read_text(encoding="utf-8"))
+        try:
+            signed_grant, result = sign_proxy_grant_lifecycle(grant, signer_private_key)
+            Path(args.signed_grant_output).write_text(
+                json.dumps(signed_grant, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            result = {
+                **result,
+                "signed_grant_output": str(Path(args.signed_grant_output)),
+                "signed_grant_written": True,
+                "signed_grant_returned": False,
+            }
+        except Exception as exc:
+            result = {
+                "surface": "tinker_proxy_grant_lifecycle_sign",
+                "success": False,
+                "error_kind": exc.__class__.__name__,
+                "bounded_message": redact_text(exc),
+                "private_key_returned": False,
+                "raw_secret_egress": False,
+            }
+        _emit_bounded_json(result, output_path=args.output, forbidden_values=(signer_private_key,))
         sys.exit(0 if result.get("success") else 1)
 
     elif args.command == "issue-tinker-proxy-token":

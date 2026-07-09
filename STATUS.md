@@ -91,6 +91,22 @@ Latest signature-required proxy registry deployment, 2026-07-09:
 - This remains operator-validation, not production governance: the registry
   signer is a temporary local verifier key kept in ignored `data/` scratch
   storage, and `TINKER_PROJECT_ID` is still not sealed/configured.
+- Source/test-real follow-up after the live deployment adds reviewer-signed
+  grant lifecycle approvals for the next proxy build. New flag
+  `TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE_SIGNATURE=true` requires an active
+  grant lifecycle to carry an Ethereum signed-message signature over a
+  canonical hash-only approval payload; the recovered signer address must hash
+  to the grant's `approved_by_hash`. `sign-tinker-proxy-grant-lifecycle`
+  writes the signed grant to an explicit file and emits only approval hash,
+  signer hash, signature hash, output path, and `raw_secret_egress=false`.
+  Focused tests prove valid signed grant issuance and missing/wrong reviewer
+  fail-closed behavior. This is not yet deployed to Phala; production reviewer
+  key custody and approval workflow remain open. Local
+  `verify-compose-hash --phala-raw-compose` for the funding-validation compose
+  now reports raw/image-policy hash
+  `af76ae49abfb8860bed46259de8a631f9f7c6c2056070ea31956f9a034ae0cc8` and
+  rendered compose SHA-256
+  `49b353c2b3d974e6f0e055ccde8e28b27cb31814351a5108d773ecbb9b2fd601`.
 
 Previous proxy policy deployment, 2026-07-09:
 
