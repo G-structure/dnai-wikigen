@@ -1,9 +1,13 @@
 import json
 import unittest
 
+from eth_account import Account
+from eth_account.messages import encode_defunct
+
 from tinker_delegate.consent_receipt import (
     ConsentReceiptError,
     build_consent_decision_receipt,
+    consent_decision_signature_hash,
 )
 
 
@@ -79,6 +83,20 @@ def _grant(corpus_ref, owner_ref):
     }
 
 
+def _signed_decision(state, decision, account):
+    decision_hash = consent_decision_signature_hash(state, decision)
+    signed = account.sign_message(encode_defunct(hexstr="0x" + decision_hash))
+    return {
+        **decision,
+        "signature": {
+            "kind": "ethereum_signed_message",
+            "signer": account.address,
+            "decision_hash": "0x" + decision_hash,
+            "signature": "0x" + bytes(signed.signature).hex(),
+        },
+    }
+
+
 class ConsentReceiptTest(unittest.TestCase):
     def test_grant_receipt_settles_when_quorum_is_met(self):
         receipt = build_consent_decision_receipt(
@@ -151,6 +169,99 @@ class ConsentReceiptTest(unittest.TestCase):
                     "owner_ref": "owner-atlas",
                     "decision": "grant",
                 },
+            )
+
+    def test_required_owner_signature_verifies_without_raw_signature_egress(self):
+        account = Account.from_key("0x" + "11" * 32)
+        decision = _signed_decision(
+            _state_payload(grants=[_grant("corpus://atlas", "owner-atlas")]),
+            {
+                "turn_id": "turn-1",
+                "corpus_ref": "corpus://halcyon",
+                "owner_ref": "owner-halcyon",
+                "decision": "grant",
+                "expires_at": 100,
+            },
+            account,
+        )
+
+        receipt = build_consent_decision_receipt(
+            _state_payload(grants=[_grant("corpus://atlas", "owner-atlas")]),
+            decision,
+            require_signature=True,
+            expected_signer=account.address,
+        )
+
+        binding = receipt["signature_binding"]
+        self.assertTrue(binding["required"])
+        self.assertTrue(binding["provided"])
+        self.assertTrue(binding["verified"])
+        self.assertTrue(binding["signer_matches_expected"])
+        self.assertFalse(binding["signature_returned"])
+        self.assertFalse(binding["signer_address_returned"])
+        self.assertFalse(binding["raw_secret_egress"])
+        self.assertEqual(receipt["action"], "settle_bounded_result")
+        rendered = json.dumps(receipt, sort_keys=True)
+        self.assertNotIn(account.address, rendered)
+        self.assertNotIn(account.address.lower(), rendered)
+        self.assertNotIn(decision["signature"]["signature"], rendered)
+        self.assertNotIn("owner-halcyon", rendered)
+
+    def test_required_owner_signature_missing_fails_closed(self):
+        with self.assertRaisesRegex(ConsentReceiptError, "signature is required"):
+            build_consent_decision_receipt(
+                _state_payload(),
+                {
+                    "turn_id": "turn-1",
+                    "corpus_ref": "corpus://atlas",
+                    "owner_ref": "owner-atlas",
+                    "decision": "grant",
+                },
+                require_signature=True,
+            )
+
+    def test_owner_signature_wrong_expected_signer_fails_closed(self):
+        signer = Account.from_key("0x" + "11" * 32)
+        other = Account.from_key("0x" + "22" * 32)
+        decision = _signed_decision(
+            _state_payload(),
+            {
+                "turn_id": "turn-1",
+                "corpus_ref": "corpus://atlas",
+                "owner_ref": "owner-atlas",
+                "decision": "grant",
+            },
+            signer,
+        )
+
+        with self.assertRaisesRegex(ConsentReceiptError, "not expected owner"):
+            build_consent_decision_receipt(
+                _state_payload(),
+                decision,
+                require_signature=True,
+                expected_signer=other.address,
+            )
+
+    def test_owner_signature_hash_mismatch_fails_closed(self):
+        signer = Account.from_key("0x" + "11" * 32)
+        decision = _signed_decision(
+            _state_payload(),
+            {
+                "turn_id": "turn-1",
+                "corpus_ref": "corpus://atlas",
+                "owner_ref": "owner-atlas",
+                "decision": "grant",
+            },
+            signer,
+        )
+        decision["signature"]["decision_hash"] = "0x" + "00" * 32
+
+        with self.assertRaisesRegex(ConsentReceiptError, "hash mismatch"):
+            build_consent_decision_receipt(
+                _state_payload(),
+                decision,
+                require_signature=True,
+                expected_signer=signer.address,
             )
 
 

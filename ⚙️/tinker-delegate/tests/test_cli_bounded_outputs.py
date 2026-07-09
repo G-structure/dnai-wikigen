@@ -13,7 +13,7 @@ from eth_account import Account
 
 from tinker_delegate.main import _render_bounded_json
 from tinker_delegate.run_metadata_store import stable_hash
-from tests.test_consent_receipt import _grant, _state_payload
+from tests.test_consent_receipt import _grant, _signed_decision, _state_payload
 
 
 def _env(tmpdir: str, *, funding_mode: str = "manual_prefund") -> dict[str, str]:
@@ -107,18 +107,23 @@ class CliBoundedOutputsTest(unittest.TestCase):
             state_path = Path(tmpdir) / "coordination-state.json"
             decision_path = Path(tmpdir) / "consent-decision.json"
             output_path = Path(tmpdir) / "consent-receipt.json"
+            account = Account.from_key("0x" + "11" * 32)
             state_path.write_text(
                 json.dumps(_state_payload(grants=[_grant("corpus://atlas", "owner-atlas")])),
                 encoding="utf-8",
             )
             decision_path.write_text(
                 json.dumps(
-                    {
-                        "turn_id": "turn-1",
-                        "corpus_ref": "corpus://halcyon",
-                        "owner_ref": "owner-halcyon",
-                        "decision": "grant",
-                    }
+                    _signed_decision(
+                        json.loads(state_path.read_text(encoding="utf-8")),
+                        {
+                            "turn_id": "turn-1",
+                            "corpus_ref": "corpus://halcyon",
+                            "owner_ref": "owner-halcyon",
+                            "decision": "grant",
+                        },
+                        account,
+                    )
                 ),
                 encoding="utf-8",
             )
@@ -133,6 +138,9 @@ class CliBoundedOutputsTest(unittest.TestCase):
                     str(state_path),
                     "--decision-json",
                     str(decision_path),
+                    "--require-signature",
+                    "--expected-signer",
+                    account.address,
                     "--output",
                     str(output_path),
                 ],
@@ -149,10 +157,14 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertEqual(receipt["surface"], "coordination_consent_decision")
             self.assertEqual(receipt["action"], "settle_bounded_result")
             self.assertEqual(receipt["turn"]["status_after"], "settled")
+            self.assertTrue(receipt["signature_binding"]["verified"])
             rendered = json.dumps(receipt, sort_keys=True)
             self.assertNotIn("rank-candidates", rendered)
             self.assertNotIn("sft-rerank", rendered)
             self.assertNotIn("owner-halcyon", rendered)
+            self.assertNotIn(account.address, rendered)
+            self.assertNotIn(account.address.lower(), rendered)
+            self.assertNotIn(json.loads(decision_path.read_text(encoding="utf-8"))["signature"]["signature"], rendered)
             self.assertFalse(receipt["raw_secret_egress"])
 
     def test_balance_can_query_deployed_delegate_api(self):

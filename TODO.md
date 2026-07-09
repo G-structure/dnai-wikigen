@@ -2625,8 +2625,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             status, action, quorum grant counts, owner/requester/purpose/pipeline
             hashes, state input/output hashes, and no raw secret egress. Tests
             cover grant-to-settle, grant-below-quorum, denial, malformed state
-            fail-closed behavior, and CLI bounded output. Signed owner delivery
-            and deployed runtime-authenticated consent endpoints remain open.
+            fail-closed behavior, and CLI bounded output. Runtime-authenticated
+            API exposure, signed owner confirmation, tee-email delivery, and
+            production custody are tracked as separate subitems.
       - [x] Expose consent-decision receipts through a runtime-authenticated API.
             Done 2026-07-09: `POST /coordination/consent-decision` requires a
             configured runtime bearer token, accepts coordination state plus
@@ -2634,8 +2635,25 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             CLI, and returns no raw purpose, pipeline, owner refs, gate reasons,
             or full updated coordination state. Tests cover missing runtime auth
             config, missing/wrong bearer token, successful bounded receipt, and
-            malformed-state redaction. Signed owner delivery, reviewer UI, and
-            production custody remain open.
+            malformed-state redaction. Optional signed owner confirmation,
+            tee-email delivery, reviewer UI, and production custody remain
+            separate.
+      - [x] Add optional signed owner confirmation for consent-decision
+            receipts/API.
+            Done 2026-07-09: `tinker_delegate.consent_receipt` now computes a
+            canonical Ethereum signed-message hash over a hash-only consent
+            confirmation payload: schema/surface, input-state hash, turn/corpus
+            refs, owner/requester/purpose/pipeline hashes, decision, and optional
+            expiry. `tinker-delegate consent-decision --require-signature
+            --expected-signer ...` and `POST /coordination/consent-decision`
+            can fail closed unless the recovered signer matches the declared
+            signer and optional expected owner signer. Receipts expose only
+            decision hash, signer hash, signature hash, verification status, and
+            `raw_secret_egress=false`; tests cover valid signed CLI/API/unit
+            paths plus missing signature, wrong signer, and hash mismatch. This
+            is signature binding only; tee-email owner notification, production
+            owner-key custody, reviewer UI, and deployed effect wiring remain
+            open.
 - [x] `P0` Implement revocation:
       future and in-flight turns fail closed; prior settled attestations remain
       valid.

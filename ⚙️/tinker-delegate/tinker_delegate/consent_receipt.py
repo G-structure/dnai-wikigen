@@ -6,6 +6,9 @@ import hashlib
 import json
 from typing import Any
 
+from eth_account import Account
+from eth_account.messages import encode_defunct
+
 from tinker_delegate.coordination import (
     CollabSession,
     ConsentDecision,
@@ -35,12 +38,21 @@ def build_consent_decision_receipt(
     decision_payload: dict[str, Any],
     *,
     now: int = 0,
+    require_signature: bool = False,
+    expected_signer: str = "",
 ) -> dict[str, Any]:
     state = _state_from_payload(state_payload)
-    decision = _decision_from_payload(decision_payload)
+    unsigned_decision_payload = _unsigned_decision_payload(decision_payload)
+    decision = _decision_from_payload(unsigned_decision_payload)
     before = state.turns.get(decision.turn_id)
     if before is None:
         raise ConsentReceiptError("unknown turn")
+    signature_binding = _decision_signature_binding(
+        _decision_signature_payload(state_payload, before, unsigned_decision_payload),
+        decision_payload.get("signature"),
+        require_signature=require_signature,
+        expected_signer=expected_signer,
+    )
 
     updated = coordinate(state, decision, CoordinationEnv(now=now))
     after = updated.turns[decision.turn_id]
@@ -75,6 +87,7 @@ def build_consent_decision_receipt(
             "grant_count_after": len(updated.session.consent_grants),
             "settled": after.status == TurnStatus.SETTLED,
         },
+        "signature_binding": signature_binding,
         "state_input_hash": _stable_hash(state_payload, prefix="coordination_state_input"),
         "state_output_hash": _stable_hash(_state_to_payload(updated), prefix="coordination_state_output"),
         "raw_artifact_egress": False,
@@ -82,6 +95,21 @@ def build_consent_decision_receipt(
         "raw_private_data_egress": False,
         "raw_secret_egress": False,
     }
+
+
+def consent_decision_signature_hash(state_payload: dict[str, Any], decision_payload: dict[str, Any]) -> str:
+    """Return the canonical hash an owner signs for a consent decision."""
+
+    state = _state_from_payload(state_payload)
+    unsigned_decision_payload = _unsigned_decision_payload(decision_payload)
+    decision = _decision_from_payload(unsigned_decision_payload)
+    before = state.turns.get(decision.turn_id)
+    if before is None:
+        raise ConsentReceiptError("unknown turn")
+    return _stable_hash(
+        _canonical_json(_decision_signature_payload(state_payload, before, unsigned_decision_payload)),
+        prefix="coordination_consent_decision_signature",
+    )
 
 
 def _state_from_payload(payload: dict[str, Any]) -> CoordinationState:
@@ -218,6 +246,162 @@ def _decision_from_payload(payload: dict[str, Any]) -> ConsentDecision:
         decision=_require_string(payload, "decision"),
         expires_at=_optional_int(payload, "expires_at"),
     )
+
+
+def _unsigned_decision_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    item = _as_dict(payload, "consent decision")
+    _reject_unknown(item, {"turn_id", "corpus_ref", "owner_ref", "decision", "expires_at", "signature"}, "consent decision")
+    unsigned = {
+        "turn_id": _require_string(item, "turn_id"),
+        "corpus_ref": _require_string(item, "corpus_ref"),
+        "owner_ref": _require_string(item, "owner_ref"),
+        "decision": _require_string(item, "decision").strip().lower(),
+    }
+    expires_at = _optional_int(item, "expires_at")
+    if expires_at is not None:
+        unsigned["expires_at"] = expires_at
+    return unsigned
+
+
+def _decision_signature_binding(
+    signature_payload: dict[str, Any],
+    raw_signature: Any,
+    *,
+    require_signature: bool,
+    expected_signer: str,
+) -> dict[str, Any]:
+    decision_hash = _stable_hash(
+        _canonical_json(signature_payload),
+        prefix="coordination_consent_decision_signature",
+    )
+    if raw_signature is None:
+        if require_signature:
+            raise ConsentReceiptError("consent decision signature is required")
+        binding = {
+            "required": False,
+            "provided": False,
+            "verified": False,
+            "decision_hash": decision_hash,
+            "raw_secret_egress": False,
+        }
+        if expected_signer:
+            binding["expected_signer_hash"] = _stable_hash(
+                _normalize_address(expected_signer),
+                prefix="coordination_consent_signer",
+            )
+        return binding
+
+    signature = _normalize_decision_signature(raw_signature)
+    signed_hash = signature.get("decision_hash", "")
+    if signed_hash and signed_hash != decision_hash:
+        raise ConsentReceiptError("consent decision signature hash mismatch")
+    expected_normalized = _normalize_address(expected_signer) if expected_signer else ""
+    try:
+        recovered = Account.recover_message(
+            encode_defunct(hexstr="0x" + decision_hash),
+            signature=signature["signature"],
+        )
+        recovered_normalized = _normalize_address(recovered)
+    except Exception as exc:
+        raise ConsentReceiptError("consent decision signature is invalid") from exc
+    if recovered_normalized != signature["signer"]:
+        raise ConsentReceiptError("consent decision signer mismatch")
+    if expected_normalized and recovered_normalized != expected_normalized:
+        raise ConsentReceiptError("consent decision signer is not expected owner")
+
+    binding = {
+        "required": bool(require_signature),
+        "provided": True,
+        "verified": True,
+        "kind": signature["kind"],
+        "decision_hash": decision_hash,
+        "signer_hash": _stable_hash(recovered_normalized, prefix="coordination_consent_signer"),
+        "signature_hash": _stable_hash(signature["signature"], prefix="coordination_consent_signature"),
+        "signer_address_returned": False,
+        "signature_returned": False,
+        "raw_secret_egress": False,
+    }
+    if expected_normalized:
+        binding["expected_signer_hash"] = _stable_hash(
+            expected_normalized,
+            prefix="coordination_consent_signer",
+        )
+        binding["signer_matches_expected"] = True
+    return binding
+
+
+def _decision_signature_payload(
+    state_payload: dict[str, Any],
+    before: TurnRecord,
+    unsigned_decision_payload: dict[str, Any],
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "schema_version": 1,
+        "surface": "coordination_consent_decision",
+        "state_input_hash": _stable_hash(state_payload, prefix="coordination_state_input"),
+        "turn_id": unsigned_decision_payload["turn_id"],
+        "corpus_ref": unsigned_decision_payload["corpus_ref"],
+        "owner_ref_hash": _stable_hash(unsigned_decision_payload["owner_ref"], prefix="owner_ref"),
+        "requester_ref_hash": _stable_hash(before.turn.requester_ref, prefix="requester_ref"),
+        "purpose_hash": _stable_hash(before.turn.purpose, prefix="purpose"),
+        "pipeline_hash": _stable_hash(before.turn.pipeline, prefix="pipeline"),
+        "decision": unsigned_decision_payload["decision"],
+    }
+    if "expires_at" in unsigned_decision_payload:
+        payload["expires_at"] = unsigned_decision_payload["expires_at"]
+    return payload
+
+
+def _normalize_decision_signature(raw_signature: Any) -> dict[str, str]:
+    item = _as_dict(raw_signature, "consent decision signature")
+    _reject_unknown(item, {"kind", "signer", "decision_hash", "signature"}, "consent decision signature")
+    kind = str(item.get("kind", "")).strip().lower()
+    if kind not in {"ethereum_signed_message", "ethereum_personal_sign"}:
+        raise ConsentReceiptError("consent decision signature kind is invalid")
+    signer = _normalize_address(_require_string(item, "signer"))
+    signature = _require_string(item, "signature").strip().lower()
+    signature_hex = signature[2:] if signature.startswith("0x") else signature
+    if len(signature_hex) != 130:
+        raise ConsentReceiptError("consent decision signature must be 65 bytes")
+    try:
+        bytes.fromhex(signature_hex)
+    except ValueError as exc:
+        raise ConsentReceiptError("consent decision signature must be hex") from exc
+    decision_hash = str(item.get("decision_hash", "") or "").strip().lower()
+    if decision_hash.startswith("0x"):
+        decision_hash = decision_hash[2:]
+    if decision_hash:
+        _validate_hash(decision_hash, "decision_hash")
+    return {
+        "kind": "ethereum_signed_message",
+        "signer": signer,
+        "decision_hash": decision_hash,
+        "signature": "0x" + signature_hex,
+    }
+
+
+def _normalize_address(value: str) -> str:
+    address = str(value).strip().lower()
+    if address.startswith("0x"):
+        address_hex = address[2:]
+    else:
+        address_hex = address
+    if len(address_hex) != 40:
+        raise ConsentReceiptError("invalid signer address")
+    try:
+        bytes.fromhex(address_hex)
+    except ValueError as exc:
+        raise ConsentReceiptError("invalid signer address") from exc
+    return "0x" + address_hex
+
+
+def _validate_hash(value: str, label: str) -> None:
+    if len(value) != 64:
+        raise ConsentReceiptError(f"invalid {label}")
+    try:
+        bytes.fromhex(value)
+    except ValueError as exc:
+        raise ConsentReceiptError(f"invalid {label}") from exc
 
 
 def _state_to_payload(state: CoordinationState) -> dict[str, Any]:
@@ -367,5 +551,9 @@ def _stable_hash(value: Any, *, prefix: str) -> str:
     if isinstance(value, str):
         payload = value
     else:
-        payload = json.dumps(value, sort_keys=True, separators=(",", ":"))
+        payload = _canonical_json(value)
     return hashlib.sha256(prefix.encode("utf-8") + b"\0" + payload.encode("utf-8")).hexdigest()
+
+
+def _canonical_json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))

@@ -1,11 +1,13 @@
 import json
 import unittest
 
+from eth_account import Account
+
 from fastapi.testclient import TestClient
 
 from tinker_delegate import api
 from tinker_delegate.config import Settings
-from tests.test_consent_receipt import _grant, _state_payload
+from tests.test_consent_receipt import _grant, _signed_decision, _state_payload
 
 
 class CoordinationConsentApiTest(unittest.TestCase):
@@ -72,6 +74,47 @@ class CoordinationConsentApiTest(unittest.TestCase):
         self.assertNotIn("owner-halcyon", rendered)
         self.assertNotIn("ok", rendered)
         self.assertFalse(body["raw_secret_egress"])
+
+    def test_consent_decision_endpoint_verifies_required_owner_signature(self):
+        account = Account.from_key("0x" + "11" * 32)
+        api.settings = Settings(runtime_auth_required=True, runtime_auth_token="operator-secret")
+        client = TestClient(api.app)
+        payload = self._payload()
+        payload["decision"] = _signed_decision(payload["state"], payload["decision"], account)
+        payload["require_signature"] = True
+        payload["expected_signer"] = account.address
+
+        response = client.post(
+            "/coordination/consent-decision",
+            json=payload,
+            headers={"Authorization": "Bearer operator-secret"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["signature_binding"]["verified"])
+        self.assertFalse(body["signature_binding"]["signature_returned"])
+        self.assertFalse(body["signature_binding"]["signer_address_returned"])
+        rendered = json.dumps(body, sort_keys=True)
+        self.assertNotIn(account.address, rendered)
+        self.assertNotIn(account.address.lower(), rendered)
+        self.assertNotIn(payload["decision"]["signature"]["signature"], rendered)
+        self.assertNotIn("owner-halcyon", rendered)
+
+    def test_consent_decision_endpoint_required_signature_missing_fails_closed(self):
+        api.settings = Settings(runtime_auth_required=True, runtime_auth_token="operator-secret")
+        client = TestClient(api.app)
+        payload = self._payload()
+        payload["require_signature"] = True
+
+        response = client.post(
+            "/coordination/consent-decision",
+            json=payload,
+            headers={"Authorization": "Bearer operator-secret"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("signature is required", response.json()["detail"])
 
     def test_consent_decision_endpoint_rejects_malformed_state_bounded(self):
         api.settings = Settings(runtime_auth_required=True, runtime_auth_token="operator-secret")

@@ -526,6 +526,16 @@ def cli():
         default=0,
         help="Deterministic timestamp for expiry checks",
     )
+    consent_decision_p.add_argument(
+        "--require-signature",
+        action="store_true",
+        help="Fail closed unless the decision JSON carries a verified owner signature",
+    )
+    consent_decision_p.add_argument(
+        "--expected-signer",
+        default="",
+        help="Optional expected owner signer address; omitted only verifies the declared signer",
+    )
     consent_decision_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     tinker_proxy_status_p = sub.add_parser(
         "tinker-proxy-status",
@@ -1771,8 +1781,14 @@ def cli():
 
         state_payload = json.loads(Path(args.state_json).read_text(encoding="utf-8"))
         decision_payload = json.loads(Path(args.decision_json).read_text(encoding="utf-8"))
-        result = build_consent_decision_receipt(state_payload, decision_payload, now=args.now)
-        _emit_bounded_json(result, output_path=args.output)
+        result = build_consent_decision_receipt(
+            state_payload,
+            decision_payload,
+            now=args.now,
+            require_signature=args.require_signature,
+            expected_signer=args.expected_signer,
+        )
+        _emit_bounded_json(result, output_path=args.output, forbidden_values=(args.expected_signer,))
 
     elif args.command == "tinker-smoke":
         payload = {

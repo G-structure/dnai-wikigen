@@ -50,9 +50,9 @@ data that defines the reward remains private.
    cap, bounded disclosure, and escrow settlement.
 
 2. **TEE custody**
-   Private artifacts, account credentials, reward functions, API keys, browser
-   sessions, and verifier data are held inside dstack/Phala Intel TDX CVMs.
-   Operators should not have raw access.
+   In the target production system, private artifacts, account credentials,
+   reward functions, API keys, browser sessions, and verifier data are held
+   inside dstack/Phala Intel TDX CVMs. Operators should not have raw access.
 
 3. **Private verified rewards**
    Agents can optimize candidates against reward functions derived from private
@@ -796,10 +796,13 @@ The current repo does not yet guarantee:
   for fail-closed fan-out, unanimous or M-of-N consent, owner consent
   grant/deny effects, revocation, joint attestations, and royalty meters.
   `consent-decision` now gives those owner consent effects a bounded CLI receipt
-  path plus a runtime-authenticated bounded API endpoint, but LLM policy
-  authoring, policy migration/diff review, signed owner/reviewer notification
-  wiring, tee-email-oracle/DiligenceRoom effect wiring, and production
-  governance remain open
+  path plus a runtime-authenticated bounded API endpoint. Optional signed owner
+  confirmation can bind a hash-only consent payload to an expected
+  owner-controlled signer while receipts expose only signature-binding hashes
+  and verification status. LLM policy authoring, policy migration/diff review,
+  owner/reviewer notification wiring, production owner-key custody,
+  tee-email-oracle/DiligenceRoom effect wiring, and production governance
+  remain open
 - production frontend wired to real APIs
 - Proof-of-Cloud or equivalent platform provenance
 

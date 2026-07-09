@@ -287,25 +287,28 @@ Email encumbered account
   - EmailOracleAuth.sol governs measured-code boot / consumer policy.
 
 Tinker encumbered account
-  - TEE logs into Tinker through browser automation.
-  - TEE captures and seals a Tinker API key.
-  - TEE keeps TINKER_PROJECT_ID, optional provider endpoint, browser session,
-    payment state, and proxy signing keys inside the CVM boundary.
-  - TEE issues short-lived scoped proxy JWTs from CVM-only key material and
-    delivers them encrypted to approved recipients.
-  - TEE can check balance and has funded the one-off capped operator-validation lane; production/repeated funding remains blocked.
+  - Current operator-validation slice: the TEE can log into Tinker through
+    browser automation, seal credentials, and issue short-lived scoped proxy
+    JWTs from CVM-only key material under hash-only policy gates.
+  - Target production slice: TINKER_PROJECT_ID, optional provider endpoint,
+    browser session, payment state, and proxy signing keys stay inside the CVM
+    boundary, and scoped proxy JWTs are delivered encrypted only to approved
+    recipients.
+  - TEE can check balance and has funded the one-off capped
+    operator-validation lane; production/repeated funding remains blocked.
   - TEE exposes only metered, scoped proxy/evaluation APIs with bounded
     receipts.
   - DiligenceRoom.sol settles escrow around bounded evaluation results.
 ```
 
 The email TEE is not just disposable email or a convenience inbox. Its job is to
-hold an email account that no human can access, so OTPs, confirmations, and
-future reviewer/owner messages can be consumed by attested code without giving
-operators the account credentials. That matters for Tinker because the Tinker
-account is supposed to be agent-owned: the TEE requests the magic-code email,
-the email oracle reads it, and the Tinker delegate uses it inside the browser
-session.
+eventually hold an email account that no human can access, so OTPs,
+confirmations, and future reviewer/owner messages can be consumed by attested
+code without giving operators the account credentials. That matters for Tinker
+because the Tinker account is intended to become agent-owned: the TEE requests
+the magic-code email, the email oracle reads it, and the Tinker delegate uses it
+inside the browser session. Current validation still has temporary operator and
+debug surfaces that must be removed before production.
 
 The Tinker side is intentionally split between the one-off operator-validation
 lane that is now real and the production funding lane that remains incomplete.
@@ -2267,15 +2270,24 @@ Implementation status:
             reads a local coordination-state JSON plus a consent-decision JSON,
             applies the pure reducer, and emits receipt fields for before/after
             status, action, quorum grant counts, owner/requester/purpose/pipeline
-            hashes, input/output state hashes, and `raw_secret_egress=false`.
-            It does not print raw purpose, pipeline, owner refs, gate reasons, or
-            full updated coordination state.
+            hashes, input/output state hashes, signature-binding status/hashes,
+            and `raw_secret_egress=false`. Optional `--require-signature`
+            verifies an Ethereum signed-message confirmation over a canonical
+            hash-only payload containing the receipt schema/surface, input-state
+            hash, turn/corpus refs, owner/requester/purpose/pipeline hashes,
+            decision, and optional expiry. When `--expected-signer` is provided,
+            the recovered signer must match that owner-controlled address before
+            the reducer event is accepted. The receipt does not print raw
+            purpose, pipeline, owner refs, signer addresses, raw signatures, gate
+            reasons, or the full updated coordination state.
 [real]      `POST /coordination/consent-decision` exposes the same bounded
             source-modeled consent-decision receipt through the FastAPI service
             boundary. Unlike some local-dev routes, this endpoint requires a
             configured runtime bearer token before it will process a request. It
-            returns the bounded receipt only; it does not expose signed owner
-            delivery, reviewer UI state, or the updated raw coordination state.
+            may require the same optional signed owner confirmation, but returns
+            the bounded receipt only; it does not expose owner notification,
+            reviewer UI state, raw signer material, or the updated raw
+            coordination state.
 [real]      `tinker_delegate.review_queue` adds a bounded source-level human
             review queue. It can ingest coordination `HandoffTicket`s, persist
             and load bounded queue JSON, filter pending tickets by routed role,
@@ -2290,7 +2302,7 @@ Implementation status:
             approval path, production reviewer key custody, or deployed queue
             expiry worker yet.
 [planned]   Wire coordination effects to tee-email-oracle for reviewer/owner
-            notification and signed confirmation, and to
+            notification, production owner-key custody, and to
             DiligenceRoom/tinker-delegate for settlement and attested execution.
 ```
 

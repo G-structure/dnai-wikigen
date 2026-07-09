@@ -350,6 +350,8 @@ class CoordinationConsentDecisionRequestBody(BaseModel):
     state: dict[str, Any]
     decision: dict[str, Any]
     now: int = 0
+    require_signature: bool = False
+    expected_signer: str = ""
 
 
 @app.get("/tinker/proxy/status")
@@ -740,14 +742,21 @@ def coordination_consent_decision(
     """Apply a source-modeled owner consent event and return a bounded receipt.
 
     This is an operator/authenticated proof endpoint for local/deployed
-    coordination evidence. It does not deliver owner email, verify signatures,
-    or return the updated raw coordination state.
+    coordination evidence. When require_signature is true, the consent decision
+    must carry a valid Ethereum signed-message owner confirmation. The endpoint
+    does not deliver owner email or return the updated raw coordination state.
     """
     _require_configured_runtime_auth(authorization)
     from tinker_delegate.consent_receipt import ConsentReceiptError, build_consent_decision_receipt
 
     try:
-        return build_consent_decision_receipt(payload.state, payload.decision, now=payload.now)
+        return build_consent_decision_receipt(
+            payload.state,
+            payload.decision,
+            now=payload.now,
+            require_signature=payload.require_signature,
+            expected_signer=payload.expected_signer,
+        )
     except ConsentReceiptError as exc:
         raise HTTPException(status_code=400, detail=redact_text(exc)) from exc
 
