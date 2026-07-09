@@ -51,6 +51,18 @@ Important current status:
             Artifact ingress decrypts quote-key-encrypted artifact uploads and
             verifies Ethereum keccak256 against the committed artifactHash
             before storing the upload in memory.
+[real]      Local synthetic room harness. `ControlPlane` can accept an injected
+            service-client factory for source/model tests while production still
+            constructs the real Tinker `ServiceClient` by default. The local
+            harness encrypts a synthetic private artifact to the TEE public key,
+            uploads it through the encrypted artifact endpoint, evaluates via
+            `IsolatedTinkerSession`, and emits a bounded modeled packet with
+            artifact hash, size/spend bands, score band, result hash, cleanup
+            counts, and explicit no-egress booleans.
+[modeled]   `FakeTinkerServiceClient` models training, sampler, checkpoint, and
+            REST cleanup calls for CI/offline diligence-room tests. It is not
+            deployed Phala evidence, not a real Tinker SDK run, and not on-chain
+            settlement evidence.
 [real]      PrivateRewardEnvironment interface and leakage accounting types.
             The base contract exposes public problem/schema metadata, query
             budget, optimizer placement policy, reward precision policy,
@@ -1822,6 +1834,12 @@ Implementation status:
 [real]      Encrypted FastAPI artifact ingress and control-plane evaluation
             dispatch have regression tests that fail on Python file open/write
             calls while raw artifact buffers are in scope.
+[real]      A local synthetic room regression now covers the complete
+            source-modeled diligence-room path: encrypted artifact upload,
+            funded deal cap/reserve, fake Tinker training/checkpoint/sample via
+            `IsolatedTinkerSession`, bounded result packet, resolution cleanup,
+            artifact zeroing, and no raw artifact/sample/run/checkpoint/API-key
+            egress.
 [real]      IsolatedTinkerSession has mocked-SDK tests for explicit one training
             run per deal enforcement, TTL clamping on every checkpoint save
             path including save-and-sample, path-checked sampling, state

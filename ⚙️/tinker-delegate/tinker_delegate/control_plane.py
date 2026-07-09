@@ -17,7 +17,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import tinker
 
@@ -144,20 +144,24 @@ class ControlPlane:
         run_metadata_store=None,
         project_id: str = "",
         base_url: str = "",
+        service_client_factory: Callable[..., Any] | None = None,
     ):
         self._api_key = tinker_api_key
         self._project_id = project_id
         self._base_url = base_url
+        self._service_client_factory = service_client_factory
         self._deals: dict[str, DealContext] = {}
         self._run_metadata_store = run_metadata_store
 
-    def _create_service_client(self) -> tinker.ServiceClient:
+    def _create_service_client(self) -> Any:
         """Create a Tinker ServiceClient with the sealed API key."""
         kwargs = {"api_key": self._api_key}
         if self._project_id:
             kwargs["project_id"] = self._project_id
         if self._base_url:
             kwargs["base_url"] = self._base_url
+        if self._service_client_factory is not None:
+            return self._service_client_factory(**kwargs)
         return tinker.ServiceClient(**kwargs)
 
     # --- Deal lifecycle ---

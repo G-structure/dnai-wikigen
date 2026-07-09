@@ -2253,7 +2253,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       budget remaining.
 - [ ] `P1` Add model/run metadata limits so user-provided fields cannot leak raw
       private data through Tinker metadata.
-- [ ] `P1` Add a simulator/fake Tinker backend for CI and offline demos.
+- [x] `P1` Add a simulator/fake Tinker backend for CI and offline demos.
+      Done 2026-07-09: `FakeTinkerServiceClient` models the SDK surface used by
+      `IsolatedTinkerSession` without upstream credentials, and
+      `test_local_synthetic_room` exercises encrypted artifact ingress,
+      buyer cap/reserve, modeled training/checkpoint/sample calls, bounded
+      result packet construction, and cleanup without returning raw artifact,
+      sample text, run IDs, checkpoint paths, API keys, or project IDs.
 
 ### Private Verified Reward / RLVR Environments
 
@@ -3196,7 +3202,16 @@ vision Wiki is reaching for.
        Local watcher and signer/broadcaster plumbing now exist; remaining proof
        is dstack/CVM-originated `submitResult()` broadcast and measured-code
        binding.
-8. [ ] Build a fake Tinker backend and full local synthetic room test.
+8. [x] Build a fake Tinker backend and full local synthetic room test.
+       Done 2026-07-09: source now includes a deterministic fake Tinker backend
+       and local synthetic room harness. The focused regression encrypts a
+       private artifact to the local TEE key, uploads it through
+       `/deal/{deal_id}/artifact/encrypted`, evaluates through
+       `IsolatedTinkerSession`, resolves the deal, verifies artifact zeroing
+       and checkpoint cleanup, and asserts the public modeled packet contains
+       only hashes, bands, counts, booleans, and `raw_secret_egress=false`.
+       This does not claim real Tinker SDK execution, deployed Phala evidence,
+       on-chain result submission, or settlement.
 9. [x] Rework the one-shot deployed bootstrap browser path to headed Neko
        inside Phala.
        Done 2026-07-08 for `docker-compose.tinker-bootstrap.phala.yaml`; later

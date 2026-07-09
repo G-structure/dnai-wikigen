@@ -175,7 +175,11 @@ The current branch already contains:
   API-key provisioning and billing automation return and persist bounded
   attempt records rather than raw keys, card data, or browser page bodies.
   The client-side encrypted billing harness verifies context-bound attestation
-  before posting card ciphertext.
+  before posting card ciphertext. A local synthetic room harness now uses a
+  fake Tinker backend to exercise encrypted artifact ingress, one-run
+  `IsolatedTinkerSession` evaluation, bounded modeled packets, and cleanup
+  without requiring a real Tinker project; this is CI/offline modeling, not
+  deployed Phala or real Tinker training evidence.
 
 - `⚙️/props-room`
   Source-controller and sealed-asset control plane stub.
