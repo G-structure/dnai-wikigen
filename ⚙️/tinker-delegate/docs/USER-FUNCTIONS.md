@@ -63,7 +63,7 @@ the wikigen / NDAI Attested Diligence Room stack — and how real each function 
 |---|---|---|---|
 | Delegate to a scientific agent | 16 skills run strictly downstream of the gate, bounded outputs only | 🟡 modeled | `skills.ts`; real execution 🔴 |
 | Dual-use self-prescreen | Agent runs stage-3 on its own drafts before acting | 🟡 modeled | `dual-use-prescreen` skill |
-| N-party collaborative session | Many owners; each cross-corpus turn fans out into independently-gated requests; joint attestation; unanimous or M-of-N consent; per-party royalties | 🟡 modeled | source reducer + tests; product UI/effect wiring 🔴 |
+| N-party collaborative session | Many owners; each cross-corpus turn fans out into independently-gated requests; joint attestation; unanimous or M-of-N consent; per-party royalties | 🟡 modeled | source reducer, tests, `consent-decision` receipts; product UI/effect wiring 🔴 |
 | IP-preserving outsourcing | Broker outside analysis without disclosing either side's IP | 🟡 modeled | `ip-preserving-outsourcing-broker` skill |
 | Federated query planner / matchmaking | Surface viable collaborations across sealed stores without pooling | 🔴 needs work | discovery layer unbuilt |
 | Isolated agent session + cost meter | Sandboxed agent run with TTL + output bounding | ✅ real | `IsolatedTinkerSession` (blocked upstream on Tinker bot-check) 🟡 |

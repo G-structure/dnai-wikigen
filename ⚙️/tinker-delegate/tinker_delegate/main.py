@@ -506,6 +506,27 @@ def cli():
         help="Path to a JSON object mapping corpus refs to CorpusPolicy payloads",
     )
     policy_gate_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    consent_decision_p = sub.add_parser(
+        "consent-decision",
+        help="Apply a source-modeled owner consent decision and emit a bounded receipt",
+    )
+    consent_decision_p.add_argument(
+        "--state-json",
+        required=True,
+        help="Path to a coordination state JSON payload",
+    )
+    consent_decision_p.add_argument(
+        "--decision-json",
+        required=True,
+        help="Path to a consent decision JSON payload",
+    )
+    consent_decision_p.add_argument(
+        "--now",
+        type=int,
+        default=0,
+        help="Deterministic timestamp for expiry checks",
+    )
+    consent_decision_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     tinker_proxy_status_p = sub.add_parser(
         "tinker-proxy-status",
         help="Return bounded sealed Tinker proxy/client configuration status",
@@ -1743,6 +1764,14 @@ def cli():
             turn_payload = json.loads(Path(args.turn_json).read_text(encoding="utf-8"))
             policies_payload = json.loads(Path(args.policies_json).read_text(encoding="utf-8"))
             result = build_policy_turn_gate_receipt(turn_payload, policies_payload)
+        _emit_bounded_json(result, output_path=args.output)
+
+    elif args.command == "consent-decision":
+        from tinker_delegate.consent_receipt import build_consent_decision_receipt
+
+        state_payload = json.loads(Path(args.state_json).read_text(encoding="utf-8"))
+        decision_payload = json.loads(Path(args.decision_json).read_text(encoding="utf-8"))
+        result = build_consent_decision_receipt(state_payload, decision_payload, now=args.now)
         _emit_bounded_json(result, output_path=args.output)
 
     elif args.command == "tinker-smoke":

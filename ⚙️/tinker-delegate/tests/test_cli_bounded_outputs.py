@@ -13,6 +13,7 @@ from eth_account import Account
 
 from tinker_delegate.main import _render_bounded_json
 from tinker_delegate.run_metadata_store import stable_hash
+from tests.test_consent_receipt import _grant, _state_payload
 
 
 def _env(tmpdir: str, *, funding_mode: str = "manual_prefund") -> dict[str, str]:
@@ -99,6 +100,59 @@ class CliBoundedOutputsTest(unittest.TestCase):
             rendered = json.dumps(receipt, sort_keys=True)
             self.assertNotIn("dual-use-uncertain", rendered)
             self.assertNotIn("rank-candidates", rendered)
+            self.assertFalse(receipt["raw_secret_egress"])
+
+    def test_consent_decision_cli_writes_bounded_receipt(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_path = Path(tmpdir) / "coordination-state.json"
+            decision_path = Path(tmpdir) / "consent-decision.json"
+            output_path = Path(tmpdir) / "consent-receipt.json"
+            state_path.write_text(
+                json.dumps(_state_payload(grants=[_grant("corpus://atlas", "owner-atlas")])),
+                encoding="utf-8",
+            )
+            decision_path.write_text(
+                json.dumps(
+                    {
+                        "turn_id": "turn-1",
+                        "corpus_ref": "corpus://halcyon",
+                        "owner_ref": "owner-halcyon",
+                        "decision": "grant",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "consent-decision",
+                    "--state-json",
+                    str(state_path),
+                    "--decision-json",
+                    str(decision_path),
+                    "--output",
+                    str(output_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=_env(tmpdir),
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
+            receipt = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(receipt["surface"], "coordination_consent_decision")
+            self.assertEqual(receipt["action"], "settle_bounded_result")
+            self.assertEqual(receipt["turn"]["status_after"], "settled")
+            rendered = json.dumps(receipt, sort_keys=True)
+            self.assertNotIn("rank-candidates", rendered)
+            self.assertNotIn("sft-rerank", rendered)
+            self.assertNotIn("owner-halcyon", rendered)
             self.assertFalse(receipt["raw_secret_egress"])
 
     def test_balance_can_query_deployed_delegate_api(self):

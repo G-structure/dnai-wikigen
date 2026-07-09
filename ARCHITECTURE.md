@@ -2261,6 +2261,15 @@ Implementation status:
             `consent_denied`. Revocation fails in-flight/future turns closed
             while preserving already-settled turns; settled turns carry bounded
             meter bands and a joint royalty hash.
+[real]      `tinker_delegate.consent_receipt` and the
+            `tinker-delegate consent-decision` CLI provide a replayable bounded
+            proof path for source-modeled owner consent decisions. The command
+            reads a local coordination-state JSON plus a consent-decision JSON,
+            applies the pure reducer, and emits receipt fields for before/after
+            status, action, quorum grant counts, owner/requester/purpose/pipeline
+            hashes, input/output state hashes, and `raw_secret_egress=false`.
+            It does not print raw purpose, pipeline, owner refs, gate reasons, or
+            full updated coordination state.
 [real]      `tinker_delegate.review_queue` adds a bounded source-level human
             review queue. It can ingest coordination `HandoffTicket`s, persist
             and load bounded queue JSON, filter pending tickets by routed role,

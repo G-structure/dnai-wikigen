@@ -2618,6 +2618,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             turn records do not expose raw purpose or gate reasons. tee-email
             owner notification, reviewer UI, signatures, and deployed service
             wiring remain open.
+      - [x] Add an operator-exercisable bounded consent-decision proof path.
+            Done 2026-07-09: `tinker-delegate consent-decision` reads a saved
+            coordination state JSON plus owner consent-decision JSON, applies
+            the reducer event, and emits only bounded receipt fields: before/after
+            status, action, quorum grant counts, owner/requester/purpose/pipeline
+            hashes, state input/output hashes, and no raw secret egress. Tests
+            cover grant-to-settle, grant-below-quorum, denial, malformed state
+            fail-closed behavior, and CLI bounded output. Signed owner delivery
+            and deployed runtime-authenticated consent endpoints remain open.
 - [x] `P0` Implement revocation:
       future and in-flight turns fail closed; prior settled attestations remain
       valid.

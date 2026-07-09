@@ -794,10 +794,11 @@ The current repo does not yet guarantee:
   pure ConSECA-style `policy_kernel` for per-corpus AccessRequest/CorpusPolicy
   enforcement, a bounded `policy-gate` CLI proof path, and a pure local reducer
   for fail-closed fan-out, unanimous or M-of-N consent, owner consent
-  grant/deny effects, revocation, joint attestations, and royalty meters, but
-  LLM policy authoring, policy migration/diff review, signed owner/reviewer
-  notification wiring, tee-email-oracle/DiligenceRoom effect wiring, and
-  production governance remain open
+  grant/deny effects, revocation, joint attestations, and royalty meters.
+  `consent-decision` now gives those owner consent effects a bounded CLI receipt
+  path, but LLM policy authoring, policy migration/diff review, signed
+  owner/reviewer notification wiring, tee-email-oracle/DiligenceRoom effect
+  wiring, and production governance remain open
 - production frontend wired to real APIs
 - Proof-of-Cloud or equivalent platform provenance
 
