@@ -152,7 +152,10 @@ class IsolatedTinkerSessionTest(unittest.TestCase):
         session = IsolatedTinkerSession(service_client, "deal-123")
         training_client = session.create_training(
             "meta-llama/Llama-3.1-8B",
-            user_metadata={"buyer_agent": "agent-1"},
+            user_metadata={
+                "buyer_agent": "agent-1",
+                "surface": "unit-test",
+            },
         )
         return session, service_client, training_client
 
@@ -163,13 +166,58 @@ class IsolatedTinkerSessionTest(unittest.TestCase):
         self.assertEqual(kwargs["base_model"], "meta-llama/Llama-3.1-8B")
         self.assertEqual(kwargs["rank"], 32)
         self.assertEqual(kwargs["user_metadata"]["deal_id"], "deal-123")
-        self.assertEqual(kwargs["user_metadata"]["buyer_agent"], "agent-1")
+        self.assertEqual(kwargs["user_metadata"]["metadata_policy"], "bounded-v1")
+        self.assertEqual(kwargs["user_metadata"]["surface"], "unit-test")
+        self.assertIn("user_metadata_hash", kwargs["user_metadata"])
+        self.assertEqual(kwargs["user_metadata"]["user_metadata_dropped_count"], 1)
+        self.assertNotIn("buyer_agent", kwargs["user_metadata"])
+        self.assertNotIn("agent-1", str(kwargs["user_metadata"]))
         self.assertEqual(session.training_run_id, "run-1")
 
         with self.assertRaisesRegex(RuntimeError, "Only one training run per deal"):
             session.create_training("meta-llama/Llama-3.1-8B")
 
         self.assertEqual(len(service_client.created_training_clients), 1)
+
+    def test_user_metadata_is_bounded_before_tinker_egress(self):
+        service_client = FakeServiceClient()
+        session = IsolatedTinkerSession(service_client, "deal-private")
+
+        session.create_training(
+            "meta-llama/Llama-3.1-8B",
+            user_metadata={
+                "surface": "local_synthetic_room",
+                "artifact_type": "dataset",
+                "private_note": "secret private artifact text",
+                "deal_id": "attacker-overridden-deal",
+            },
+        )
+
+        kwargs, _client = service_client.created_training_clients[0]
+        metadata = kwargs["user_metadata"]
+        self.assertEqual(metadata["deal_id"], "deal-private")
+        self.assertEqual(metadata["surface"], "local_synthetic_room")
+        self.assertEqual(metadata["artifact_type"], "dataset")
+        self.assertEqual(metadata["metadata_policy"], "bounded-v1")
+        self.assertIn("user_metadata_hash", metadata)
+        self.assertEqual(metadata["user_metadata_dropped_count"], 2)
+        rendered = str(metadata)
+        self.assertNotIn("private_note", rendered)
+        self.assertNotIn("secret private artifact text", rendered)
+        self.assertNotIn("attacker-overridden-deal", rendered)
+
+    def test_user_metadata_fails_closed_for_unbounded_shapes(self):
+        with self.assertRaisesRegex(ValueError, "JSON-serializable"):
+            IsolatedTinkerSession(FakeServiceClient(), "deal-1").create_training(
+                "meta-llama/Llama-3.1-8B",
+                user_metadata={"unsafe": object()},
+            )
+
+        with self.assertRaisesRegex(ValueError, "exceeds"):
+            IsolatedTinkerSession(FakeServiceClient(), "deal-1").create_training(
+                "meta-llama/Llama-3.1-8B",
+                user_metadata={"unsafe": "x" * 3000},
+            )
 
     def test_checkpoint_ttl_is_clamped_on_every_save_path(self):
         session, service_client, training_client = self.make_session()

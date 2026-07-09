@@ -2251,8 +2251,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P1` Add cost metering that reconciles:
       Tinker reported cost, estimated tokens/steps, chain computeCost, and buyer
       budget remaining.
-- [ ] `P1` Add model/run metadata limits so user-provided fields cannot leak raw
+- [x] `P1` Add model/run metadata limits so user-provided fields cannot leak raw
       private data through Tinker metadata.
+      Done 2026-07-09: `IsolatedTinkerSession.create_training()` now bounds
+      evaluator-provided `user_metadata` before it reaches Tinker. Only the
+      public `deal_id`, a `bounded-v1` policy marker, and a small allowlist of
+      safe label fields can pass raw; arbitrary metadata is represented by a
+      bounded hash/drop count, oversize or non-JSON metadata fails closed, and
+      tests prove private notes, overridden deal IDs, and free-form labels do
+      not reach the upstream SDK metadata map.
 - [x] `P1` Add a simulator/fake Tinker backend for CI and offline demos.
       Done 2026-07-09: `FakeTinkerServiceClient` models the SDK surface used by
       `IsolatedTinkerSession` without upstream credentials, and

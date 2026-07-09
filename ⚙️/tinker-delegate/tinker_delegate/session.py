@@ -15,6 +15,8 @@ Trust enforcement:
 from __future__ import annotations
 
 import hashlib
+import json
+import re
 import time
 from dataclasses import dataclass, field
 
@@ -101,6 +103,18 @@ MAX_TTL = 86400      # 24 hour cap
 DEFAULT_TTL = 3600   # 1 hour default
 CLEANUP_DELETE_RETRIES = 3
 CLEANUP_RETRY_DELAY_SECONDS = 0.0
+MAX_USER_METADATA_BYTES = 2048
+SAFE_USER_METADATA_KEYS = frozenset(
+    {
+        "artifact_type",
+        "mode",
+        "optimizer",
+        "reward_interface",
+        "surface",
+        "task",
+    }
+)
+SAFE_USER_METADATA_VALUE = re.compile(r"^[a-z0-9_.:/-]{1,64}$")
 
 
 @dataclass(frozen=True)
@@ -190,6 +204,47 @@ class IsolatedTinkerSession:
     def _clamp_ttl(ttl_seconds: int) -> int:
         return max(MIN_TTL, min(ttl_seconds, MAX_TTL))
 
+    def _bounded_training_metadata(self, user_metadata) -> dict[str, object]:
+        """Bound evaluator-provided metadata before it reaches Tinker."""
+        if user_metadata is None:
+            metadata = {}
+        elif isinstance(user_metadata, dict):
+            metadata = dict(user_metadata)
+        else:
+            raise ValueError("user_metadata must be a dict")
+
+        if any(not isinstance(key, str) for key in metadata):
+            raise ValueError("user_metadata keys must be strings")
+        try:
+            canonical = json.dumps(metadata, sort_keys=True, separators=(",", ":"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("user_metadata must be JSON-serializable") from exc
+        if len(canonical.encode("utf-8")) > MAX_USER_METADATA_BYTES:
+            raise ValueError("user_metadata exceeds bounded metadata size")
+
+        bounded: dict[str, object] = {
+            "deal_id": self._deal_id,
+            "metadata_policy": "bounded-v1",
+        }
+        forwarded_user_keys = 0
+        for key, value in metadata.items():
+            if key == "deal_id":
+                continue
+            if (
+                key in SAFE_USER_METADATA_KEYS
+                and isinstance(value, str)
+                and SAFE_USER_METADATA_VALUE.fullmatch(value)
+            ):
+                bounded[key] = value
+                forwarded_user_keys += 1
+
+        if metadata:
+            bounded["user_metadata_hash"] = hashlib.sha256(
+                b"dnai-wikigen/tinker-user-metadata/v1\0" + canonical.encode("utf-8")
+            ).hexdigest()
+            bounded["user_metadata_dropped_count"] = len(metadata) - forwarded_user_keys
+        return bounded
+
     # --- Training ---
 
     def create_training(
@@ -203,9 +258,9 @@ class IsolatedTinkerSession:
         if self._training_run_id is not None:
             raise RuntimeError("Only one training run per deal")
 
-        # Force deal_id into user_metadata for orphan detection
-        metadata = kwargs.pop("user_metadata", None) or {}
-        metadata["deal_id"] = self._deal_id
+        # Force deal_id into user_metadata for orphan detection, but do not
+        # forward arbitrary evaluator-provided metadata to the upstream service.
+        metadata = self._bounded_training_metadata(kwargs.pop("user_metadata", None))
 
         tc = self._sc.create_lora_training_client(
             base_model=base_model,

@@ -1845,6 +1845,12 @@ Implementation status:
             path including save-and-sample, path-checked sampling, state
             checkpoints not being sampleable, cleanup deletion, retry-backed
             cleanup attestations, and metering.
+[real]      Upstream Tinker run metadata is now bounded. The isolated session
+            still forwards public `deal_id` for orphan cleanup, but arbitrary
+            evaluator-supplied `user_metadata` no longer flows to Tinker raw:
+            only a small safe-label allowlist can pass, the original metadata
+            is represented by a hash/drop count, and oversized or non-JSON
+            shapes fail closed.
 [real]      Deal resolution stores a bounded cleanup attestation with counts,
             success flag, attempts, error type, and checkpoint-ID hash; raw
             checkpoint IDs are not included in the public record.
