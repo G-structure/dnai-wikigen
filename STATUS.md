@@ -166,15 +166,19 @@ Latest Tinker execution buildout, 2026-07-09:
   family and hash; it never returns the raw project id or endpoint. `ControlPlane`
   now passes the same project/base-url settings to future evaluator sessions, so
   the smoke path and real deal path stay aligned. The gated direct real-SDK
-  integration test also uses the same optional settings. The updated local
-  rendered-compose candidate hashes to
-  `cbf788e98d2d562a4cad0407a76fc64add8f5cad1d7ebd9e9f27fc2604950cf8` with
+  integration test also uses the same optional settings. GitHub Actions run
+  `29023713771` built source
+  `76609fbe6617a8c7162c4dbfbbbc060e9b01322e` into
+  `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:83e58d165cc30374feb70f475dc6bf30da07d63895f6d871feb4f7828926758b`,
+  and local `verify-ghcr-image-attestation` verified provenance and SPDX SBOM
+  attestations for that digest. The updated local rendered-compose candidate
+  now hashes to
+  `fdaf00da9657560705d8f315667201cdebad5cc134e351eecb105f74339e4211` with
   rendered compose SHA
-  `b4a690458656c8aa6a9501960889645596c5b8a50c92a364b96a0f622590ef6f`.
+  `49cec4b25620ffb96bf38e57f3ed554a60f0ca4c98c9dc9b017d082a1d971af9`;
   `verify-compose-hash` reported `allowed_envs=[]` for this local check. This
-  follow-up has not yet been built into a new image, redeployed to Phala,
-  checked with the Phala raw-compose/allowed-env deploy mode, or approved
-  on-chain.
+  follow-up has not yet been redeployed to Phala, checked with the Phala
+  raw-compose/allowed-env deploy mode, TDX-verified, or approved on-chain.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned

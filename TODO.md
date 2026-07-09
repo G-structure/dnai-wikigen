@@ -1770,10 +1770,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             real evaluator sessions, and the gated direct real-SDK integration
             test now uses the same optional settings. The updated local
             rendered-compose candidate hashes to
-            `cbf788e98d2d562a4cad0407a76fc64add8f5cad1d7ebd9e9f27fc2604950cf8`
-            with `allowed_envs=[]`; this source/compose fix is not yet built,
-            Phala-deployed, checked with the Phala raw-compose/allowed-env
-            deploy mode, or approved on-chain.
+            `fdaf00da9657560705d8f315667201cdebad5cc134e351eecb105f74339e4211`
+            with rendered SHA
+            `49cec4b25620ffb96bf38e57f3ed554a60f0ca4c98c9dc9b017d082a1d971af9`
+            and `allowed_envs=[]`. Follow-up build evidence 2026-07-09:
+            GitHub Actions run `29023713771` built source
+            `76609fbe6617a8c7162c4dbfbbbc060e9b01322e` into
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:83e58d165cc30374feb70f475dc6bf30da07d63895f6d871feb4f7828926758b`,
+            and local `verify-ghcr-image-attestation` verified provenance and
+            SPDX SBOM attestations for that digest. This source/compose fix is
+            not yet Phala-deployed, checked with the Phala raw-compose/
+            allowed-env deploy mode, TDX-verified, or approved on-chain.
       - [ ] Run `tinker-smoke --api-url ... --max-usd 0.05
             --require-encumbrance` successfully from the deployed CVM and record
             the bounded receipt plus attestation evidence.
