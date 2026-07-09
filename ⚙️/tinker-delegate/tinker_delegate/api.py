@@ -39,6 +39,12 @@ from tinker_delegate.artifacts import (
     decrypt_artifact_payload,
     zero_buffer,
 )
+from tinker_delegate.automation_receipts import (
+    AutomationStage,
+    AutomationSurface,
+    classify_automation_error,
+    make_receipt,
+)
 from tinker_delegate.config import Settings
 from tinker_delegate.crypto import EncryptedPayload
 from tinker_delegate.dstack_utils import derive_storage_key, is_dstack_enabled
@@ -248,7 +254,23 @@ async def auth_reauth(authorization: str = Header(default="")):
 
     from tinker_delegate.signup import reauth
 
-    result = await reauth(settings)
+    try:
+        result = await reauth(settings)
+    except Exception as exc:
+        outcome = classify_automation_error(redact_text(exc))
+        receipt = make_receipt(
+            surface=AutomationSurface.TINKER_AUTH,
+            outcome=outcome,
+            furthest_stage=AutomationStage.NOT_STARTED,
+            evidence=redact_text(exc),
+            bounded_message=outcome.value,
+        ).to_public_dict()
+        result = {
+            "success": False,
+            "authenticated": False,
+            "error_kind": outcome.value,
+            "attempt_record": receipt,
+        }
     update_runtime_state(
         reauth_attempted=True,
         reauth_success=bool(result.get("success")),

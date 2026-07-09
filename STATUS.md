@@ -400,6 +400,22 @@ with `--run-reauth-attempt` before `--run-add-balance-attempt`, or redeploy the
 bounded read-only error fix first if we want status probes corrected before
 another charge-capable run.
 
+Reauth-plus-add-balance follow-up, 2026-07-09: packet
+`/tmp/dnai-tinker-add-balance-packet-20260709T095444Z` included both
+`--run-reauth-attempt` and `--run-add-balance-attempt` against the same
+approved live compose hash. Preflight and encumbrance gating passed, the
+add-balance-only manifest verified, and `raw_secret_egress=false`, but reauth
+returned `unknown_failure` at `not_started` and add-balance again failed closed
+as `auth_required` at `billing_page_loaded`. A direct bounded probe of
+`POST /auth/reauth` then returned HTTP 500 with a non-JSON body after a long
+attempt. Source now adds an API-level `/auth/reauth` fallback receipt: uncaught
+browser exceptions classify to bounded outcomes such as
+`transient_browser_failure`, update runtime state, and do not return raw
+Playwright logs, Tinker URLs, OTPs, or account identifiers. This source fix is
+covered by `tests.test_api_reauth` but still needs image build, attestation
+verification, Phala redeploy, compose approval, and a fresh reauth/add-balance
+attempt before funding can be retried safely.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce

@@ -1562,6 +1562,14 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   `billing_page_loaded`; no top-up or charge is proven. Next
                   retry should include `--run-reauth-attempt` before
                   `--run-add-balance-attempt`.
+                  Live attempt 2026-07-09:
+                  `/tmp/dnai-tinker-add-balance-packet-20260709T095444Z`
+                  included reauth first, but reauth returned `unknown_failure`
+                  at `not_started`; a direct `/auth/reauth` probe returned
+                  HTTP 500 with a non-JSON body. Source now adds an API-level
+                  bounded fallback receipt for uncaught reauth exceptions.
+                  Next step: build, attest, redeploy, approve the new compose
+                  hash, then rerun reauth plus add-balance.
             The item remains unchecked until a bounded add-balance receipt and
             live balance read prove a low-value top-up succeeded; the CVM
             dev-OS warning also remains before production.

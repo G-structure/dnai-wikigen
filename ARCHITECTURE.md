@@ -1132,7 +1132,10 @@ Implementation status:
             fail 403, and misconfigured required auth fails closed. The token
             can be supplied explicitly through `TINKER_RUNTIME_AUTH_TOKEN` for
             operator CLI runs, or derived inside dstack from
-            `TINKER_RUNTIME_AUTH_KEY_PATH` for same-TEE callers.
+            `TINKER_RUNTIME_AUTH_KEY_PATH` for same-TEE callers. The
+            `/auth/reauth` endpoint has an API-level fail-closed wrapper so an
+            uncaught browser exception still returns a bounded `tinker_auth`
+            receipt instead of a non-JSON 500 or raw browser call log.
 [real]      Funding validation packets can also include separate add-balance
             evidence: an add-balance receipt, manifest, verification, and
             summary fields. The runner can bind an existing bounded top-up

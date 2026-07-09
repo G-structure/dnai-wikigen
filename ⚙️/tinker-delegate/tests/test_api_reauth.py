@@ -90,6 +90,34 @@ class ReauthApiTest(unittest.TestCase):
         self.assertEqual(ok.status_code, 200)
         reauth.assert_awaited_once()
 
+    def test_reauth_endpoint_bounds_uncaught_browser_exceptions(self):
+        api.settings = Settings(allow_auth_automation_endpoint=True)
+        client = TestClient(api.app)
+        raw_error = (
+            "Page.goto: net::ERR_ABORTED at "
+            "https://tinker-console.thinkingmachines.ai/billing/balance"
+        )
+
+        with patch("tinker_delegate.signup.reauth", new=AsyncMock(side_effect=RuntimeError(raw_error))):
+            response = client.post("/auth/reauth")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        rendered = repr(body)
+        self.assertFalse(body["success"])
+        self.assertFalse(body["authenticated"])
+        self.assertEqual(body["error_kind"], "transient_browser_failure")
+        self.assertEqual(body["attempt_record"]["surface"], "tinker_auth")
+        self.assertEqual(body["attempt_record"]["outcome"], "transient_browser_failure")
+        self.assertEqual(body["attempt_record"]["furthest_stage"], "not_started")
+        self.assertFalse(body["attempt_record"]["raw_secret_egress"])
+        self.assertNotIn("tinker-console.thinkingmachines.ai", rendered)
+        self.assertNotIn("Page.goto", rendered)
+        runtime = get_runtime_state()
+        self.assertTrue(runtime["reauth_attempted"])
+        self.assertFalse(runtime["reauth_success"])
+        self.assertEqual(runtime["reauth_error_kind"], "transient_browser_failure")
+
 
 if __name__ == "__main__":
     unittest.main()
