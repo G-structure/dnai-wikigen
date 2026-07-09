@@ -2247,6 +2247,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       Done when untrusted evaluator code cannot use Python introspection to
       recover the raw `ServiceClient`, Tinker API key, checkpoint paths, or
       artifact bytes outside the approved wrapper calls.
+      - [x] Add a source-modeled process/capability evaluator runner.
+            Done 2026-07-09: `SandboxedEvaluatorRunner` executes simple
+            evaluator code in a restricted subprocess that receives only
+            bounded context, emits an allowlisted capability plan, and lets the
+            parent execute that plan through `IsolatedTinkerSession`. Tests
+            prove the child cannot see the raw session object, raw service
+            client, raw artifact bytes, run IDs, checkpoint paths, sample text,
+            or upstream API key in public output.
+      - [ ] Harden the evaluator sandbox for hostile third-party code in a
+            deployed CVM/container, including real Tinker datum adapters,
+            no-network/no-filesystem policy, resource cgroups/ulimits, and
+            audited egress.
 - [x] `P0` Implement cleanup with retries and a cleanup attestation.
 - [ ] `P1` Add cost metering that reconciles:
       Tinker reported cost, estimated tokens/steps, chain computeCost, and buyer

@@ -354,6 +354,11 @@ interface layer only. `tinker_delegate.private_reward_sandbox` adds a local
 Python sandbox for toy candidates with subprocess timeout, scratch cwd,
 stripped environment, deterministic seed, capped stdout/stderr, timing bands,
 public failure-code buckets, and file, network, process, and import guards.
+`tinker_delegate.evaluator_sandbox` adds the first source-modeled
+process/capability runner for simple third-party evaluators: the evaluator
+subprocess sees bounded context only, emits an allowlisted plan, and never
+receives the raw Tinker session object. This is not yet hostile-code production
+isolation.
 `tinker_delegate.private_reward_holdout` adds a hidden-holdout split and
 accounting contract with public split commitments, partition counts,
 reward-query tracking, per-candidate repeat caps, minimum unique candidates
