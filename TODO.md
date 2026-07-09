@@ -1452,9 +1452,25 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   preflight or any add-balance attempt. Done in tx
                   `0x3ab263bb7cb7758787fa1136dd043cca002db9cf511b29ad20ef4d1216199d3f`
                   at block `43904511`; read-back returned `10e18` for both caps.
-            - [ ] Build, attest, digest-pin, redeploy, and approve the updated
-                  funding-validation compose hash, then rerun add-balance only
-                  if the existing card-on-file state is still present.
+            - [ ] Approve the refreshed funding-validation compose hash and run
+                  a bounded `$10` add-card plus add-balance packet.
+                  Build/attest/pin/redeploy is done for source
+                  `8a571347d946fd6c23a84db256fd99f7169061e5`; GitHub Actions
+                  run `28998076083` produced digest-pinned oracle
+                  `beedfc6c3f1f0c9dca8604d6adf6522110e8dc2f15af1e8a9145e0e3227939a9`,
+                  delegate
+                  `3e03e4dccde8ef732641fdd091597a683674ca3b065b950a983aab16c6b88878`,
+                  and Neko
+                  `fd6a65a894befc66901ed7b915c792f3a669b74ef4ace01813815e1f1030b456`
+                  images. The existing Phala CVM now attests compose hash
+                  `9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71`;
+                  `verify-cvm-attestation` passed with local image-policy hash
+                  `880db4987c00ecd8643aedc794415accd83c47a337b4512810d9fe5cadab8e6a`.
+                  `/auth/reauth` succeeds and bounded card status returns
+                  `card_on_file=false` / count band `zero`. Blocked now on the
+                  owner-keystore transaction approving `0x9f0754be...` in
+                  `TinkerAccountEncumbrance`; preflight correctly fails closed
+                  with `compose_hash_not_approved`.
             The item remains unchecked until a bounded add-balance receipt and
             live balance read prove a low-value top-up succeeded; the CVM
             dev-OS warning also remains before production.

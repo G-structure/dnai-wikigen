@@ -1127,8 +1127,10 @@ Implementation status:
             `TINKER_FUNDING_MODE=operator_capped_validation`, source defaults
             cap top-ups at the current Tinker minimum `$10`, and routes browser
             work through the custom GitHub-attested `neko-chrome` CDP path with
-            the baked proxy on `9222`. The live deployed encumbrance still has
-            the older `$5` cap until an owner policy transaction updates it.
+            the baked proxy on `9222`. The live deployed encumbrance has been
+            updated to `$10` add-balance/spend caps, but each refreshed Phala
+            compose hash must still be explicitly approved on-chain before
+            add-balance can proceed.
 [real]      `docker-compose.selector-diagnostics.phala.yaml` is a temporary
             Phala diagnostics profile for the main CVM. It uses registry image
             digests only, disables Tinker bootstrap and all card/funding
@@ -1157,14 +1159,27 @@ Implementation status:
             closed with `401 Bearer token required`.
 [partial]   The funding-validation profile is live, quote-bound, backed by a
             deployed TinkerAccountEncumbrance policy, and has working
-            authenticated `/auth/reauth`. Remote `/billing/funding-preflight`
-            passed policy checks for the old `$5` cap, but the Tinker UI
-            minimum is `$10`, so the next approved low-value validation is
-            blocked on raising the deployed encumbrance cap to `$10`, redeploying
-            the updated source, and approving the new compose hash. It is still
-            not production-final because
-            the CVM still reports dev OS, quote internals are not parsed, and a
-            successful live real-card add-balance receipt has not yet been
+            authenticated `/auth/reauth`. It was refreshed again on 2026-07-09
+            from source `8a571347d946fd6c23a84db256fd99f7169061e5` with
+            GitHub-attested digest images:
+            `tee-email-oracle@sha256:beedfc6c3f1f0c9dca8604d6adf6522110e8dc2f15af1e8a9145e0e3227939a9`,
+            `tinker-delegate@sha256:3e03e4dccde8ef732641fdd091597a683674ca3b065b950a983aab16c6b88878`,
+            and
+            `neko-chrome@sha256:fd6a65a894befc66901ed7b915c792f3a669b74ef4ace01813815e1f1030b456`.
+            The existing CVM now attests live compose hash
+            `9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71`;
+            the local image-policy hash is
+            `880db4987c00ecd8643aedc794415accd83c47a337b4512810d9fe5cadab8e6a`,
+            and the rendered compose SHA-256 is
+            `962e0352a468460eaa6085a2a32a6b7005798c7e3e5f3ff71e9799fa0cf67ea7`.
+            Live `/billing/funding-policy` reports `$10` minimum and `$10` cap,
+            `/auth/reauth` succeeds, and bounded payment-method status reports
+            `card_on_file=false` / count band `zero`. The add-balance path is
+            intentionally blocked until the owner approves the new live compose
+            hash in `TinkerAccountEncumbrance`; read-only preflight returns
+            `compose_hash_not_approved`. It is still not production-final
+            because the CVM reports dev OS, quote internals are not parsed, and
+            a successful live real-card add-balance receipt has not yet been
             produced.
 [real]      Source/tests now distinguish billing selector drift from auth-state
             failure before card fields or top-up controls are touched. The

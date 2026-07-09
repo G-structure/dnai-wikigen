@@ -528,9 +528,11 @@ contracts/
 - **First deployed real-card validation**: live balance remained `$0.00`; the
   payment-method receipt reached `payment_submitted` with bounded card-management
   copy, while add-balance reached the modal and failed closed with
-  `Add-balance amount input not found`. The source fix is tested locally but
-  still needs a digest-pinned Phala redeploy and a successful add-balance
-  receipt before funding is considered real.
+  `Add-balance amount input not found`. The source fix is now digest-pinned and
+  deployed to the temporary Phala funding-validation profile, where bounded
+  card-on-file status currently reports `card_on_file=false` / count band
+  `zero`. Funding is still not real until the refreshed compose hash is approved
+  on-chain and a bounded `$10` add-card plus add-balance receipt succeeds.
 - **Attempt records**: payment-method and add-balance responses expose bounded
   `surface`, `outcome`, `furthest_stage`, `issued_at`, `evidence_hash`,
   amount/balance bands, TDX quote hash when present, and card-payload

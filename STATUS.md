@@ -90,16 +90,39 @@ treats that card-management copy as payment-method success and adds scoped
 amount-input/preset-amount fallbacks for the add-balance modal; it also models
 Tinker's `$10` whole-dollar minimum, exposes bounded card-on-file status
 (`card_on_file` plus count band only), and adds an authenticated admin/operator
-card-removal path with bounded receipts. The source fix is tested but not yet
-deployed to Phala. The deployed `TinkerAccountEncumbrance` policy has now been
-updated from `$5` to `$10` add-balance/spend caps in tx
+card-removal path with bounded receipts. The source fix is now deployed to
+Phala in the temporary funding-validation profile. The deployed
+`TinkerAccountEncumbrance` policy has now been updated from `$5` to `$10`
+add-balance/spend caps in tx
 `0x3ab263bb7cb7758787fa1136dd043cca002db9cf511b29ad20ef4d1216199d3f`
 at block `43904511`; local `cast` reads returned
 `10000000000000000000` for both `maxAddBalanceWei()` and `maxSpendWei()`.
+The refreshed source commit
+`8a571347d946fd6c23a84db256fd99f7169061e5` was built by GitHub Actions run
+`28998076083` into digest-pinned images
+`tee-email-oracle@sha256:beedfc6c3f1f0c9dca8604d6adf6522110e8dc2f15af1e8a9145e0e3227939a9`,
+`tinker-delegate@sha256:3e03e4dccde8ef732641fdd091597a683674ca3b065b950a983aab16c6b88878`,
+and
+`neko-chrome@sha256:fd6a65a894befc66901ed7b915c792f3a669b74ef4ace01813815e1f1030b456`;
+local SLSA provenance and SPDX SBOM checks passed for all three. The existing
+CVM `cvm_1w85mGjo` / app
+`f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717` now reports live attested compose
+hash `9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71`,
+local image-policy hash
+`880db4987c00ecd8643aedc794415accd83c47a337b4512810d9fe5cadab8e6a`, and
+rendered compose SHA-256
+`962e0352a468460eaa6085a2a32a6b7005798c7e3e5f3ff71e9799fa0cf67ea7`.
+`verify-cvm-attestation` passed against those images, app ID, OS image hash,
+and live TDX envelope. Live `/auth/reauth` succeeded and saved session state;
+bounded payment-method status returned `card_on_file=false` and
+`payment_method_count_band=zero`, so the next real validation must add a card
+and then add `$10` credit. The current on-chain blocker is expected and
+fail-closed: `approvedComposeHashes(0x9f0754be...)` is false, so
+`funding-preflight --amount 10` reports `compose_hash_not_approved`.
 Production deployment remains partial because the CVM still reports
-`dstack-dev-0.5.9` / `is_dev=true`, quote internals are not yet parsed, the
-new bounded card-controls image is not yet deployed, and live low-value top-up
-has not succeeded.
+`dstack-dev-0.5.9` / `is_dev=true`, quote internals are not yet parsed, the new
+compose hash is not approved on-chain, and live low-value top-up has not
+succeeded.
 
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia

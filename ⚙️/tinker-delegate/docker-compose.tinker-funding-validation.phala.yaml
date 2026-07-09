@@ -10,14 +10,14 @@
 # - Tinker signup/bootstrap remains disabled; use /auth/reauth with email oracle
 # - plaintext card endpoint remains disabled
 # - encrypted card, re-auth, and add-balance mutation endpoints require bearer auth
-# - funding mode is quote-visible operator_capped_validation with a $5 cap
+# - funding mode is quote-visible operator_capped_validation with a $10 cap
 # - browser automation uses the GitHub-attested custom Neko Chrome/CDP path
 # - selector/readiness diagnostics remain disabled
 ###############################################################################
 
 services:
   neko:
-    image: ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07
+    image: ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:fd6a65a894befc66901ed7b915c792f3a669b74ef4ace01813815e1f1030b456
     platform: linux/amd64
     restart: unless-stopped
     shm_size: 2gb
@@ -44,7 +44,7 @@ services:
       timeout: 5s
 
   oracle:
-    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f5c346912f3391e699252dba47c673902d06ffe528a8bab9732a76d551ec42ab
+    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:beedfc6c3f1f0c9dca8604d6adf6522110e8dc2f15af1e8a9145e0e3227939a9
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -81,7 +81,7 @@ services:
       start_period: 180s
 
   delegate:
-    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:f9eb714c5630549441636b8a5525b20c9518e863940a3b8e072dff5a5dcab37d
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3e03e4dccde8ef732641fdd091597a683674ca3b065b950a983aab16c6b88878
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
