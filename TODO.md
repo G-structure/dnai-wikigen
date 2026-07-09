@@ -36,8 +36,8 @@ The honest current gap:
 ```text
 Email encumbrance: real but runtime enforcement is incomplete.
 Tinker encumbrance: contract, runtime preflight, Base Sepolia deployment, live
-Tinker API-key sealing, and live reauth are real; live low-value funding remains
-incomplete.
+Tinker API-key sealing, live reauth, and low-value operator-validation funding
+are real; production/repeated funding remains incomplete.
 TTT/RL bio validation: not built; current evaluator is stub/SFT-oriented.
 Private verified reward/RLVR environments: concept now clarified, not built.
 DNAI settlement: core escrow exists; live attestation, watcher, and full product flow are incomplete.
@@ -1192,9 +1192,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       operator-owned validation attempts; `GET /billing/funding-policy` and the
       `funding-policy` CLI expose the bounded mode, and denied card/add-balance
       requests persist bounded `policy_denied` receipts without browser launch.
-- [ ] `P0` Finish the encrypted card channel:
+- [x] `P0` Finish the encrypted card channel:
       verify TEE quote, encrypt card payload to TEE public key, decrypt in memory,
       fill billing form, zero memory, and return only bounded status.
+      Done for the one-off operator-owned validation lane on 2026-07-09: the
+      live Phala funding-validation CVM accepted encrypted card material behind
+      attestation/runtime-auth gates, returned only bounded payment-method and
+      add-balance receipts, and the independent balance read now reports
+      `$10.00`. Production or repeated card funding remains blocked on
+      compliance approval and a non-debug CVM posture.
       - [x] Local plaintext development path fills the Stripe Elements card
             iframe, zeroes card payload objects, and returns bounded failure
             status without logging card details.
@@ -1541,7 +1547,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   at block `43910712`; `approvedComposeHashes` returned
                   `true`, and on-chain add-balance preflight returned
                   `allowed=true` for `$10`.
-            - [ ] Rerun a `$10` add-balance attempt without re-entering card
+            - [x] Rerun a `$10` add-balance attempt without re-entering card
                   details unless the bounded card-on-file status changes.
                   Source/test fix 2026-07-09: `funding-validation-packet` now
                   supports an add-balance-only packet for the card-on-file case.
@@ -1568,11 +1574,51 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   at `not_started`; a direct `/auth/reauth` probe returned
                   HTTP 500 with a non-JSON body. Source now adds an API-level
                   bounded fallback receipt for uncaught reauth exceptions.
-                  Next step: build, attest, redeploy, approve the new compose
-                  hash, then rerun reauth plus add-balance.
-            The item remains unchecked until a bounded add-balance receipt and
-            live balance read prove a low-value top-up succeeded; the CVM
-            dev-OS warning also remains before production.
+                  Follow-up 2026-07-09: source
+                  `3e0c1e1407166252c879f45a5c092ed8e9bfe70a` built in GitHub
+                  Actions run `29011768301`, all three GHCR images have
+                  verified provenance/SBOM attestations, and the Phala
+                  funding-validation profile now attests compose hash
+                  `d47eafee8fcf525a17ef60f835ca98d175adb6caa6679cc0bc39dd08e434150d`.
+                  The owner approved that compose hash in tx
+                  `0x82fec9894039c5c53a9d20dca2cfedf1406f8e3918fdd8a488f8d0827ee2f650`,
+                  and read-only `$10` encumbrance preflight returned
+                  `allowed=true`. Packet
+                  `/tmp/dnai-tinker-add-balance-packet-20260709T103726Z`
+                  proved reauth success and encrypted session-state save, but
+                  add-balance still failed closed as `auth_required` at
+                  `billing_page_loaded`; Phala logs showed the saved browser
+                  session was loaded, so Playwright `storage_state` alone is
+                  insufficient for the Tinker billing page.
+                  Source/test fix 2026-07-09:
+                  `b9a962f64fe0ec4a10ce4fe4bc97787a22f82995` adds a
+                  same-context inline billing reauth retry when billing hits a
+                  bounded auth blocker. Focused local tests passed, GitHub
+                  Actions run `29012433267` built all three GHCR images with
+                  verified provenance/SBOM attestations, the funding-validation
+                  compose now pins
+                  `tee-email-oracle@sha256:ce0ea569280a796ce2a3d5517e22d03ad72a9d7a316a550d11bd1b155a85a5ce`,
+                  `tinker-delegate@sha256:1e3da3a88ef037b85678c7122a1a4a11a01ae687a36a57fd38deb1ed8984461e`,
+                  and
+                  `neko-chrome@sha256:7c0795e15e660d4501b6324c7f223fd65f22725a7752b683ae30a2874d373d01`,
+                  Phala attests compose hash
+                  `a15af6d8e7262d7d2799fa31968c568933f3468771b808720583a6dc6ed998c5`,
+                  and the owner approved that compose hash in tx
+                  `0x186d1ea81d9dfbeb0898485defcf427e8155cbcbb0f9e225326092616bd51c34`
+                  at block `43913068`.
+                  Packet
+                  `/tmp/dnai-tinker-add-balance-packet-20260709T111135Z`
+                  proved reauth success and reached `add_balance_submitted`
+                  with `raw_secret_egress=false`. The receipt stayed
+                  conservative as `unknown_failure` because no explicit success
+                  copy was observed, but an independent bounded balance read
+                  returned `$10.00`; `check-funding-validation-packet
+                  --require-add-balance --require-deployed-attestation` passed
+                  when replayed with the full validation identity.
+            This P0 is complete for the one-off operator-owned validation lane.
+            Production/repeated funding remains blocked on non-dev OS,
+            hardened debug posture, quote-internal verification, and
+            legal/compliance approval.
 - [x] `P0` Confirm PCI and Stripe obligations.
       Research whether the current encrypted-card-to-TEE flow is acceptable or
       whether the system must use Stripe-hosted tokenization / SetupIntent /
@@ -2347,6 +2393,12 @@ vision Wiki is reaching for.
       - [ ] `Deploy` Revert the 2026-07-09 public logs/public sysinfo/dev-SSH
             diagnostic exception after collecting enough evidence; record the
             reverted live compose hash and rerun `verify-cvm-attestation`.
+            Current exception reopened 2026-07-09 for the Tinker funding push:
+            `phala cvms get` reports `public_logs=true`,
+            `public_sysinfo=true`, `public_tcbinfo=true`, dev OS
+            `is_dev=true`, `secure_time=false`, and browser/CDP debug ports
+            exposed on the funding-validation CVM. This is explicitly
+            temporary and must not be described as production deployment.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.
@@ -2431,8 +2483,22 @@ vision Wiki is reaching for.
 - [ ] `Deploy` Verify contracts on BaseScan.
 - [ ] `Deploy` Register compose hashes in `EmailOracleAuth`.
 - [ ] `Deploy` Register consumer app/compose hash for Tinker delegate.
-- [ ] `Deploy` Create a test Tinker account under TEE custody.
-- [ ] `Deploy` Fund the Tinker account through the chosen safe route.
+- [x] `Deploy` Create a test Tinker account under TEE custody.
+      Done for the current operator-validation CVM: live reauth succeeds
+      through the TEE-held email oracle path, the delegate has sealed Tinker
+      browser/session/API-key state, and bounded card-on-file status can be
+      queried without card details. Production custody still requires removing
+      the temporary debug posture.
+- [x] `Deploy` Fund the Tinker account through the chosen safe route.
+      Done for the one-off operator-owned capped validation route on
+      2026-07-09: attested compose
+      `a15af6d8e7262d7d2799fa31968c568933f3468771b808720583a6dc6ed998c5`
+      was approved in `TinkerAccountEncumbrance`, packet
+      `/tmp/dnai-tinker-add-balance-packet-20260709T111135Z` reached
+      `add_balance_submitted` with `raw_secret_egress=false`, packet replay
+      verification passed with deployed attestation, and bounded balance read
+      returned `$10.00`. The add-balance receipt remains intentionally
+      conservative because it did not observe explicit success copy.
 - [ ] `Deploy` Run a tiny funded Tinker job and record the attestation.
 - [ ] `Deploy` Create a synthetic test room on Base Sepolia.
 - [ ] `Deploy` Fund the synthetic test deal.
@@ -2469,8 +2535,12 @@ vision Wiki is reaching for.
 
 ### Demo 3: Tinker-Funded Training
 
-- [ ] `P0` TEE-owned Tinker account exists.
-- [ ] `P0` Tinker account has safe test funding.
+- [x] `P0` TEE-owned Tinker account exists.
+      Done for the current operator-validation CVM; production custody hardening
+      remains separate.
+- [x] `P0` Tinker account has safe test funding.
+      Done for the one-off capped validation lane: bounded balance read reports
+      `$10.00` after the attested/approved `$10` add-balance packet.
 - [ ] `P0` Isolated session runs tiny training.
 - [ ] `P0` Checkpoints are TTL-limited and cleaned up.
 - [ ] `P0` No weights, samples, raw artifact, or API key leave the TEE.
@@ -2574,9 +2644,11 @@ vision Wiki is reaching for.
        `tinker_auth` `unknown_failure` receipt rather than a null attempt record.
 10. [ ] Get an official Tinker service-account/API route, or complete the
         bounded headed-Neko signup repair without evasion.
-11. [ ] Prove safe Tinker account funding with a low-value test.
-       Test-card path reaches Stripe decline and add-balance fail-closed state;
-       real capped funding attempt needs approved card details.
+11. [x] Prove safe Tinker account funding with a low-value test.
+       Done 2026-07-09 for the one-off operator-owned capped validation lane:
+       the deployed compose was attested and approved on-chain, the funding
+       packet emitted only bounded receipts with `raw_secret_egress=false`, and
+       a bounded balance read returned `$10.00`.
 12. [ ] Run one real tiny Tinker training session through `IsolatedTinkerSession`.
 13. [ ] Merge the `gate-health-frontend` UI and wire it to real verifier/status
        APIs.

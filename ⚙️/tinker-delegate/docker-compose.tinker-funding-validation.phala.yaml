@@ -17,7 +17,7 @@
 
 services:
   neko:
-    image: ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:fd6a65a894befc66901ed7b915c792f3a669b74ef4ace01813815e1f1030b456
+    image: ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:7c0795e15e660d4501b6324c7f223fd65f22725a7752b683ae30a2874d373d01
     platform: linux/amd64
     restart: unless-stopped
     shm_size: 2gb
@@ -44,7 +44,7 @@ services:
       timeout: 5s
 
   oracle:
-    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:e5d641e1650fe08748017dead5870bf8bb7b844428899da2233030f631b80335
+    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ce0ea569280a796ce2a3d5517e22d03ad72a9d7a316a550d11bd1b155a85a5ce
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -81,7 +81,7 @@ services:
       start_period: 180s
 
   delegate:
-    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:5f53e8d09d53fc76b17155ce40bd51a0333a85c4e77a0e82a511551895f02995
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:1e3da3a88ef037b85678c7122a1a4a11a01ae687a36a57fd38deb1ed8984461e
     platform: linux/amd64
     restart: unless-stopped
     ulimits:

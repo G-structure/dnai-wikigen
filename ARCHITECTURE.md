@@ -41,8 +41,10 @@ Important current status:
 [real]      tee-email-oracle FastAPI service, sealed credential store, IMAP OTP path.
 [partial]   tinker-delegate service, browser automation, billing channel, API key store.
             Local Neko login, OTP, onboarding, API-key provisioning, and
-            test-card billing rejection are validated; deployed CVM validation
-            and real funding remain open.
+            test-card billing rejection are validated. Deployed CVM login,
+            API-key sealing, reauth, bounded card-on-file status, and a
+            one-off operator-validation `$10.00` balance read are real;
+            production/repeated funding remains open.
 [partial]   IsolatedTinkerSession and bounded control plane. Artifact ingress
             now has mocked-SDK coverage for one-run enforcement, mandatory
             checkpoint TTL, path-checked sampling, cleanup, and metering.
@@ -271,23 +273,21 @@ account is supposed to be agent-owned: the TEE requests the magic-code email,
 the email oracle reads it, and the Tinker delegate uses it inside the browser
 session.
 
-The Tinker side is intentionally marked in progress. The account can only become
-useful once it can be funded without leaking card details or handing account
-credentials to a human. The intended path is card data encrypted to the TEE,
-then browser automation drives the Tinker/Stripe billing form from inside the
-TEE and clears the card payload from memory. The deployed auth/API-key browser
-posture is now working, but low-value funding remains partial: the first live
-operator-card validation left the account balance at `$0.00`; the payment-method
-path likely reached card-on-file UI copy, while add-balance stopped at a missing
-amount selector. Source now treats card-management copy as bounded
-payment-method success and can choose scoped preset top-up amounts; that fix has
-been deployed and approved, and `$10` preflight now passes. The latest real-card
-packet still did not prove funding, but it did prove the deployed
-encrypted-card/payment-method leg: the payment-method receipt succeeded at
-`payment_submitted` with card payload destroyed and no raw secret egress.
-Add-balance reached `add_balance_submitted` and then returned an unconfirmed
-failure. Local source now narrows the billing-error classifier, requires
-explicit add-balance success copy before returning success, and uses bounded DOM
+The Tinker side is intentionally split between the one-off operator-validation
+lane that is now real and the production funding lane that remains incomplete.
+The account becomes useful only if it can be funded without leaking card details
+or handing account credentials to a human. The current validation path encrypts
+card data to the TEE, drives the Tinker/Stripe billing form from inside the TEE,
+clears the card payload from memory, and returns only bounded receipts. The
+deployed auth/API-key browser posture is working, bounded card-on-file status
+can be queried without card details, and the latest same-context
+reauth/add-balance packet reached `add_balance_submitted` with
+`raw_secret_egress=false`. The receipt still fails closed because it did not see
+explicit success copy, but an independent bounded balance read returned
+`$10.00`, so low-value operator-validation funding is real. Production funding
+still needs a hardened CVM posture, compliance approval, and preferably an
+official tokenized payment route. Source narrows the billing-error classifier,
+requires explicit add-balance success copy before returning success, and uses bounded DOM
 signals such as remove-card controls for card-on-file status. That hardening has
 now been built by GitHub Actions, verified with provenance and SBOM
 attestations, and redeployed to the existing Phala CVM. The live TDX envelope
@@ -1252,6 +1252,37 @@ Implementation status:
             `$10`. The profile is still not production-final because the CVM
             reports dev OS, quote internals are not parsed, and a successful
             live real-card add-balance receipt has not yet been produced.
+[real]      The current funding-validation deployment has since advanced to
+            source `b9a962f64fe0ec4a10ce4fe4bc97787a22f82995`, GitHub Actions
+            run `29012433267`, and attested Phala compose hash
+            `a15af6d8e7262d7d2799fa31968c568933f3468771b808720583a6dc6ed998c5`.
+            The verified digest-pinned images are
+            `tee-email-oracle@sha256:ce0ea569280a796ce2a3d5517e22d03ad72a9d7a316a550d11bd1b155a85a5ce`,
+            `tinker-delegate@sha256:1e3da3a88ef037b85678c7122a1a4a11a01ae687a36a57fd38deb1ed8984461e`,
+            and
+            `neko-chrome@sha256:7c0795e15e660d4501b6324c7f223fd65f22725a7752b683ae30a2874d373d01`.
+            `verify-cvm-attestation` passed against the app ID, OS image hash,
+            compose hash, and all three image digests. The owner approved that
+            compose hash on-chain in tx
+            `0x186d1ea81d9dfbeb0898485defcf427e8155cbcbb0f9e225326092616bd51c34`
+            at block `43913068`, and read-only add-balance preflight returns
+            `allowed=true` for `$10`.
+            Live packet
+            `/tmp/dnai-tinker-add-balance-packet-20260709T111135Z` proves
+            authenticated `/auth/reauth` succeeds, the add-balance browser leg
+            reaches `add_balance_submitted`, and all funding evidence remains
+            bounded with `raw_secret_egress=false`. The add-balance receipt
+            still fails closed as `unknown_failure` because the browser did not
+            observe explicit success copy, but an independent bounded balance
+            read returned `balance="$10.00"`. Packet replay verification passed
+            with the full deployed identity and live attestation requirement, so
+            low-value operator-validation funding is real.
+[partial]   The live funding-validation CVM is currently in an explicitly
+            temporary debugging posture: dev OS (`os.is_dev=true`),
+            `secure_time=false`, public logs/sysinfo/TCB info enabled, and
+            browser/CDP debug ports exposed. This improves live diagnosis but
+            widens observability and must be reverted before any production
+            deployment claim.
 [real]      Source/tests now distinguish billing selector drift from auth-state
             failure before card fields or top-up controls are touched. The
             payment-method and add-balance flows classify a billing navigation
@@ -1555,13 +1586,13 @@ Implementation status:
             inside the image, emitting bounded JSON only.
 [partial]   Deployed Phala/CVM browser posture has not been revalidated with
             selector-map capture evidence from the running headed browser path.
-[partial]   Funding is in progress: card data can be encrypted to the TEE and
-            bounded attempt receipts are returned/persisted, but payment-method
-            token/reference capture and a capped real-card funding attempt still
-            need to be proven. A bounded manifest can now summarize a saved
-            preflight/receipt pair for audit, but it does not prove account
-            funding by itself. Production or repeated card funding also needs
-            legal/compliance approval.
+[real]      One-off operator-validation funding is live: card data can be
+            encrypted to the TEE, bounded attempt receipts are
+            returned/persisted, the deployed encumbrance policy approved the
+            current compose hash for `$10`, and a bounded balance read reports
+            `$10.00`. Payment-method token/reference capture is still missing,
+            and production or repeated card funding still needs legal/compliance
+            approval plus hardened CVM posture.
 [partial]   The real SDK harness must still be run inside the deployed CVM
             before claiming real evaluator execution.
 [partial]   Cleanup attestations are generated locally, but deployed Tinker
@@ -2401,12 +2432,14 @@ bounded aggregate results
    through the custom GitHub-attested Neko/CDP image. Deployed bootstrap now
    seals the Tinker API key and deployed `/auth/reauth` succeeds, with bounded
    receipts and no raw secret egress.
-4. Reliable Tinker account funding through Stripe browser automation is in progress:
-   the test-card path reaches Stripe and declines as expected, the plaintext
-   card API is disabled by default, `manual_prefund` is the default production
-   funding mode, the capped validation profile is live, and real funding is not
-   yet proven. Production also still requires non-dev OS and quote-internal
-   verification.
+4. Low-value Tinker account funding through Stripe browser automation is real
+   for the one-off operator-validation lane: the test-card path reaches Stripe
+   and declines as expected, the plaintext card API is disabled by default,
+   `manual_prefund` is the default production funding mode, the capped
+   validation profile is live, the `$10` compose/amount policy was approved
+   on-chain, and bounded balance read-back reports `$10.00`. Production still
+   requires non-dev OS, debug-surface removal, compliance approval, and
+   quote-internal verification.
 5. Real TTT/RL bio-validation is not implemented.
 6. DLP/egress enforcement is not implemented.
 7. Corpus policy and consent/revocation are modeled but not enforced.

@@ -27,10 +27,61 @@ encrypted artifact upload -> TEE-bound attestation report_data -> hash-checked i
 
 Production deployment is now partially real on Phala: the combined
 email-oracle + tinker-delegate CVM is running from digest-pinned registry
-images and has live TDX envelope verification. Real account funding, full
-quote-internal TDX verification, live CVM-originated TEE-to-chain signing, and
-RLVR/bio-validation remain incomplete. Phala auth is configured for profile
-`wikigen` in workspace `wiki`.
+images and has live TDX envelope verification. Low-value operator validation
+funding has now produced a bounded `$10.00` Tinker balance read, but production
+or repeated funding, full quote-internal TDX verification, live CVM-originated
+TEE-to-chain signing, and RLVR/bio-validation remain incomplete. Phala auth is
+configured for profile `wikigen` in workspace `wiki`.
+
+Latest live funding/debug state, 2026-07-09:
+
+- Source commits `3e0c1e1407166252c879f45a5c092ed8e9bfe70a` and
+  `b9a962f64fe0ec4a10ce4fe4bc97787a22f82995` added focused billing-session
+  fixes after live packets kept failing closed as `auth_required` at
+  `billing_page_loaded`. The second fix retries billing after a same-context
+  inline `/auth/reauth` instead of depending only on saved Playwright
+  `storage_state`.
+- `b9a962f64fe0ec4a10ce4fe4bc97787a22f82995` is built, attested,
+  digest-pinned, deployed, and approved on-chain. GitHub Actions run
+  `29012433267` produced verified GHCR images
+  `tee-email-oracle@sha256:ce0ea569280a796ce2a3d5517e22d03ad72a9d7a316a550d11bd1b155a85a5ce`,
+  `tinker-delegate@sha256:1e3da3a88ef037b85678c7122a1a4a11a01ae687a36a57fd38deb1ed8984461e`,
+  and
+  `neko-chrome@sha256:7c0795e15e660d4501b6324c7f223fd65f22725a7752b683ae30a2874d373d01`.
+  The live Phala funding-validation CVM `cvm_1w85mGjo` reports attested compose
+  hash `a15af6d8e7262d7d2799fa31968c568933f3468771b808720583a6dc6ed998c5`,
+  local image-policy hash
+  `4c0bc5a7ae08e358ff2f026d2e6c7ae4326a64f4e686c2c530392b4bf03b3bab`, and
+  rendered compose SHA-256
+  `f28eb9ef304aa4634f1b3d765b539e33bde91a7b24b308d1146932ba02218855`.
+  `verify-cvm-attestation` passed against the app ID, OS image hash, and all
+  three image digests. The owner approved that compose hash in
+  `TinkerAccountEncumbrance` tx
+  `0x186d1ea81d9dfbeb0898485defcf427e8155cbcbb0f9e225326092616bd51c34`
+  at block `43913068`; read-only `$10` add-balance preflight returns
+  `allowed=true`.
+- Live packet `/tmp/dnai-tinker-add-balance-packet-20260709T111135Z` proved
+  the reauth leg succeeds (`tinker_auth` outcome `success`, furthest stage
+  `authenticated`) and the add-balance leg reaches `add_balance_submitted` with
+  `raw_secret_egress=false`. The add-balance receipt still fails closed as
+  `unknown_failure` with bounded message `Add-balance completion not confirmed`
+  because it did not see explicit success copy. A separate bounded balance read
+  immediately afterward returned `balance="$10.00"`, so the low-value operator
+  validation account is funded even though the automation receipt remains
+  conservative.
+- `check-funding-validation-packet --require-add-balance
+  --require-deployed-attestation` passed for
+  `/tmp/dnai-tinker-add-balance-packet-20260709T111135Z` when replayed with the
+  full validation identity: validation ID
+  `operator-real-card-reauth-add-balance-10usd-inline-reauth`, app ID
+  `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, OS image hash
+  `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`, and
+  compose hash `a15af6d8e7262d7d2799fa31968c568933f3468771b808720583a6dc6ed998c5`.
+- The live CVM is deliberately in a temporary debug posture for this funding
+  push: `os.is_dev=true`, `secure_time=false`, `public_logs=true`,
+  `public_sysinfo=true`, `public_tcbinfo=true`, and browser/CDP debug ports are
+  exposed. This is not production-current and must be reverted before any
+  production deployment claim.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned
@@ -120,10 +171,11 @@ and then add `$10` credit. The initial on-chain blocker was expected and
 fail-closed: before operator approval, `approvedComposeHashes(0x9f0754be...)`
 was false and `funding-preflight --amount 10` reported
 `compose_hash_not_approved`.
-Production deployment remains partial because the CVM still reports
-`dstack-dev-0.5.9` / `is_dev=true`, quote internals are not yet parsed, the new
-card-add/add-balance packet still times out before producing bounded receipts,
-and live low-value top-up has not succeeded.
+At that checkpoint, production deployment remained partial because the CVM still
+reported `dstack-dev-0.5.9` / `is_dev=true`, quote internals were not yet
+parsed, the new card-add/add-balance packet still timed out before producing
+bounded receipts, and live low-value top-up had not yet succeeded. Later
+evidence in this ledger records the funded `$10.00` validation result.
 
 Funding retry follow-up, 2026-07-09: the operator approved the refreshed
 compose hash on-chain in tx
@@ -164,8 +216,9 @@ bounded card status is again `card_on_file=false` / count band `zero`. The new
 compose is deliberately blocked at the on-chain encumbrance layer:
 `approvedComposeHashes(0x7edf41...)` is false and
 `tinker-encumbrance-preflight --operation add-balance --amount 10` returns
-`compose_hash_not_approved`. The next live funding packet must wait until the
-operator approves this new compose hash.
+`compose_hash_not_approved`. That checkpoint was blocked until the operator
+approved the new compose hash; later entries record the approval and follow-up
+funding attempts.
 
 Funding retry follow-up 3, 2026-07-09: the operator approved the modal-fix
 compose hash on-chain in tx
@@ -212,7 +265,8 @@ live TDX attestation reports compose hash
 and `raw_secret_egress=false`. On-chain `tinker-encumbrance-preflight` for
 `add-balance`, amount `$10`, and compose hash `0xa3d0...6fc9` currently denies
 with `compose_hash_not_approved`; the next top-up attempt is blocked until the
-operator approves this new compose hash.
+operator approves this new compose hash. Later entries record the approval and
+the successful `$10.00` validation balance read.
 
 Funding retry follow-up 5, 2026-07-09: the operator approved compose hash
 `0xa3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9` on-chain,
@@ -354,9 +408,9 @@ was approved in `TinkerAccountEncumbrance` in tx
 `0x9caf683b80b3c06a8b5de0f8ebeffcfd44d5a6f0305c285df9f32fdb687e402e` at block
 `43910712`; `approvedComposeHashes` now returns `true`, and on-chain
 encumbrance preflight returns `allowed=true` for `$10` add-balance with
-`raw_secret_egress=false`. The next step is a bounded `$10` add-balance packet;
-funding is still not proven until a bounded add-balance receipt and live balance
-read show the top-up succeeded.
+`raw_secret_egress=false`. A later same-context reauth/add-balance packet and
+bounded balance read did show the top-up: the account now reports `$10.00` in
+the operator-validation lane.
 
 Add-balance-only packet tooling follow-up, 2026-07-09: packet
 `/tmp/dnai-tinker-add-balance-packet-20260709T093900Z` did not reach the live
@@ -1680,8 +1734,9 @@ explicitly legacy.
 
 ## Current Blockers
 
-- Real-card Tinker funding requires real payment details and an explicit capped
-  attempt.
+- One-off operator-owned Tinker funding validation succeeded with bounded
+  `$10.00` balance evidence, but production/repeated funding is still not
+  approved or hardened.
 - Production or repeated card funding needs legal/compliance approval; raw-card
   encrypted delivery remains limited to an operator-owned capped validation
   path.
@@ -1695,22 +1750,18 @@ explicitly legacy.
   CVM now consumes the bounded oracle image, but `ORACLE_AUTO_GENESIS=false`
   means it still has no generated mailbox credentials for Tinker OTP/login.
 - The main Phala CVM still runs a dev OS image (`dstack-dev-0.5.9`,
-  `is_dev=true`). Public logs and public sysinfo are off, but production wrap-up
-  must move to a non-dev dstack OS image or record a Phala-side blocker; earlier
+  `is_dev=true`). For the current funding debug push, public logs/sysinfo/TCB
+  info are also enabled. Production wrap-up must disable those debug surfaces
+  and move to a non-dev dstack OS image or record a Phala-side blocker; earlier
   `--image dstack-0.5.10* --no-dev-os` attempts failed with a Phala
   `correlationId` validation error, and the latest successful compose/image
   update with `--no-dev-os` still left the CVM reporting dev OS.
-- Deployed headed-Neko bootstrap packaging has now been Phala-tested without the
-  Playwright sidecar, but Tinker login/API-key capture inside the deployed CVM
-  is not yet proven. Bounded early-stage bootstrap receipts and the
-  disabled-by-default selector-probe and browser-readiness endpoints are now in
-  source, compose, and Phala evidence. The latest readiness probe reached CDP
+- Deployed headed-Neko browser packaging is now proven on Phala for Tinker
+  login/API-key capture, reauth, and the low-value funding lane. The earlier
+  selector/readiness diagnostics remain useful history: they reached CDP
   metadata, confirmed Chromium WebSocket metadata exists, and proved the raw
-  WebSocket HTTP Upgrade returns status band `101`, but Playwright
-  `connect_over_cdp` still timed out; the selector probe then returned bounded
-  `browser_unavailable`. Actual deployed selector/frame match evidence is
-  still open until the post-upgrade CDP protocol/client timeout is fixed or an
-  approved bounded browser-control path replaces it.
+  WebSocket HTTP Upgrade returns status band `101`, before the custom Neko/CDP
+  image fixed the deployed page-control path.
 - Full Intel TDX quote-internal parsing and quote freshness checking need
   implementation; current verifier checks the public dstack envelope and
   report-data binding only.
