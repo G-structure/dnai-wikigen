@@ -2608,8 +2608,16 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `unanimous` and `<m>-of-<n>` over the turn corpora; invalid or
             mismatched quorum policy fails closed as `invalid_consent_quorum`,
             below-threshold grants remain `missing_consent`, and tests prove
-            2-of-3 settlement without raw secret egress. Consent-confirmation
-            effects remain open.
+            2-of-3 settlement without raw secret egress.
+      - [x] Add source-modeled owner consent-confirmation effects.
+            Done 2026-07-09: `ConsentDecision` lets only the matching corpus
+            owner grant or deny consent for an `awaiting-consent` turn. Grants
+            append bounded active `ConsentGrant`s and settle only once the
+            session quorum is met; denial is terminal as `consent_denied`.
+            Tests prove wrong-owner/non-owner attempts fail closed and public
+            turn records do not expose raw purpose or gate reasons. tee-email
+            owner notification, reviewer UI, signatures, and deployed service
+            wiring remain open.
 - [x] `P0` Implement revocation:
       future and in-flight turns fail closed; prior settled attestations remain
       valid.

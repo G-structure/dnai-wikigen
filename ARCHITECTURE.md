@@ -2255,9 +2255,12 @@ Implementation status:
             supports `unanimous` and `<m>-of-<n>` over the turn corpora; missing
             or below-threshold consent leaves the turn `awaiting-consent`, and
             invalid/mismatched quorum policy fails closed as
-            `invalid_consent_quorum`. Revocation fails in-flight/future turns
-            closed while preserving already-settled turns; settled turns carry
-            bounded meter bands and a joint royalty hash.
+            `invalid_consent_quorum`. `ConsentDecision` lets only the matching
+            corpus owner grant or deny consent for an awaiting turn; grants
+            settle only after quorum is met, and denial is terminal as
+            `consent_denied`. Revocation fails in-flight/future turns closed
+            while preserving already-settled turns; settled turns carry bounded
+            meter bands and a joint royalty hash.
 [real]      `tinker_delegate.review_queue` adds a bounded source-level human
             review queue. It can ingest coordination `HandoffTicket`s, persist
             and load bounded queue JSON, filter pending tickets by routed role,
@@ -2272,8 +2275,8 @@ Implementation status:
             approval path, production reviewer key custody, or deployed queue
             expiry worker yet.
 [planned]   Wire coordination effects to tee-email-oracle for reviewer/owner
-            confirmation and to DiligenceRoom/tinker-delegate for settlement and
-            attested execution.
+            notification and signed confirmation, and to
+            DiligenceRoom/tinker-delegate for settlement and attested execution.
 ```
 
 ### 4. DNAI

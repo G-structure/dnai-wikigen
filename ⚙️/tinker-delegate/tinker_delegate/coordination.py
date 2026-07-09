@@ -259,12 +259,21 @@ class ReviewerDecision:
 
 
 @dataclass(frozen=True)
+class ConsentDecision:
+    turn_id: str
+    corpus_ref: str
+    owner_ref: str
+    decision: str
+    expires_at: int | None = None
+
+
+@dataclass(frozen=True)
 class RevokeCorpus:
     corpus_ref: str
     by: str
 
 
-CoordEvent = SubmitTurn | GateResults | ReviewerDecision | RevokeCorpus
+CoordEvent = SubmitTurn | GateResults | ReviewerDecision | ConsentDecision | RevokeCorpus
 
 
 def coordinate(state: CoordinationState, event: CoordEvent, env: CoordinationEnv | None = None) -> CoordinationState:
@@ -277,6 +286,8 @@ def coordinate(state: CoordinationState, event: CoordEvent, env: CoordinationEnv
         return _gate_results(state, event, env)
     if isinstance(event, ReviewerDecision):
         return _reviewer_decision(state, event, env)
+    if isinstance(event, ConsentDecision):
+        return _consent_decision(state, event, env)
     if isinstance(event, RevokeCorpus):
         return _revoke_corpus(state, event, env)
     raise CoordinationError("unsupported coordination event")
@@ -412,6 +423,61 @@ def _reviewer_decision(state: CoordinationState, event: ReviewerDecision, env: C
     return _with_turn(state, updated)
 
 
+def _consent_decision(state: CoordinationState, event: ConsentDecision, env: CoordinationEnv) -> CoordinationState:
+    record = _get_turn(state, event.turn_id)
+    if record.status != TurnStatus.AWAITING_CONSENT:
+        raise CoordinationError("consent decisions can only be applied to awaiting-consent turns")
+    if event.corpus_ref not in record.turn.corpora:
+        raise CoordinationError("consent decision corpus is not part of the turn")
+    owner = _require_known_participant(state.session, event.owner_ref)
+    if owner.role != ParticipantRole.OWNER:
+        raise CoordinationError("consent decision must come from a corpus owner")
+    corpus = _require_known_corpus(state.session, event.corpus_ref)
+    if corpus.owner_ref != event.owner_ref:
+        raise CoordinationError("only the corpus owner can decide consent")
+
+    normalized = event.decision.strip().lower()
+    if normalized not in {"grant", "deny"}:
+        raise CoordinationError("consent decision must be grant or deny")
+    if normalized == "deny":
+        updated = _terminal_record(record.turn, TurnStatus.DENIED, record.queries, (), (), "consent_denied")
+        return _with_turn(state, updated)
+
+    grant = ConsentGrant(
+        corpus_ref=event.corpus_ref,
+        owner_ref=event.owner_ref,
+        requester_ref=record.turn.requester_ref,
+        purpose=record.turn.purpose,
+        pipeline=record.turn.pipeline,
+        expires_at=event.expires_at,
+    )
+    grants = _append_consent_grant(state.session.consent_grants, grant, env)
+    updated_session = replace(state.session, consent_grants=grants)
+    updated_state = replace(state, session=updated_session)
+
+    consent_check = _consent_check(updated_session, record.turn, env)
+    if not consent_check.allowed:
+        updated = TurnRecord(
+            turn=record.turn,
+            status=TurnStatus.AWAITING_CONSENT,
+            queries=record.queries,
+            joint=_joint(record.turn, TurnStatus.AWAITING_CONSENT, record.queries, (), ()),
+            status_reason=consent_check.reason,
+        )
+        return _with_turn(updated_state, updated)
+
+    meters = _royalty_meters(updated_session, record.turn)
+    updated = TurnRecord(
+        turn=record.turn,
+        status=TurnStatus.SETTLED,
+        queries=record.queries,
+        meters=meters,
+        joint=_joint(record.turn, TurnStatus.SETTLED, record.queries, (), meters),
+        status_reason="settled",
+    )
+    return _with_turn(updated_state, updated)
+
+
 def _revoke_corpus(state: CoordinationState, event: RevokeCorpus, env: CoordinationEnv) -> CoordinationState:
     corpus = _require_known_corpus(state.session, event.corpus_ref)
     if corpus.owner_ref != event.by:
@@ -514,6 +580,21 @@ def _delegation_allows_turn(session: CollabSession, turn: Turn, env: Coordinatio
             continue
         return True
     return False
+
+
+def _append_consent_grant(grants: tuple[ConsentGrant, ...], grant: ConsentGrant, env: CoordinationEnv) -> tuple[ConsentGrant, ...]:
+    for existing in grants:
+        if (
+            existing.corpus_ref == grant.corpus_ref
+            and existing.owner_ref == grant.owner_ref
+            and existing.requester_ref == grant.requester_ref
+            and existing.purpose == grant.purpose
+            and existing.pipeline == grant.pipeline
+            and existing.status == GrantStatus.ACTIVE
+            and (existing.expires_at is None or existing.expires_at > env.now)
+        ):
+            return grants
+    return grants + (grant,)
 
 
 def _consent_check(session: CollabSession, turn: Turn, env: CoordinationEnv) -> ConsentCheck:

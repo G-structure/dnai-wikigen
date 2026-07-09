@@ -793,9 +793,10 @@ The current repo does not yet guarantee:
 - production multi-party coordination engine; the source now has a deterministic
   pure ConSECA-style `policy_kernel` for per-corpus AccessRequest/CorpusPolicy
   enforcement, a bounded `policy-gate` CLI proof path, and a pure local reducer
-  for fail-closed fan-out, unanimous or M-of-N consent, revocation, joint
-  attestations, and royalty meters, but LLM policy authoring, policy
-  migration/diff review, tee-email-oracle/DiligenceRoom effect wiring, and
+  for fail-closed fan-out, unanimous or M-of-N consent, owner consent
+  grant/deny effects, revocation, joint attestations, and royalty meters, but
+  LLM policy authoring, policy migration/diff review, signed owner/reviewer
+  notification wiring, tee-email-oracle/DiligenceRoom effect wiring, and
   production governance remain open
 - production frontend wired to real APIs
 - Proof-of-Cloud or equivalent platform provenance

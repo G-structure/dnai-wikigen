@@ -3,6 +3,7 @@ import unittest
 from tinker_delegate.coordination import (
     CollabSession,
     ConsentGrant,
+    ConsentDecision,
     CoordinationError,
     CoordinationState,
     Corpus,
@@ -227,6 +228,73 @@ class CoordinationReducerTest(unittest.TestCase):
         self.assertEqual(record.status, TurnStatus.AWAITING_CONSENT)
         self.assertEqual(record.status_reason, "missing_consent")
         self.assertEqual(record.meters, ())
+
+    def test_owner_consent_confirmations_settle_after_quorum_is_met(self):
+        state = coordinate(CoordinationState(_session(consent=False)), SubmitTurn(_turn()))
+        state = coordinate(state, GateResults("turn-1", _pass_queries()))
+
+        state = coordinate(
+            state,
+            ConsentDecision("turn-1", "corpus://atlas", "owner-atlas", "grant", expires_at=100),
+        )
+
+        awaiting = state.turns["turn-1"]
+        self.assertEqual(awaiting.status, TurnStatus.AWAITING_CONSENT)
+        self.assertEqual(awaiting.status_reason, "missing_consent")
+        self.assertEqual(awaiting.meters, ())
+
+        state = coordinate(
+            state,
+            ConsentDecision("turn-1", "corpus://halcyon", "owner-halcyon", "grant", expires_at=100),
+        )
+
+        settled = state.turns["turn-1"]
+        self.assertEqual(settled.status, TurnStatus.SETTLED)
+        self.assertEqual(settled.status_reason, "settled")
+        self.assertEqual(len(settled.meters), 2)
+        public = settled.to_public_dict()
+        self.assertNotIn("rank", str(public))
+        self.assertNotIn("ok", str(public))
+        self.assertEqual(public["raw_secret_egress"], False)
+
+    def test_owner_consent_denial_is_terminal(self):
+        state = coordinate(CoordinationState(_session(consent=False)), SubmitTurn(_turn()))
+        state = coordinate(state, GateResults("turn-1", _pass_queries()))
+
+        state = coordinate(
+            state,
+            ConsentDecision("turn-1", "corpus://atlas", "owner-atlas", "deny"),
+        )
+
+        record = state.turns["turn-1"]
+        self.assertEqual(record.status, TurnStatus.DENIED)
+        self.assertEqual(record.status_reason, "consent_denied")
+        self.assertEqual(record.meters, ())
+
+    def test_consent_confirmation_requires_matching_owner(self):
+        state = coordinate(CoordinationState(_session(consent=False)), SubmitTurn(_turn()))
+        state = coordinate(state, GateResults("turn-1", _pass_queries()))
+
+        with self.assertRaisesRegex(CoordinationError, "only the corpus owner"):
+            coordinate(
+                state,
+                ConsentDecision("turn-1", "corpus://atlas", "owner-halcyon", "grant"),
+            )
+
+        with self.assertRaisesRegex(CoordinationError, "corpus owner"):
+            coordinate(
+                state,
+                ConsentDecision("turn-1", "corpus://atlas", "sponsor", "grant"),
+            )
+
+    def test_consent_confirmation_only_applies_to_awaiting_turns(self):
+        state = coordinate(CoordinationState(_session()), SubmitTurn(_turn()))
+
+        with self.assertRaisesRegex(CoordinationError, "awaiting-consent"):
+            coordinate(
+                state,
+                ConsentDecision("turn-1", "corpus://atlas", "owner-atlas", "grant"),
+            )
 
     def test_m_of_n_consent_quorum_settles_when_threshold_is_met(self):
         state = coordinate(CoordinationState(_quorum_session(grant_count=2)), SubmitTurn(_quorum_turn()))
