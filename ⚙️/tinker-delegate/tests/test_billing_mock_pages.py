@@ -62,6 +62,19 @@ class FakeField:
         return self.page.locator(selector) if hasattr(self, "page") else FakeField(selector, self.actions)
 
     async def click(self):
+        if (
+            getattr(getattr(self, "page", None), "modal_open", False)
+            and self.selector == 'button:has-text("Payment methods")'
+        ):
+            raise RuntimeError("scrim intercepts pointer events")
+        if self.selector in {
+            'button[aria-label="Close"]',
+            'button[aria-label*="close" i]',
+            'button:has-text("Cancel")',
+            '[data-testid="close"]',
+            '[data-testid="close-dialog"]',
+        } and hasattr(self, "page"):
+            self.page.modal_open = False
         self.actions.append(("click", self.selector, str(self.index)))
 
     async def fill(self, value: str):
@@ -90,6 +103,16 @@ class FakeStripeFrame:
         )
 
 
+class FakeKeyboard:
+    def __init__(self, page):
+        self.page = page
+
+    async def press(self, key: str):
+        self.page.actions.append(("press", "keyboard", key))
+        if key == "Escape":
+            self.page.modal_open = False
+
+
 class FakeBillingPage:
     def __init__(
         self,
@@ -100,6 +123,7 @@ class FakeBillingPage:
         dialog_present: bool = True,
         amount_input_present: bool = True,
         confirm_present: bool = True,
+        modal_open: bool = False,
         available_overrides: dict[str, int] | None = None,
         url: str = "https://tinker-console.thinkingmachines.ai/billing/balance",
     ):
@@ -110,6 +134,8 @@ class FakeBillingPage:
         self.dialog_present = dialog_present
         self.amount_input_present = amount_input_present
         self.confirm_present = confirm_present
+        self.modal_open = modal_open
+        self.keyboard = FakeKeyboard(self)
         self.goto_urls: list[str] = []
         self.reload_count = 0
         self.evaluate_count = 0
@@ -274,6 +300,32 @@ class BillingMockPagesTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn(("click", ADD_TO_BALANCE_SELECTORS[-1], "0"), page.actions)
         self.assertIn(("fill", CARDHOLDER_NAME_SELECTORS[1], "Test User"), page.actions)
         self.assertIn(("click", ADD_PAYMENT_METHOD_SELECTORS[-1], "1"), page.actions)
+
+    async def test_add_payment_method_dismisses_open_modal_before_tab_fallback(self):
+        stripe_frame = FakeStripeFrame(url="https://js.stripe.com/elements-inner-card.html")
+        page = FakeBillingPage(
+            frames=[stripe_frame],
+            initial_text="Current balance $0",
+            result_text="Current balance $0",
+            modal_open=True,
+            available_overrides={
+                'button:has-text("Payment methods")': 1,
+                'button:has-text("Cancel")': 0,
+            },
+        )
+        card = CardDetails("4242424242424242", "12", "2030", "123", "Test User")
+
+        with (
+            patch("tinker_delegate.billing.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.billing.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.billing.get_browser_context", new=AsyncMock(return_value=FakeContext(page))),
+            patch("tinker_delegate.billing.asyncio.sleep", new=AsyncMock()),
+        ):
+            await _do_add_payment_method(card, Settings())
+
+        self.assertIn(("press", "keyboard", "Escape"), page.actions)
+        self.assertIn(("click", 'button:has-text("Payment methods")', "0"), page.actions)
+        self.assertFalse(page.modal_open)
 
     async def test_add_payment_method_treats_card_management_copy_as_success(self):
         stripe_frame = FakeStripeFrame(url="https://js.stripe.com/elements-inner-card.html")

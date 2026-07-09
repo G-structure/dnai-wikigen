@@ -280,9 +280,14 @@ posture is now working, but low-value funding remains partial: the first live
 operator-card validation left the account balance at `$0.00`; the payment-method
 path likely reached card-on-file UI copy, while add-balance stopped at a missing
 amount selector. Source now treats card-management copy as bounded
-payment-method success and can choose scoped preset top-up amounts, but that fix
-still needs a GitHub-attested image, Phala redeploy, compose-hash approval, and
-a successful bounded add-balance receipt before funding is real.
+payment-method success and can choose scoped preset top-up amounts; that fix has
+been deployed and approved, and `$10` preflight now passes. The latest real-card
+packet still did not prove funding: payment-method fallback was blocked by an
+open modal scrim, and add-balance returned an unconfirmed failure after submit.
+Local source now dismisses open billing dialogs before background tab fallback
+and bounds browser-exception receipt messages to outcome classes, but that
+hardening still needs a GitHub-attested image, Phala redeploy, compose-hash
+approval, and a successful bounded add-balance receipt before funding is real.
 The billing control plane also has a bounded card-on-file status path and
 admin/operator card-removal path: callers can learn only whether a payment
 method appears present and a zero/one-or-more/unknown count band, never card
@@ -1185,9 +1190,19 @@ Implementation status:
             `card_on_file=false`. Local client fix `5ab9e81` adds masked prompt
             echo/backspace support and increases encrypted-card upload timeout
             to 180 seconds; no CVM redeploy is required for that client-only
-            change. The profile is still not production-final because the CVM
-            reports dev OS, quote internals are not parsed, and a successful
-            live real-card add-balance receipt has not yet been produced.
+            change. Packet
+            `/tmp/dnai-tinker-funding-validation-packet-20260709T071145Z`
+            completed wrapper/manifest generation but did not prove funding:
+            payment-method fallback was blocked by an open modal scrim before
+            it reached the card form, and add-balance was not confirmed. Local
+            source now dismisses open billing dialogs before tab fallback,
+            constrains browser-exception receipt messages to bounded outcome
+            strings, and fixes prompt newlines; those browser-side source
+            changes still need image build/redeploy/approval before another
+            live funding attempt. The profile is still not production-final
+            because the CVM reports dev OS, quote internals are not parsed, and
+            a successful live real-card add-balance receipt has not yet been
+            produced.
 [real]      Source/tests now distinguish billing selector drift from auth-state
             failure before card fields or top-up controls are touched. The
             payment-method and add-balance flows classify a billing navigation

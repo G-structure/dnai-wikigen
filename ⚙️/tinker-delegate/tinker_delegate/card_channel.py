@@ -556,7 +556,7 @@ def _attempt_record_or_fallback(
         outcome=outcome,
         furthest_stage=AutomationStage.NOT_STARTED,
         evidence=error or success,
-        bounded_message="success" if success else (error or "automation_failed"),
+        bounded_message="success" if success else outcome.value,
         card_payload_destroyed=card_payload_destroyed,
     ).to_public_dict()
 
@@ -599,11 +599,12 @@ def _exception_receipt(
     *,
     card_payload_destroyed: bool = False,
 ) -> dict:
+    outcome = classify_automation_error(error)
     return make_receipt(
         surface=surface,
-        outcome=AutomationOutcome.TRANSIENT_BROWSER_FAILURE,
+        outcome=outcome,
         furthest_stage=AutomationStage.NOT_STARTED,
         evidence=error,
-        bounded_message=error,
+        bounded_message=outcome.value,
         card_payload_destroyed=card_payload_destroyed,
     ).to_public_dict()

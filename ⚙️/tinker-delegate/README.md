@@ -531,12 +531,17 @@ contracts/
   `Add-balance amount input not found`. The source fix is now digest-pinned and
   deployed to the temporary Phala funding-validation profile, where bounded
   card-on-file status currently reports `card_on_file=false` / count band
-  `zero`. Funding is still not real until the refreshed compose hash is approved
-  on-chain and a bounded `$10` add-card plus add-balance receipt succeeds.
+  `zero`. The refreshed compose hash is approved on-chain and `$10` preflight
+  is ready, but the latest real-card packet still did not prove funding: the
+  payment-method attempt hit an open-modal scrim before tab fallback, and
+  add-balance was not confirmed. Funding is still not real until a bounded `$10`
+  add-card plus add-balance receipt succeeds and balance read-back changes.
 - **Attempt records**: payment-method and add-balance responses expose bounded
   `surface`, `outcome`, `furthest_stage`, `issued_at`, `evidence_hash`,
   amount/balance bands, TDX quote hash when present, and card-payload
   destruction status; they do not return raw card fields or browser page bodies.
+  Browser exception fallbacks publish only the classified outcome string while
+  retaining the redacted exception behind `evidence_hash`.
 - **Receipt storage**: bounded funding attempt records are persisted in the
   encrypted delegate store and can be read through `/billing/funding-receipts`.
   The store rejects unknown fields and any receipt claiming raw secret egress.

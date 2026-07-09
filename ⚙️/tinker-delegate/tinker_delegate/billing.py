@@ -135,6 +135,14 @@ ADD_BALANCE_DIALOG_SELECTORS = (
     '[data-testid="add-balance-dialog"]',
 )
 
+CLOSE_DIALOG_SELECTORS = (
+    'button[aria-label="Close"]',
+    'button[aria-label*="close" i]',
+    'button:has-text("Cancel")',
+    '[data-testid="close"]',
+    '[data-testid="close-dialog"]',
+)
+
 ADD_BALANCE_AMOUNT_SELECTORS = (
     'input[type="number"], input[placeholder*="amount"], input[name*="amount"]',
     'input[name="amount"]',
@@ -402,6 +410,25 @@ async def _first_available_scope(scope, selectors: tuple[str, ...]):
     return scope
 
 
+async def _dismiss_open_dialog(page: Page) -> bool:
+    """Dismiss an open billing modal before interacting with background tabs."""
+    for selector in ADD_BALANCE_DIALOG_SELECTORS:
+        dialog = page.locator(selector)
+        if await dialog.count() <= 0:
+            continue
+        scope = dialog.last
+        if await _click_first_available(scope, CLOSE_DIALOG_SELECTORS, prefer_last=True):
+            await asyncio.sleep(0.5)
+            return True
+        keyboard = getattr(page, "keyboard", None)
+        if keyboard is not None:
+            await keyboard.press("Escape")
+            await asyncio.sleep(0.5)
+            return True
+        return False
+    return False
+
+
 def _payment_method_status_from_text(text: str) -> dict:
     """Return bounded card-on-file status without card brand, last4, or expiry."""
     lowered = text.lower()
@@ -496,6 +523,7 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
         # Check if we got the add payment method form
         text = await page.evaluate("() => document.body?.innerText || ''")
         if "Add payment method" not in text:
+            await _dismiss_open_dialog(page)
             # Try payment methods tab directly
             if await _click_first_available(page, PAYMENT_METHODS_SELECTORS):
                 await asyncio.sleep(2)
@@ -622,7 +650,7 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
         text = await page.evaluate("() => document.body?.innerText || ''")
         if "Add payment method" in text and "Name on card" in text:
             error = "Payment method required before adding balance"
-            return _add_balance_result(False, error, amount_dollars, furthest_stage, text)
+            return _add_balance_result(False, error, amount_dollars, furthest_stage, error)
 
         # Look for amount input
         scope = await _first_available_scope(page, ADD_BALANCE_DIALOG_SELECTORS)
@@ -635,7 +663,7 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
             furthest_stage = AutomationStage.ADD_BALANCE_AMOUNT_FILLED
         else:
             error = "Add-balance amount input not found"
-            return _add_balance_result(False, error, amount_dollars, furthest_stage, text)
+            return _add_balance_result(False, error, amount_dollars, furthest_stage, error)
 
         # Submit
         if await _click_first_available(scope, ADD_BALANCE_CONFIRM_SELECTORS):
@@ -643,14 +671,14 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
             furthest_stage = AutomationStage.ADD_BALANCE_SUBMITTED
         else:
             error = "Add-balance submit button not found"
-            return _add_balance_result(False, error, amount_dollars, furthest_stage, text)
+            return _add_balance_result(False, error, amount_dollars, furthest_stage, error)
 
         text = await page.evaluate("() => document.body?.innerText || ''")
         await _debug_screenshot(page, settings, "screenshot_add_balance.png")
 
         error_msg = _billing_error_message(text)
         if error_msg:
-            return _add_balance_result(False, error_msg, amount_dollars, furthest_stage, text)
+            return _add_balance_result(False, error_msg, amount_dollars, furthest_stage, error_msg)
         return _add_balance_result(True, None, amount_dollars, furthest_stage, text)
 
 

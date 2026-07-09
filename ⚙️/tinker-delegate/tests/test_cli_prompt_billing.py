@@ -24,7 +24,7 @@ class PromptBillingCliTest(unittest.TestCase):
         )
 
         self.assertEqual(value, "1245")
-        self.assertEqual("".join(writes), "***\b \b**\n")
+        self.assertEqual("".join(writes), "***\b \b**\r\n")
         self.assertGreaterEqual(len(flushes), 1)
 
     def test_prompt_card_payload_reads_fields_without_argv(self):

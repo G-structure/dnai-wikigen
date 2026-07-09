@@ -153,7 +153,7 @@ def _read_masked_prompt_chars(read_char, write, flush, chars: list[str] | None =
     while True:
         ch = read_char()
         if ch in ("\r", "\n"):
-            write("\n")
+            write("\r\n")
             flush()
             return "".join(chars)
         if ch == "\x03":

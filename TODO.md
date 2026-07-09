@@ -1480,6 +1480,21 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   extends local encrypted-card upload timeout to 180 seconds;
                   rerun the packet with the same live identity and record the
                   bounded receipts.
+                  Follow-up 2026-07-09:
+                  `/tmp/dnai-tinker-funding-validation-packet-20260709T071145Z`
+                  completed wrapper/manifest generation, but payment-method
+                  ended as `transient_browser_failure` because an open billing
+                  modal scrim intercepted the fallback click on the background
+                  `Payment methods` tab; add-balance reached
+                  `add_balance_submitted` but was not confirmed.
+            - [x] Source/test fix: dismiss open billing dialogs before
+                  payment-method tab fallback, constrain browser exception
+                  receipt messages to classified bounded outcomes instead of
+                  raw Playwright/page text, and fix masked-prompt newlines.
+                  Focused tests cover the scrim fallback and receipt/message
+                  boundaries.
+            - [ ] Build, attest, redeploy, and approve the new modal-dismiss
+                  funding-validation image before the next real-card packet.
             The item remains unchecked until a bounded add-balance receipt and
             live balance read prove a low-value top-up succeeded; the CVM
             dev-OS warning also remains before production.

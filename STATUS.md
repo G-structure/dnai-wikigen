@@ -140,6 +140,21 @@ timeout from 30 seconds to 180 seconds so the client waits for deployed browser
 automation. This is a local CLI/client fix; the live CVM does not need redeploy
 for it.
 
+Funding retry follow-up 2, 2026-07-09: packet
+`/tmp/dnai-tinker-funding-validation-packet-20260709T071145Z` ran with the
+masked prompt and long client timeout. The packet wrapper completed and wrote
+bounded manifests, but funding still did not succeed. The payment-method
+receipt was `transient_browser_failure` at `not_started`: after opening the
+billing modal, the fallback attempted to click the background `Payment methods`
+tab while Tinker's modal scrim intercepted pointer events. The add-balance
+receipt reached `add_balance_submitted` but ended as `unknown_failure`; this is
+not a proven charge or top-up. Local source now dismisses an open billing dialog
+before tab fallback, keeps browser-exception receipt messages to classified
+outcomes instead of raw Playwright/page text, and fixes masked-prompt newlines.
+This source-side browser hardening still needs a GitHub-attested image build,
+Phala redeploy, new compose-hash approval, and a fresh bounded `$10` packet
+before funding can be marked real.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce
