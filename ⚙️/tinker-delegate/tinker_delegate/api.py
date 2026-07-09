@@ -198,7 +198,7 @@ class EvaluationResultResponse(BaseModel):
 
 
 @app.get("/health")
-async def health():
+def health():
     oracle = OracleClient(settings)
     try:
         oracle_health = oracle.health()
@@ -220,7 +220,7 @@ ATTESTATION_CONTEXTS = {"ingress", "artifact", "billing"}
 
 
 @app.get("/attestation")
-async def attestation(context: str = "ingress"):
+def attestation(context: str = "ingress"):
     """Get TDX attestation quote + context-bound TEE encryption public key.
 
     Developer MUST:
@@ -319,7 +319,7 @@ async def billing_payment_method_status(authorization: str = Header(default=""))
 
 
 @app.get("/billing/funding-policy")
-async def billing_funding_policy():
+def billing_funding_policy():
     """Return the bounded funding-mode policy for this delegate."""
     try:
         return funding_policy_status(settings).to_public_dict()
@@ -328,7 +328,7 @@ async def billing_funding_policy():
 
 
 @app.get("/billing/funding-preflight")
-async def billing_funding_preflight(
+def billing_funding_preflight(
     amount_dollars: Optional[float] = None,
     require_add_balance_endpoint: bool = False,
     api_url: str = "",
@@ -356,7 +356,7 @@ async def billing_funding_preflight(
 
 
 @app.get("/billing/funding-receipts")
-async def billing_funding_receipts(authorization: str = Header(default="")):
+def billing_funding_receipts(authorization: str = Header(default="")):
     """Return bounded funding attempt records from sealed storage."""
     _require_runtime_auth(authorization)
     try:

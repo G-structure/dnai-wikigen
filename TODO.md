@@ -2243,6 +2243,16 @@ vision Wiki is reaching for.
             after 60-90 seconds. Neko 52000 responds and CDP 9222 returns the
             expected host-header rejection. Also resolve oracle IMAP TLS EOFs
             against `mail.cock.li:993`.
+            - [x] Reproduced locally and fixed the delegate event-loop
+                  starvation cause by moving blocking synchronous API handlers
+                  to FastAPI's threadpool (`def` handlers). `tests/test_api_event_loop.py`
+                  proves `/attestation` is not blocked by slow oracle health.
+            - [ ] Build the fixed delegate image on GitHub, verify SLSA/SBOM
+                  attestations, pin the digest in the Phala funding-validation
+                  compose, and redeploy.
+            - [ ] Re-test live public `/attestation?context=billing` and
+                  `/billing/funding-preflight` before approving the new compose
+                  hash on-chain.
       - [ ] `Deploy` Revert the 2026-07-09 public logs/public sysinfo/dev-SSH
             diagnostic exception after collecting enough evidence; record the
             reverted live compose hash and rerun `verify-cvm-attestation`.

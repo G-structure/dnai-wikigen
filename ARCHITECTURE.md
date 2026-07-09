@@ -1419,6 +1419,15 @@ Implementation status:
             delegate/oracle ports. Neko and Chrome/CDP public ports respond, so
             the active blocker is the Phala gateway/Python service delivery path
             plus oracle IMAP TLS EOFs, not a broadened trust claim.
+[real]      Source now prevents slow synchronous readiness checks from blocking
+            the delegate API event loop. `/health`, `/attestation`,
+            `/billing/funding-policy`, `/billing/funding-preflight`, and
+            `/billing/funding-receipts` are synchronous FastAPI handlers, so
+            blocking key-store, oracle-health, local attestation, and preflight
+            work is dispatched to FastAPI's worker threadpool instead of
+            monopolizing Uvicorn's event loop. A regression test starts the
+            real ASGI server, makes oracle health sleep, and proves billing
+            attestation still returns promptly.
 [real]      Main-CVM mailbox genesis has been Phala-proven without enabling
             Tinker bootstrap or billing. A one-shot
             `docker-compose.mailbox-genesis.phala.yaml` deployment reached

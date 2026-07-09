@@ -245,6 +245,26 @@ times out. Do not run a charge-capable add-balance packet until the gateway
 timeout is fixed, attestation fetch passes again, and the resulting compose
 hash is approved.
 
+Gateway timeout fix, 2026-07-09: the public zero-byte timeout was reproduced
+locally with `uvicorn` on `127.0.0.1`, proving the immediate blocker was not
+only Phala ingress. Root cause: several FastAPI handlers were declared
+`async def` while doing blocking synchronous work. In particular, `/health`
+called the synchronous `OracleClient.health()` path; when oracle health stalled
+on IMAP/TLS, the single Uvicorn event loop was blocked and `/attestation` plus
+other requests queued behind it. Source now declares blocking/synchronous
+handlers (`/health`, `/attestation`, `/billing/funding-policy`,
+`/billing/funding-preflight`, and `/billing/funding-receipts`) as plain `def`
+handlers so FastAPI runs them in its threadpool. Regression test
+`tests/test_api_event_loop.py` starts the real ASGI server, makes oracle health
+sleep, and proves `/attestation?context=billing` still returns promptly.
+Focused validation passed with `uv run python -m unittest tests.test_api_event_loop
+tests.test_api_billing_policy tests.test_funding_policy
+tests.test_funding_validation_packet` (41 tests). Local manual reproduction now
+shows `/attestation?context=billing` returning in about 11 ms while `/health`
+waits about 30 seconds on oracle health. This fix still needs GitHub image
+build, Phala redeploy, live attestation verification, on-chain compose approval,
+and then a fresh bounded add-balance packet.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce
