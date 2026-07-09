@@ -624,6 +624,61 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertNotIn(token_path.read_text(encoding="utf-8").strip(), rendered)
             self.assertNotIn(private_key_path.read_text(encoding="utf-8").strip(), rendered)
 
+    def test_proxy_token_decrypt_failed_issue_receipt_is_bounded(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            failed_issue_path = tmp / "failed-issue.json"
+            private_key_path = tmp / "recipient.key"
+            decrypt_path = tmp / "decrypt-receipt.json"
+            token_path = tmp / "proxy.jwt"
+            private_key = "44" * 32
+            failed_issue_path.write_text(
+                json.dumps(
+                    {
+                        "detail": "proxy deployment policy denied token issuance: compose_hash_not_approved",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            private_key_path.write_text(private_key, encoding="utf-8")
+
+            decrypted = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "decrypt-tinker-proxy-token",
+                    "--encrypted-token-json",
+                    str(failed_issue_path),
+                    "--private-key-file",
+                    str(private_key_path),
+                    "--token-output",
+                    str(token_path),
+                    "--output",
+                    str(decrypt_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=_env(tmpdir),
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(decrypted.returncode, 1)
+            self.assertEqual(decrypted.stdout, "")
+            self.assertEqual(decrypted.stderr, "")
+            self.assertFalse(token_path.exists())
+            receipt = json.loads(decrypt_path.read_text(encoding="utf-8"))
+            rendered = repr(receipt)
+            self.assertFalse(receipt["success"])
+            self.assertEqual(receipt["error_kind"], "missing_encrypted_token")
+            self.assertFalse(receipt["plaintext_token_saved"])
+            self.assertFalse(receipt["plaintext_token_returned"])
+            self.assertFalse(receipt["private_key_read"])
+            self.assertFalse(receipt["private_key_returned"])
+            self.assertFalse(receipt["raw_secret_egress"])
+            self.assertNotIn(private_key, rendered)
+
     def test_proxy_identity_registry_sign_verify_and_issue_are_bounded(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)

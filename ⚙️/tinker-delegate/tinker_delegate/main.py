@@ -2043,21 +2043,47 @@ def cli():
         from tinker_delegate.tinker_proxy import decrypt_encrypted_proxy_token
 
         payload = json.loads(Path(args.encrypted_token_json).read_text(encoding="utf-8"))
+        if not isinstance(payload, dict) or not isinstance(payload.get("encrypted_token"), dict):
+            result = {
+                "surface": "tinker_proxy_token_decrypt",
+                "success": False,
+                "error_kind": "missing_encrypted_token",
+                "bounded_message": "encrypted proxy token envelope is not present",
+                "plaintext_token_saved": False,
+                "plaintext_token_returned": False,
+                "private_key_read": False,
+                "private_key_returned": False,
+                "raw_secret_egress": False,
+            }
+            _emit_bounded_json(result, output_path=args.output)
+            sys.exit(1)
         private_key_hex = Path(args.private_key_file).read_text(encoding="utf-8").strip()
-        token = decrypt_encrypted_proxy_token(payload, private_key_hex)
-        _write_secret_text(args.token_output, token)
-        result = {
-            "surface": "tinker_proxy_token_decrypt",
-            "success": True,
-            "token_hash": hashlib.sha256(token.encode("utf-8")).hexdigest(),
-            "token_output": str(Path(args.token_output)),
-            "plaintext_token_saved": True,
-            "plaintext_token_returned": False,
-            "private_key_returned": False,
-            "raw_secret_egress": False,
-        }
-        _emit_bounded_json(result, output_path=args.output)
-        sys.exit(0)
+        try:
+            token = decrypt_encrypted_proxy_token(payload, private_key_hex)
+            _write_secret_text(args.token_output, token)
+            result = {
+                "surface": "tinker_proxy_token_decrypt",
+                "success": True,
+                "token_hash": hashlib.sha256(token.encode("utf-8")).hexdigest(),
+                "token_output": str(Path(args.token_output)),
+                "plaintext_token_saved": True,
+                "plaintext_token_returned": False,
+                "private_key_returned": False,
+                "raw_secret_egress": False,
+            }
+        except Exception as exc:
+            result = {
+                "surface": "tinker_proxy_token_decrypt",
+                "success": False,
+                "error_kind": exc.__class__.__name__,
+                "bounded_message": redact_text(exc),
+                "plaintext_token_saved": False,
+                "plaintext_token_returned": False,
+                "private_key_returned": False,
+                "raw_secret_egress": False,
+            }
+        _emit_bounded_json(result, output_path=args.output, forbidden_values=(private_key_hex,))
+        sys.exit(0 if result.get("success") else 1)
 
     elif args.command == "balance":
         if args.api_url:

@@ -84,7 +84,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             hashes; `decrypt-tinker-proxy-token` decrypts an issuance envelope
             into a local `0600` JWT file and emits only token hashes/status.
             CLI tests cover keygen -> encrypted issuance -> recipient decrypt
-            without printing the private key or plaintext JWT.
+            without printing the private key or plaintext JWT. Follow-up
+            2026-07-09: failed issuance receipts now fail closed with a bounded
+            `missing_encrypted_token` decrypt receipt before reading the
+            recipient private key.
       - [ ] Bind proxy JWT issuance to production approval policy:
             approved user/agent identity, delivery public key, scopes, spend
             caps, expiration, revocation, audit record, and contract/compose
