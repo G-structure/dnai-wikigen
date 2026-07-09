@@ -110,7 +110,7 @@ jobs:
           push-to-registry: true
 
       - name: Generate GitHub SBOM attestation
-        uses: actions/attest-sbom@v4
+        uses: actions/attest@v4
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
