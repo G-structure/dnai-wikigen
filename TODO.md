@@ -121,9 +121,26 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   leaking bearer tokens or raw subject/public-key material. The
                   funding-validation compose now includes disabled-by-default
                   policy env knobs for the next redeploy.
-            - [ ] Bind proxy issue policy grants to on-chain compose policy,
-                  live deployment evidence, and production user/agent identity
-                  approval before treating this as production governance.
+            - [x] Add a source/test-real deployment-policy gate before proxy
+                  JWT minting. Done 2026-07-09:
+                  `TINKER_PROXY_REQUIRE_DEPLOYMENT_POLICY=true` makes
+                  `issue_encrypted_proxy_token()` preflight the configured
+                  `TinkerAccountEncumbrance` contract and compose hash before
+                  minting. Add-balance and Tinker-smoke scopes use the
+                  policy grant's bounded `scope_limits.max_amount_usd`; read
+                  scopes still require an approved compose hash through a
+                  zero-amount manual-prefund check. Issuance responses include
+                  only bounded deployment checks and `raw_secret_egress=false`;
+                  tests cover approved compose issuance and denied-compose
+                  fail-closed behavior before token creation.
+            - [ ] Redeploy the proxy issue/deployment policy source slice to
+                  Phala, enable the policy flags, install a hash-only issue
+                  policy, approve the new compose hash on-chain, and record CVM
+                  ID, app ID, image digest, compose hash, quote evidence, policy
+                  hash, and bounded issuance evidence.
+            - [ ] Bind proxy grants to production user/agent identity approval
+                  and reviewer-controlled grant lifecycle before treating this
+                  as production governance.
       - [x] Accept scoped proxy JWTs on the first bounded operation endpoints.
             Done 2026-07-09: `GET /tinker/proxy/status`,
             `POST /tinker/smoke`, `GET /billing/payment-method-status`, and

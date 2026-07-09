@@ -101,8 +101,9 @@ Latest Tinker execution buildout, 2026-07-09:
   `tinker-proxy-recipient-keygen` writes a `0600` X25519 private-key file and
   emits only the public key; `decrypt-tinker-proxy-token` decrypts an issuance
   envelope into a `0600` JWT file and emits only hashes/status. Production user
-  approval, spend caps, and production governance remain open; however source
-  now has a hash-only issue-policy gate. With
+  approval and production governance remain open; however source now has a
+  hash-only issue-policy gate and bounded spend caps for policy-issued proxy
+  JWTs. With
   `TINKER_PROXY_REQUIRE_ISSUE_POLICY=true` and
   `TINKER_PROXY_ISSUE_POLICY_PATH`, issuance fails closed unless a policy grant
   matches the subject hash, recipient public-key hash, requested scope subset,
@@ -114,16 +115,21 @@ Latest Tinker execution buildout, 2026-07-09:
   install and inspect canonical hash-only issue policies through
   `GET/PUT /tinker/proxy/issue-policy` or `tinker-proxy-issue-policy`; outputs
   are bounded policy/grant summaries, not raw subjects, public keys, bearer
-  tokens, or plaintext JWTs. Live funding-validation deployment, attestation,
+  tokens, or plaintext JWTs. Source now also has an optional deployment-policy
+  gate: `TINKER_PROXY_REQUIRE_DEPLOYMENT_POLICY=true` checks the configured
+  `TinkerAccountEncumbrance` contract and compose hash before minting
+  add-balance or Tinker-smoke scoped JWTs, using only bounded spend caps from
+  the issue-policy grant. Live funding-validation deployment, attestation,
   audit replay, and compose/contract binding are now proven for the
   operator-validation slice below, but this new policy-management/spend-limit
-  source slice is not yet deployed. The source compose now carries
-  disabled-by-default policy env knobs for the next Phala redeploy; local
+  and pre-mint deployment-policy source slice is not yet deployed. The source
+  compose now carries disabled-by-default policy env knobs for the next Phala
+  redeploy; local
   `verify-compose-hash --phala-raw-compose` with the new policy env knobs
   allowed computes raw/image-policy hash
-  `e29475fe45086162e6f3dedb39a911619d32b8f484642ee37c627f30a4d24a87`
+  `471f673a03da3e2941869b505c5259cca9e0216cdcf2baeae2eb4682e745e86e`
   and rendered compose SHA-256
-  `5bee67bd89213039a1d285fb22c79c29ead67f97ff2d22c21bda70a80a0f417b`.
+  `973d2d4ae39e51841107a388556f8061ff6e430f37ba779393945cff2425f733`.
 - First proxy-token authorization wiring is source/test-real:
   `GET /tinker/proxy/status`, `POST /tinker/smoke`,
   `GET /billing/payment-method-status`, and `POST /billing/add-balance` accept

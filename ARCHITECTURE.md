@@ -333,12 +333,12 @@ attestation evidence. It must not return upstream `TINKER_API_KEY`,
 `TINKER_PROJECT_ID`, account cookies, card material, raw provider messages,
 run IDs, checkpoint paths, samples, or private reward data.
 
-[planned]   Production proxy credential issuance still needs a full approval
-            policy binding users/agents to scopes, spend caps, expirations,
-            delivery public keys, revocation/audit records, and settlement
-            policy. The source-real hash-only issue policy below is the first
-            approval primitive, but it is not yet a production user-management
-            or spend-governance system.
+[planned]   Production proxy credential issuance still needs production user
+            and agent identity approval, reviewer/governance workflow,
+            expiration and revocation operations, and settlement policy. The
+            hash-only issue policy and optional deployment-policy gate are real
+            approval primitives, but they are not yet a production
+            user-management or end-to-end spend-governance system.
 [real]      Source now includes the first Tinker proxy credential slice:
             `tinker_delegate.tinker_proxy` creates scoped HS256 delegate JWTs
             from explicit local test key material or dstack-derived CVM-only
@@ -351,8 +351,9 @@ run IDs, checkpoint paths, samples, or private reward data.
             and decrypt an issuance envelope into a local `0600` JWT file
             without printing the private key or token. This implementation is
             now deployed in the temporary funding-validation Phala profile for
-            operator validation, but it is not yet bound to a production
-            user/scope/spend approval policy.
+            operator validation. Production user identity and governance
+            approval remain open; scope and spend approval are source/test-real
+            in the policy slices below.
 [real]      Proxy-token issuance can now require a hash-only issue policy before
             minting. When `TINKER_PROXY_REQUIRE_ISSUE_POLICY=true` and
             `TINKER_PROXY_ISSUE_POLICY_PATH` points at a schema-v1 policy file,
@@ -362,9 +363,9 @@ run IDs, checkpoint paths, samples, or private reward data.
             requested/granted scopes, TTL cap, and `raw_secret_egress=false`;
             they still do not return the raw subject, recipient public key, or
             plaintext JWT. Source/API tests cover success, wrong recipient,
-            TTL cap denial, and missing required policy. On-chain compose
-            binding, live deployment evidence, and production identity approval
-            remain open.
+            TTL cap denial, and missing required policy. Production identity
+            approval remains open, and live deployment evidence depends on the
+            active Phala compose.
 [real]      Policy-issued proxy JWTs can now carry bounded per-scope spend
             limits. A policy grant may define `scope_limits`, and
             spend-bearing scopes such as `billing:add-balance` require
@@ -372,8 +373,8 @@ run IDs, checkpoint paths, samples, or private reward data.
             that bounded limit in a `limits` claim, `verify_proxy_token()`
             returns it as `scope_limits`, and `/billing/add-balance` rejects a
             proxy-authorized request above the cap before browser or payment
-            automation starts. This is source/test-real; live deployment and
-            on-chain/prod identity binding remain separate.
+            automation starts. This is source/test-real; live deployment
+            evidence and production identity binding remain separate.
 [real]      Runtime operators can now install and inspect the hash-only issue
             policy without SSH or image edits. `GET/PUT
             /tinker/proxy/issue-policy` and `tinker-proxy-issue-policy` require
@@ -384,6 +385,19 @@ run IDs, checkpoint paths, samples, or private reward data.
             compose carries disabled-by-default policy env knobs for the next
             Phala redeploy. The current live `5bea...` deployment does not yet
             include this source slice.
+[real]      Proxy-token issuance can now be source-bound to the on-chain Tinker
+            encumbrance policy before minting. When
+            `TINKER_PROXY_REQUIRE_DEPLOYMENT_POLICY=true`,
+            `issue_encrypted_proxy_token()` maps requested scopes to bounded
+            encumbrance preflights: `billing:add-balance` checks
+            `ADD_BALANCE`, `tinker:smoke` checks `SPEND_TINKER_COMPUTE`, and
+            read-only proxy scopes perform a zero-amount `MANUAL_PREFUND`
+            compose-approval check. Spend checks use only
+            `scope_limits.max_amount_usd` from the hash-only issue-policy
+            grant. A denied or missing encumbrance policy fails closed before
+            JWT creation; successful issuance returns only bounded deployment
+            check records and `raw_secret_egress=false`. This is source/test
+            real and not yet present in the live Phala deployment.
 [real]      The first bounded operation endpoints now accept scoped proxy JWTs:
             `proxy:status` for proxy status, `tinker:smoke` for the paid smoke
             surface, `billing:payment-method-status` for card-on-file status,
@@ -732,6 +746,7 @@ use tee-email-oracle OTP to create/sign into a Tinker account
 seal Tinker API key
 seal Tinker project/client configuration and proxy JWT signing key
 issue scoped delegate JWTs only to approved recipients through encrypted delivery
+check TinkerAccountEncumbrance deployment policy before minting spend/billing scoped proxy JWTs when required
 drive Tinker billing through a browser session once auth/funding is unblocked
 add balance using card-on-file or encrypted card payload once Stripe flow works
 create a one-deal isolated Tinker session
@@ -830,7 +845,10 @@ Implementation status:
             address is configured, payment-method and add-balance automation
             deny before card decryption or browser launch unless public
             contract reads show the compose hash is approved, emergency halt is
-            off, and the amount is within cap.
+            off, and the amount is within cap. Proxy-token issuance can also
+            require this deployment-policy preflight before minting
+            spend/billing scoped JWTs, so denied compose approval, halt state,
+            missing cap, or over-cap spend fails closed before token issuance.
 [real]      A no-raw-key Base Sepolia deploy helper exists for
             TinkerAccountEncumbrance. It uses Foundry `--account dev`, validates
             the account commitment, initial compose hash, and caps, defaults the

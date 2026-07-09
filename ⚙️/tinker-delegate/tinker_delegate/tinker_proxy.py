@@ -155,6 +155,9 @@ def build_tinker_proxy_status(settings) -> dict[str, Any]:
             "audit_store": "sealed",
             "issue_policy_required": bool(getattr(settings, "proxy_require_issue_policy", False)),
             "issue_policy_configured": bool(getattr(settings, "proxy_issue_policy_path", "")),
+            "deployment_policy_required": bool(getattr(settings, "proxy_require_deployment_policy", False)),
+            "encumbrance_contract_configured": bool(getattr(settings, "encumbrance_contract_address", "")),
+            "encumbrance_compose_hash_configured": bool(getattr(settings, "encumbrance_compose_hash", "")),
             "plaintext_token_returned": False,
             "supported_scopes": sorted(SUPPORTED_PROXY_SCOPES),
         },
@@ -213,6 +216,16 @@ def issue_encrypted_proxy_token(
         recipient_public_key_hash=recipient_public_key_hash,
         ttl_seconds=normalized_ttl,
     )
+    deployment_binding = _validate_proxy_deployment_policy(
+        settings,
+        scopes=normalized_scopes,
+        policy_binding=policy_binding,
+    )
+    if deployment_binding.get("required"):
+        policy_binding = {
+            **policy_binding,
+            "deployment_policy": deployment_binding,
+        }
     claims, token = issue_proxy_token(
         settings,
         subject=subject,
@@ -581,6 +594,87 @@ def _validate_proxy_issue_policy(
     if ttl_cap_fail:
         raise ValueError("proxy token ttl exceeds policy cap")
     raise ValueError("proxy token issuance is not allowed by policy")
+
+
+def _validate_proxy_deployment_policy(
+    settings,
+    *,
+    scopes: tuple[str, ...],
+    policy_binding: dict[str, Any],
+) -> dict[str, Any]:
+    require_policy = bool(getattr(settings, "proxy_require_deployment_policy", False))
+    if not require_policy:
+        return {
+            "required": False,
+            "raw_secret_egress": False,
+        }
+
+    from tinker_delegate.tinker_encumbrance import (
+        TinkerOperationKind,
+        preflight_tinker_operation,
+    )
+
+    checks: list[dict[str, Any]] = []
+    for operation_kind, amount_dollars in _proxy_deployment_operations(scopes, policy_binding):
+        result = preflight_tinker_operation(
+            settings,
+            operation_kind=operation_kind,
+            amount_dollars=amount_dollars,
+            required=True,
+        ).to_public_dict()
+        checks.append(result)
+        if not result.get("allowed"):
+            raise ValueError(f"proxy deployment policy denied token issuance: {result.get('reason')}")
+
+    return {
+        "required": True,
+        "checked": bool(checks),
+        "checks": checks,
+        "raw_secret_egress": False,
+    }
+
+
+def _proxy_deployment_operations(
+    scopes: tuple[str, ...],
+    policy_binding: dict[str, Any],
+) -> list[tuple[Any, float]]:
+    from tinker_delegate.tinker_encumbrance import TinkerOperationKind
+
+    scope_set = set(scopes)
+    operations: list[tuple[Any, float]] = []
+    if "billing:add-balance" in scope_set:
+        operations.append(
+            (
+                TinkerOperationKind.ADD_BALANCE,
+                _scope_limit_amount(policy_binding, "billing:add-balance"),
+            )
+        )
+    if "tinker:smoke" in scope_set:
+        operations.append(
+            (
+                TinkerOperationKind.SPEND_TINKER_COMPUTE,
+                _scope_limit_amount(policy_binding, "tinker:smoke"),
+            )
+        )
+    if not operations:
+        operations.append((TinkerOperationKind.MANUAL_PREFUND, 0.0))
+    return operations
+
+
+def _scope_limit_amount(policy_binding: dict[str, Any], scope: str) -> float:
+    limits = policy_binding.get("scope_limits", {})
+    if not isinstance(limits, dict):
+        raise ValueError("proxy deployment policy requires bounded scope limits")
+    scope_limits = limits.get(scope, {})
+    if not isinstance(scope_limits, dict) or "max_amount_usd" not in scope_limits:
+        raise ValueError("proxy deployment policy requires bounded spend cap")
+    try:
+        amount = float(scope_limits["max_amount_usd"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("proxy deployment policy spend cap must be numeric") from exc
+    if amount <= 0:
+        raise ValueError("proxy deployment policy spend cap must be positive")
+    return amount
 
 
 def _load_proxy_issue_policy(policy_path: str) -> dict[str, Any]:

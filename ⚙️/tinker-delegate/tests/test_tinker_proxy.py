@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from tinker_delegate.config import Settings
 from tinker_delegate.crypto import _derive_aes_key
+from tinker_delegate.tinker_encumbrance import TinkerOperationKind
 from tinker_delegate.tinker_proxy import (
     PROXY_TOKEN_HKDF_INFO,
     build_tinker_proxy_status,
@@ -29,6 +30,8 @@ PROJECT_ID = "proj-sensitive"
 BASE_URL = "https://api.thinkingmachines.ai"
 SIGNING_KEY_HEX = "11" * 32
 STORE_KEY_HEX = "66" * 32
+CONTRACT = "0x" + "22" * 20
+COMPOSE_HASH = "0x" + "33" * 32
 
 
 def _recipient_keypair():
@@ -76,6 +79,29 @@ def _write_proxy_issue_policy(
     with open(path, "w") as handle:
         json.dump(policy, handle, sort_keys=True)
     return policy
+
+
+class _EncumbranceResult:
+    def __init__(self, *, allowed: bool = True, reason: str = "allowed"):
+        self.allowed = allowed
+        self.reason = reason
+
+    def to_public_dict(self):
+        return {
+            "checked": True,
+            "allowed": self.allowed,
+            "reason": self.reason,
+            "operation": "add_balance",
+            "operation_kind": int(TinkerOperationKind.ADD_BALANCE),
+            "contract_address": CONTRACT.lower(),
+            "compose_hash": COMPOSE_HASH,
+            "compose_approved": self.allowed,
+            "emergency_halted": False,
+            "amount_wei": str(10 * 10**18),
+            "max_amount_wei": str(10 * 10**18),
+            "limit_kind": "add_balance",
+            "raw_secret_egress": False,
+        }
 
 
 class TinkerProxyTest(unittest.TestCase):
@@ -231,6 +257,134 @@ class TinkerProxyTest(unittest.TestCase):
             verification["scope_limits"],
             {"billing:add-balance": {"max_amount_usd": 10.0}},
         )
+
+    def test_issue_policy_can_require_deployment_policy_before_minting(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            private_key, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["billing:add-balance"],
+                ttl=60,
+                scope_limits={"billing:add-balance": {"max_amount_usd": 10}},
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_deployment_policy=True,
+                encumbrance_contract_address=CONTRACT,
+                encumbrance_compose_hash=COMPOSE_HASH,
+                encumbrance_rpc_url="https://example.invalid/rpc",
+            )
+
+            with patch(
+                "tinker_delegate.tinker_encumbrance.preflight_tinker_operation",
+                return_value=_EncumbranceResult(),
+            ) as preflight:
+                issued = issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["billing:add-balance"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
+            token = _decrypt_token(private_key, issued)
+            verification = verify_proxy_token(
+                settings,
+                token,
+                required_scope="billing:add-balance",
+                now=1001,
+            )
+
+        preflight.assert_called_once()
+        call = preflight.call_args.kwargs
+        self.assertEqual(call["operation_kind"], TinkerOperationKind.ADD_BALANCE)
+        self.assertEqual(call["amount_dollars"], 10.0)
+        self.assertTrue(call["required"])
+        deployment = issued["policy_binding"]["deployment_policy"]
+        rendered = repr(issued)
+        self.assertTrue(deployment["required"])
+        self.assertTrue(deployment["checks"][0]["allowed"])
+        self.assertFalse(deployment["raw_secret_egress"])
+        self.assertEqual(
+            verification["scope_limits"],
+            {"billing:add-balance": {"max_amount_usd": 10.0}},
+        )
+        self.assertNotIn("https://example.invalid/rpc", rendered)
+        self.assertNotIn(token, rendered)
+
+    def test_deployment_policy_denies_token_before_minting(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["billing:add-balance"],
+                ttl=60,
+                scope_limits={"billing:add-balance": {"max_amount_usd": 10}},
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_deployment_policy=True,
+                encumbrance_contract_address=CONTRACT,
+                encumbrance_compose_hash=COMPOSE_HASH,
+                encumbrance_rpc_url="https://example.invalid/rpc",
+            )
+
+            with patch(
+                "tinker_delegate.tinker_encumbrance.preflight_tinker_operation",
+                return_value=_EncumbranceResult(allowed=False, reason="compose_hash_not_approved"),
+            ):
+                with self.assertRaisesRegex(ValueError, "compose_hash_not_approved"):
+                    issue_encrypted_proxy_token(
+                        settings,
+                        subject="buyer-agent-1",
+                        scopes=["billing:add-balance"],
+                        recipient_public_key_hex=public_key_hex,
+                        ttl_seconds=60,
+                        now=1000,
+                    )
+
+    def test_deployment_policy_checks_read_only_scope_compose_approval(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            private_key, public_key_hex = _recipient_keypair()
+            settings = self._settings(
+                tmpdir,
+                proxy_approved_subjects="buyer-agent-1",
+                proxy_require_deployment_policy=True,
+                encumbrance_contract_address=CONTRACT,
+                encumbrance_compose_hash=COMPOSE_HASH,
+                encumbrance_rpc_url="https://example.invalid/rpc",
+            )
+
+            with patch(
+                "tinker_delegate.tinker_encumbrance.preflight_tinker_operation",
+                return_value=_EncumbranceResult(),
+            ) as preflight:
+                issued = issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
+            token = _decrypt_token(private_key, issued)
+
+        call = preflight.call_args.kwargs
+        self.assertEqual(call["operation_kind"], TinkerOperationKind.MANUAL_PREFUND)
+        self.assertEqual(call["amount_dollars"], 0.0)
+        self.assertTrue(call["required"])
+        self.assertTrue(issued["policy_binding"]["deployment_policy"]["checked"])
+        self.assertNotIn(token, repr(issued))
 
     def test_issue_policy_requires_spend_limit_for_add_balance_scope(self):
         with tempfile.TemporaryDirectory() as tmpdir:
