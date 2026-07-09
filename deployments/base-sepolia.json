@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed_tinker_funded_validation",
-  "lastReviewedAt": "2026-07-09T11:20:00Z",
+  "lastReviewedAt": "2026-07-09T13:40:58Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -59,24 +59,24 @@
       "emergencyHalted": false,
       "measurementsFrozen": false,
       "currentOperatorControlled": true,
-      "latestApprovedComposeHash": "0xa15af6d8e7262d7d2799fa31968c568933f3468771b808720583a6dc6ed998c5",
+      "latestApprovedComposeHash": "0x314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
       "latestApprovedComposeHashApproved": true,
-      "latestComposeApprovalTx": "0x186d1ea81d9dfbeb0898485defcf427e8155cbcbb0f9e225326092616bd51c34",
-      "latestComposeApprovalBlock": 43913068,
-      "currentFundingComposeHash": "0xa15af6d8e7262d7d2799fa31968c568933f3468771b808720583a6dc6ed998c5",
-      "lastReviewedAt": "2026-07-09T11:20:00Z",
+      "latestComposeApprovalTx": "0x17c7064496711ae93c39f0489667fe7555d6455f18f01eae174c1aa5a92fa3f6",
+      "latestComposeApprovalBlock": 43918070,
+      "currentFundingComposeHash": "0x314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
+      "lastReviewedAt": "2026-07-09T13:40:58Z",
       "pendingComposeHashApproval": null,
       "pendingComposeHashApproved": false
     }
   },
   "phala": {
-    "status": "running_tinker_funding_validation_profile_smoke_diagnostics_blocked_before_training",
+    "status": "running_project_aware_tinker_smoke_diagnostics_blocked_at_service_client_create",
     "cvmId": "cvm_1w85mGjo",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da",
-    "deployHelperComposeHash": "c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da",
-    "localRawComposeImagePolicyHash": "bb887ba2e450d0267dc41ad420caec819cc82d977bc8e9412ab7ec6d5454c905",
-    "renderedComposeSha256": "1281d81e2b51988ee1484e70dbbe81612c4839a8603ce293d8571fc567957be8",
+    "composeHash": "314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
+    "deployHelperComposeHash": "314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
+    "localRawComposeImagePolicyHash": "8d02c205c595d073b9c965c10134c0e8cf120cc56b8c2485f1e388cb141de744",
+    "renderedComposeSha256": "c8d16bc2cefb5a01425defe6fe8fddbc7d850a18cf2ec709a0724ccfb199713d",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -122,10 +122,10 @@
         "TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "271a767021dbd5b0641f3d7e62f7c1e35be08d86",
+    "sourceDigest": "6f5d557d1dab6641590c12ad96eecad74a101638",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 29017269753,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29017269753",
+    "githubActionsRunId": 29020924145,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29020924145",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -141,8 +141,8 @@
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:5d26375fef7509e6b183a8f715c6c1203bc999f401fbe17083d4abd257583148",
-        "sourceDigest": "271a767021dbd5b0641f3d7e62f7c1e35be08d86",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:d7872a09b7fe28e25a53dafa721a355cb0677d42e2939f4babbbff7e167f306d",
+        "sourceDigest": "6f5d557d1dab6641590c12ad96eecad74a101638",
         "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
@@ -1286,23 +1286,23 @@
       }
     },
     "tinkerSdkSmokeEvidence": {
-      "status": "blocked_before_training_creation_with_bounded_diagnostics",
+      "status": "blocked_at_service_client_create_with_project_aware_diagnostics",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
-      "sourceDigest": "271a767021dbd5b0641f3d7e62f7c1e35be08d86",
-      "githubActionsRunId": 29017269753,
-      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:5d26375fef7509e6b183a8f715c6c1203bc999f401fbe17083d4abd257583148",
+      "sourceDigest": "6f5d557d1dab6641590c12ad96eecad74a101638",
+      "githubActionsRunId": 29020924145,
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:d7872a09b7fe28e25a53dafa721a355cb0677d42e2939f4babbbff7e167f306d",
       "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ee3d5b21597304e5c7e677b091ca01bc3b51703728e663056e6d690da16fe08f",
       "nekoImage": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:422f2ba4f350f329a8a52a6502a91717da2dd39a2e22e8250bdcce65788bee81",
-      "deployHelperComposeHash": "c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da",
-      "attestedComposeHash": "c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da",
-      "localRawComposeImagePolicyHash": "bb887ba2e450d0267dc41ad420caec819cc82d977bc8e9412ab7ec6d5454c905",
-      "renderedComposeSha256": "1281d81e2b51988ee1484e70dbbe81612c4839a8603ce293d8571fc567957be8",
-      "deploymentBundleVerification": "verified_with_delegate_github_provenance_sbom_sidecar_digest_pins_and_live_tdx_envelope",
+      "deployHelperComposeHash": "314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
+      "attestedComposeHash": "314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
+      "localRawComposeImagePolicyHash": "8d02c205c595d073b9c965c10134c0e8cf120cc56b8c2485f1e388cb141de744",
+      "renderedComposeSha256": "c8d16bc2cefb5a01425defe6fe8fddbc7d850a18cf2ec709a0724ccfb199713d",
+      "deploymentBundleVerification": "verified_with_project_aware_delegate_github_provenance_sbom_sidecar_digest_pins_and_live_tdx_envelope",
       "quoteEvidence": {
         "mode": "tdx",
         "context": "artifact",
-        "reportData": "a23704adc054ce2fc775a3669140abef73d359836d380aa37bda8b260f44e988",
-        "encryptionPublicKey": "bc953b5bd539097c0f9a6df343649f351a5f073f655eb0d88aa64a0146412a1e",
+        "reportData": "90d0d7867737ff45d151572b1b19b488f8c77d53611e6a44cf8d340aaf8eeefb",
+        "encryptionPublicKey": "14a147b674a90183be8663df5e9bdf08862c26cb3d1c04426b8997a86c54d209",
         "quoteSize": 5010,
         "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
       },
@@ -1313,10 +1313,10 @@
         "containsRuntimeAuthToken": true
       },
       "composeApproval": {
-        "composeHash": "0xc6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da",
+        "composeHash": "0x314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816",
         "approved": true,
-        "tx": "0xc7adf6b22668f3aa15d9d7e81dff444daac3f1f4b8339981f842042ddd7dbb67",
-        "block": 43915602
+        "tx": "0x17c7064496711ae93c39f0489667fe7555d6455f18f01eae174c1aa5a92fa3f6",
+        "block": 43918070
       },
       "encumbrancePreflight": {
         "operation": "spend_tinker_compute",
@@ -1333,7 +1333,7 @@
         "bootstrapAttempted": false
       },
       "smokeReceipt": {
-        "path": "/tmp/dnai-tinker-smoke-diagnostics-20260709T121857Z.json",
+        "path": "/tmp/dnai-tinker-smoke-project-aware-20260709T134058Z.json",
         "success": false,
         "outcome": "smoke_failed",
         "furthestStage": "api_key_loaded",
@@ -1341,10 +1341,15 @@
         "sdkErrorBucket": "invalid_request",
         "httpStatusClass": "4xx",
         "sdkVersion": "0.15.0",
+        "failureSite": "service_client_create",
+        "operatorAction": "check_sdk_client_configuration",
+        "projectConfigured": false,
         "capabilitiesChecked": false,
         "capabilityMethod": "ServiceClient.get_server_capabilities",
-        "modelFamily": "meta-llama",
-        "rankBand": "<=8",
+        "modelFamily": "qwen",
+        "rankBand": "<=32",
+        "requestShapeHasBaseModel": true,
+        "requestShapeHasRank": true,
         "trainingRunCreated": false,
         "checkpointCreated": false,
         "sampleObserved": false,
@@ -1381,7 +1386,7 @@
         }
       ],
       "projectAwareDeployCandidate": {
-        "status": "local_compose_pinned_not_yet_deployed",
+        "status": "deployed_approved_smoke_still_blocked_at_service_client_create",
         "sourceDigest": "6f5d557d1dab6641590c12ad96eecad74a101638",
         "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
         "githubActionsRunId": 29020924145,
@@ -1391,11 +1396,12 @@
         "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
         "localComposeHash": "d0aea171db3483ae1dae4ff73294548ca5906481166893114ce048688bf2f3f9",
         "renderedComposeSha256": "c8d16bc2cefb5a01425defe6fe8fddbc7d850a18cf2ec709a0724ccfb199713d",
-        "phalaRedeployed": false,
-        "composeApprovedOnChain": false,
-        "rawSecretEgress": false
+        "phalaRedeployed": true,
+        "composeApprovedOnChain": true,
+        "rawSecretEgress": false,
+        "liveComposeHash": "314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816"
       },
-      "nextStep": "Redeploy the project-aware bounded diagnostics compose, approve the new compose hash, set TINKER_PROJECT_ID if the Tinker console exposes one, and resolve the service-side BadRequest at create_lora_training_client; do not mark real training complete until run/checkpoint/sample/cleanup evidence exists"
+      "nextStep": "Set TINKER_PROJECT_ID if the Tinker console exposes one or obtain the correct Tinker service/client configuration, then rerun the same bounded smoke; do not mark real training complete until run/checkpoint/sample/cleanup evidence exists"
     },
     "selectorDiagnosticsEvidence20260709": {
       "status": "custom_neko_cdp_browser_ready_selector_probe_succeeded",

@@ -137,16 +137,26 @@ Latest Tinker execution buildout, 2026-07-09:
   execution remains unproven until a deployed receipt reaches
   `cleanup_completed`.
 - The project-aware delegate image is now a verified local deploy candidate, not
-  yet live. GitHub Actions run `29020924145` built source
+  yet successful for real Tinker training. GitHub Actions run `29020924145` built source
   `6f5d557d1dab6641590c12ad96eecad74a101638` into
   `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:d7872a09b7fe28e25a53dafa721a355cb0677d42e2939f4babbbff7e167f306d`.
   Local `verify-ghcr-image-attestation` verified SLSA provenance and SPDX SBOM
-  predicates for that digest, and the funding-validation Phala compose now pins
-  it locally. Local `verify-compose-hash` computes compose hash
-  `d0aea171db3483ae1dae4ff73294548ca5906481166893114ce048688bf2f3f9` with
-  rendered compose SHA
-  `c8d16bc2cefb5a01425defe6fe8fddbc7d850a18cf2ec709a0724ccfb199713d`.
-  That compose has not yet been redeployed to Phala or approved on-chain.
+  predicates for that digest, and the funding-validation Phala compose pins it.
+  Local `verify-compose-hash` computes image-policy compose hash
+  `d0aea171db3483ae1dae4ff73294548ca5906481166893114ce048688bf2f3f9`; Phala
+  redeploy then moved the live CVM to app-compose hash
+  `314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816`.
+  `verify-cvm-attestation` passed against that live hash, app ID, OS image hash,
+  and all three digest-pinned images. `TinkerAccountEncumbrance` approved the
+  new compose hash in tx
+  `0x17c7064496711ae93c39f0489667fe7555d6455f18f01eae174c1aa5a92fa3f6`;
+  runtime preflight for `spend_tinker_compute` at `$0.05` passed. The new live
+  smoke receipt
+  `/tmp/dnai-tinker-smoke-project-aware-20260709T134058Z.json` still failed
+  before training creation, but now reports
+  `sdk_error.failure_site=service_client_create`,
+  `sdk_error.operator_action=check_sdk_client_configuration`, correct
+  Qwen/rank-32 request shape, and `project.configured=false`.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned

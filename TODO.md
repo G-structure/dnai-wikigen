@@ -1772,9 +1772,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `BadRequestError` hash before training creation, so the current
             working hypothesis is missing project/account entitlement or a
             service-side account configuration requirement, not only the old
-            model/rank default. Next step: redeploy the pinned project-aware
-            compose, approve the new compose hash, and test again with
-            `TINKER_PROJECT_ID` configured if the Tinker console exposes one.
+            model/rank default. Follow-up 2026-07-09: the project-aware compose
+            was redeployed and approved at live compose hash
+            `314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816`;
+            attestation verification passed, and
+            `/tmp/dnai-tinker-smoke-project-aware-20260709T134058Z.json` still
+            failed before training creation. The new bounded receipt narrows the
+            failure to `sdk_error.failure_site=service_client_create`,
+            `sdk_error.operator_action=check_sdk_client_configuration`, correct
+            Qwen/rank-32 request shape, and `project.configured=false`. Next
+            step: set `TINKER_PROJECT_ID` if the Tinker console exposes one or
+            obtain the correct Tinker service/client configuration, then rerun
+            this same smoke command.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
 - [x] `P0` Add real SDK integration tests gated by an env var and budget cap.
