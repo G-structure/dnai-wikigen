@@ -237,9 +237,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                               knobs; local `verify-compose-hash
                               --phala-raw-compose` computes raw/image-policy
                               hash
-                              `cea8860b87944f990e2afe30e0ef1e78d3aa91bccacee0aa76727fcc58381e2d`
+                              `efe2008fac1468d294c231528c610c6994ee8654a4b4835c9113d97d7295e438`
                               and rendered compose SHA-256
-                              `3f2e41c87e7a415e622a9b6d70b01dd47895bf0c28582cb20686d7f4bbd12d82`.
+                              `1e634a04c44120f9424020461e0058f5f414753b308fcfa08868a17134a6e923`.
                         - [ ] Bind `TINKER_PROXY_IDENTITY_REGISTRY_SIGNER` to a
                               production verifier/reviewer identity source or
                               governance contract, and define the secure
