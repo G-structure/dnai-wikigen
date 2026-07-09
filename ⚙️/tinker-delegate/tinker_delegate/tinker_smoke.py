@@ -48,13 +48,35 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
     rank = int(request.rank if request.rank is not None else getattr(settings, "real_sdk_rank", 4))
     ttl_seconds = int(request.ttl_seconds or DEFAULT_TTL)
 
-    policy = preflight_tinker_operation(
-        settings,
-        operation_kind=TinkerOperationKind.SPEND_TINKER_COMPUTE,
-        amount_dollars=max_usd,
-        compose_hash=request.compose_hash,
-        required=request.require_encumbrance,
-    )
+    try:
+        policy = preflight_tinker_operation(
+            settings,
+            operation_kind=TinkerOperationKind.SPEND_TINKER_COMPUTE,
+            amount_dollars=max_usd,
+            compose_hash=request.compose_hash,
+            required=request.require_encumbrance,
+        )
+    except Exception as exc:
+        return _base_receipt(
+            issued_at=issued_at,
+            deal_id=deal_id,
+            model=model,
+            rank=rank,
+            max_usd=max_usd,
+            success=False,
+            outcome="policy_check_failed",
+            furthest_stage="policy_checked",
+            policy={
+                "checked": False,
+                "allowed": False,
+                "reason": "policy_check_exception",
+                "operation": TinkerOperationKind.SPEND_TINKER_COMPUTE.name.lower(),
+                "operation_kind": int(TinkerOperationKind.SPEND_TINKER_COMPUTE),
+                "raw_secret_egress": False,
+            },
+            error_kind=exc.__class__.__name__,
+            bounded_message="policy_check_failed",
+        )
     if not policy.allowed:
         return _base_receipt(
             issued_at=issued_at,

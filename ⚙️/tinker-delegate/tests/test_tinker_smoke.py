@@ -232,6 +232,25 @@ class TinkerSmokeTest(unittest.TestCase):
         self.assertEqual(result["error_kind"], "compose_hash_not_approved")
         resolve_key.assert_not_called()
 
+    def test_smoke_fails_closed_when_policy_check_raises(self):
+        with (
+            patch("tinker_delegate.tinker_smoke.resolve_api_key", return_value="tml-secret-value") as resolve_key,
+            patch("tinker_delegate.tinker_smoke.preflight_tinker_operation", side_effect=RuntimeError("rpc exploded")),
+        ):
+            result = run_tinker_sdk_smoke(
+                Settings(),
+                TinkerSmokeRequest(max_usd=0.05, require_encumbrance=True),
+            )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["outcome"], "policy_check_failed")
+        self.assertEqual(result["furthest_stage"], "policy_checked")
+        self.assertEqual(result["policy"]["reason"], "policy_check_exception")
+        self.assertEqual(result["error_kind"], "RuntimeError")
+        self.assertNotIn("rpc exploded", json.dumps(result))
+        self.assertFalse(result["raw_secret_egress"])
+        resolve_key.assert_not_called()
+
     def test_smoke_rejects_overlarge_budget_before_sdk_call(self):
         with self.assertRaisesRegex(ValueError, "<= 0.5"):
             run_tinker_sdk_smoke(Settings(), TinkerSmokeRequest(max_usd=0.51))

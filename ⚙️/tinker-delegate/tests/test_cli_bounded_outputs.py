@@ -177,6 +177,56 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertFalse(body["sample_output_returned"])
             self.assertFalse(body["raw_secret_egress"])
 
+    def test_tinker_smoke_non_json_remote_response_writes_bounded_failure(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "smoke.json"
+
+            class Handler(BaseHTTPRequestHandler):
+                def do_POST(self):
+                    self.send_response(500)
+                    self.send_header("Content-Type", "text/plain")
+                    self.end_headers()
+                    self.wfile.write(b"Internal Server Error")
+
+                def log_message(self, format, *args):
+                    return
+
+            server = HTTPServer(("127.0.0.1", 0), Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "tinker_delegate.main",
+                        "tinker-smoke",
+                        "--api-url",
+                        f"http://127.0.0.1:{server.server_port}",
+                        "--max-usd",
+                        "0.05",
+                        "--output",
+                        str(output_path),
+                    ],
+                    check=False,
+                    cwd=Path(__file__).resolve().parents[1],
+                    env=_env(tmpdir),
+                    text=True,
+                    capture_output=True,
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(result.stdout, "")
+            body = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(body["surface"], "tinker_sdk_smoke")
+            self.assertEqual(body["outcome"], "remote_non_json_response")
+            self.assertEqual(body["status_code"], 500)
+            self.assertNotIn("Internal Server Error", json.dumps(body))
+            self.assertFalse(body["raw_secret_egress"])
+
     def test_preflight_can_write_bounded_json_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "preflight.json"

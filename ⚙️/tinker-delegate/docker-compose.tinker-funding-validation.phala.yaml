@@ -17,7 +17,7 @@
 
 services:
   neko:
-    image: ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:7c0795e15e660d4501b6324c7f223fd65f22725a7752b683ae30a2874d373d01
+    image: ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:422f2ba4f350f329a8a52a6502a91717da2dd39a2e22e8250bdcce65788bee81
     platform: linux/amd64
     restart: unless-stopped
     shm_size: 2gb
@@ -44,7 +44,7 @@ services:
       timeout: 5s
 
   oracle:
-    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ce0ea569280a796ce2a3d5517e22d03ad72a9d7a316a550d11bd1b155a85a5ce
+    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ee3d5b21597304e5c7e677b091ca01bc3b51703728e663056e6d690da16fe08f
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -81,7 +81,7 @@ services:
       start_period: 180s
 
   delegate:
-    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:1e3da3a88ef037b85678c7122a1a4a11a01ae687a36a57fd38deb1ed8984461e
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:50f38f1499187d0054aaa84046d6f3be68593aa93b147cfae2b29c9eac1da0b5
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -119,6 +119,10 @@ services:
       TINKER_REAL_SDK_MAX_USD: "0.05"
       TINKER_REAL_SDK_MODEL: "meta-llama/Llama-3.2-1B"
       TINKER_REAL_SDK_RANK: "4"
+      TINKER_ENCUMBRANCE_REQUIRED: "true"
+      TINKER_ENCUMBRANCE_CONTRACT_ADDRESS: "0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e"
+      TINKER_ENCUMBRANCE_RPC_URL: ${BASE_SEPOLIA_RPC_URL:-}
+      TINKER_ENCUMBRANCE_POLICY_UNITS_PER_USD_WEI: "1000000000000000000"
       TINKER_ALLOW_AUTH_AUTOMATION_ENDPOINT: "true"
       TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "true"
       TINKER_ALLOW_TINKER_SMOKE_ENDPOINT: "true"

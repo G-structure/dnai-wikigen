@@ -1400,7 +1400,19 @@ def cli():
                     json=payload,
                     headers=headers,
                 )
-            body = response.json()
+            try:
+                body = response.json()
+            except Exception:
+                body = {
+                    "surface": "tinker_sdk_smoke",
+                    "success": False,
+                    "outcome": "remote_non_json_response",
+                    "furthest_stage": "remote_http_response",
+                    "status_code": response.status_code,
+                    "error_kind": "non_json_response",
+                    "bounded_message": "remote endpoint returned non-json response",
+                    "raw_secret_egress": False,
+                }
             _emit_bounded_json(
                 body,
                 output_path=args.output,
