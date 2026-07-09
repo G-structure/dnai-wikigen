@@ -91,6 +91,23 @@ class CliBoundedOutputsTest(unittest.TestCase):
                 forbidden_values=("Stripe Test User",),
             )
 
+    def test_bounded_renderer_allows_explicit_public_chain_fields(self):
+        rendered = _render_bounded_json(
+            {
+                "contract_address": "0x" + "12" * 20,
+                "compose_hash": "0x" + "34" * 32,
+                "amount_wei": "5000000000000000000",
+                "max_amount_wei": "5000000000000000000",
+                "raw_secret_egress": False,
+            },
+            public_hex_fields=("contract_address", "compose_hash"),
+            public_decimal_fields=("amount_wei", "max_amount_wei"),
+        )
+
+        body = json.loads(rendered)
+        self.assertEqual(body["amount_wei"], "5000000000000000000")
+        self.assertFalse(body["raw_secret_egress"])
+
     def test_synthetic_private_reward_demo_cli_writes_bounded_packet(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "synthetic-reward.json"

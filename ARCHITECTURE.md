@@ -1073,6 +1073,15 @@ Implementation status:
             private-key path was emitted. The current manifest-derived plan is
             `ready=true` for the bounded policy/encumbrance checks, with a
             remaining warning that the CVM still reports dev OS.
+[real]      `tinker-encumbrance-preflight` reads only public
+            `TinkerAccountEncumbrance` state and exits before card prompting
+            when the compose hash is not approved, emergency halt is set, or the
+            requested amount exceeds the cap. Its bounded JSON renderer marks
+            public chain fields (`contract_address`, `compose_hash`,
+            `amount_wei`, `max_amount_wei`) as public before generic
+            secret-shape checks, so public wei/address values do not create
+            false positives while card/API-key/OTP-shaped material still fails
+            closed.
 [real]      Operator-only mutation endpoints now have delegate runtime bearer
             auth. When `TINKER_RUNTIME_AUTH_REQUIRED=true`,
             `/auth/reauth`, `/billing/card/encrypted`,
@@ -1095,8 +1104,8 @@ Implementation status:
             plaintext card submission, enables reauth/encrypted-card/add-balance
             only behind runtime bearer auth, sets
             `TINKER_FUNDING_MODE=operator_capped_validation`, caps top-ups at
-            `$5`, and routes browser work through the Playwright sidecar rather
-            than the currently blocked Neko CDP path.
+            `$5`, and routes browser work through the custom GitHub-attested
+            `neko-chrome` CDP path with the baked proxy on `9222`.
 [real]      `docker-compose.selector-diagnostics.phala.yaml` is a temporary
             Phala diagnostics profile for the main CVM. It uses registry image
             digests only, disables Tinker bootstrap and all card/funding
@@ -1107,33 +1116,33 @@ Implementation status:
             after each measurement.
 [real]      The funding-validation profile was refreshed on Phala on
             2026-07-09 with GitHub-attested source
-            `eb3bde3b5b156dfdd46f701ab2df8f1f19d94120` images:
-            `tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3`
+            `6ff5531aabb952b3266210afa6c0b6bfb8860103` images:
+            `tee-email-oracle@sha256:f5c346912f3391e699252dba47c673902d06ffe528a8bab9732a76d551ec42ab`,
+            `tinker-delegate@sha256:f9eb714c5630549441636b8a5525b20c9518e863940a3b8e072dff5a5dcab37d`,
             and
-            `tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381`.
-            `verify-deployment-bundle` passed with GitHub provenance/SBOM
-            attestations, local image-policy hash
-            `c6398343e7ab1c82932b1c2ab1e7450626f932016b1939a571e092ee465a22c7`,
-            and live attested compose hash
-            `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`.
-            Health is OK, the email oracle is ready, IMAP is connected, public
-            logs remain disabled, and unauthenticated reauth/add-balance calls
-            fail closed with `401 Bearer token required`.
-[partial]   The funding-validation profile is live, quote-bound, and now
-            backed by a deployed TinkerAccountEncumbrance policy, but it is not
-            ready for approved real-card funding. Remote
-            `/billing/funding-preflight` passes local policy checks for `$5`
-            when supplied with the recorded deployment identity; one direct
-            live attestation fetch through that preflight path timed out and
-            should be retried before a card prompt. The manifest-driven command
-            plan returns `ready=true` with the deployed encumbrance address and
-            `raw_secret_egress=false`, but authenticated `/auth/reauth` on the
-            refreshed profile still returns bounded `auth_access_blocked` at
-            `auth_email_submitted`, before OTP or session-state save;
-            authenticated `$5` add-balance without a card returns bounded
-            `auth_required` at `billing_page_loaded`; and the CVM still reports
-            dev OS. The next live step is Tinker auth/session repair on Phala,
-            not a real-card prompt.
+            `neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07`.
+            Local image-attestation checks passed for all three images, the
+            local image-policy hash is
+            `a0045b4a0995f858dde0d473a16b997459a6bd009f78c55b0d5ee471ba58f81f`,
+            the rendered compose SHA-256 is
+            `e8938c5c3896376df2219ddcee78dd26c82963c6fc57ab98431ce6b39122302f`,
+            and the live attested compose hash is
+            `f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552`.
+            Health is OK, the email oracle is ready, IMAP is connected, the
+            Tinker API key is available from encrypted storage, public logs
+            remain disabled, and unauthenticated reauth/add-balance calls fail
+            closed with `401 Bearer token required`.
+[partial]   The funding-validation profile is live, quote-bound, backed by a
+            deployed TinkerAccountEncumbrance policy, and ready for an approved
+            low-value operator funding validation attempt. Remote
+            `/billing/funding-preflight` passes policy checks for `$5`; the
+            manifest-driven command plan returns `ready=true` with the deployed
+            encumbrance address and `raw_secret_egress=false`; authenticated
+            `/auth/reauth` succeeds; and the current funding compose hash is
+            approved on Base Sepolia. It is still not production-final because
+            the CVM still reports dev OS, quote internals are not parsed, and a
+            successful live real-card add-balance receipt has not yet been
+            produced.
 [real]      Source/tests now distinguish billing selector drift from auth-state
             failure before card fields or top-up controls are touched. The
             payment-method and add-balance flows classify a billing navigation
@@ -1283,27 +1292,30 @@ Implementation status:
             attestation envelope. The bundle records `raw_secret_egress=false`
             and does not include raw quotes, app-compose bodies, secrets, OTPs,
             card material, artifacts, or API keys.
-[real]      Current Phala deployment runs the combined oracle/delegate stack in
+[real]      Current Phala deployment runs the combined oracle/delegate/browser stack in
             CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` / `cvm_1w85mGjo`
             with app ID `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`,
             digest-pinned GHCR images verified by GitHub attestations,
             delegate `/health` returning `ok`, and live delegate
             deployment-bundle verification passing against local raw compose
             image-policy hash
-            `1a4870ab818fe2d8d5e59c6c84ada795a36210c3ea5a0d2bc16d342bfdbb87f5`,
+            `a0045b4a0995f858dde0d473a16b997459a6bd009f78c55b0d5ee471ba58f81f`,
             rendered compose SHA-256
-            `9c664e88ba1c79108f6f9c2987f667aa2e6ee6fa853b19277c7a8f8abfd43441`,
+            `e8938c5c3896376df2219ddcee78dd26c82963c6fc57ab98431ce6b39122302f`,
             and live Phala attested compose hash
-            `e9e07417f7df3b0dae2fdc148fc6847751afa240b9167cc81e76883060ecd586`.
+            `f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552`.
             The current oracle image is
-            `tee-email-oracle@sha256:287028f12f7cb596d573f950e6dc1cb2437fe37ea2984101abd8bd451d44eca3`
-            and the current delegate image is
-            `tinker-delegate@sha256:72b584ff4228783711ff3108f8674a9d5ab86fec2a072cf1ea3f8b71b697ec38`,
-            both built from source commit
-            `556387a9e673e91d3ea4991cdaee96ead3e52922`. Tinker bootstrap,
-            selector-probe, browser-readiness, and add-balance are disabled in
-            the current normal compose, and live checks return 403 for those
-            widened/diagnostic endpoints.
+            `tee-email-oracle@sha256:f5c346912f3391e699252dba47c673902d06ffe528a8bab9732a76d551ec42ab`,
+            the current delegate image is
+            `tinker-delegate@sha256:f9eb714c5630549441636b8a5525b20c9518e863940a3b8e072dff5a5dcab37d`,
+            and the current browser image is
+            `neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07`,
+            all built from source commit
+            `6ff5531aabb952b3266210afa6c0b6bfb8860103`. Tinker bootstrap,
+            selector-probe, browser-readiness, and plaintext card submission
+            are disabled in the current funding-validation profile; add-balance
+            and reauth are enabled only behind runtime bearer auth for capped
+            operator validation.
 [real]      The temporary public-log debug exception has been reverted on the
             current main Phala CVM. Public logs and public sysinfo are disabled
             while runtime guards keep `ORACLE_AUTO_GENESIS=false`,
@@ -1328,30 +1340,22 @@ Implementation status:
             bootstrap and selector-diagnostics Phala composes now use the
             GitHub-attested custom `neko-chrome` digest and the baked Nginx CDP
             proxy on port `9222`; they no longer rewrite Chrome/CDP with an
-            inline Python TCP proxy at container startup. This browser-image
-            repair is not yet Phala-measured against live Tinker auth.
-[partial]   Three Phala-proven Tinker bootstrap attempts have failed closed
-            without API-key sealing. The first, using the headless Playwright
-            sidecar, reached the Tinker auth surface with
-            `bootstrap_error_kind=auth_access_blocked`. The second, using the
-            headed Neko CDP endpoint, verified the intended browser packaging
-            but failed with a generic `bootstrap_error` before a bounded stage
-            receipt was captured. The third, using GitHub-attested `74ad4b6`
-            images with bounded early-stage instrumentation, captured
-            `last_bootstrap_attempt_record.surface=tinker_auth`,
-            `outcome=unknown_failure`, `furthest_stage=not_started`, and
-            `raw_secret_egress=false`; the outer runtime
-            `bootstrap_error_kind` still flattened to generic
-            `bootstrap_error`. A fourth retry using GitHub-attested `8fb6e3a`
-            images proved the preservation fix in Phala:
-            `bootstrap_error_kind=unknown_failure` now matches the bounded
-            nested receipt. In all live attempts the oracle mailbox stayed
-            ready, no API key was configured or stored, endpoint gates stayed
-            closed, and the CVM was redeployed back to the normal compose.
-            Completing deployed Tinker signup now requires either a supportable
-            headed-browser posture inside Phala or an official/support-approved
-            Tinker API-key/service-account route; stealth/evasion remains out
-            of scope.
+            inline Python TCP proxy at container startup. A Phala bootstrap run
+            with the custom browser image succeeded: `/health` reported
+            `bootstrap_success=true`, `api_key_configured=true`, and a bounded
+            `api_key_captured_and_stored` attempt record with
+            `raw_secret_egress=false`.
+[real]      Earlier Phala-proven Tinker bootstrap attempts remain useful
+            history because they isolated the failure to the old deployed
+            browser transport. The first, using the headless Playwright sidecar,
+            reached the Tinker auth surface with
+            `bootstrap_error_kind=auth_access_blocked`. Later headed-Neko runs
+            preserved bounded failure records without exposing raw mailbox,
+            OTP, page text, cookies, URLs, or API keys. The custom
+            `neko-chrome` run fixed the deployed `Page.enable` timeout and
+            sealed the API key in the delegate data volume. Stealth/evasion
+            remains out of scope; the accepted browser route is bounded TEE
+            custody for this project's own account.
 [partial]   Production OS posture is not solved. The main CVM still reports
             `dstack-dev-0.5.9` / `is_dev=true`; earlier attempts to update the
             existing CVM to `dstack-0.5.10*` with `--no-dev-os` failed in the
@@ -2255,15 +2259,16 @@ bounded aggregate results
 2. EmailOracleAuth's on-chain consumer registry is not yet checked by the
    FastAPI OTP endpoint; same-CVM bearer auth and scoped runtime OTP requests
    are implemented.
-3. Tinker browser automation works locally through Neko/CDP. The deployed
-   headed-Neko packaging is Phala-proven, but deployed signup still fails
-   closed before API-key sealing. Bounded early-stage bootstrap receipts are
-   now Phala-proven, and the top-level runtime error kind now preserves the
-   bounded nested outcome in Phala evidence.
+3. Tinker browser automation works locally and on the deployed Phala path
+   through the custom GitHub-attested Neko/CDP image. Deployed bootstrap now
+   seals the Tinker API key and deployed `/auth/reauth` succeeds, with bounded
+   receipts and no raw secret egress.
 4. Reliable Tinker account funding through Stripe browser automation is in progress:
    the test-card path reaches Stripe and declines as expected, the plaintext
    card API is disabled by default, `manual_prefund` is the default production
-   funding mode, and real funding is not yet proven.
+   funding mode, the capped validation profile is live, and real funding is not
+   yet proven. Production also still requires non-dev OS and quote-internal
+   verification.
 5. Real TTT/RL bio-validation is not implemented.
 6. DLP/egress enforcement is not implemented.
 7. Corpus policy and consent/revocation are modeled but not enforced.

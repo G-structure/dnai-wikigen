@@ -35,7 +35,9 @@ The honest current gap:
 
 ```text
 Email encumbrance: real but runtime enforcement is incomplete.
-Tinker encumbrance: contract, runtime preflight, and Base Sepolia deployment are real; live Tinker auth/funding remain incomplete.
+Tinker encumbrance: contract, runtime preflight, Base Sepolia deployment, live
+Tinker API-key sealing, and live reauth are real; live low-value funding remains
+incomplete.
 TTT/RL bio validation: not built; current evaluator is stub/SFT-oriented.
 Private verified reward/RLVR environments: concept now clarified, not built.
 DNAI settlement: core escrow exists; live attestation, watcher, and full product flow are incomplete.
@@ -627,20 +629,27 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             selector-diagnostics Phala composes now use that digest, port CDP
             through the baked Nginx proxy on `9222`, and no longer rewrite
             Chrome/CDP with an inline Python proxy at container startup.
-      - [ ] Rerun deployed Phala browser/auth probes with the custom
+      - [x] Rerun deployed Phala browser/auth probes with the custom
             `neko-chrome` compose: `/browser/readiness`,
             `/browser/selector-probe`, and authenticated `/auth/reauth`, then
             record whether `Page.enable`/auth still block.
+            Done 2026-07-09: the selector-diagnostics compose using
+            `neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07`
+            returned successful readiness and selector probes on Phala. The
+            bootstrap profile then sealed a Tinker API key with bounded
+            `api_key_captured_and_stored` evidence, and the funding-validation
+            profile returned authenticated `/auth/reauth` success with
+            `raw_secret_egress=false`.
 - [x] `P0` Replace the deployed headless Playwright sidecar in the one-shot
       Tinker bootstrap profile with a headed browser path that survives Phala
       packaging if browser automation remains the route.
-      Done 2026-07-08: `docker-compose.tinker-bootstrap.phala.yaml` no longer
+      Done 2026-07-09: `docker-compose.tinker-bootstrap.phala.yaml` no longer
       includes the `delegate-browser` Playwright sidecar, points the delegate at
-      the headed Neko Chrome CDP endpoint, passed local compose/tests, was
-      deployed to the main Phala CVM, and passed `verify-deployment-bundle`.
-      The live attempt still failed closed with generic
-      `bootstrap_error_kind=bootstrap_error` before API-key sealing, so this
-      only proves the browser packaging change, not production signup.
+      the custom GitHub-attested Neko Chrome CDP endpoint on `9222`, passed local
+      compose/tests, was deployed to the main Phala CVM, and sealed a Tinker API
+      key with bounded success evidence. This proves the deployed browser auth
+      path for the project-owned Tinker account; production deployment still
+      needs non-dev OS and quote-internal verification.
 - [x] `P0` Instrument pre-signup, CDP connection, navigation, and onboarding
       exceptions with bounded stage/type receipts so the next deployed bootstrap
       failure preserves useful evidence without raw URL, page text, OTP, email,
@@ -1250,10 +1259,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Add a temporary Phala funding-validation compose profile that keeps
             signup/bootstrap and plaintext card input disabled, enables only
             capped operator reauth/encrypted-card/add-balance endpoints, uses
-            the Playwright sidecar instead of the currently blocked Neko CDP
-            path, caps top-up attempts at `$5`, and quote-binds the profile
-            through digest-pinned registry images plus explicit runtime env
-            policy.
+            the custom GitHub-attested `neko-chrome` CDP path, caps top-up
+            attempts at `$5`, and quote-binds the profile through digest-pinned
+            registry images plus explicit runtime env policy.
       - [x] Run a fresh local FastAPI encrypted-card smoke with local billing
             attestation and a Stripe test card: `$5` operator preflight returns
             ready, `$10` with add-balance endpoint required returns not ready,
@@ -1275,11 +1283,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             returned a bounded `payment_method` / `auth_required` receipt at
             `billing_page_loaded` with `raw_secret_egress=false`.
       - [ ] Repair deployed Tinker auth/billing automation before any approved
-            real-card prompt: live `/auth/reauth` currently fails bounded with
-            `auth_access_blocked` before OTP, and live payment-method plus
-            add-balance attempts reach `billing_page_loaded` but return
-            `auth_required`. Do not run real card material until this path
-            reaches the Stripe form and a bounded test-card receipt on Phala.
+            real-card prompt. Auth/session repair is complete, but this broader
+            billing item remains open until the live Phala funding profile
+            reaches the payment/add-balance surfaces after reauth and produces a
+            bounded test-card or approved-card funding receipt.
             - [x] Source/test 2026-07-08: add a bounded billing auth-state
                   classifier before payment-method/add-balance selector
                   searches. Billing pages that are actually auth-required or
@@ -1298,12 +1305,14 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   and authenticated payment-method plus `$5` add-balance
                   probes now return bounded `auth_required` rather than
                   `selector_missing`.
-            - [ ] Repair the deployed Tinker auth/session route so
+            - [x] Repair the deployed Tinker auth/session route so
                   `/auth/reauth` reaches OTP and billing navigation reuses an
                   authenticated session before any approved real-card prompt.
-                  The encrypted browser-session store is now deployed and ready
-                  to persist the session after auth succeeds; the remaining
-                  blocker is Tinker's access-blocked auth posture.
+                  Done 2026-07-09: after replacing the deployed browser path
+                  with the custom GitHub-attested Neko Chrome/CDP image,
+                  bootstrap sealed the Tinker API key and authenticated
+                  `/auth/reauth` on the funding-validation profile returned
+                  success with `raw_secret_egress=false`.
                   - [x] Source/test 2026-07-08: preserve bounded
                         auth-flow furthest-stage evidence for
                         `auth_access_blocked` failures. `/auth/reauth` and
@@ -1334,6 +1343,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                         `/auth/reauth` still fails closed with bounded
                         `auth_access_blocked` at `auth_email_submitted`
                         (`raw_secret_egress=false`).
+                  - [x] Refresh the funding-validation Phala profile with the
+                        custom `neko-chrome` image and rerun `/auth/reauth`.
+                        Done 2026-07-09: source
+                        `6ff5531aabb952b3266210afa6c0b6bfb8860103` oracle,
+                        delegate, and `neko-chrome` images were pinned and
+                        deployed to live attested compose hash
+                        `f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552`;
+                        authenticated `/auth/reauth` succeeded and the API key
+                        is available from the encrypted store.
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
       account and a safe test card or approved real card.
       - [x] Stripe test card reaches live Tinker/Stripe submission and returns
@@ -1359,6 +1377,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             hash is not approved, emergency halt is on, or the requested
             add-balance amount exceeds the cap, the CLI exits before card
             material is entered.
+            Refreshed 2026-07-09: `tinker-encumbrance-preflight` now explicitly
+            masks public chain fields (`contract_address`, `compose_hash`,
+            `amount_wei`, `max_amount_wei`) before generic secret-shape checks,
+            so approved public policy reads can be emitted as bounded JSON
+            without weakening card/API-key/OTP leak detection.
       - [x] Add a manifest-driven bounded funding command plan.
             `tinker-delegate funding-command-plan` reads
             `deployments/base-sepolia.json`, extracts the live delegate URL,
@@ -1367,9 +1390,9 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             encumbrance-preflight, encumbrance deploy dry-run/broadcast, and
             prompt-packet argv/shell templates
             without card details, bearer tokens, API keys, OTPs, or RPC values.
-            The current manifest correctly returns `ready=false` with
-            `missing_tinker_encumbrance_contract` until the interactive
-            encumbrance broadcast records the contract address/policy.
+            The current manifest correctly returns `ready=true` for `$5` with
+            the deployed encumbrance contract, approved compose hash, and no raw
+            secret egress.
             Refreshed 2026-07-09: the plan now includes absolute
             no-raw-key deploy helper commands for
             `deploy-tinker-encumbrance-base-sepolia.sh`, with a note that the
@@ -1387,21 +1410,26 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`,
             owner `0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`, and `$5`
             add-balance/spend caps.
+            Refreshed after the custom Neko deployment: the live
+            funding-validation compose hash
+            `0xf4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552`
+            was approved on Base Sepolia in tx
+            `0x0e80acc1474fa1aef698f86d7f4fc3cdc700912cdb30aec9ef70d222ff83111f`
+            at block `43902526`.
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
             attempt after the funding-validation compose is deployed on Phala,
             its live attested compose hash is recorded, and the operator CLI
             command targets that hash with `--fetch-attestation` and
-            `--require-encumbrance`. Still blocked 2026-07-09: the refreshed
-            Phala funding-validation profile is live, remote `$5` funding
-            preflight is ready when supplied with the recorded deployment
-            identity, and `funding-command-plan` now targets attested compose
-            hash
-            `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`
-            plus the deployed `TinkerAccountEncumbrance` address, returning
-            `ready=true`. Real-card funding is still blocked because
-            authenticated `/auth/reauth` returns `auth_access_blocked` at
-            `auth_email_submitted`, authenticated `$5` add-balance still
-            returns `auth_required`, and the CVM still reports dev OS.
+            `--require-encumbrance`. Ready for operator validation 2026-07-09:
+            the refreshed Phala funding-validation profile is live at attested
+            compose hash
+            `f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552`,
+            remote `$5` funding preflight is ready, `funding-command-plan`
+            returns `ready=true`, authenticated `/auth/reauth` succeeds, and
+            the compose hash is approved by `TinkerAccountEncumbrance`. The
+            item remains unchecked until an approved operator runs the real-card
+            prompt and records a bounded funding receipt; the CVM dev-OS warning
+            also remains before production.
 - [x] `P0` Confirm PCI and Stripe obligations.
       Research whether the current encrypted-card-to-TEE flow is acceptable or
       whether the system must use Stripe-hosted tokenization / SetupIntent /

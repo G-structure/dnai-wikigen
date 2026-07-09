@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-09T04:18:59Z",
+  "lastReviewedAt": "2026-07-09T05:07:03Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -55,17 +55,22 @@
       "policyUnitsPerUsdWei": 1000000000000000000,
       "emergencyHalted": false,
       "measurementsFrozen": false,
-      "currentOperatorControlled": true
+      "currentOperatorControlled": true,
+      "latestApprovedComposeHash": "0xf4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552",
+      "latestApprovedComposeHashApproved": true,
+      "latestComposeApprovalTx": "0x0e80acc1474fa1aef698f86d7f4fc3cdc700912cdb30aec9ef70d222ff83111f",
+      "latestComposeApprovalBlock": 43902526,
+      "currentFundingComposeHash": "0xf4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552"
     }
   },
   "phala": {
-    "status": "running_tinker_funding_validation_profile_policy_ready_auth_blocked_encumbrance_missing",
+    "status": "running_tinker_funding_validation_profile_auth_solved_encumbrance_approved",
     "cvmId": "cvm_1w85mGjo",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
-    "deployHelperComposeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
-    "localRawComposeImagePolicyHash": "c6398343e7ab1c82932b1c2ab1e7450626f932016b1939a571e092ee465a22c7",
-    "renderedComposeSha256": "b87cbfa8b8d956d8b8d3840b3c47394e956940f4eb1412f57f4ea91fa8f6ab2b",
+    "composeHash": "f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552",
+    "deployHelperComposeHash": "f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552",
+    "localRawComposeImagePolicyHash": "a0045b4a0995f858dde0d473a16b997459a6bd009f78c55b0d5ee471ba58f81f",
+    "renderedComposeSha256": "e8938c5c3896376df2219ddcee78dd26c82963c6fc57ab98431ce6b39122302f",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -75,14 +80,16 @@
     "publicTcbinfo": true,
     "deployCriticalImageRefsBoundInCompose": true,
     "allowedEnvKeys": [
-      "ORACLE_RUNTIME_AUTH_KEY_PATH",
+      "NEKO_PASSWORD",
+      "NEKO_PASSWORD_ADMIN",
+      "TINKER_BROWSER_SESSION_KEY_PATH",
       "TINKER_DSTACK_KEY_PATH",
       "TINKER_FUNDING_RECEIPT_KEY_PATH",
       "TINKER_ORACLE_AUTH_KEY_PATH",
       "TINKER_RUN_METADATA_KEY_PATH",
       "TINKER_RUNTIME_AUTH_TOKEN"
     ],
-    "allowedEnvKeysNote": "Current redeploy helper lists the narrowed six-key runtime surface; deploy-critical oracle/delegate image refs, capped funding policy, and disabled secret-bearing gates are hardcoded directly in compose.",
+    "allowedEnvKeysNote": "Current funding-validation profile has an eight-key runtime surface. Secrets remain in Phala/runtime env or dstack-sealed storage; deploy-critical image refs, capped funding policy, and disabled secret-bearing gates are hardcoded directly in compose.",
     "temporaryDebugException": {
       "active": false,
       "enabledAt": "2026-07-08T11:50:13Z",
@@ -107,10 +114,10 @@
         "TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "eb3bde3b5b156dfdd46f701ab2df8f1f19d94120",
+    "sourceDigest": "6ff5531aabb952b3266210afa6c0b6bfb8860103",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 28991312580,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28991312580",
+    "githubActionsRunId": 28994301855,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28994301855",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -120,27 +127,29 @@
     "imageDigests": [
       {
         "service": "oracle",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f5c346912f3391e699252dba47c673902d06ffe528a8bab9732a76d551ec42ab",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:f9eb714c5630549441636b8a5525b20c9518e863940a3b8e072dff5a5dcab37d",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
-        "service": "delegate-browser",
-        "image": "mcr.microsoft.com/playwright:v1.58.0-noble@sha256:e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f"
+        "service": "neko",
+        "image": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07",
+        "githubProvenanceAttestation": "verified",
+        "githubSbomAttestation": "verified"
       }
     ],
     "quoteEvidence": {
       "mode": "tdx",
-      "context": "artifact",
+      "context": "billing",
       "quoteSize": 5010,
-      "reportData": "e98f76f55a1a74f911e960ea68e03a5ef0847537be8878900f22e1a2d74c3c12",
-      "encryptionPublicKey": "bf77f61ae2a3efeb342b1a56f2fc2a02c1f33de155f816b1a88097da0a7cbe6e",
+      "reportData": "51df5f2c0f61dd488a65f82d803fe29a6eb72903b9c1a510b00b1848aa0703fb",
+      "encryptionPublicKey": "d7ce6072bcdffbb82a998ce2c676cf47e8bc4122447fb183272ee0551bc5e474",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -190,7 +199,7 @@
       "rawSecretEgress": false
     },
     "tinkerBootstrapEvidence": {
-      "status": "page_enable_timeout_selector_probe_disabled_after_revert",
+      "status": "succeeded_api_key_sealed_after_custom_neko_cdp_redeploy",
       "oneShotCompose": "⚙️/tinker-delegate/docker-compose.tinker-bootstrap.phala.yaml",
       "sourceDigest": "556387a9e673e91d3ea4991cdaee96ead3e52922",
       "githubActionsRunId": 28974675082,
@@ -830,7 +839,34 @@
       },
       "publicLogs": false,
       "publicSysinfo": false,
-      "rawSecretEgress": false
+      "rawSecretEgress": false,
+      "latestSuccess": {
+        "date": "2026-07-09",
+        "browserPath": "custom_neko_chrome_cdp_9222",
+        "status": "succeeded_api_key_captured_and_sealed",
+        "sourceDigest": "6ff5531aabb952b3266210afa6c0b6bfb8860103",
+        "githubActionsRunId": 28994301855,
+        "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f5c346912f3391e699252dba47c673902d06ffe528a8bab9732a76d551ec42ab",
+        "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:f9eb714c5630549441636b8a5525b20c9518e863940a3b8e072dff5a5dcab37d",
+        "nekoImage": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07",
+        "attestedComposeHash": "e0805243823a86862870dcc781ab1620369cf4d5785955cb694afb6d9815244a",
+        "runtimeEvidence": {
+          "apiKeyConfigured": true,
+          "apiKeyAvailable": true,
+          "apiKeySource": "bootstrap",
+          "bootstrapAttempted": true,
+          "bootstrapSuccess": true,
+          "bootstrapErrorKind": "",
+          "lastBootstrapAttemptRecord": {
+            "surface": "api_key_provisioning",
+            "outcome": "success",
+            "furthestStage": "api_key_stored",
+            "boundedMessage": "api_key_captured_and_stored",
+            "accountHash": "535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
+            "rawSecretEgress": false
+          }
+        }
+      }
     },
     "oracleGenesisDebugEvidence": {
       "status": "bounded_health_phala_proven",
@@ -1063,26 +1099,26 @@
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "fundingValidationEvidence": {
-      "status": "live_policy_ready_auth_blocked_encumbrance_missing_real_card_blocked",
+      "status": "live_policy_ready_auth_solved_encumbrance_approved_real_card_not_attempted",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
-      "sourceDigest": "eb3bde3b5b156dfdd46f701ab2df8f1f19d94120",
-      "githubActionsRunId": 28991312580,
-      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3",
-      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381",
-      "deployHelperComposeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
-      "localRawComposeImagePolicyHash": "c6398343e7ab1c82932b1c2ab1e7450626f932016b1939a571e092ee465a22c7",
-      "renderedComposeSha256": "b87cbfa8b8d956d8b8d3840b3c47394e956940f4eb1412f57f4ea91fa8f6ab2b",
-      "attestedComposeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
+      "sourceDigest": "6ff5531aabb952b3266210afa6c0b6bfb8860103",
+      "githubActionsRunId": 28994301855,
+      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f5c346912f3391e699252dba47c673902d06ffe528a8bab9732a76d551ec42ab",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:f9eb714c5630549441636b8a5525b20c9518e863940a3b8e072dff5a5dcab37d",
+      "deployHelperComposeHash": "f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552",
+      "localRawComposeImagePolicyHash": "a0045b4a0995f858dde0d473a16b997459a6bd009f78c55b0d5ee471ba58f81f",
+      "renderedComposeSha256": "e8938c5c3896376df2219ddcee78dd26c82963c6fc57ab98431ce6b39122302f",
+      "attestedComposeHash": "f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552",
       "deploymentBundleVerification": "passed_with_github_provenance_sbom_and_live_tdx_attestation",
       "billingAttestation": {
-        "reportData": "e98f76f55a1a74f911e960ea68e03a5ef0847537be8878900f22e1a2d74c3c12",
-        "encryptionPublicKey": "bf77f61ae2a3efeb342b1a56f2fc2a02c1f33de155f816b1a88097da0a7cbe6e",
+        "reportData": "51df5f2c0f61dd488a65f82d803fe29a6eb72903b9c1a510b00b1848aa0703fb",
+        "encryptionPublicKey": "d7ce6072bcdffbb82a998ce2c676cf47e8bc4122447fb183272ee0551bc5e474",
         "quoteSize": 5010
       },
       "runtimeEnv": {
         "policy": "compose-refs",
-        "allowedEnvCount": 6,
-        "keysSha256": "e12c5315c512f69be97131cb30aeceb45edf0145ea3cd9cedf484af6eccaeaf0",
+        "allowedEnvCount": 8,
+        "keysSha256": "bd68431c7d46a62fc40aa4b844b5aeafcfa40c8274c00d7c15496fc688fd762d",
         "containsRuntimeAuthToken": true
       },
       "endpointGates": {
@@ -1094,86 +1130,76 @@
         "status": "ok",
         "oracleReady": true,
         "imapConnected": true,
-        "browserWsEndpoint": "ws://172.20.0.6:3000/",
+        "browserWsEndpoint": "",
+        "cdpUrl": "http://172.20.0.3:9222",
+        "apiKeyConfigured": true,
+        "apiKeySource": "encrypted_store",
         "bootstrapAttempted": false
       },
       "fundingPreflight": {
         "ready": true,
         "amount": 5,
-        "attestationFetch": "external_verify_deployment_bundle_passed_remote_self_fetch_timed_out_once",
-        "addBalanceEndpoint": "enabled",
-        "fundingMode": "operator_capped_validation"
+        "attestationFetch": "live_attestation_matched_expected_f472_compose_hash",
+        "addBalanceEndpoint": "enabled_behind_runtime_bearer_auth",
+        "fundingMode": "operator_capped_validation",
+        "maxAddBalanceUsd": 5
       },
       "reauthAttempt": {
-        "success": false,
-        "outcome": "auth_access_blocked",
-        "furthestStage": "auth_email_submitted",
-        "sessionStateSaved": false,
+        "success": true,
+        "outcome": "authenticated",
+        "furthestStage": "authenticated",
+        "sessionStateSaved": true,
         "rawSecretEgress": false
       },
       "testCardAttempt": {
-        "card": "stripe_decline_test_card",
-        "surface": "payment_method",
-        "outcome": "auth_required",
-        "furthestStage": "billing_page_loaded",
-        "cardPayloadDestroyed": true,
+        "status": "not_attempted_after_auth_repair",
+        "reason": "real_card_prompt_waiting_for_operator_command",
         "rawSecretEgress": false
       },
       "addBalanceNoCardAttempt": {
-        "surface": "add_balance",
-        "outcome": "auth_required",
-        "furthestStage": "billing_page_loaded",
-        "amountBand": "5_25_usd",
-        "evidenceHash": "f73f32e91e8ba99b5780ef3e6d693d8ec396594826be5397bd1390cf9a7a509f",
+        "status": "not_attempted_after_auth_repair",
+        "reason": "next step is operator-approved funding-validation-packet with card prompt",
         "rawSecretEgress": false
       },
       "browserSessionStore": {
-        "status": "source_test_and_phala_deployed_waiting_for_successful_auth",
+        "status": "source_test_and_phala_deployed_reauth_success_saved_session",
         "path": "/data/browser_session.enc",
         "dstackKeyPath": "tinker/browser_session",
         "storesRawCookiesOrLocalStorageInPlaintext": false
       },
       "fundingCommandPlan": {
-        "status": "not_ready_until_tinker_account_encumbrance_deployed",
+        "status": "ready_after_manifest_refresh",
         "amount": 5,
-        "requiredMissingEvidence": "missing_tinker_encumbrance_contract",
-        "encumbranceDeployHandoff": {
-          "status": "ready_for_interactive_operator_broadcast",
-          "dryRunCommandIncluded": true,
-          "broadcastCommandIncluded": true,
-          "commandSource": "funding-command-plan",
-          "helper": "⚙️/tinker-delegate/contracts/scripts/deploy-tinker-encumbrance-base-sepolia.sh",
-          "requiresInteractiveFoundryKeystorePrompt": true,
-          "usesFoundryAccountFlag": true,
-          "rawPrivateKeyRequired": false,
-          "rawSecretEgress": false,
-          "lastDryRunStatus": "passed_build_tests_and_simulation"
-        }
+        "encumbranceContract": "0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e",
+        "composeHashApproved": true,
+        "runtimeAuthRequired": true,
+        "rawSecretEgress": false
       },
-      "nextStep": "deploy TinkerAccountEncumbrance from an interactive terminal, then repair deployed Tinker auth/session on Phala so /auth/reauth reaches OTP, saves browser session state, and billing page is authenticated before approved real-card prompt",
+      "nextStep": "run the operator-gated funding-validation-packet for $5 with a live card prompt; do not commit or echo card details; production still requires non-dev OS before claiming final deployment",
       "postSelectorDiagnosticsRestore": {
         "date": "2026-07-09",
-        "attestedComposeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
+        "attestedComposeHash": "f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552",
         "healthStatus": "ok",
-        "cdpUrl": "",
-        "browserWsEndpoint": "ws://172.20.0.6:3000/",
-        "browserReadinessEndpoint": "403_disabled",
-        "selectorProbeEndpoint": "403_disabled",
+        "cdpUrl": "http://172.20.0.3:9222",
+        "browserWsEndpoint": "",
+        "browserReadinessEndpoint": "403_disabled_in_funding_profile",
+        "selectorProbeEndpoint": "403_disabled_in_funding_profile",
         "rawSecretEgress": false
-      }
+      },
+      "nekoImage": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07"
     },
     "selectorDiagnosticsEvidence20260709": {
-      "status": "page_enable_timeout_diagnostics_disabled_after_restore",
+      "status": "custom_neko_cdp_browser_ready_selector_probe_succeeded",
       "date": "2026-07-09",
       "purpose": "one_shot_bounded_browser_control_evidence_for_main_cvm",
       "oneShotCompose": "⚙️/tinker-delegate/docker-compose.selector-diagnostics.phala.yaml",
-      "sourceDigest": "eb3bde3b5b156dfdd46f701ab2df8f1f19d94120",
-      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3",
-      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381",
-      "nekoImage": "ghcr.io/m1k1o/neko/google-chrome@sha256:320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea",
-      "localRawComposeImagePolicyHash": "455930b6b5e6e0d8119c737becfaa63d09ea939389574e5e845883b37dce5418",
-      "renderedComposeSha256": "15f67dea7c3ae6bdbac03eda850467c255ea7068e2d8e5cb92117c181f94d67e",
-      "oneShotAttestedComposeHash": "170862495089566bbe75a0c95f8cc8c1267cb6d17e678144119be82a2f1b81d2",
+      "sourceDigest": "6ff5531aabb952b3266210afa6c0b6bfb8860103",
+      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f5c346912f3391e699252dba47c673902d06ffe528a8bab9732a76d551ec42ab",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:f9eb714c5630549441636b8a5525b20c9518e863940a3b8e072dff5a5dcab37d",
+      "nekoImage": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07",
+      "localRawComposeImagePolicyHash": "67a3da6147cc7a0ae76285b07b55a600aa6dccdc2737a2b00b4d35426e1f160a",
+      "renderedComposeSha256": "744cdb770fc98160217529a4da000c8f27f13687607a18c6c97e16f44f7986af",
+      "oneShotAttestedComposeHash": "014c4609735797efac76f1e60ba44ba926bd0613ae57b7e6e969dbaa0e840d13",
       "oneShotAttestation": {
         "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
         "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -1197,7 +1223,7 @@
       },
       "browserReadinessEvidence": {
         "httpStatus": 200,
-        "success": false,
+        "success": true,
         "cdpMetadataSuccess": true,
         "cdpWebsocketHandshakeSuccess": true,
         "cdpWebsocketStatusBand": "101",
@@ -1210,17 +1236,17 @@
       "selectorProbeEvidence": {
         "httpStatus": 200,
         "success": true,
-        "probeBackend": "raw_cdp",
-        "fallbackFromBackend": "playwright",
-        "fallbackReasonKind": "timeout",
+        "probeBackend": "playwright",
+        "fallbackFromBackend": "",
+        "fallbackReasonKind": "",
         "targetCountBand": "2+",
         "pageCountBand": "2+",
         "pagesObserved": 1,
-        "partialErrorKind": "page_enable_timeout",
-        "pageEnableCommandSuccess": false,
-        "runtimeEnableCommandSuccess": false,
-        "runtimeMicroProbeCommandSuccess": false,
-        "runtimeSelectorCommandSuccess": false,
+        "partialErrorKind": "",
+        "pageEnableCommandSuccess": true,
+        "runtimeEnableCommandSuccess": true,
+        "runtimeMicroProbeCommandSuccess": true,
+        "runtimeSelectorCommandSuccess": true,
         "directPageRuntimeAttempted": true,
         "directPageRuntimePageListSuccess": true,
         "directPageRuntimePageWebsocketAvailable": true,
@@ -1232,7 +1258,7 @@
         "rawSecretEgress": false
       },
       "restoredProfile": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
-      "restoredAttestedComposeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
+      "restoredAttestedComposeHash": "f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552",
       "restoredAttestation": {
         "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
         "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -1241,10 +1267,10 @@
         "quoteLengthHexChars": 10020
       },
       "restoredEndpointGates": {
-        "browserReadiness": "403_disabled",
-        "selectorProbe": "403_disabled"
+        "browserReadiness": "403_disabled_in_funding_profile",
+        "selectorProbe": "403_disabled_in_funding_profile"
       },
-      "conclusion": "browser_level_cdp_ok_page_target_page_enable_timeout_before_runtime_or_selectors"
+      "conclusion": "custom_neko_chrome_with_baked_cdp_proxy_removed_the_deployed_page_enable_timeout_blocker"
     }
   },
   "freshDeployment": {

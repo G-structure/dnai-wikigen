@@ -33,62 +33,55 @@ RLVR/bio-validation remain incomplete. Phala auth is configured for profile
 `wikigen` in workspace `wiki`.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
-`eb3bde3b5b156dfdd46f701ab2df8f1f19d94120` into GHCR digest-pinned
-`tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3`
+`6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned
+`tee-email-oracle@sha256:f5c346912f3391e699252dba47c673902d06ffe528a8bab9732a76d551ec42ab`,
+`tinker-delegate@sha256:f9eb714c5630549441636b8a5525b20c9518e863940a3b8e072dff5a5dcab37d`,
 and
-`tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381`
-images. Local `verify-ghcr-image-attestation` checks passed for both SLSA
-provenance and SPDX SBOM attestations. The current CVM `cvm_1w85mGjo` is
-temporarily running the auth-gated funding-validation profile for app ID
-`f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, not the normal locked-down compose.
-The live Phala attested compose hash is
-`b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`, with local
+`neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07`
+images. Local `verify-ghcr-image-attestation` checks passed for SLSA
+provenance and SPDX SBOM attestations on all three GHCR images. The current CVM
+`cvm_1w85mGjo` is temporarily running the auth-gated funding-validation profile
+for app ID `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, not the normal
+locked-down compose. The live Phala attested compose hash is
+`f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552`, with local
 image-policy hash
-`c6398343e7ab1c82932b1c2ab1e7450626f932016b1939a571e092ee465a22c7`,
+`a0045b4a0995f858dde0d473a16b997459a6bd009f78c55b0d5ee471ba58f81f`,
 rendered compose SHA-256
-`b87cbfa8b8d956d8b8d3840b3c47394e956940f4eb1412f57f4ea91fa8f6ab2b`, and the
-same six-key runtime env surface. `verify-deployment-bundle` passed against
-the live endpoint with those GHCR attestations, required Playwright sidecar
-digest, app ID, OS image hash, report data
-`e98f76f55a1a74f911e960ea68e03a5ef0847537be8878900f22e1a2d74c3c12`,
+`e8938c5c3896376df2219ddcee78dd26c82963c6fc57ab98431ce6b39122302f`, and an
+eight-key runtime env surface. The live billing-context TDX envelope reports
+report data `51df5f2c0f61dd488a65f82d803fe29a6eb72903b9c1a510b00b1848aa0703fb`,
 encryption public key
-`bf77f61ae2a3efeb342b1a56f2fc2a02c1f33de155f816b1a88097da0a7cbe6e`, and quote
+`d7ce6072bcdffbb82a998ce2c676cf47e8bc4122447fb183272ee0551bc5e474`, and quote
 size `5010`. Public logs remain disabled. Health is OK, the oracle is ready,
-IMAP is connected, and unauthenticated `/auth/reauth` plus
-`/billing/add-balance` fail closed with `401 Bearer token required`.
+IMAP is connected, the Tinker API key is available from the encrypted store, and
+unauthenticated `/auth/reauth` plus `/billing/add-balance` fail closed with
+`401 Bearer token required`.
 
-Browser auth repair in progress, 2026-07-09: the custom Neko Chrome/CDP image
-that previously only existed as a local compose build is now on the
-GitHub-attested GHCR path. `.github/workflows/build-tee-images.yml` includes
-`neko-chrome`, `⚙️/tee-email-oracle/neko-chrome/Dockerfile` pins the upstream
-Neko linux/amd64 base digest instead of `latest`, focused tests passed, and a
-local `docker build --platform linux/amd64` succeeded. GitHub Actions run
-`28994301855` built
-`ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07`
-from source `6ff5531aabb952b3266210afa6c0b6bfb8860103`; local
-`verify-ghcr-image-attestation` accepted both SLSA provenance and SPDX SBOM
-attestations. The Tinker bootstrap and selector-diagnostics Phala composes now
-use that digest, route CDP through the baked Nginx proxy on `9222`, and remove
-the inline Python CDP proxy/runtime Chrome config rewrite. This is not a
-deployed auth fix yet: the next required step is to redeploy the one-shot
-diagnostic/bootstrap compose and rerun the Phala browser/auth probes.
+Browser auth repair result, 2026-07-09: the deployed browser blocker is solved
+for the Tinker auth/API-key path. The custom Neko Chrome/CDP image that
+previously only existed as a local compose build is now on the GitHub-attested
+GHCR path, pinned by digest, and used by the Tinker bootstrap, selector
+diagnostics, and funding-validation Phala composes. The old Phala path used an
+upstream Neko image plus inline CDP proxy/runtime rewrites and timed out at
+page-level CDP (`Page.enable`). The current Phala path uses the custom
+`neko-chrome` image with a baked Nginx CDP proxy on `9222`; `/browser/readiness`
+and `/browser/selector-probe` both succeed, the bootstrap profile captured and
+sealed a Tinker API key with bounded `api_key_captured_and_stored` evidence, and
+the funding-validation profile can re-authenticate successfully without raw
+secret egress.
 
 Funding profile live result, 2026-07-09: remote preflight for `$5` with
 `operator_capped_validation`, the add-balance endpoint requirement, and live
-deployment identity configured returned ready; external
-`verify-deployment-bundle` matched the live TDX envelope. The manifest-driven
-`funding-command-plan --amount 5` now targets attested compose hash
-`b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7` plus the
+deployment identity configured returns ready. The manifest-driven
+`funding-command-plan --amount 5` targets attested compose hash
+`f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552` plus the
 deployed `TinkerAccountEncumbrance`
-`0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`, and now returns `ready=true`
-with `raw_secret_egress=false`. Authenticated `/auth/reauth` reached the
-delegate but failed bounded with
-`auth_access_blocked` at `auth_email_submitted`, before OTP
-(`raw_secret_egress=false`). Authenticated `$5` add-balance without a card
-reached `billing_page_loaded` and failed bounded with `auth_required`
-(`raw_secret_egress=false`). Therefore the Phala funding profile is live and
-guarded, but approved real-card funding is still blocked on Tinker
-auth/session repair and the CVM dev-OS warning and must not be attempted yet.
+`0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`, and returns `ready=true` with
+`raw_secret_egress=false`. Authenticated `/auth/reauth` now succeeds and the
+browser session store is available for billing. The current funding profile is
+ready for a bounded, operator-approved `$5` real-card funding validation command,
+but production deployment remains partial because the CVM still reports
+`dstack-dev-0.5.9` / `is_dev=true` and quote internals are not yet parsed.
 
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
@@ -112,20 +105,18 @@ Selector diagnostics follow-up, 2026-07-09: a tracked one-shot Phala profile,
 `⚙️/tinker-delegate/docker-compose.selector-diagnostics.phala.yaml`, was added
 for bounded browser-control evidence on the main CVM. It uses registry images
 only, disables Tinker bootstrap and all card/funding mutations, and enables
-only `/browser/readiness` plus `/browser/selector-probe`. A live one-shot run
-from source `eb3bde3b5b156dfdd46f701ab2df8f1f19d94120` attested compose hash
-`170862495089566bbe75a0c95f8cc8c1267cb6d17e678144119be82a2f1b81d2`.
+only `/browser/readiness` plus `/browser/selector-probe`. The first live run
+proved the old page-level CDP blocker by timing out at `Page.enable`. The
+custom-`neko-chrome` rerun from source
+`6ff5531aabb952b3266210afa6c0b6bfb8860103` attested compose hash
+`014c4609735797efac76f1e60ba44ba926bd0613ae57b7e6e969dbaa0e840d13`.
 Readiness proved CDP metadata, WebSocket upgrade, and a browser-scoped
-DevTools command succeed. Selector probe fell back from Playwright to raw CDP,
-observed target/page bands, attached to a page, and then timed out at
-`Page.enable` on both attached-session and direct page-target paths before
-Runtime or selector-family counting could run. No raw URL, page text, cookie,
-OTP, API key, card, or account data left the TEE boundary. The CVM was restored
-to the funding-validation profile afterward; live attestation again reports
-`b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`, and both
-diagnostic endpoints return `403` disabled. The blocker is now specifically the
-deployed Neko/page-target CDP command channel, not selector strings or billing
-selector drift.
+DevTools command succeed; selector probe succeeded through Playwright without
+raw URL, page text, cookie, OTP, API key, card, or account data leaving the TEE
+boundary. The CVM was restored to the funding-validation profile afterward;
+live attestation now reports
+`f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552`, and both
+diagnostic endpoints return `403` disabled in the funding profile.
 
 Billing auth-state classifier follow-up, 2026-07-08: source, tests, and Phala
 live evidence now distinguish billing selector drift from auth/session state
@@ -402,15 +393,17 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   `funding-validation-packet --prompt-card --run-card-attempt` support
   `--require-encumbrance` with contract/RPC/compose inputs; add-balance packet
   runs also check the requested amount against the deployed cap before any
-  prompt.
+  prompt. `tinker-encumbrance-preflight` emits approved public chain fields as
+  bounded JSON while preserving the generic secret-shaped output guard for
+  card/API-key/OTP material.
 - A manifest-driven `funding-command-plan` CLI now emits the future operator
   preflight, encumbrance-preflight, and prompt-packet command templates from
   `deployments/base-sepolia.json`. It references runtime bearer and RPC values
   only by environment-variable name and returns bounded JSON with
-  `raw_secret_egress=false`. Against the current manifest it correctly reports
-  `ready=false` / `missing_tinker_encumbrance_contract`, so the real-card
-  command is not considered ready until the encumbrance contract broadcast is
-  recorded.
+  `raw_secret_egress=false`. Against the current manifest it reports
+  `ready=true` for a `$5` operator validation command, with the deployed
+  encumbrance contract, approved compose hash, and runtime-authenticated
+  endpoint references.
 - A no-raw-key Base Sepolia deploy helper now exists for
   `TinkerAccountEncumbrance`. It uses Foundry `--account dev`, validates
   bytes32 commitments and policy caps, defaults the initial compose hash from
@@ -661,9 +654,9 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   it must create a fresh browser context, so the operator can run `/auth/reauth`
   before encrypted-card/add-balance attempts without relying on a throwaway
   browser context. Tests prove the encrypted file does not contain raw
-  cookie/localStorage values. Phala redeploy and live probes are complete, but
-  no useful live session has been saved yet because Tinker currently returns
-  `auth_access_blocked` before OTP.
+  cookie/localStorage values. Phala redeploy and live probes are complete, and
+  the current funding-validation profile reports authenticated `/auth/reauth`
+  success with raw secret egress false.
 - Funding validation packets can include a separate add-balance evidence lane:
   `--add-balance-receipt-json` binds an existing bounded top-up receipt, and
   `--run-add-balance-attempt` posts only the amount to `/billing/add-balance`
@@ -674,13 +667,12 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   It disables signup/bootstrap and plaintext card input, enables only
   runtime-authenticated reauth/encrypted-card/add-balance endpoints, sets
   `operator_capped_validation` with `TINKER_MAX_ADD_BALANCE_USD=5.0`, and uses
-  the Playwright sidecar rather than the currently blocked Phala Neko CDP path.
-  This profile is live deployed evidence for the current auth/session blocker:
-  GitHub-attested source `f553a13da7276d56b5284bb55706887c5766455d` images are
-  pinned by digest, the live Phala attested compose hash is
-  `f7c78fc75f5f26dd3e0ff7a588e3627c0b275565b1dda0da572ff89a49f8fcf8`, and
-  authenticated payment-method plus `$5` add-balance probes return bounded
-  `auth_required` without raw secret egress.
+  the custom GitHub-attested `neko-chrome` CDP path. The profile is live at
+  attested compose hash
+  `f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552`;
+  authenticated `/auth/reauth` succeeds, the API key is available from the
+  encrypted store, and the next bounded operator action is the `$5`
+  real-card funding-validation packet.
 - `python -m tinker_delegate.main check-funding-validation-packet` replay-checks
   packet directories and returns bounded pass/fail checks. It can require
   add-balance evidence and can require live deployed TDX attestation evidence;

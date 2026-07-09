@@ -60,7 +60,11 @@ def _mask_public_fields(
                 if key in hex_allowed and isinstance(value, str) and value.startswith("0x")
                 else (
                     f"__public_decimal_{key}__"
-                    if key in decimal_allowed and isinstance(value, int)
+                    if key in decimal_allowed
+                    and (
+                        isinstance(value, int)
+                        or (isinstance(value, str) and value.isdecimal())
+                    )
                     else _mask_public_fields(
                         value,
                         public_hex_fields=public_hex_fields,
@@ -1285,7 +1289,12 @@ def cli():
             rpc_url=args.rpc_url,
             required=args.required or None,
         )
-        _emit_bounded_json(result.to_public_dict(), output_path=args.output)
+        _emit_bounded_json(
+            result.to_public_dict(),
+            output_path=args.output,
+            public_hex_fields=("contract_address", "compose_hash"),
+            public_decimal_fields=("amount_wei", "max_amount_wei"),
+        )
         sys.exit(0 if result.allowed else 1)
 
     elif args.command == "funding-command-plan":

@@ -11,17 +11,47 @@
 # - plaintext card endpoint remains disabled
 # - encrypted card, re-auth, and add-balance mutation endpoints require bearer auth
 # - funding mode is quote-visible operator_capped_validation with a $5 cap
-# - browser automation uses the Playwright sidecar, not the blocked Neko CDP path
+# - browser automation uses the GitHub-attested custom Neko Chrome/CDP path
 # - selector/readiness diagnostics remain disabled
 ###############################################################################
 
 services:
+  neko:
+    image: ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:525e43d585828d1d9aa1bceaf7c8cfffc2eec47abf67e0b10550bf05338c4a07
+    platform: linux/amd64
+    restart: unless-stopped
+    shm_size: 2gb
+    ulimits:
+      core: 0
+    cap_add:
+      - SYS_ADMIN
+    networks:
+      tee-net:
+        ipv4_address: 172.20.0.3
+    ports:
+      - "52000:8080"
+      - "9222:9222"
+    environment:
+      NEKO_SCREEN: 1920x1080@30
+      NEKO_PASSWORD: ${NEKO_PASSWORD:-neko}
+      NEKO_PASSWORD_ADMIN: ${NEKO_PASSWORD_ADMIN:-admin}
+      NEKO_ICELITE: 0
+      NEKO_NAT1TO1: 172.20.0.3
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+
   oracle:
-    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3
+    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f5c346912f3391e699252dba47c673902d06ffe528a8bab9732a76d551ec42ab
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
       core: 0
+    depends_on:
+      neko:
+        condition: service_healthy
     networks:
       tee-net:
         ipv4_address: 172.20.0.4
@@ -51,14 +81,12 @@ services:
       start_period: 180s
 
   delegate:
-    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:f9eb714c5630549441636b8a5525b20c9518e863940a3b8e072dff5a5dcab37d
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
       core: 0
     depends_on:
-      delegate-browser:
-        condition: service_started
       oracle:
         condition: service_started
     networks:
@@ -70,8 +98,8 @@ services:
       - delegate-data:/data
       - /var/run/dstack.sock:/var/run/dstack.sock
     environment:
-      TINKER_BROWSER_WS_ENDPOINT: ws://172.20.0.6:3000/
-      TINKER_CDP_URL: ""
+      TINKER_BROWSER_WS_ENDPOINT: ""
+      TINKER_CDP_URL: http://172.20.0.3:9222
       TINKER_ORACLE_URL: http://172.20.0.4:8000
       TINKER_ORACLE_AUTH_KEY_PATH: ${TINKER_ORACLE_AUTH_KEY_PATH:-oracle/runtime-auth}
       TINKER_RUNTIME_AUTH_REQUIRED: "true"
@@ -106,25 +134,6 @@ services:
       retries: 40
       timeout: 5s
       start_period: 300s
-
-  delegate-browser:
-    image: mcr.microsoft.com/playwright:v1.58.0-noble@sha256:e3dca7b3c921ce1ebf45a50a6ac77982532c987e5926eb06535b5f56b363b94f
-    platform: linux/amd64
-    restart: unless-stopped
-    init: true
-    ulimits:
-      core: 0
-    ipc: host
-    working_dir: /home/pwuser
-    user: pwuser
-    networks:
-      tee-net:
-        ipv4_address: 172.20.0.6
-    command:
-      - /bin/sh
-      - -lc
-      - |
-        exec npx -y playwright@1.58.0 run-server --port 3000 --host 0.0.0.0
 
 volumes:
   oracle-data:
