@@ -184,9 +184,30 @@ def _require_runtime_or_proxy_auth(required_scope: str, authorization: str = Hea
         "subject_hash": verification["subject_hash"],
         "jwt_id_hash": verification["jwt_id_hash"],
         "scopes": verification["scopes"],
+        "scope_limits": verification.get("scope_limits", {}),
         "expires_at": verification["expires_at"],
         "raw_secret_egress": False,
     }
+
+
+def _enforce_proxy_amount_limit(auth_context: dict[str, Any], scope: str, amount_dollars: float) -> None:
+    if auth_context.get("auth_kind") != "proxy":
+        return
+    limits = auth_context.get("scope_limits", {})
+    if not isinstance(limits, dict):
+        raise HTTPException(status_code=403, detail="Proxy token limits are invalid")
+    scope_limit = limits.get(scope)
+    if not scope_limit:
+        return
+    if not isinstance(scope_limit, dict):
+        raise HTTPException(status_code=403, detail="Proxy token scope limit is invalid")
+    max_amount = scope_limit.get("max_amount_usd")
+    try:
+        max_amount_float = float(max_amount)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=403, detail="Proxy token amount limit is invalid") from exc
+    if amount_dollars > max_amount_float:
+        raise HTTPException(status_code=403, detail="Proxy token amount exceeds policy limit")
 
 
 def _attach_proxy_auth_context(payload: Any, auth_context: dict[str, Any]) -> Any:
@@ -621,6 +642,7 @@ async def billing_add_balance(payload: BalancePayload, authorization: str = Head
             ),
         )
     auth_context = _require_runtime_or_proxy_auth("billing:add-balance", authorization)
+    _enforce_proxy_amount_limit(auth_context, "billing:add-balance", payload.amount_dollars)
     result = await handle_add_balance(payload, settings)
     return _attach_proxy_auth_context(result, auth_context)
 

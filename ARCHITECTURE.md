@@ -363,8 +363,17 @@ run IDs, checkpoint paths, samples, or private reward data.
             they still do not return the raw subject, recipient public key, or
             plaintext JWT. Source/API tests cover success, wrong recipient,
             TTL cap denial, and missing required policy. On-chain compose
-            binding, spend-cap binding, and production identity approval remain
-            open.
+            binding, live deployment evidence, and production identity approval
+            remain open.
+[real]      Policy-issued proxy JWTs can now carry bounded per-scope spend
+            limits. A policy grant may define `scope_limits`, and
+            spend-bearing scopes such as `billing:add-balance` require
+            `max_amount_usd` when the issue policy is required. The JWT stores
+            that bounded limit in a `limits` claim, `verify_proxy_token()`
+            returns it as `scope_limits`, and `/billing/add-balance` rejects a
+            proxy-authorized request above the cap before browser or payment
+            automation starts. This is source/test-real; live deployment and
+            on-chain/prod identity binding remain separate.
 [real]      The first bounded operation endpoints now accept scoped proxy JWTs:
             `proxy:status` for proxy status, `tinker:smoke` for the paid smoke
             surface, `billing:payment-method-status` for card-on-file status,

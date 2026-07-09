@@ -424,6 +424,67 @@ class BillingApiPolicyTest(unittest.TestCase):
         self.assertEqual(response.json()["error"], "stubbed")
         handle_add_balance.assert_awaited_once()
 
+    def test_add_balance_endpoint_rejects_proxy_jwt_over_policy_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            api.settings = Settings(
+                allow_add_balance_endpoint=True,
+                funding_mode="operator_capped_validation",
+                proxy_jwt_key="44" * 32,
+                proxy_token_store_path=f"{tmpdir}/proxy_tokens.enc",
+                proxy_token_store_key="44" * 32,
+            )
+            _, token = issue_proxy_token(
+                api.settings,
+                subject="buyer-agent-1",
+                scopes=["billing:add-balance"],
+                ttl_seconds=60,
+                scope_limits={"billing:add-balance": {"max_amount_usd": 10.0}},
+            )
+            client = TestClient(api.app)
+
+            with patch("tinker_delegate.api.handle_add_balance", new=AsyncMock()) as handle_add_balance:
+                response = client.post(
+                    "/billing/add-balance",
+                    json={"amount_dollars": 11.0},
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("exceeds policy limit", response.json()["detail"])
+        handle_add_balance.assert_not_awaited()
+
+    def test_add_balance_endpoint_allows_proxy_jwt_within_policy_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            api.settings = Settings(
+                allow_add_balance_endpoint=True,
+                funding_mode="operator_capped_validation",
+                proxy_jwt_key="44" * 32,
+                proxy_token_store_path=f"{tmpdir}/proxy_tokens.enc",
+                proxy_token_store_key="44" * 32,
+            )
+            _, token = issue_proxy_token(
+                api.settings,
+                subject="buyer-agent-1",
+                scopes=["billing:add-balance"],
+                ttl_seconds=60,
+                scope_limits={"billing:add-balance": {"max_amount_usd": 10.0}},
+            )
+            client = TestClient(api.app)
+
+            with patch(
+                "tinker_delegate.api.handle_add_balance",
+                new=AsyncMock(return_value={"success": False, "error": "stubbed"}),
+            ) as handle_add_balance:
+                response = client.post(
+                    "/billing/add-balance",
+                    json={"amount_dollars": 10.0},
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["proxy_auth_context"]["scope_limits"]["billing:add-balance"]["max_amount_usd"], 10.0)
+        handle_add_balance.assert_awaited_once()
+
     def test_add_balance_endpoint_rejects_proxy_jwt_without_scope(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             api.settings = Settings(

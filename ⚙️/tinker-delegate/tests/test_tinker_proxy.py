@@ -47,20 +47,29 @@ def _decrypt_token(private_key, payload: dict) -> str:
     ).decode("utf-8")
 
 
-def _write_proxy_issue_policy(path: str, *, subject: str, recipient_public_key_hex: str, scopes: list[str], ttl: int):
+def _write_proxy_issue_policy(
+    path: str,
+    *,
+    subject: str,
+    recipient_public_key_hex: str,
+    scopes: list[str],
+    ttl: int,
+    scope_limits: dict | None = None,
+):
+    grant = {
+        "subject_hash": stable_hash(subject, prefix="proxy_subject"),
+        "recipient_public_key_hash": stable_hash(
+            recipient_public_key_hex.lower(),
+            prefix="proxy_recipient_public_key",
+        ),
+        "scopes": scopes,
+        "max_ttl_seconds": ttl,
+    }
+    if scope_limits is not None:
+        grant["scope_limits"] = scope_limits
     policy = {
         "schema_version": 1,
-        "grants": [
-            {
-                "subject_hash": stable_hash(subject, prefix="proxy_subject"),
-                "recipient_public_key_hash": stable_hash(
-                    recipient_public_key_hex.lower(),
-                    prefix="proxy_recipient_public_key",
-                ),
-                "scopes": scopes,
-                "max_ttl_seconds": ttl,
-            }
-        ],
+        "grants": [grant],
     }
     with open(path, "w") as handle:
         json.dump(policy, handle, sort_keys=True)
@@ -176,6 +185,76 @@ class TinkerProxyTest(unittest.TestCase):
         self.assertFalse(issued["policy_binding"]["raw_secret_egress"])
         self.assertNotIn("buyer-agent-1", rendered)
         self.assertNotIn(public_key_hex, rendered)
+
+    def test_issue_policy_embeds_spend_limit_for_add_balance_scope(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            private_key, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["billing:add-balance"],
+                ttl=60,
+                scope_limits={"billing:add-balance": {"max_amount_usd": 10}},
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+            )
+
+            issued = issue_encrypted_proxy_token(
+                settings,
+                subject="buyer-agent-1",
+                scopes=["billing:add-balance"],
+                recipient_public_key_hex=public_key_hex,
+                ttl_seconds=60,
+                now=1000,
+            )
+            token = _decrypt_token(private_key, issued)
+            verification = verify_proxy_token(
+                settings,
+                token,
+                required_scope="billing:add-balance",
+                now=1001,
+            )
+
+        self.assertEqual(
+            issued["policy_binding"]["scope_limits"],
+            {"billing:add-balance": {"max_amount_usd": 10.0}},
+        )
+        self.assertEqual(
+            verification["scope_limits"],
+            {"billing:add-balance": {"max_amount_usd": 10.0}},
+        )
+
+    def test_issue_policy_requires_spend_limit_for_add_balance_scope(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["billing:add-balance"],
+                ttl=60,
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+            )
+
+            with self.assertRaisesRegex(ValueError, "spend scope is missing"):
+                issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["billing:add-balance"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
 
     def test_issue_policy_rejects_unapproved_recipient_key(self):
         with tempfile.TemporaryDirectory() as tmpdir:

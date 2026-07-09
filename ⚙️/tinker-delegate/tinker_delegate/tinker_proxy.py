@@ -44,6 +44,7 @@ SUPPORTED_PROXY_SCOPES = {
     "billing:payment-method-status",
     "billing:add-balance",
 }
+SPEND_LIMIT_PROXY_SCOPES = frozenset({"billing:add-balance", "tinker:smoke"})
 
 
 def generate_proxy_recipient_keypair() -> tuple[str, str]:
@@ -87,9 +88,10 @@ class ProxyTokenClaims:
     jwt_id: str
     issuer: str
     audience: str
+    scope_limits: dict[str, dict[str, float]]
 
     def to_jwt_payload(self) -> dict[str, Any]:
-        return {
+        payload = {
             "iss": self.issuer,
             "aud": self.audience,
             "sub": self.subject,
@@ -99,9 +101,12 @@ class ProxyTokenClaims:
             "exp": self.expires_at,
             "jti": self.jwt_id,
         }
+        if self.scope_limits:
+            payload["limits"] = self.scope_limits
+        return payload
 
     def to_public_dict(self) -> dict[str, Any]:
-        return {
+        public = {
             "subject_hash": stable_hash(self.subject, prefix="proxy_subject"),
             "scopes": list(self.scopes),
             "issued_at": self.issued_at,
@@ -109,6 +114,9 @@ class ProxyTokenClaims:
             "ttl_seconds": max(0, self.expires_at - self.issued_at),
             "jwt_id_hash": stable_hash(self.jwt_id, prefix="proxy_jti"),
         }
+        if self.scope_limits:
+            public["scope_limits"] = self.scope_limits
+        return public
 
 
 def build_tinker_proxy_status(settings) -> dict[str, Any]:
@@ -211,6 +219,7 @@ def issue_encrypted_proxy_token(
         scopes=normalized_scopes,
         ttl_seconds=normalized_ttl,
         now=now,
+        scope_limits=policy_binding.get("scope_limits", {}),
     )
     associated_data = _proxy_token_associated_data(claims)
     envelope = encrypt_for_tee(
@@ -256,6 +265,7 @@ def issue_proxy_token(
     scopes: list[str] | tuple[str, ...],
     ttl_seconds: int | None = None,
     now: int | None = None,
+    scope_limits: dict[str, dict[str, float]] | None = None,
 ) -> tuple[ProxyTokenClaims, str]:
     """Issue a scoped JWT signed by CVM-derived or explicit local key material."""
 
@@ -271,6 +281,7 @@ def issue_proxy_token(
         jwt_id=str(uuid.uuid4()),
         issuer=getattr(settings, "proxy_jwt_issuer", "") or "dnai-wikigen:tinker-proxy",
         audience=getattr(settings, "proxy_jwt_audience", "") or "dnai-wikigen:tinker-delegate",
+        scope_limits=_normalize_scope_limits(scope_limits or {}, set(normalized_scopes), require_spend_limits=False),
     )
     token = _encode_jwt(claims.to_jwt_payload(), _proxy_signing_key(settings))
     return claims, token
@@ -310,6 +321,7 @@ def verify_proxy_token(
         "subject_hash": stable_hash(subject, prefix="proxy_subject"),
         "jwt_id_hash": jwt_id_hash,
         "scopes": list(scopes),
+        "scope_limits": _normalize_scope_limits(payload.get("limits", {}), set(scopes), require_spend_limits=False),
         "expires_at": int(payload["exp"]),
         "raw_secret_egress": False,
     }
@@ -416,6 +428,11 @@ def _validate_proxy_issue_policy(
         if ttl_seconds > max_ttl:
             ttl_cap_fail = True
             continue
+        scope_limits = _normalize_scope_limits(
+            grant.get("scope_limits", {}),
+            requested_scopes,
+            require_spend_limits=True,
+        )
         return {
             "required": True,
             "configured": True,
@@ -425,6 +442,7 @@ def _validate_proxy_issue_policy(
             "recipient_public_key_hash": recipient_public_key_hash,
             "requested_scopes": list(scopes),
             "granted_scopes": sorted(normalized_grant_scopes),
+            "scope_limits": scope_limits,
             "max_ttl_seconds": max_ttl,
             "ttl_seconds": ttl_seconds,
             "raw_secret_egress": False,
@@ -451,6 +469,43 @@ def _load_proxy_issue_policy(policy_path: str) -> dict[str, Any]:
 
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def _normalize_scope_limits(
+    raw_limits: Any,
+    scopes: set[str],
+    *,
+    require_spend_limits: bool,
+) -> dict[str, dict[str, float]]:
+    if raw_limits in (None, ""):
+        raw_limits = {}
+    if not isinstance(raw_limits, dict):
+        raise ValueError("proxy issue policy scope limits must be an object")
+    normalized: dict[str, dict[str, float]] = {}
+    for scope, limits in raw_limits.items():
+        scope_name = str(scope).strip()
+        if scope_name not in SUPPORTED_PROXY_SCOPES:
+            raise ValueError("proxy issue policy scope limit has unsupported scope")
+        if scope_name not in scopes:
+            continue
+        if not isinstance(limits, dict):
+            raise ValueError("proxy issue policy scope limit must be an object")
+        max_amount = limits.get("max_amount_usd", None)
+        if max_amount is None:
+            raise ValueError("proxy issue policy scope limit missing max_amount_usd")
+        try:
+            max_amount_float = float(max_amount)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("proxy issue policy scope limit max_amount_usd must be numeric") from exc
+        if max_amount_float <= 0:
+            raise ValueError("proxy issue policy scope limit max_amount_usd must be positive")
+        normalized[scope_name] = {"max_amount_usd": max_amount_float}
+
+    if require_spend_limits:
+        missing = sorted(scope for scope in scopes if scope in SPEND_LIMIT_PROXY_SCOPES and scope not in normalized)
+        if missing:
+            raise ValueError("proxy issue policy spend scope is missing max_amount_usd")
+    return normalized
 
 
 def _signing_key_source(settings) -> str:

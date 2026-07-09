@@ -107,9 +107,13 @@ Latest Tinker execution buildout, 2026-07-09:
   `TINKER_PROXY_ISSUE_POLICY_PATH`, issuance fails closed unless a policy grant
   matches the subject hash, recipient public-key hash, requested scope subset,
   and TTL cap. Successful responses expose only bounded `policy_binding`
-  hashes/scopes/caps and `raw_secret_egress=false`. Live funding-validation
+  hashes/scopes/caps and `raw_secret_egress=false`. Spend-bearing scopes can
+  also require `scope_limits.max_amount_usd`; policy-issued add-balance tokens
+  carry that bounded limit, and `/billing/add-balance` rejects over-cap proxy
+  requests before browser/payment automation starts. Live funding-validation
   deployment, attestation, audit replay, and compose/contract binding are now
-  proven for the operator-validation slice below.
+  proven for the operator-validation slice below, but this new spend-limit
+  source slice is not yet deployed.
 - First proxy-token authorization wiring is source/test-real:
   `GET /tinker/proxy/status`, `POST /tinker/smoke`,
   `GET /billing/payment-method-status`, and `POST /billing/add-balance` accept

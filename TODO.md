@@ -100,8 +100,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   or recipient public key. Unit/API tests cover success,
                   wrong-recipient denial, TTL-cap denial, and required-policy
                   missing-path denial.
+            - [x] Bind policy-issued proxy JWTs to operation spend caps for
+                  add-balance. Done 2026-07-09: policy grants can include
+                  per-scope `scope_limits` with `max_amount_usd`; spend-bearing
+                  scopes such as `billing:add-balance` fail closed when a
+                  required issue policy omits the cap. The JWT carries the
+                  bounded `limits` claim, verification returns bounded
+                  `scope_limits`, and `/billing/add-balance` rejects
+                  proxy-authorized requests above the cap before invoking
+                  browser/payment automation. Tests cover limit embedding,
+                  missing-cap denial, over-cap rejection, and within-cap pass.
             - [ ] Bind proxy issue policy grants to on-chain compose policy,
-                  operation spend caps, and production user/agent identity
+                  live deployment evidence, and production user/agent identity
                   approval before treating this as production governance.
       - [x] Accept scoped proxy JWTs on the first bounded operation endpoints.
             Done 2026-07-09: `GET /tinker/proxy/status`,
