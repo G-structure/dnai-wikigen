@@ -347,9 +347,12 @@ run IDs, checkpoint paths, samples, or private reward data.
             using AES-256-GCM, and verifies scoped bearer tokens without
             returning the plaintext token. `GET /tinker/proxy/status` and
             `POST /tinker/proxy/token` are disabled by default; token issuance
-            additionally requires configured runtime bearer auth. The
-            implementation is source/test-real only until built, deployed,
-            attested, approved, and bound to a production user/scope policy.
+            additionally requires configured runtime bearer auth.
+            Recipient-side CLI tooling can generate an X25519 delivery keypair
+            and decrypt an issuance envelope into a local `0600` JWT file
+            without printing the private key or token. The implementation is
+            source/test-real only until built, deployed, attested, approved,
+            and bound to a production user/scope policy.
 
 ### Bounded Output
 

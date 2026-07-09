@@ -2,6 +2,7 @@
 import argparse
 import asyncio
 import getpass
+import hashlib
 import json
 import os
 import time
@@ -106,6 +107,15 @@ def _emit_bounded_json(
         Path(output_path).write_text(rendered + "\n", encoding="utf-8")
     else:
         print(rendered)
+
+
+def _write_secret_text(path: str, value: str) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(value)
+        handle.write("\n")
 
 
 def _receipt_or_raise(response: dict[str, Any] | Any) -> dict[str, Any]:
@@ -510,6 +520,36 @@ def cli():
     )
     tinker_proxy_token_p.add_argument("--ttl-seconds", type=int, default=None)
     tinker_proxy_token_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    tinker_proxy_keygen_p = sub.add_parser(
+        "tinker-proxy-recipient-keygen",
+        help="Generate an X25519 recipient keypair for encrypted proxy-token delivery",
+    )
+    tinker_proxy_keygen_p.add_argument(
+        "--private-key-output",
+        required=True,
+        help="Path to write the recipient private key with mode 0600",
+    )
+    tinker_proxy_keygen_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    tinker_proxy_decrypt_p = sub.add_parser(
+        "decrypt-tinker-proxy-token",
+        help="Decrypt an encrypted proxy-token issuance response into a local token file",
+    )
+    tinker_proxy_decrypt_p.add_argument(
+        "--encrypted-token-json",
+        required=True,
+        help="Path to JSON returned by issue-tinker-proxy-token",
+    )
+    tinker_proxy_decrypt_p.add_argument(
+        "--private-key-file",
+        required=True,
+        help="Path to recipient private key file from tinker-proxy-recipient-keygen",
+    )
+    tinker_proxy_decrypt_p.add_argument(
+        "--token-output",
+        required=True,
+        help="Path to write the decrypted proxy JWT with mode 0600",
+    )
+    tinker_proxy_decrypt_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     tinker_smoke_p = sub.add_parser(
         "tinker-smoke",
         help="Run a bounded tiny real Tinker SDK training/checkpoint/sample/cleanup smoke",
@@ -1611,6 +1651,44 @@ def cli():
         )
         _emit_bounded_json(result, output_path=args.output)
         sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "tinker-proxy-recipient-keygen":
+        from tinker_delegate.tinker_proxy import generate_proxy_recipient_keypair
+
+        private_key_hex, public_key_hex = generate_proxy_recipient_keypair()
+        _write_secret_text(args.private_key_output, private_key_hex)
+        result = {
+            "surface": "tinker_proxy_recipient_keygen",
+            "success": True,
+            "public_key": public_key_hex,
+            "public_key_hash": hashlib.sha256(bytes.fromhex(public_key_hex)).hexdigest(),
+            "private_key_path": str(Path(args.private_key_output)),
+            "private_key_saved": True,
+            "private_key_returned": False,
+            "raw_secret_egress": False,
+        }
+        _emit_bounded_json(result, output_path=args.output, public_hex_fields=("public_key",))
+        sys.exit(0)
+
+    elif args.command == "decrypt-tinker-proxy-token":
+        from tinker_delegate.tinker_proxy import decrypt_encrypted_proxy_token
+
+        payload = json.loads(Path(args.encrypted_token_json).read_text(encoding="utf-8"))
+        private_key_hex = Path(args.private_key_file).read_text(encoding="utf-8").strip()
+        token = decrypt_encrypted_proxy_token(payload, private_key_hex)
+        _write_secret_text(args.token_output, token)
+        result = {
+            "surface": "tinker_proxy_token_decrypt",
+            "success": True,
+            "token_hash": hashlib.sha256(token.encode("utf-8")).hexdigest(),
+            "token_output": str(Path(args.token_output)),
+            "plaintext_token_saved": True,
+            "plaintext_token_returned": False,
+            "private_key_returned": False,
+            "raw_secret_egress": False,
+        }
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0)
 
     elif args.command == "balance":
         if args.api_url:

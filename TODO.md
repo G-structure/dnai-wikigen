@@ -78,6 +78,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             also requires configured runtime bearer auth. CLI commands
             `tinker-proxy-status` and `issue-tinker-proxy-token` preserve
             bounded output.
+      - [x] Add recipient-side proxy-token delivery tooling.
+            Done 2026-07-09: `tinker-proxy-recipient-keygen` writes an X25519
+            private key to a local `0600` file and emits only the public key and
+            hashes; `decrypt-tinker-proxy-token` decrypts an issuance envelope
+            into a local `0600` JWT file and emits only token hashes/status.
+            CLI tests cover keygen -> encrypted issuance -> recipient decrypt
+            without printing the private key or plaintext JWT.
       - [ ] Bind proxy JWT issuance to production approval policy:
             approved user/agent identity, delivery public key, scopes, spend
             caps, expiration, revocation, audit record, and contract/compose

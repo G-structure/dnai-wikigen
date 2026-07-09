@@ -19,8 +19,15 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.x25519 import (
+    X25519PrivateKey,
+    X25519PublicKey,
+)
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
 from tinker_delegate.api_key_store import resolve_api_key
-from tinker_delegate.crypto import encrypt_for_tee
+from tinker_delegate.crypto import _derive_aes_key, encrypt_for_tee
 from tinker_delegate.dstack_utils import derive_storage_key, is_dstack_enabled
 from tinker_delegate.run_metadata_store import stable_hash
 
@@ -32,6 +39,38 @@ SUPPORTED_PROXY_SCOPES = {
     "billing:payment-method-status",
     "billing:add-balance",
 }
+
+
+def generate_proxy_recipient_keypair() -> tuple[str, str]:
+    """Generate a recipient X25519 keypair for encrypted proxy-token delivery."""
+
+    private_key = X25519PrivateKey.generate()
+    private_key_hex = private_key.private_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PrivateFormat.Raw,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).hex()
+    public_key_hex = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    ).hex()
+    return private_key_hex, public_key_hex
+
+
+def decrypt_encrypted_proxy_token(payload: dict[str, Any], recipient_private_key_hex: str) -> str:
+    """Decrypt an encrypted proxy-token issuance response with the recipient key."""
+
+    private_key = X25519PrivateKey.from_private_bytes(bytes.fromhex(recipient_private_key_hex))
+    encrypted = payload["encrypted_token"]
+    sender_public = X25519PublicKey.from_public_bytes(bytes.fromhex(encrypted["ephemeral_public_key"]))
+    shared_secret = private_key.exchange(sender_public)
+    aes_key = _derive_aes_key(shared_secret, info=PROXY_TOKEN_HKDF_INFO)
+    plaintext = AESGCM(aes_key).decrypt(
+        bytes.fromhex(encrypted["nonce"]),
+        bytes.fromhex(encrypted["ciphertext"]),
+        bytes.fromhex(payload["associated_data"]),
+    )
+    return plaintext.decode("utf-8")
 
 
 @dataclass(frozen=True)

@@ -273,6 +273,98 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertNotIn("operator-secret", rendered)
             self.assertNotIn("buyer-agent-1", rendered)
 
+    def test_proxy_recipient_keygen_issue_and_decrypt_keep_token_off_stdout(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            private_key_path = Path(tmpdir) / "recipient.key"
+            keygen_path = Path(tmpdir) / "recipient-public.json"
+            issue_path = Path(tmpdir) / "encrypted-token.json"
+            decrypt_path = Path(tmpdir) / "decrypt-receipt.json"
+            token_path = Path(tmpdir) / "proxy.jwt"
+            env = _env(tmpdir)
+            env["TINKER_PROXY_JWT_KEY"] = "55" * 32
+
+            keygen = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "tinker-proxy-recipient-keygen",
+                    "--private-key-output",
+                    str(private_key_path),
+                    "--output",
+                    str(keygen_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            public_key = json.loads(keygen_path.read_text(encoding="utf-8"))["public_key"]
+            issued = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "issue-tinker-proxy-token",
+                    "--subject",
+                    "buyer-agent-1",
+                    "--scope",
+                    "proxy:status",
+                    "--recipient-public-key",
+                    public_key,
+                    "--output",
+                    str(issue_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            decrypted = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "decrypt-tinker-proxy-token",
+                    "--encrypted-token-json",
+                    str(issue_path),
+                    "--private-key-file",
+                    str(private_key_path),
+                    "--token-output",
+                    str(token_path),
+                    "--output",
+                    str(decrypt_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(keygen.returncode, 0, keygen.stderr)
+            self.assertEqual(issued.returncode, 0, issued.stderr)
+            self.assertEqual(decrypted.returncode, 0, decrypted.stderr)
+            self.assertEqual(keygen.stdout, "")
+            self.assertEqual(issued.stdout, "")
+            self.assertEqual(decrypted.stdout, "")
+            self.assertTrue(token_path.read_text(encoding="utf-8").strip().count(".") == 2)
+            self.assertEqual(private_key_path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(token_path.stat().st_mode & 0o777, 0o600)
+            keygen_receipt = json.loads(keygen_path.read_text(encoding="utf-8"))
+            issue_receipt = json.loads(issue_path.read_text(encoding="utf-8"))
+            decrypt_receipt = json.loads(decrypt_path.read_text(encoding="utf-8"))
+            rendered = repr([keygen_receipt, issue_receipt, decrypt_receipt])
+            self.assertTrue(keygen_receipt["private_key_saved"])
+            self.assertFalse(keygen_receipt["private_key_returned"])
+            self.assertFalse(issue_receipt["plaintext_token_returned"])
+            self.assertTrue(decrypt_receipt["plaintext_token_saved"])
+            self.assertFalse(decrypt_receipt["plaintext_token_returned"])
+            self.assertNotIn(token_path.read_text(encoding="utf-8").strip(), rendered)
+            self.assertNotIn(private_key_path.read_text(encoding="utf-8").strip(), rendered)
+
     def test_tinker_smoke_non_json_remote_response_writes_bounded_failure(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "smoke.json"

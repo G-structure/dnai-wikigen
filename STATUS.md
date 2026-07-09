@@ -97,9 +97,12 @@ Latest Tinker execution buildout, 2026-07-09:
   only scopes, expiry, hashes, and encrypted envelope material. New
   `GET /tinker/proxy/status` and `POST /tinker/proxy/token` endpoints are
   disabled by default; token issuance also requires configured runtime bearer
-  auth. This is source/test-real only: production user approval, spend caps,
-  revocation, audit replay, deployment, attestation, and compose/contract
-  binding remain open.
+  auth. Recipient tooling exists as source/test-real:
+  `tinker-proxy-recipient-keygen` writes a `0600` X25519 private-key file and
+  emits only the public key; `decrypt-tinker-proxy-token` decrypts an issuance
+  envelope into a `0600` JWT file and emits only hashes/status. Production user
+  approval, spend caps, revocation, audit replay, deployment, attestation, and
+  compose/contract binding remain open.
 - Source now has a bounded real-SDK smoke surface for the funded Tinker account.
   `tinker_delegate.tinker_smoke.run_tinker_sdk_smoke()` uses the sealed API-key
   resolver, checks `TinkerAccountEncumbrance` with `SPEND_TINKER_COMPUTE`,
