@@ -204,6 +204,11 @@ Latest Tinker execution buildout, 2026-07-09:
   the operator/runtime env and live CVM evidence, and it uses only environment
   variable names plus a new-compose placeholder rather than project IDs, bearer
   tokens, API keys, RPC URLs, run IDs, checkpoint paths, or sample text.
+  GitHub Actions run `29026626931` built source
+  `bd066de1b3b50b3d43284c4672b3bf1a057abc1e` into
+  `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:bb8ef23bb45d675e7344a7a4b7479124d239deb2742912728a096753ae6bf06f`,
+  and local attestation verification passed for both provenance and SBOM. This
+  planner image is not yet pinned into the Phala compose or deployed.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned

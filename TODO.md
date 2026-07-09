@@ -1797,7 +1797,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             spend preflight, and bounded smoke. The output uses environment
             variable names and a new-compose placeholder only; it never prints
             project IDs, bearer tokens, API keys, RPC URLs, run IDs,
-            checkpoint paths, or sample text.
+            checkpoint paths, or sample text. Follow-up build evidence:
+            GitHub Actions run `29026626931` built source
+            `bd066de1b3b50b3d43284c4672b3bf1a057abc1e` into
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:bb8ef23bb45d675e7344a7a4b7479124d239deb2742912728a096753ae6bf06f`,
+            and local attestation verification passed for GitHub provenance
+            and SBOM predicates. This image is not yet pinned or deployed;
+            pin/redeploy it only after `TINKER_PROJECT_ID` is available.
       - [ ] Run `tinker-smoke --api-url ... --max-usd 0.05
             --require-encumbrance` successfully from the deployed CVM and record
             the bounded receipt plus attestation evidence.
