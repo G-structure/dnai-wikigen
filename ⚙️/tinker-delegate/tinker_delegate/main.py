@@ -6,6 +6,8 @@ import json
 import os
 import time
 import sys
+import termios
+import tty
 from pathlib import Path
 from typing import Any
 
@@ -124,7 +126,54 @@ def _runtime_auth_headers(auth_token_env: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"} if token else {}
 
 
-def _prompt_billing_card_payload(prompt_fn=getpass.getpass) -> dict[str, str]:
+def _masked_prompt(prompt: str) -> str:
+    """Read a secret field while echoing one mask character per typed char."""
+
+    stdin = sys.stdin
+    stdout = sys.stdout
+    if not stdin.isatty() or not stdout.isatty():
+        return getpass.getpass(prompt)
+
+    fd = stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    chars: list[str] = []
+    stdout.write(prompt)
+    stdout.flush()
+    try:
+        tty.setraw(fd)
+        return _read_masked_prompt_chars(lambda: stdin.read(1), stdout.write, stdout.flush, chars)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+
+def _read_masked_prompt_chars(read_char, write, flush, chars: list[str] | None = None) -> str:
+    """Read raw prompt chars and echo masks; split out for deterministic tests."""
+
+    chars = chars if chars is not None else []
+    while True:
+        ch = read_char()
+        if ch in ("\r", "\n"):
+            write("\n")
+            flush()
+            return "".join(chars)
+        if ch == "\x03":
+            raise KeyboardInterrupt
+        if ch == "\x04":
+            raise EOFError
+        if ch in ("\x7f", "\b"):
+            if chars:
+                chars.pop()
+                write("\b \b")
+                flush()
+            continue
+        if ch in ("\x1b", "\x00"):
+            continue
+        chars.append(ch)
+        write("*")
+        flush()
+
+
+def _prompt_billing_card_payload(prompt_fn=_masked_prompt) -> dict[str, str]:
     """Read card fields without placing them in shell history or argv."""
     fields = (
         ("card_number", "Card number", ""),

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import httpx
 
@@ -101,6 +102,44 @@ class BillingUploaderTest(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
         self.assertFalse(result.response["success"])
         self.assertEqual(result.response["attempt_record"]["outcome"], "card_declined")
+        self.assertEqual([request.url.path for request in requests], [
+            "/attestation",
+            "/billing/card/encrypted",
+        ])
+
+    def test_default_client_timeout_allows_browser_driven_card_update(self):
+        requests = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.method == "GET" and request.url.path == "/attestation":
+                return httpx.Response(200, json=_tdx_billing_attestation())
+            if request.method == "POST" and request.url.path == "/billing/card/encrypted":
+                return httpx.Response(
+                    200,
+                    json={
+                        "success": True,
+                        "attempt_record": {
+                            "surface": "payment_method",
+                            "outcome": "success",
+                        },
+                    },
+                )
+            return httpx.Response(404)
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        with patch("tinker_delegate.billing_uploader.httpx.Client", return_value=client) as client_factory:
+            result = upload_billing_card_payload(
+                "https://tee.example",
+                _card_payload(),
+                BillingCardUploadPolicy(
+                    expected_compose_hash="compose-ok",
+                    expected_app_id="app-ok",
+                ),
+            )
+
+        self.assertTrue(result.response["success"])
+        self.assertEqual(client_factory.call_args.kwargs["timeout"], 180.0)
         self.assertEqual([request.url.path for request in requests], [
             "/attestation",
             "/billing/card/encrypted",

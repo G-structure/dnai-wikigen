@@ -28,6 +28,7 @@ class BillingCardUploadPolicy:
     allow_local: bool = False
     max_age_seconds: float = 60.0
     auth_token: str = ""
+    request_timeout_seconds: float = 180.0
 
 
 @dataclass(frozen=True)
@@ -88,7 +89,7 @@ def upload_billing_card_payload(
 ) -> BillingCardUploadResult:
     """Fetch attestation, verify it, encrypt card data, and post to billing."""
     owns_client = client is None
-    http = client or httpx.Client(timeout=30.0)
+    http = client or httpx.Client(timeout=policy.request_timeout_seconds)
     try:
         attestation_response = http.get(attestation_endpoint(base_url, policy.context))
         attestation_response.raise_for_status()

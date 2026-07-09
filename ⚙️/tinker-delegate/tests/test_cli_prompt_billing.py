@@ -5,12 +5,28 @@ from unittest.mock import patch
 from tinker_delegate.config import Settings
 from tinker_delegate.main import (
     _prompt_billing_card_payload,
+    _read_masked_prompt_chars,
     _validate_prompt_billing_policy,
 )
 from tinker_delegate.tinker_encumbrance import TinkerEncumbrancePolicyResult
 
 
 class PromptBillingCliTest(unittest.TestCase):
+    def test_masked_prompt_echoes_masks_and_supports_backspace(self):
+        chars = iter("123\x7f45\n")
+        writes = []
+        flushes = []
+
+        value = _read_masked_prompt_chars(
+            lambda: next(chars),
+            writes.append,
+            lambda: flushes.append(True),
+        )
+
+        self.assertEqual(value, "1245")
+        self.assertEqual("".join(writes), "***\b \b**\n")
+        self.assertGreaterEqual(len(flushes), 1)
+
     def test_prompt_card_payload_reads_fields_without_argv(self):
         prompts = []
         values = iter([
