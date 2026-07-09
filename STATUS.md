@@ -116,13 +116,29 @@ rendered compose SHA-256
 and live TDX envelope. Live `/auth/reauth` succeeded and saved session state;
 bounded payment-method status returned `card_on_file=false` and
 `payment_method_count_band=zero`, so the next real validation must add a card
-and then add `$10` credit. The current on-chain blocker is expected and
-fail-closed: `approvedComposeHashes(0x9f0754be...)` is false, so
-`funding-preflight --amount 10` reports `compose_hash_not_approved`.
+and then add `$10` credit. The initial on-chain blocker was expected and
+fail-closed: before operator approval, `approvedComposeHashes(0x9f0754be...)`
+was false and `funding-preflight --amount 10` reported
+`compose_hash_not_approved`.
 Production deployment remains partial because the CVM still reports
 `dstack-dev-0.5.9` / `is_dev=true`, quote internals are not yet parsed, the new
-compose hash is not approved on-chain, and live low-value top-up has not
-succeeded.
+card-add/add-balance packet still times out before producing bounded receipts,
+and live low-value top-up has not succeeded.
+
+Funding retry follow-up, 2026-07-09: the operator approved the refreshed
+compose hash on-chain in tx
+`0xb7e6d0fc504146d88005339bd859142a5f2d6c3f99315d81cb00742ebc15d48e` at
+block `43905420`, and read-back returned `true`; fresh `$10` preflight then
+returned `ready=true` with `tinker_encumbrance=allowed`. Packet
+`/tmp/dnai-tinker-funding-validation-packet-20260709T065233Z` was attempted
+without reauth, but still timed out before writing `payment-method-receipt.json`
+or `add-balance-receipt.json`. A later bounded card-status probe still returned
+`card_on_file=false` / count band `zero`, so no card-add or top-up is proven.
+Source fix `5ab9e81` improves the operator prompt to echo `*` per typed
+character with backspace support and raises the local encrypted-card upload
+timeout from 30 seconds to 180 seconds so the client waits for deployed browser
+automation. This is a local CLI/client fix; the live CVM does not need redeploy
+for it.
 
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia

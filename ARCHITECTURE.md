@@ -1174,13 +1174,20 @@ Implementation status:
             `962e0352a468460eaa6085a2a32a6b7005798c7e3e5f3ff71e9799fa0cf67ea7`.
             Live `/billing/funding-policy` reports `$10` minimum and `$10` cap,
             `/auth/reauth` succeeds, and bounded payment-method status reports
-            `card_on_file=false` / count band `zero`. The add-balance path is
-            intentionally blocked until the owner approves the new live compose
-            hash in `TinkerAccountEncumbrance`; read-only preflight returns
-            `compose_hash_not_approved`. It is still not production-final
-            because the CVM reports dev OS, quote internals are not parsed, and
-            a successful live real-card add-balance receipt has not yet been
-            produced.
+            `card_on_file=false` / count band `zero`. The owner approved the
+            new live compose hash in `TinkerAccountEncumbrance` on Base Sepolia
+            in tx
+            `0xb7e6d0fc504146d88005339bd859142a5f2d6c3f99315d81cb00742ebc15d48e`
+            at block `43905420`; read-only `$10` preflight now returns ready.
+            Packet `/tmp/dnai-tinker-funding-validation-packet-20260709T065233Z`
+            still timed out before payment-method or add-balance receipts were
+            written, and a later bounded card-status probe still reported
+            `card_on_file=false`. Local client fix `5ab9e81` adds masked prompt
+            echo/backspace support and increases encrypted-card upload timeout
+            to 180 seconds; no CVM redeploy is required for that client-only
+            change. The profile is still not production-final because the CVM
+            reports dev OS, quote internals are not parsed, and a successful
+            live real-card add-balance receipt has not yet been produced.
 [real]      Source/tests now distinguish billing selector drift from auth-state
             failure before card fields or top-up controls are touched. The
             payment-method and add-balance flows classify a billing navigation

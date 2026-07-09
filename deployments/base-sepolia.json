@@ -59,14 +59,14 @@
       "emergencyHalted": false,
       "measurementsFrozen": false,
       "currentOperatorControlled": true,
-      "latestApprovedComposeHash": "0xf4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552",
+      "latestApprovedComposeHash": "0x9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
       "latestApprovedComposeHashApproved": true,
-      "latestComposeApprovalTx": "0x0e80acc1474fa1aef698f86d7f4fc3cdc700912cdb30aec9ef70d222ff83111f",
-      "latestComposeApprovalBlock": 43902526,
+      "latestComposeApprovalTx": "0xb7e6d0fc504146d88005339bd859142a5f2d6c3f99315d81cb00742ebc15d48e",
+      "latestComposeApprovalBlock": 43905420,
       "currentFundingComposeHash": "0x9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
-      "lastReviewedAt": "2026-07-09T06:29:34Z",
-      "pendingComposeHashApproval": "0x9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
-      "pendingComposeHashApproved": false
+      "lastReviewedAt": "2026-07-09T06:59:00Z",
+      "pendingComposeHashApproval": "",
+      "pendingComposeHashApproved": true
     }
   },
   "phala": {
@@ -1105,7 +1105,7 @@
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "fundingValidationEvidence": {
-      "status": "live_redeployed_pending_compose_hash_approval",
+      "status": "live_redeployed_compose_approved_card_add_timeout",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
       "sourceDigest": "8a571347d946fd6c23a84db256fd99f7169061e5",
       "githubActionsRunId": 28998076083,
@@ -1143,7 +1143,7 @@
         "bootstrapAttempted": false
       },
       "fundingPreflight": {
-        "ready": false,
+        "ready": true,
         "amount": 10,
         "attestationFetch": "live_attestation_matched_expected_9f0754be_compose_hash",
         "addBalanceEndpoint": "enabled_behind_runtime_bearer_auth",
@@ -1151,7 +1151,7 @@
         "minAddBalanceUsd": 10,
         "maxAddBalanceUsd": 10,
         "stalePreviousReadyAmount": 5,
-        "staleReason": "new compose hash is live but not yet approved by TinkerAccountEncumbrance"
+        "staleReason": ""
       },
       "reauthAttempt": {
         "success": true,
@@ -1178,15 +1178,15 @@
         "storesRawCookiesOrLocalStorageInPlaintext": false
       },
       "fundingCommandPlan": {
-        "status": "blocked_until_new_compose_hash_approved",
+        "status": "ready_after_compose_approval_card_add_timeout_observed",
         "amount": 10,
         "encumbranceContract": "0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e",
-        "composeHashApproved": false,
+        "composeHashApproved": true,
         "runtimeAuthRequired": true,
         "rawSecretEgress": false,
-        "latestLocalPlanCheck": "ready_false_compose_hash_not_approved"
+        "latestLocalPlanCheck": "ready_true_raw_secret_egress_false_after_compose_approval"
       },
-      "nextStep": "operator must approve the new live compose hash in TinkerAccountEncumbrance, then rerun $10 preflight, prompt card add, and add-balance validation; do not commit or echo card details; production still requires non-dev OS before claiming final deployment",
+      "nextStep": "rerun the funding-validation packet from local source after client fix 5ab9e81; it should show masked card input with backspace and wait 180s for the encrypted-card browser workflow; do not commit or echo card details; production still requires non-dev OS before claiming final deployment",
       "postSelectorDiagnosticsRestore": {
         "date": "2026-07-09",
         "attestedComposeHash": "9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
@@ -1211,6 +1211,33 @@
         "success": false,
         "errorKind": "navigation_aborted",
         "rawSecretEgress": false
+      },
+      "composeApproval": {
+        "composeHash": "0x9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
+        "approved": true,
+        "tx": "0xb7e6d0fc504146d88005339bd859142a5f2d6c3f99315d81cb00742ebc15d48e",
+        "block": 43905420
+      },
+      "latestPacketAttempt": {
+        "packetDir": "/tmp/dnai-tinker-funding-validation-packet-20260709T065233Z",
+        "ok": false,
+        "errorKind": "ReadTimeout",
+        "preflightReady": true,
+        "cardAttemptRun": true,
+        "reauthAttemptRun": false,
+        "addBalanceAttemptRun": true,
+        "paymentMethodReceiptWritten": false,
+        "addBalanceReceiptWritten": false,
+        "postAttemptCardOnFile": false,
+        "paymentMethodCountBand": "zero",
+        "rawSecretEgress": false
+      },
+      "clientFix": {
+        "commit": "5ab9e81",
+        "maskedPromptEcho": true,
+        "backspaceSupported": true,
+        "encryptedCardUploadTimeoutSeconds": 180,
+        "requiresCvmRedeploy": false
       }
     },
     "selectorDiagnosticsEvidence20260709": {

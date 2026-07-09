@@ -1471,6 +1471,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   owner-keystore transaction approving `0x9f0754be...` in
                   `TinkerAccountEncumbrance`; preflight correctly fails closed
                   with `compose_hash_not_approved`.
+                  Follow-up 2026-07-09: the compose hash is now approved in tx
+                  `0xb7e6d0fc504146d88005339bd859142a5f2d6c3f99315d81cb00742ebc15d48e`
+                  at block `43905420` and `$10` preflight is ready, but packet
+                  `/tmp/dnai-tinker-funding-validation-packet-20260709T065233Z`
+                  timed out before card/add-balance receipts. Source fix
+                  `5ab9e81` adds masked prompt echo/backspace support and
+                  extends local encrypted-card upload timeout to 180 seconds;
+                  rerun the packet with the same live identity and record the
+                  bounded receipts.
             The item remains unchecked until a bounded add-balance receipt and
             live balance read prove a low-value top-up succeeded; the CVM
             dev-OS warning also remains before production.
