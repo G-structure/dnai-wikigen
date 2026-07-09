@@ -352,6 +352,14 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   `--require-encumbrance` with contract/RPC/compose inputs; add-balance packet
   runs also check the requested amount against the deployed cap before any
   prompt.
+- A manifest-driven `funding-command-plan` CLI now emits the future operator
+  preflight, encumbrance-preflight, and prompt-packet command templates from
+  `deployments/base-sepolia.json`. It references runtime bearer and RPC values
+  only by environment-variable name and returns bounded JSON with
+  `raw_secret_egress=false`. Against the current manifest it correctly reports
+  `ready=false` / `missing_tinker_encumbrance_contract`, so the real-card
+  command is not considered ready until the encumbrance contract broadcast is
+  recorded.
 - A no-raw-key Base Sepolia deploy helper now exists for
   `TinkerAccountEncumbrance`. It uses Foundry `--account dev`, validates
   bytes32 commitments and policy caps, defaults the initial compose hash from
@@ -534,8 +542,9 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   tests proving managers cannot exceed owner-set caps or change owner-only
   policy. The runtime now has a read-only policy preflight and optional
   fail-closed card/add-balance gate, prompt-time real-card encumbrance checks,
-  plus a validated no-raw-key deploy helper, but the contract is not yet
-  deployed or recorded in the Base Sepolia manifest.
+  a manifest-driven funding command plan, plus a validated no-raw-key deploy
+  helper, but the contract is not yet deployed or recorded in the Base Sepolia
+  manifest.
 - Test-card billing reaches a clear declined-card outcome.
 - Payment-method and add-balance operations return bounded attempt records with
   outcome class, furthest stage, issued timestamp, evidence hash, amount/balance

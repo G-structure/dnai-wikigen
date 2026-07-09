@@ -1276,6 +1276,16 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             hash is not approved, emergency halt is on, or the requested
             add-balance amount exceeds the cap, the CLI exits before card
             material is entered.
+      - [x] Add a manifest-driven bounded funding command plan.
+            `tinker-delegate funding-command-plan` reads
+            `deployments/base-sepolia.json`, extracts the live delegate URL,
+            compose hash, app ID, OS image hash, and
+            `TinkerAccountEncumbrance` policy, then emits preflight,
+            encumbrance-preflight, and prompt-packet argv/shell templates
+            without card details, bearer tokens, API keys, OTPs, or RPC values.
+            The current manifest correctly returns `ready=false` with
+            `missing_tinker_encumbrance_contract` until the interactive
+            encumbrance broadcast records the contract address/policy.
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
             attempt after the funding-validation compose is deployed on Phala,
             its live attested compose hash is recorded, and the operator CLI

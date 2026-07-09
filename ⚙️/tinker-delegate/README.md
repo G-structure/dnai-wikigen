@@ -260,6 +260,21 @@ the packet command, pass `--run-add-balance-attempt` with `--amount`; this posts
 only the amount and still requires the delegate add-balance endpoint to be
 explicitly enabled.
 
+For the real operator path, prefer generating the command from recorded
+deployment evidence:
+
+```bash
+uv run python -m tinker_delegate.main funding-command-plan --amount 5
+```
+
+The command plan reads `deployments/base-sepolia.json` and emits bounded
+preflight, encumbrance-preflight, and prompt-packet command templates. It
+references `TINKER_RUNTIME_AUTH_TOKEN` and `BASE_SEPOLIA_RPC_URL` by variable
+name only; it does not print token values, RPC values, card fields, OTPs, API
+keys, cookies, or browser session material. The plan remains `ready=false`
+until the manifest contains a deployed `TinkerAccountEncumbrance` address and
+policy.
+
 The CLI card flags are for local test-card development only. Read
 `docs/STRIPE-PCI-FUNDING-SCOPE.md` before any real-card attempt. The encrypted
 card channel is an operator-owned capped validation path, not the default

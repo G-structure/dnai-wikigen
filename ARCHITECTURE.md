@@ -1047,6 +1047,18 @@ Implementation status:
             read-only contract checks for add-payment-method and, when a top-up
             amount is part of the same packet, add-balance cap approval. Denied
             or unavailable policy exits before card material is entered.
+[real]      `funding-command-plan` turns the deployment manifest into a bounded
+            operator command plan. It reads only public deployment evidence
+            (`delegate` endpoint, compose hash, app ID, OS image hash, and
+            TinkerAccountEncumbrance policy) and emits argv/shell templates for
+            funding preflight, encumbrance preflight, and the eventual
+            prompt-card funding-validation packet. It references
+            `TINKER_RUNTIME_AUTH_TOKEN` and `BASE_SEPOLIA_RPC_URL` by
+            environment-variable name only and never prints bearer tokens, card
+            fields, API keys, OTPs, RPC values, cookies, or browser/session
+            material. The current manifest-derived plan is intentionally
+            `ready=false` until TinkerAccountEncumbrance is deployed and
+            recorded.
 [real]      Operator-only mutation endpoints now have delegate runtime bearer
             auth. When `TINKER_RUNTIME_AUTH_REQUIRED=true`,
             `/auth/reauth`, `/billing/card/encrypted`,

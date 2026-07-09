@@ -497,6 +497,53 @@ def cli():
     )
     encumbrance_preflight_p.add_argument("--output", default="", help="Optional output path for preflight JSON")
 
+    funding_command_plan_p = sub.add_parser(
+        "funding-command-plan",
+        help="Build a bounded manifest-derived operator command plan for capped funding validation",
+    )
+    funding_command_plan_p.add_argument(
+        "--manifest",
+        default="",
+        help="Deployment manifest path; defaults to repo deployments/base-sepolia.json",
+    )
+    funding_command_plan_p.add_argument(
+        "--amount",
+        type=float,
+        default=5.0,
+        help="Planned add-balance amount in USD for the command plan",
+    )
+    funding_command_plan_p.add_argument(
+        "--output-dir",
+        default="./funding-validation-packet",
+        help="Packet output directory for the generated command",
+    )
+    funding_command_plan_p.add_argument(
+        "--validation-id",
+        default="operator-real-card-validation",
+        help="Operator-local validation ID to bind by hash",
+    )
+    funding_command_plan_p.add_argument(
+        "--encumbrance-rpc-env",
+        default="BASE_SEPOLIA_RPC_URL",
+        help="Environment variable name containing the Base Sepolia RPC URL",
+    )
+    funding_command_plan_p.add_argument(
+        "--runtime-auth-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable name containing the delegate runtime bearer token",
+    )
+    funding_command_plan_p.add_argument(
+        "--skip-reauth",
+        action="store_true",
+        help="Do not include /auth/reauth in the generated packet command",
+    )
+    funding_command_plan_p.add_argument(
+        "--skip-add-balance",
+        action="store_true",
+        help="Do not include POST /billing/add-balance in the generated packet command",
+    )
+    funding_command_plan_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+
     funding_manifest_p = sub.add_parser(
         "funding-manifest",
         help="Build a bounded funding validation manifest from preflight and receipt JSON",
@@ -1240,6 +1287,25 @@ def cli():
         )
         _emit_bounded_json(result.to_public_dict(), output_path=args.output)
         sys.exit(0 if result.allowed else 1)
+
+    elif args.command == "funding-command-plan":
+        from tinker_delegate.funding_command_plan import (
+            DEFAULT_MANIFEST_PATH,
+            build_funding_command_plan,
+        )
+
+        result = build_funding_command_plan(
+            manifest_path=args.manifest or DEFAULT_MANIFEST_PATH,
+            amount_dollars=args.amount,
+            output_dir=args.output_dir,
+            validation_id=args.validation_id,
+            encumbrance_rpc_env=args.encumbrance_rpc_env,
+            runtime_auth_env=args.runtime_auth_env,
+            include_reauth=not args.skip_reauth,
+            include_add_balance=not args.skip_add_balance,
+        ).to_public_dict()
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result["ready"] else 1)
 
     elif args.command == "funding-manifest":
         from tinker_delegate.funding_manifest import build_funding_validation_manifest
