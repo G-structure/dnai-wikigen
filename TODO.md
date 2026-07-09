@@ -2263,9 +2263,19 @@ vision Wiki is reaching for.
                   IMAP or create reconnect storms when the mailbox provider is
                   flaky. `/pin` now performs the real IMAP operation and updates
                   cached connection state.
-            - [ ] Build the fixed oracle image on GitHub, verify SLSA/SBOM
-                  attestations, pin the digest in the Phala funding-validation
-                  compose, and redeploy.
+            - [x] Build the fixed oracle image on GitHub and verify SLSA/SBOM
+                  attestations. Done from source
+                  `2f2a7d9f94ca29261ce0f5352e289e5071c7e38e` with oracle
+                  digest
+                  `e0f8758018ac779fda402fb22a9fbd282fe107bd81222346307f81770869e1f4`.
+            - [x] Pin the fixed oracle digest in the Phala funding-validation
+                  compose. Local image-policy hash is
+                  `40021d9b19956cbe962b8697b04c2f8c6467b80f8f290b2678c8650bd756c71e`,
+                  rendered compose SHA-256 is
+                  `ba674f8267972b2942aa7243127365aab0973812f8533b8abcdb173f59addd44`,
+                  and Phala raw-compose hash is
+                  `4124f22bca1ea7a3a6f8117ccdad4079d8d70c5bcfa930b2abff252b35938d5e`.
+            - [ ] Redeploy the fixed-oracle funding-validation compose to Phala.
             - [ ] Re-test live public `/health`, `/attestation?context=billing`,
                   and `/billing/funding-preflight` before approving any new
                   compose hash on-chain.

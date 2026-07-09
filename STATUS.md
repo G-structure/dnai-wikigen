@@ -284,6 +284,24 @@ oracle fix still needs GitHub image build, attestation verification, digest pin,
 Phala redeploy, and live health/preflight verification before any new
 add-balance attempt.
 
+Oracle health image follow-up, 2026-07-09: GitHub Actions run `29007296878`
+built source `2f2a7d9f94ca29261ce0f5352e289e5071c7e38e`; CI run
+`29007296962` also passed. Local attestation verification passed for
+`tee-email-oracle@sha256:e0f8758018ac779fda402fb22a9fbd282fe107bd81222346307f81770869e1f4`
+with GitHub provenance and SPDX SBOM attestations and `raw_secret_egress=false`.
+The funding-validation compose now pins that oracle digest alongside the
+existing fixed delegate digest
+`tinker-delegate@sha256:5f53e8d09d53fc76b17155ce40bd51a0333a85c4e77a0e82a511551895f02995`
+and Neko digest
+`neko-chrome@sha256:fd6a65a894befc66901ed7b915c792f3a669b74ef4ace01813815e1f1030b456`.
+Local image-policy hash is
+`40021d9b19956cbe962b8697b04c2f8c6467b80f8f290b2678c8650bd756c71e`, rendered
+compose SHA-256 is
+`ba674f8267972b2942aa7243127365aab0973812f8533b8abcdb173f59addd44`, and Phala
+raw-compose hash is
+`4124f22bca1ea7a3a6f8117ccdad4079d8d70c5bcfa930b2abff252b35938d5e`. This pin
+still needs Phala redeploy and live health/preflight verification.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce

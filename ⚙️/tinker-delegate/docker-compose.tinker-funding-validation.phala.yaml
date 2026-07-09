@@ -44,7 +44,7 @@ services:
       timeout: 5s
 
   oracle:
-    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:beedfc6c3f1f0c9dca8604d6adf6522110e8dc2f15af1e8a9145e0e3227939a9
+    image: ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:e0f8758018ac779fda402fb22a9fbd282fe107bd81222346307f81770869e1f4
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
