@@ -467,6 +467,50 @@ def cli():
         help="Candidate keyword to query; repeat for multiple candidates",
     )
     synthetic_reward_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    tinker_smoke_p = sub.add_parser(
+        "tinker-smoke",
+        help="Run a bounded tiny real Tinker SDK training/checkpoint/sample/cleanup smoke",
+    )
+    tinker_smoke_p.add_argument(
+        "--api-url",
+        default="",
+        help="Optional deployed Tinker delegate API base URL; omitted runs inside the current process",
+    )
+    tinker_smoke_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token for --api-url",
+    )
+    tinker_smoke_p.add_argument("--deal-id", default="", help="Optional public/local smoke deal id")
+    tinker_smoke_p.add_argument(
+        "--max-usd",
+        type=float,
+        default=None,
+        help="Hard cap for this tiny SDK smoke; default is TINKER_REAL_SDK_MAX_USD",
+    )
+    tinker_smoke_p.add_argument(
+        "--model",
+        default="",
+        help="Base model for the smoke; default is TINKER_REAL_SDK_MODEL",
+    )
+    tinker_smoke_p.add_argument(
+        "--rank",
+        type=int,
+        default=None,
+        help="LoRA rank for the smoke; default is TINKER_REAL_SDK_RANK",
+    )
+    tinker_smoke_p.add_argument("--ttl-seconds", type=int, default=3600)
+    tinker_smoke_p.add_argument(
+        "--compose-hash",
+        default="",
+        help="Compose hash to check against TinkerAccountEncumbrance",
+    )
+    tinker_smoke_p.add_argument(
+        "--require-encumbrance",
+        action="store_true",
+        help="Require TinkerAccountEncumbrance approval before SDK spend",
+    )
+    tinker_smoke_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
 
     # Billing commands
     balance_p = sub.add_parser("balance", help="Get current Tinker account balance")
@@ -1335,6 +1379,57 @@ def cli():
             output_path=args.output,
             forbidden_values=hidden_demo_forbidden_values(candidates or None),
         )
+
+    elif args.command == "tinker-smoke":
+        payload = {
+            "deal_id": args.deal_id,
+            "max_usd": args.max_usd,
+            "model": args.model,
+            "rank": args.rank,
+            "ttl_seconds": args.ttl_seconds,
+            "compose_hash": args.compose_hash,
+            "require_encumbrance": args.require_encumbrance,
+        }
+        if args.api_url:
+            import httpx
+
+            headers = _runtime_auth_headers(args.auth_token_env)
+            with httpx.Client(timeout=600.0) as client:
+                response = client.post(
+                    _api_endpoint(args.api_url, "/tinker/smoke"),
+                    json=payload,
+                    headers=headers,
+                )
+            body = response.json()
+            _emit_bounded_json(
+                body,
+                output_path=args.output,
+                public_hex_fields=("contract_address", "compose_hash"),
+                public_decimal_fields=("amount_wei", "max_amount_wei"),
+            )
+            sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
+
+        from tinker_delegate.tinker_smoke import TinkerSmokeRequest, run_tinker_sdk_smoke
+
+        result = run_tinker_sdk_smoke(
+            settings,
+            TinkerSmokeRequest(
+                deal_id=args.deal_id,
+                max_usd=args.max_usd,
+                model=args.model,
+                rank=args.rank,
+                ttl_seconds=args.ttl_seconds,
+                compose_hash=args.compose_hash,
+                require_encumbrance=args.require_encumbrance,
+            ),
+        )
+        _emit_bounded_json(
+            result,
+            output_path=args.output,
+            public_hex_fields=("contract_address", "compose_hash"),
+            public_decimal_fields=("amount_wei", "max_amount_wei"),
+        )
+        sys.exit(0 if result.get("success") else 1)
 
     elif args.command == "balance":
         if args.api_url:

@@ -83,6 +83,30 @@ Latest live funding/debug state, 2026-07-09:
   exposed. This is not production-current and must be reverted before any
   production deployment claim.
 
+Latest Tinker execution buildout, 2026-07-09:
+
+- Source now has a bounded real-SDK smoke surface for the funded Tinker account.
+  `tinker_delegate.tinker_smoke.run_tinker_sdk_smoke()` uses the sealed API-key
+  resolver, checks `TinkerAccountEncumbrance` with `SPEND_TINKER_COMPUTE`,
+  enforces a hard `$0.50` smoke cap, runs one tiny train/checkpoint/sample/
+  cleanup sequence through `IsolatedTinkerSession`, and returns only bounded
+  hashes, cost bands, policy state, sample-observed boolean, and cleanup counts.
+  It does not return API keys, raw run IDs, checkpoint paths, checkpoint IDs,
+  sample text, weights, or raw model output.
+- Operator surfaces are source/test-real but not yet deployed-real:
+  `tinker-smoke` can run in-process inside the CVM/container or call
+  `POST /tinker/smoke --api-url`; the HTTP endpoint is disabled by default,
+  requires runtime bearer auth when enabled, and is enabled only in the
+  temporary funding-validation compose profile for the next deployed smoke
+  proof.
+- Focused validation passed locally with mocked Tinker SDK and API/CLI gates:
+  `uv run python -m unittest tests.test_tinker_smoke tests.test_api_tinker_smoke
+  tests.test_cli_bounded_outputs tests.test_isolated_session
+  tests.test_tinker_real_sdk_integration.TinkerRealSdkGateTest`. The real
+  deployed smoke still needs a GitHub-built image, Phala redeploy, compose-hash
+  approval for `SPEND_TINKER_COMPUTE`, and one explicit low-cost run before the
+  Tinker SDK smoke P0 can be checked off.
+
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned
 `tee-email-oracle@sha256:f5c346912f3391e699252dba47c673902d06ffe528a8bab9732a76d551ec42ab`,

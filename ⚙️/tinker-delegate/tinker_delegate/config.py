@@ -86,3 +86,10 @@ class Settings(BaseSettings):
     funding_mode: str = "manual_prefund"
     min_add_balance_usd: float = 10.0
     max_add_balance_usd: float = 10.0
+
+    # Paid Tinker SDK smoke tests. Disabled by default; enable only for a
+    # funded, attested operator-validation CVM or explicit local test context.
+    allow_tinker_smoke_endpoint: bool = False
+    real_sdk_max_usd: float = 0.05
+    real_sdk_model: str = "meta-llama/Llama-3.2-1B"
+    real_sdk_rank: int = 4

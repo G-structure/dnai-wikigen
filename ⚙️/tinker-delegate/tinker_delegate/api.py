@@ -15,6 +15,7 @@ Endpoints:
   POST /billing/card/encrypted    — add payment method (encrypted to TEE — production)
   POST /billing/card/remove       — remove payment method
   POST /billing/add-balance       — add credit balance
+  POST /tinker/smoke              — opt-in bounded real SDK smoke test
   POST /deal/chain-event       — bounded chain event audit marker (internal)
   POST /deal/{deal_id}/artifact/encrypted — upload seller's encrypted artifact
   POST /deal/{deal_id}/artifact   — plaintext local-dev artifact hook
@@ -201,6 +202,15 @@ class EvaluationResultResponse(BaseModel):
     methodology_summary: str
     compute_cost_wei: int
     fee_wei: int
+
+class TinkerSmokeRequestBody(BaseModel):
+    deal_id: str = ""
+    max_usd: Optional[float] = None
+    model: str = ""
+    rank: Optional[int] = None
+    ttl_seconds: int = 3600
+    compose_hash: str = ""
+    require_encumbrance: bool = False
 
 
 @app.get("/health")
@@ -454,6 +464,39 @@ async def billing_add_balance(payload: BalancePayload, authorization: str = Head
     _require_runtime_auth(authorization)
     result = await handle_add_balance(payload, settings)
     return result
+
+
+@app.post("/tinker/smoke")
+def tinker_smoke(payload: TinkerSmokeRequestBody, authorization: str = Header(default="")):
+    """Run a tiny paid Tinker SDK smoke through the sealed account.
+
+    Disabled by default. Enable only for an attested, funded validation CVM.
+    The response must remain bounded: no API key, sample text, checkpoint path,
+    or raw training-run id.
+    """
+    if not settings.allow_tinker_smoke_endpoint:
+        raise HTTPException(
+            status_code=403,
+            detail="Tinker smoke endpoint is disabled",
+        )
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_smoke import TinkerSmokeRequest, run_tinker_sdk_smoke
+
+    try:
+        return run_tinker_sdk_smoke(
+            settings,
+            TinkerSmokeRequest(
+                deal_id=payload.deal_id,
+                max_usd=payload.max_usd,
+                model=payload.model,
+                rank=payload.rank,
+                ttl_seconds=payload.ttl_seconds,
+                compose_hash=payload.compose_hash,
+                require_encumbrance=payload.require_encumbrance,
+            ),
+        )
+    except ValueError as exc:
+        raise HTTPException(400, redact_text(exc)) from exc
 
 
 # ═══════════════════════════════════════════════════════════════════════════

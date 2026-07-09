@@ -94,6 +94,89 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertEqual(body["attempt_record"]["balance_band"], "0_25_usd")
             self.assertFalse(body["attempt_record"]["raw_secret_egress"])
 
+    def test_tinker_smoke_can_query_deployed_delegate_api(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "smoke.json"
+            seen_headers: list[str] = []
+            seen_body: list[dict] = []
+
+            class Handler(BaseHTTPRequestHandler):
+                def do_POST(self):
+                    if self.path != "/tinker/smoke":
+                        self.send_response(404)
+                        self.end_headers()
+                        return
+                    seen_headers.append(self.headers.get("Authorization", ""))
+                    length = int(self.headers.get("Content-Length", "0"))
+                    seen_body.append(json.loads(self.rfile.read(length).decode("utf-8")))
+                    body = json.dumps(
+                        {
+                            "surface": "tinker_sdk_smoke",
+                            "success": True,
+                            "outcome": "success",
+                            "furthest_stage": "cleanup_completed",
+                            "training_run_id_hash": "a" * 64,
+                            "checkpoint_path_hash": "b" * 64,
+                            "sample_observed": True,
+                            "sample_output_returned": False,
+                            "raw_secret_egress": False,
+                        }
+                    ).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
+                def log_message(self, format, *args):
+                    return
+
+            server = HTTPServer(("127.0.0.1", 0), Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                env = _env(tmpdir)
+                env["TINKER_RUNTIME_AUTH_TOKEN"] = "operator-secret"
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "tinker_delegate.main",
+                        "tinker-smoke",
+                        "--api-url",
+                        f"http://127.0.0.1:{server.server_port}",
+                        "--auth-token-env",
+                        "TINKER_RUNTIME_AUTH_TOKEN",
+                        "--max-usd",
+                        "0.05",
+                        "--model",
+                        "meta-llama/Llama-3.2-1B",
+                        "--rank",
+                        "4",
+                        "--output",
+                        str(output_path),
+                    ],
+                    check=False,
+                    cwd=Path(__file__).resolve().parents[1],
+                    env=env,
+                    text=True,
+                    capture_output=True,
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
+            self.assertEqual(seen_headers, ["Bearer operator-secret"])
+            self.assertEqual(seen_body[0]["max_usd"], 0.05)
+            self.assertEqual(seen_body[0]["rank"], 4)
+            body = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(body["success"])
+            self.assertTrue(body["sample_observed"])
+            self.assertFalse(body["sample_output_returned"])
+            self.assertFalse(body["raw_secret_egress"])
+
     def test_preflight_can_write_bounded_json_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "preflight.json"

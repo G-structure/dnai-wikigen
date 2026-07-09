@@ -1698,6 +1698,33 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Run a real Tinker SDK smoke test from inside the deployed CVM.
       Done when the service starts a tiny training job, saves a TTL checkpoint,
       samples from it, and deletes/lets it expire.
+      - [x] Add a bounded operator smoke surface in source. Done 2026-07-09:
+            `tinker_delegate.tinker_smoke.run_tinker_sdk_smoke()` runs the
+            tiny real-SDK pattern from the gated integration test through
+            `IsolatedTinkerSession`: create one LoRA run, one forward/backward,
+            one optimizer step, save a TTL checkpoint, create a path-checked
+            sampler, sample one token, and cleanup. Its receipt returns only
+            bounded fields: deal/run/checkpoint hashes, cost bands, policy
+            result, sample-observed boolean, and cleanup counts. It does not
+            return the API key, raw run ID, raw checkpoint path, sample text, or
+            checkpoint IDs.
+      - [x] Add operator invocation surfaces without enabling production by
+            default. Done 2026-07-09: `tinker-smoke` CLI can run locally inside
+            the CVM/container or call `POST /tinker/smoke --api-url`; the HTTP
+            endpoint is disabled by default, requires runtime bearer auth when
+            enabled, and is enabled only in the temporary
+            `docker-compose.tinker-funding-validation.phala.yaml` profile for
+            the next funded validation redeploy.
+      - [x] Add focused mocked tests for the smoke surface. Done 2026-07-09:
+            mocked SDK tests prove tiny train/sample/cleanup execution and
+            bounded output; API tests prove disabled-by-default and bearer-auth
+            gates; CLI tests prove remote invocation writes bounded JSON.
+      - [ ] Build/push the smoke-capable delegate image with GitHub
+            provenance/SBOM, pin the digest in the funding-validation compose,
+            redeploy to Phala, approve the new compose hash for
+            `SPEND_TINKER_COMPUTE`, run `tinker-smoke --api-url ... --max-usd
+            0.05 --require-encumbrance`, and record the bounded receipt plus
+            attestation evidence before checking this parent P0.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
 - [x] `P0` Add real SDK integration tests gated by an env var and budget cap.

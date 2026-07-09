@@ -1,0 +1,72 @@
+import unittest
+from unittest.mock import patch
+
+from fastapi.testclient import TestClient
+
+from tinker_delegate import api
+from tinker_delegate.config import Settings
+
+
+BOUNDED_SMOKE_RESULT = {
+    "surface": "tinker_sdk_smoke",
+    "success": True,
+    "outcome": "success",
+    "furthest_stage": "cleanup_completed",
+    "deal_hash": "a" * 64,
+    "training_run_id_hash": "b" * 64,
+    "checkpoint_path_hash": "c" * 64,
+    "sample_observed": True,
+    "sample_output_returned": False,
+    "cleanup": {"success": True, "training_run_id_hash": "b" * 64},
+    "raw_secret_egress": False,
+}
+
+
+class TinkerSmokeApiTest(unittest.TestCase):
+    def setUp(self):
+        self.original_settings = api.settings
+
+    def tearDown(self):
+        api.settings = self.original_settings
+
+    def test_smoke_endpoint_disabled_by_default(self):
+        api.settings = Settings(allow_tinker_smoke_endpoint=False)
+        client = TestClient(api.app)
+
+        with patch("tinker_delegate.tinker_smoke.run_tinker_sdk_smoke", return_value=BOUNDED_SMOKE_RESULT) as smoke:
+            response = client.post("/tinker/smoke", json={"max_usd": 0.05})
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("Tinker smoke endpoint is disabled", response.json()["detail"])
+        smoke.assert_not_called()
+
+    def test_smoke_endpoint_requires_runtime_auth_when_enabled(self):
+        api.settings = Settings(
+            allow_tinker_smoke_endpoint=True,
+            runtime_auth_required=True,
+            runtime_auth_token="operator-secret",
+        )
+        client = TestClient(api.app)
+
+        with patch("tinker_delegate.tinker_smoke.run_tinker_sdk_smoke", return_value=BOUNDED_SMOKE_RESULT) as smoke:
+            missing = client.post("/tinker/smoke", json={"max_usd": 0.05})
+            wrong = client.post(
+                "/tinker/smoke",
+                json={"max_usd": 0.05},
+                headers={"Authorization": "Bearer wrong"},
+            )
+            ok = client.post(
+                "/tinker/smoke",
+                json={"max_usd": 0.05},
+                headers={"Authorization": "Bearer operator-secret"},
+            )
+
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(wrong.status_code, 403)
+        self.assertEqual(ok.status_code, 200)
+        self.assertEqual(ok.json(), BOUNDED_SMOKE_RESULT)
+        smoke.assert_called_once()
+
+
+if __name__ == "__main__":
+    unittest.main()
