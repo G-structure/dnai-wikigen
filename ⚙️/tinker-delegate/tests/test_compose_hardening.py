@@ -54,6 +54,7 @@ class ComposeHardeningTest(unittest.TestCase):
             "docker-compose.all.yaml",
             "docker-compose.all.dstack.yaml",
             "docker-compose.all.phala.yaml",
+            "docker-compose.selector-diagnostics.phala.yaml",
         ):
             with self.subTest(compose_name=compose_name):
                 block = _service_block((ROOT / compose_name).read_text(), "delegate")
@@ -63,6 +64,7 @@ class ComposeHardeningTest(unittest.TestCase):
             "docker-compose.dstack.yaml",
             "docker-compose.all.dstack.yaml",
             "docker-compose.all.phala.yaml",
+            "docker-compose.selector-diagnostics.phala.yaml",
         ):
             with self.subTest(compose_name=compose_name):
                 block = _service_block((ROOT / compose_name).read_text(), "delegate")
@@ -79,6 +81,7 @@ class ComposeHardeningTest(unittest.TestCase):
             "docker-compose.mailbox-genesis.phala.yaml",
             "docker-compose.tinker-bootstrap.phala.yaml",
             "docker-compose.tinker-funding-validation.phala.yaml",
+            "docker-compose.selector-diagnostics.phala.yaml",
         ):
             with self.subTest(compose_name=compose_name):
                 block = _service_block((ROOT / compose_name).read_text(), "delegate")
@@ -91,6 +94,7 @@ class ComposeHardeningTest(unittest.TestCase):
             "docker-compose.mailbox-genesis.phala.yaml",
             "docker-compose.tinker-bootstrap.phala.yaml",
             "docker-compose.tinker-funding-validation.phala.yaml",
+            "docker-compose.selector-diagnostics.phala.yaml",
         ):
             with self.subTest(compose_name=compose_name):
                 block = _service_block((ROOT / compose_name).read_text(), "delegate")
@@ -104,6 +108,7 @@ class ComposeHardeningTest(unittest.TestCase):
             "docker-compose.all.yaml",
             "docker-compose.all.dstack.yaml",
             "docker-compose.all.phala.yaml",
+            "docker-compose.selector-diagnostics.phala.yaml",
         ):
             with self.subTest(compose_name=compose_name):
                 block = _service_block((ROOT / compose_name).read_text(), "delegate")
@@ -216,6 +221,30 @@ class ComposeHardeningTest(unittest.TestCase):
         self.assertIn('TINKER_BOOTSTRAP_SIGNUP: "false"', delegate)
         self.assertIn("TINKER_BROWSER_WS_ENDPOINT: ws://172.20.0.6:3000/", delegate)
         self.assertIn('TINKER_CDP_URL: ""', delegate)
+
+    def test_selector_diagnostics_compose_is_read_only_and_digest_pinned(self):
+        compose = (ROOT / "docker-compose.selector-diagnostics.phala.yaml").read_text()
+        neko = _service_block(compose, "neko")
+        oracle = _service_block(compose, "oracle")
+        delegate = _service_block(compose, "delegate")
+
+        self.assertIn("Temporary Main-CVM Selector Diagnostics Compose", compose)
+        self.assertIn("google-chrome@sha256:", neko)
+        self.assertIn("tee-email-oracle@sha256:", oracle)
+        self.assertIn("tinker-delegate@sha256:", delegate)
+        self.assertNotIn("  delegate-browser:", compose)
+        self.assertIn('ORACLE_AUTO_GENESIS: "false"', oracle)
+        self.assertIn('ORACLE_RUNTIME_AUTH_REQUIRED: "true"', oracle)
+        self.assertIn('ORACLE_ALLOW_CREDENTIAL_PROVISIONING_ENDPOINT: "false"', oracle)
+        self.assertIn('TINKER_RUNTIME_AUTH_REQUIRED: "true"', delegate)
+        self.assertIn('TINKER_ALLOW_AUTH_AUTOMATION_ENDPOINT: "false"', delegate)
+        self.assertIn('TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "false"', delegate)
+        self.assertIn('TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT: "false"', delegate)
+        self.assertIn('TINKER_ALLOW_BROWSER_READINESS_ENDPOINT: "true"', delegate)
+        self.assertIn('TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT: "true"', delegate)
+        self.assertIn('TINKER_BOOTSTRAP_SIGNUP: "false"', delegate)
+        self.assertIn('TINKER_BROWSER_WS_ENDPOINT: ""', delegate)
+        self.assertIn("TINKER_CDP_URL: http://172.20.0.3:9223", delegate)
 
 
 if __name__ == "__main__":

@@ -1121,7 +1121,101 @@
         "amount": 5,
         "requiredMissingEvidence": "missing_tinker_encumbrance_contract"
       },
-      "nextStep": "deploy TinkerAccountEncumbrance from an interactive terminal, then repair deployed Tinker auth access-blocked posture so /auth/reauth reaches OTP, saves browser session state, and billing page is authenticated before approved real-card prompt"
+      "nextStep": "deploy TinkerAccountEncumbrance from an interactive terminal, then repair deployed Tinker auth/session on Phala so /auth/reauth reaches OTP, saves browser session state, and billing page is authenticated before approved real-card prompt",
+      "postSelectorDiagnosticsRestore": {
+        "date": "2026-07-09",
+        "attestedComposeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
+        "healthStatus": "ok",
+        "cdpUrl": "",
+        "browserWsEndpoint": "ws://172.20.0.6:3000/",
+        "browserReadinessEndpoint": "403_disabled",
+        "selectorProbeEndpoint": "403_disabled",
+        "rawSecretEgress": false
+      }
+    },
+    "selectorDiagnosticsEvidence20260709": {
+      "status": "page_enable_timeout_diagnostics_disabled_after_restore",
+      "date": "2026-07-09",
+      "purpose": "one_shot_bounded_browser_control_evidence_for_main_cvm",
+      "oneShotCompose": "⚙️/tinker-delegate/docker-compose.selector-diagnostics.phala.yaml",
+      "sourceDigest": "eb3bde3b5b156dfdd46f701ab2df8f1f19d94120",
+      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381",
+      "nekoImage": "ghcr.io/m1k1o/neko/google-chrome@sha256:320c62313c38fd3e6567eef6c8ee78e1d115deb0b88ba60ef02cc4ea7d6ebbea",
+      "localRawComposeImagePolicyHash": "455930b6b5e6e0d8119c737becfaa63d09ea939389574e5e845883b37dce5418",
+      "renderedComposeSha256": "15f67dea7c3ae6bdbac03eda850467c255ea7068e2d8e5cb92117c181f94d67e",
+      "oneShotAttestedComposeHash": "170862495089566bbe75a0c95f8cc8c1267cb6d17e678144119be82a2f1b81d2",
+      "oneShotAttestation": {
+        "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
+        "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
+        "reportData": "de697d2179f5713b15ddc47ff4d3b9ff25483cebbb77bc85eb0e0f861700a5ce",
+        "encryptionPublicKey": "106ab17d2b653154e311321328683b8ae989a61a72c169b190a8a11ae7900514",
+        "quoteLengthHexChars": 10020
+      },
+      "runtimeEnv": {
+        "policy": "compose-refs",
+        "allowedEnvCount": 8,
+        "keysSha256": "fc17a25618c1da25afac695359864c11cf782668d97b808544d659740e4d9495"
+      },
+      "endpointPolicy": {
+        "tinkerBootstrapSignup": false,
+        "authAutomation": false,
+        "encryptedCard": false,
+        "addBalance": false,
+        "plaintextCard": false,
+        "browserReadiness": true,
+        "selectorProbe": true
+      },
+      "browserReadinessEvidence": {
+        "httpStatus": 200,
+        "success": false,
+        "cdpMetadataSuccess": true,
+        "cdpWebsocketHandshakeSuccess": true,
+        "cdpWebsocketStatusBand": "101",
+        "cdpProtocolProbeSuccess": true,
+        "cdpProtocolResponseKind": "result",
+        "browserFamily": "chromium",
+        "playwrightCdp": null,
+        "rawSecretEgress": false
+      },
+      "selectorProbeEvidence": {
+        "httpStatus": 200,
+        "success": true,
+        "probeBackend": "raw_cdp",
+        "fallbackFromBackend": "playwright",
+        "fallbackReasonKind": "timeout",
+        "targetCountBand": "2+",
+        "pageCountBand": "2+",
+        "pagesObserved": 1,
+        "partialErrorKind": "page_enable_timeout",
+        "pageEnableCommandSuccess": false,
+        "runtimeEnableCommandSuccess": false,
+        "runtimeMicroProbeCommandSuccess": false,
+        "runtimeSelectorCommandSuccess": false,
+        "directPageRuntimeAttempted": true,
+        "directPageRuntimePageListSuccess": true,
+        "directPageRuntimePageWebsocketAvailable": true,
+        "directPageRuntimePageEnableSuccess": false,
+        "directPageRuntimePageEnableErrorKind": "timeout",
+        "directPageRuntimeMicroProbeSuccess": false,
+        "directPageRuntimeSelectorSuccess": false,
+        "flowObservations": [],
+        "rawSecretEgress": false
+      },
+      "restoredProfile": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
+      "restoredAttestedComposeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
+      "restoredAttestation": {
+        "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
+        "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
+        "reportData": "c0ac6573865fab10d79b19da2e3d8fb9075dbfb808cc758de798d5989c358fcb",
+        "encryptionPublicKey": "10712c4c3c86b3e764ac8d1cc1b7d46df9dcaf3c58ba2238b1dbf0dc3a2de939",
+        "quoteLengthHexChars": 10020
+      },
+      "restoredEndpointGates": {
+        "browserReadiness": "403_disabled",
+        "selectorProbe": "403_disabled"
+      },
+      "conclusion": "browser_level_cdp_ok_page_target_page_enable_timeout_before_runtime_or_selectors"
     }
   },
   "freshDeployment": {

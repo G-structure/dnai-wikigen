@@ -1,6 +1,6 @@
 # TODO: Full Latent Vision Roadmap
 
-Last updated: 2026-07-08
+Last updated: 2026-07-09
 Branch context: `tinker-deligate`
 
 This is the build backlog for turning `dnai-wikigen` from the current prototype
@@ -1005,6 +1005,56 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             next implementation step is to route Tinker automation through the
             Playwright sidecar or repair the Neko CDP transport before trying
             account funding.
+            Follow-up Phala attempt 2026-07-09: added
+            `⚙️/tinker-delegate/docker-compose.selector-diagnostics.phala.yaml`
+            as a tracked one-shot diagnostics profile with registry images
+            only, Tinker bootstrap disabled, funding/card mutations disabled,
+            and only `/browser/readiness` plus `/browser/selector-probe`
+            enabled. The profile used source
+            `eb3bde3b5b156dfdd46f701ab2df8f1f19d94120` images already built
+            by GitHub Actions:
+            `tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3`
+            and
+            `tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381`.
+            Local raw-compose verification produced image-policy hash
+            `455930b6b5e6e0d8119c737becfaa63d09ea939389574e5e845883b37dce5418`
+            with rendered compose SHA-256
+            `15f67dea7c3ae6bdbac03eda850467c255ea7068e2d8e5cb92117c181f94d67e`;
+            the live one-shot attested compose hash was
+            `170862495089566bbe75a0c95f8cc8c1267cb6d17e678144119be82a2f1b81d2`.
+            `/browser/readiness` proved CDP metadata, WebSocket upgrade, and
+            browser-scoped protocol command success, while
+            `/browser/selector-probe` again returned `success=true`,
+            `probe_backend=raw_cdp`, `fallback_from_backend=playwright`,
+            `target_count_band=2+`, `page_count_band=2+`,
+            `pages_observed=1`, `attached=true`,
+            `partial_error_kind=page_enable_timeout`,
+            `runtime_enable_command_success=false`,
+            `direct_page_runtime_attempted=true`,
+            `direct_page_runtime.page_list_success=true`,
+            `direct_page_runtime.page_websocket_available=true`,
+            `direct_page_runtime.page_enable_success=false`, no Runtime
+            micro-probe, no selector-family matrix, empty
+            `flow_observations`, and `raw_secret_egress=false`. The CVM was
+            restored to the funding-validation profile afterward and live
+            attestation returned
+            `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`;
+            `/browser/readiness` and `/browser/selector-probe` now both return
+            403 disabled. This revalidates that the blocker is deployed
+            Neko/page-target CDP command delivery before selectors, not the
+            selector-map, email oracle, or billing selectors.
+      - [x] Add a tracked one-shot Phala selector-diagnostics compose, run it
+            against the main CVM, and verify the funding-validation profile was
+            restored afterward.
+            Done 2026-07-09 in
+            `⚙️/tinker-delegate/docker-compose.selector-diagnostics.phala.yaml`.
+            The temporary profile uses registry images only, disables Tinker
+            bootstrap and all card/funding mutations, enables only bounded
+            readiness/selector diagnostics, produced attested compose hash
+            `170862495089566bbe75a0c95f8cc8c1267cb6d17e678144119be82a2f1b81d2`,
+            and was restored to funding-validation hash
+            `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`
+            with both diagnostic endpoints returning 403 disabled.
 - [x] `P0` Narrow Phala redeploy runtime env handling to the minimal key set
       needed by each compose profile.
       Done 2026-07-08: `scripts/redeploy-phala-cvm.mjs` now defaults to

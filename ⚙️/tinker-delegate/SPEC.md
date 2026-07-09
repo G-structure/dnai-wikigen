@@ -273,7 +273,25 @@ PHASE 1: TINKER SIGNUP  LOCAL VALIDATED — deployed CVM validation pending
   `e9e07417f7df3b0dae2fdc148fc6847751afa240b9167cc81e76883060ecd586`, and
   `/browser/readiness`, `/browser/selector-probe`, and `/billing/add-balance`
   returned 403. The remaining deployed blocker is now lower-level page CDP
-  command delivery through the Phala Neko path.
+  command delivery through the Phala Neko path. A 2026-07-09 one-shot run with
+  the tracked `docker-compose.selector-diagnostics.phala.yaml` profile repeated
+  the measurement against the current GitHub-attested `eb3bde3` funding
+  validation images. The diagnostic profile used registry images only,
+  disabled Tinker bootstrap and every card/funding mutation, and enabled only
+  `/browser/readiness` plus `/browser/selector-probe`. The live one-shot
+  attested compose hash was
+  `170862495089566bbe75a0c95f8cc8c1267cb6d17e678144119be82a2f1b81d2`.
+  Readiness proved CDP metadata, WebSocket upgrade, and a browser-scoped
+  DevTools command succeed. Selector-probe returned `success=true`,
+  `probe_backend=raw_cdp`, target/page bands, one attached page, then
+  `partial_error_kind=page_enable_timeout` before Runtime or selector-family
+  counting. The direct page-target route also saw page-list and page-WebSocket
+  availability but timed out at `Page.enable`. No raw page URL, page text,
+  cookie, OTP, API key, account identifier, or card data left the TEE boundary.
+  The CVM was restored to the funding-validation profile afterward, with live
+  attested compose hash
+  `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`, and
+  both diagnostic endpoints now return 403 disabled.
   FUNDING VALIDATION PROFILE: on 2026-07-09 the temporary
   `docker-compose.tinker-funding-validation.phala.yaml` profile was deployed to
   Phala with GitHub-attested source

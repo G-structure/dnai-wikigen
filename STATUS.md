@@ -73,6 +73,25 @@ guarded, but approved real-card funding is still blocked on both
 `TinkerAccountEncumbrance` deployment and Tinker auth/session repair and must
 not be attempted yet.
 
+Selector diagnostics follow-up, 2026-07-09: a tracked one-shot Phala profile,
+`⚙️/tinker-delegate/docker-compose.selector-diagnostics.phala.yaml`, was added
+for bounded browser-control evidence on the main CVM. It uses registry images
+only, disables Tinker bootstrap and all card/funding mutations, and enables
+only `/browser/readiness` plus `/browser/selector-probe`. A live one-shot run
+from source `eb3bde3b5b156dfdd46f701ab2df8f1f19d94120` attested compose hash
+`170862495089566bbe75a0c95f8cc8c1267cb6d17e678144119be82a2f1b81d2`.
+Readiness proved CDP metadata, WebSocket upgrade, and a browser-scoped
+DevTools command succeed. Selector probe fell back from Playwright to raw CDP,
+observed target/page bands, attached to a page, and then timed out at
+`Page.enable` on both attached-session and direct page-target paths before
+Runtime or selector-family counting could run. No raw URL, page text, cookie,
+OTP, API key, card, or account data left the TEE boundary. The CVM was restored
+to the funding-validation profile afterward; live attestation again reports
+`b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`, and both
+diagnostic endpoints return `403` disabled. The blocker is now specifically the
+deployed Neko/page-target CDP command channel, not selector strings or billing
+selector drift.
+
 Billing auth-state classifier follow-up, 2026-07-08: source, tests, and Phala
 live evidence now distinguish billing selector drift from auth/session state
 before payment-method or add-balance controls are touched. Billing navigation

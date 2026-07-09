@@ -935,6 +935,16 @@ Implementation status:
             shows `Page.enable` also times out on the deployed page target, so
             selector-family evidence remains blocked on lower-level Neko/Chrome
             CDP command delivery rather than selector expressions.
+            A 2026-07-09 one-shot measurement using the tracked
+            `docker-compose.selector-diagnostics.phala.yaml` profile and
+            GitHub-attested `eb3bde3` images revalidated the same failure mode
+            against the current funding-validation image set: browser-level CDP
+            metadata, WebSocket upgrade, and `Browser.getVersion` succeed;
+            raw-CDP target/page inventory and page attach succeed; both the
+            attached-session and direct page-target paths time out at
+            `Page.enable` before Runtime or selector-family counting can run.
+            The CVM was restored to the funding-validation profile afterward
+            and both diagnostic endpoints return 403 disabled.
 [real]      Tinker re-auth exists as a bounded OTP refresh path through
             `reauth` and opt-in `POST /auth/reauth`; it returns only
             `tinker_auth` attempt records and does not expose account email,
@@ -1086,6 +1096,14 @@ Implementation status:
             `TINKER_FUNDING_MODE=operator_capped_validation`, caps top-ups at
             `$5`, and routes browser work through the Playwright sidecar rather
             than the currently blocked Neko CDP path.
+[real]      `docker-compose.selector-diagnostics.phala.yaml` is a temporary
+            Phala diagnostics profile for the main CVM. It uses registry image
+            digests only, disables Tinker bootstrap and all card/funding
+            mutations, keeps runtime bearer auth enabled, and enables only the
+            read-only bounded browser readiness and selector-probe routes. It
+            is not a production or funding posture; it exists to collect
+            bounded browser-control evidence and must be reverted immediately
+            after each measurement.
 [real]      The funding-validation profile was refreshed on Phala on
             2026-07-09 with GitHub-attested source
             `eb3bde3b5b156dfdd46f701ab2df8f1f19d94120` images:
