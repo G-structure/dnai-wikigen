@@ -89,8 +89,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             approved user/agent identity, delivery public key, scopes, spend
             caps, expiration, revocation, audit record, and contract/compose
             policy.
-      - [ ] Convert future Tinker operations to scoped proxy authorization
-            rather than runtime-operator bearer tokens for approved users.
+      - [x] Accept scoped proxy JWTs on the first bounded operation endpoints.
+            Done 2026-07-09: `GET /tinker/proxy/status`,
+            `POST /tinker/smoke`, `GET /billing/payment-method-status`, and
+            `POST /billing/add-balance` now accept either the operator runtime
+            bearer token or a proxy JWT with the matching scope:
+            `proxy:status`, `tinker:smoke`,
+            `billing:payment-method-status`, or `billing:add-balance`.
+            Card mutation, card removal, funding receipts, reauth, and token
+            issuance remain operator-runtime only.
+      - [ ] Convert future approved-user Tinker operations to scoped proxy
+            authorization rather than runtime-operator bearer tokens.
       - [ ] Add proxy-token revocation and audit-log replay.
 - [ ] `P0` No human operator can access the TEE-owned email account or Tinker
       account once production custody is established.

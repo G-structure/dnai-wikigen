@@ -177,6 +177,94 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertFalse(body["sample_output_returned"])
             self.assertFalse(body["raw_secret_egress"])
 
+    def test_add_balance_can_query_deployed_delegate_api(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "add-balance.json"
+            receipt_path = Path(tmpdir) / "add-balance-receipt.json"
+            seen_headers: list[str] = []
+            seen_body: list[dict] = []
+
+            class Handler(BaseHTTPRequestHandler):
+                def do_POST(self):
+                    if self.path != "/billing/add-balance":
+                        self.send_response(404)
+                        self.end_headers()
+                        return
+                    seen_headers.append(self.headers.get("Authorization", ""))
+                    length = int(self.headers.get("Content-Length", "0"))
+                    seen_body.append(json.loads(self.rfile.read(length).decode("utf-8")))
+                    body = json.dumps(
+                        {
+                            "success": False,
+                            "error": "Add-balance completion not confirmed",
+                            "amount_dollars": 10.0,
+                            "attempt_record": {
+                                "surface": "add_balance",
+                                "outcome": "unknown_failure",
+                                "furthest_stage": "add_balance_submitted",
+                                "bounded_message": "Add-balance completion not confirmed",
+                                "evidence_hash": "a" * 64,
+                                "account_hash": "",
+                                "amount_band": "10_25_usd",
+                                "balance_band": "unknown",
+                                "tdx_quote_hash": "",
+                                "card_payload_destroyed": False,
+                                "raw_secret_egress": False,
+                                "issued_at": 123,
+                            },
+                        }
+                    ).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
+                def log_message(self, format, *args):
+                    return
+
+            server = HTTPServer(("127.0.0.1", 0), Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                env = _env(tmpdir)
+                env["TINKER_PROXY_JWT"] = "scoped-proxy-token"
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "tinker_delegate.main",
+                        "add-balance",
+                        "10",
+                        "--api-url",
+                        f"http://127.0.0.1:{server.server_port}",
+                        "--auth-token-env",
+                        "TINKER_PROXY_JWT",
+                        "--receipt-output",
+                        str(receipt_path),
+                        "--output",
+                        str(output_path),
+                    ],
+                    check=False,
+                    cwd=Path(__file__).resolve().parents[1],
+                    env=env,
+                    text=True,
+                    capture_output=True,
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertEqual(result.stdout, "")
+            self.assertEqual(seen_headers, ["Bearer scoped-proxy-token"])
+            self.assertEqual(seen_body, [{"amount_dollars": 10.0}])
+            body = json.loads(output_path.read_text(encoding="utf-8"))
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            self.assertFalse(body["success"])
+            self.assertEqual(receipt["surface"], "add_balance")
+            self.assertFalse(receipt["raw_secret_egress"])
+
     def test_issue_tinker_proxy_token_can_query_deployed_delegate_api(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "proxy-token.json"

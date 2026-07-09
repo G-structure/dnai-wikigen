@@ -562,7 +562,7 @@ def cli():
     tinker_smoke_p.add_argument(
         "--auth-token-env",
         default="TINKER_RUNTIME_AUTH_TOKEN",
-        help="Environment variable containing delegate runtime bearer token for --api-url",
+        help="Environment variable containing delegate runtime or scoped proxy bearer token for --api-url",
     )
     tinker_smoke_p.add_argument("--deal-id", default="", help="Optional public/local smoke deal id")
     tinker_smoke_p.add_argument(
@@ -938,7 +938,18 @@ def cli():
 
     add_bal_p = sub.add_parser("add-balance", help="Add credit balance to Tinker account")
     add_bal_p.add_argument("amount", type=float, help="Amount in USD to add")
+    add_bal_p.add_argument(
+        "--api-url",
+        default="",
+        help="Optional deployed Tinker delegate API base URL; omitted uses the local browser session",
+    )
+    add_bal_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime or scoped proxy bearer token for --api-url",
+    )
     add_bal_p.add_argument("--receipt-output", default="", help="Optional output path for bounded receipt JSON")
+    add_bal_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
 
     payment_method_status_p = sub.add_parser(
         "payment-method-status",
@@ -948,7 +959,7 @@ def cli():
     payment_method_status_p.add_argument(
         "--auth-token-env",
         default="TINKER_RUNTIME_AUTH_TOKEN",
-        help="Environment variable containing delegate runtime bearer token",
+        help="Environment variable containing delegate runtime or scoped proxy bearer token",
     )
     payment_method_status_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
 
@@ -1954,12 +1965,28 @@ def cli():
 
     elif args.command == "add-balance":
         from tinker_delegate.card_channel import BalancePayload, handle_add_balance
+        if args.api_url:
+            import httpx
+
+            headers = _runtime_auth_headers(args.auth_token_env)
+            with httpx.Client(timeout=120.0) as client:
+                response = client.post(
+                    _api_endpoint(args.api_url, "/billing/add-balance"),
+                    json={"amount_dollars": args.amount},
+                    headers=headers,
+                )
+            body = response.json()
+            if args.receipt_output:
+                _emit_bounded_json(_receipt_or_raise(body), output_path=args.receipt_output)
+            _emit_bounded_json(body, output_path=args.output)
+            sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
+
         payload = BalancePayload(amount_dollars=args.amount)
         result = asyncio.run(handle_add_balance(payload, settings))
         body = result.model_dump(mode="json")
         if args.receipt_output:
             _emit_bounded_json(_receipt_or_raise(body), output_path=args.receipt_output)
-        _emit_bounded_json(body)
+        _emit_bounded_json(body, output_path=args.output)
         sys.exit(0 if result.success else 1)
 
     elif args.command == "payment-method-status":

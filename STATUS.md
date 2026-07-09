@@ -103,6 +103,14 @@ Latest Tinker execution buildout, 2026-07-09:
   envelope into a `0600` JWT file and emits only hashes/status. Production user
   approval, spend caps, revocation, audit replay, deployment, attestation, and
   compose/contract binding remain open.
+- First proxy-token authorization wiring is source/test-real:
+  `GET /tinker/proxy/status`, `POST /tinker/smoke`,
+  `GET /billing/payment-method-status`, and `POST /billing/add-balance` accept
+  either the operator runtime bearer token or a proxy JWT with the matching
+  scope. Token issuance, reauth, card add/remove, and funding receipts remain
+  operator-only. The `add-balance` CLI now supports `--api-url`,
+  `--auth-token-env`, `--output`, and `--receipt-output` for remote bounded
+  add-balance attempts.
 - Source now has a bounded real-SDK smoke surface for the funded Tinker account.
   `tinker_delegate.tinker_smoke.run_tinker_sdk_smoke()` uses the sealed API-key
   resolver, checks `TinkerAccountEncumbrance` with `SPEND_TINKER_COMPUTE`,

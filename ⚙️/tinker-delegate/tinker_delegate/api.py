@@ -436,7 +436,7 @@ async def billing_balance():
 @app.get("/billing/payment-method-status", response_model=BillingResponse)
 async def billing_payment_method_status(authorization: str = Header(default="")):
     """Return bounded card-on-file status without card details."""
-    _require_runtime_auth(authorization)
+    _require_runtime_or_proxy_auth("billing:payment-method-status", authorization)
     result = await handle_payment_method_status(settings)
     return result
 
@@ -552,7 +552,7 @@ async def billing_add_balance(payload: BalancePayload, authorization: str = Head
                 "CLI path or explicitly enable TINKER_ALLOW_ADD_BALANCE_ENDPOINT"
             ),
         )
-    _require_runtime_auth(authorization)
+    _require_runtime_or_proxy_auth("billing:add-balance", authorization)
     result = await handle_add_balance(payload, settings)
     return result
 
@@ -570,7 +570,7 @@ def tinker_smoke(payload: TinkerSmokeRequestBody, authorization: str = Header(de
             status_code=403,
             detail="Tinker smoke endpoint is disabled",
         )
-    _require_runtime_auth(authorization)
+    _require_runtime_or_proxy_auth("tinker:smoke", authorization)
     from tinker_delegate.tinker_smoke import TinkerSmokeRequest, run_tinker_sdk_smoke
 
     try:

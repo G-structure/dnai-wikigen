@@ -353,6 +353,15 @@ run IDs, checkpoint paths, samples, or private reward data.
             without printing the private key or token. The implementation is
             source/test-real only until built, deployed, attested, approved,
             and bound to a production user/scope policy.
+[real]      The first bounded operation endpoints now accept scoped proxy JWTs:
+            `proxy:status` for proxy status, `tinker:smoke` for the paid smoke
+            surface, `billing:payment-method-status` for card-on-file status,
+            and `billing:add-balance` for the capped add-balance endpoint.
+            Operator-only surfaces remain operator-runtime guarded: token
+            issuance, Tinker reauth, card add/remove, and funding receipts are
+            not delegated to user proxy JWTs in this slice. The `add-balance`
+            CLI can now call a deployed delegate with `--api-url` and a scoped
+            bearer token, writing bounded JSON and optional receipt files.
 
 ### Bounded Output
 
