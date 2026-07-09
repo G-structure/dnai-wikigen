@@ -288,9 +288,14 @@ encrypted-card/payment-method leg: the payment-method receipt succeeded at
 Add-balance reached `add_balance_submitted` and then returned an unconfirmed
 failure. Local source now narrows the billing-error classifier, requires
 explicit add-balance success copy before returning success, and uses bounded DOM
-signals such as remove-card controls for card-on-file status; that hardening
-still needs a GitHub-attested image, Phala redeploy, compose-hash approval, and
-a successful bounded add-balance receipt before funding is real.
+signals such as remove-card controls for card-on-file status. That hardening has
+now been built by GitHub Actions, verified with provenance and SBOM
+attestations, and redeployed to the existing Phala CVM. The live TDX envelope
+reports compose hash
+`a3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9`; reauth
+succeeds and bounded card status reports `card_on_file=true` /
+`one_or_more`. The new compose hash is not yet approved on-chain, so a
+successful bounded add-balance receipt is still required before funding is real.
 The billing control plane also has a bounded card-on-file status path and
 admin/operator card-removal path: callers can learn only whether a payment
 method appears present and a zero/one-or-more/unknown count band, never card
@@ -1215,12 +1220,19 @@ Implementation status:
             receipt reached `add_balance_submitted` but was unconfirmed and
             exposed an overly broad billing-error classifier for `Payment
             methods` navigation text. Source now tightens that classifier and
-            requires explicit add-balance success copy before returning success;
-            this fix needs another build/redeploy/approval before the next
-            top-up attempt. The profile is still not production-final because
-            the CVM reports dev OS, quote internals are not parsed, and a
-            successful live real-card add-balance receipt has not yet been
-            produced.
+            requires explicit add-balance success copy before returning success.
+            That fix was built from source
+            `2ab388103817bfbfaa7e20579a79213ed87fd85a`, verified against
+            GitHub provenance and SPDX SBOM attestations for delegate digest
+            `06c8d0fadd98922f0c6f5bded92b414be2bf423fc3c3e6af1b8e9e36b8c6975f`,
+            and redeployed. Live TDX attestation now reports compose hash
+            `a3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9`;
+            reauth succeeds and bounded payment-method status reports
+            `one_or_more`. The new compose hash is not yet approved in
+            `TinkerAccountEncumbrance`, so add-balance remains blocked until
+            approval. The profile is still not production-final because the CVM
+            reports dev OS, quote internals are not parsed, and a successful
+            live real-card add-balance receipt has not yet been produced.
 [real]      Source/tests now distinguish billing selector drift from auth-state
             failure before card fields or top-up controls are touched. The
             payment-method and add-balance flows classify a billing navigation

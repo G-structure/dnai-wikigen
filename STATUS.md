@@ -187,6 +187,33 @@ such as remove-card controls without exposing brand, last4, expiry, or billing
 address. This source fix has tests but still needs GitHub-attested build, Phala
 redeploy, compose approval, and a fresh add-balance attempt.
 
+Funding retry follow-up 4, 2026-07-09: source
+`2ab388103817bfbfaa7e20579a79213ed87fd85a` built successfully in GitHub Actions
+run `29002851796`; the new delegate image is
+`ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:06c8d0fadd98922f0c6f5bded92b414be2bf423fc3c3e6af1b8e9e36b8c6975f`.
+Local `gh attestation verify` passed for both the SLSA provenance predicate and
+the SPDX SBOM predicate, tying the image to the `Build TEE Images` workflow,
+github-hosted runner, source digest `2ab388103817bfbfaa7e20579a79213ed87fd85a`,
+and run `29002851796`. The funding-validation compose was updated to pin that
+digest and redeployed to existing CVM/app
+`app_f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`; the update completed in 88s.
+Local compose/image-policy hash is
+`2eb459e0ff48ff88db0f75fb6ee7f3afb7811a5f0ea2180cc750e4f2115ba6f6`; Phala
+raw-compose hash with the eight allowed env keys is
+`bc9b8b228629fa726919dae7d9f050e4ae27914f4fde0cacc094fc537176c6cf`;
+live TDX attestation reports compose hash
+`a3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9`, app ID
+`f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, OS image hash
+`de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`, and
+`verify-cvm-attestation` passed against the required digest-pinned images.
+`/auth/reauth` succeeded after redeploy and bounded
+`/billing/payment-method-status` now returns `card_on_file=true`,
+`payment_method_count_band=one_or_more`, `bounded_message=payment_method_count:one_or_more`,
+and `raw_secret_egress=false`. On-chain `tinker-encumbrance-preflight` for
+`add-balance`, amount `$10`, and compose hash `0xa3d0...6fc9` currently denies
+with `compose_hash_not_approved`; the next top-up attempt is blocked until the
+operator approves this new compose hash.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce

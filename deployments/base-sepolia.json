@@ -59,24 +59,24 @@
       "emergencyHalted": false,
       "measurementsFrozen": false,
       "currentOperatorControlled": true,
-      "latestApprovedComposeHash": "0x9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
+      "latestApprovedComposeHash": "0x7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
       "latestApprovedComposeHashApproved": true,
-      "latestComposeApprovalTx": "0xb7e6d0fc504146d88005339bd859142a5f2d6c3f99315d81cb00742ebc15d48e",
-      "latestComposeApprovalBlock": 43905420,
-      "currentFundingComposeHash": "0x7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
-      "lastReviewedAt": "2026-07-09T06:59:00Z",
-      "pendingComposeHashApproval": "",
-      "pendingComposeHashApproved": true
+      "latestComposeApprovalTx": "0x0821933345af2d0090ed0ce99e8bc0c4856202b84ef6fbe5dd184dacdba50ad2",
+      "latestComposeApprovalBlock": 43907277,
+      "currentFundingComposeHash": "0xa3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9",
+      "lastReviewedAt": "2026-07-09T08:00:03Z",
+      "pendingComposeHashApproval": "0xa3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9",
+      "pendingComposeHashApproved": false
     }
   },
   "phala": {
-    "status": "running_tinker_funding_validation_profile_auth_solved_encumbrance_approved",
+    "status": "running_tinker_funding_validation_profile_card_on_file_pending_compose_approval",
     "cvmId": "cvm_1w85mGjo",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552",
-    "deployHelperComposeHash": "f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552",
-    "localRawComposeImagePolicyHash": "a0045b4a0995f858dde0d473a16b997459a6bd009f78c55b0d5ee471ba58f81f",
-    "renderedComposeSha256": "e8938c5c3896376df2219ddcee78dd26c82963c6fc57ab98431ce6b39122302f",
+    "composeHash": "a3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9",
+    "deployHelperComposeHash": "a3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9",
+    "localRawComposeImagePolicyHash": "bc9b8b228629fa726919dae7d9f050e4ae27914f4fde0cacc094fc537176c6cf",
+    "renderedComposeSha256": "f607984e96d3b4e4774e7fef8322c0303a52b0cbfabfb7cd741ba181a63ad313",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -1105,20 +1105,28 @@
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "fundingValidationEvidence": {
-      "status": "payment_method_success_add_balance_unconfirmed_classifier_fix_pending_deploy",
+      "status": "classifier_fix_deployed_card_on_file_pending_compose_approval",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
-      "sourceDigest": "658f6020db9972e0f7e1e914f72422ff5d08535f",
-      "githubActionsRunId": 29001302688,
+      "sourceDigest": "2ab388103817bfbfaa7e20579a79213ed87fd85a",
+      "githubActionsRunId": 29002851796,
       "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:beedfc6c3f1f0c9dca8604d6adf6522110e8dc2f15af1e8a9145e0e3227939a9",
-      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:35bcc693300644445af40e7d4eb5d488848a2006ed2d42b7f56638c60963c92c",
-      "deployHelperComposeHash": "7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
-      "localRawComposeImagePolicyHash": "90b870f4bf03bcb2a12b9ee41f87fdea8b530d77d5cf01df58ffd509558ad8aa",
-      "renderedComposeSha256": "43034efa35e6a99a26b18ca2778fb2f471701688031a414d7742fe5dff669d59",
-      "attestedComposeHash": "7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:06c8d0fadd98922f0c6f5bded92b414be2bf423fc3c3e6af1b8e9e36b8c6975f",
+      "deployHelperComposeHash": "a3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9",
+      "localComposeImagePolicyHash": "2eb459e0ff48ff88db0f75fb6ee7f3afb7811a5f0ea2180cc750e4f2115ba6f6",
+      "localRawComposeImagePolicyHash": "bc9b8b228629fa726919dae7d9f050e4ae27914f4fde0cacc094fc537176c6cf",
+      "renderedComposeSha256": "f607984e96d3b4e4774e7fef8322c0303a52b0cbfabfb7cd741ba181a63ad313",
+      "attestedComposeHash": "a3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9",
       "deploymentBundleVerification": "verify_cvm_attestation_passed_with_github_provenance_sbom_and_live_tdx_attestation",
+      "githubAttestations": {
+        "provenanceVerified": true,
+        "sbomVerified": true,
+        "workflow": "Build TEE Images",
+        "runner": "github-hosted",
+        "run": "https://github.com/G-structure/dnai-wikigen/actions/runs/29002851796/attempts/1"
+      },
       "billingAttestation": {
-        "reportData": "41b9f8ab6987f7f79ee5b1d3fbfb1fea102f3f442c6e9ef1e4cc964d695e684a",
-        "encryptionPublicKey": "dbd5f6e91a995d41b6a20d2afa5aaa29bbe2afd09108564b243023275b4d8719",
+        "reportData": "bf25975f589db409963933d0e4e030454f219a4f7fd23744317826616e265bef",
+        "encryptionPublicKey": "d3bb203942efb66a852dbfe7352ba999167900f427839a21327dee33be58af7e",
         "quoteSize": 10020
       },
       "runtimeEnv": {
@@ -1145,14 +1153,24 @@
       "fundingPreflight": {
         "ready": true,
         "amount": 10,
-        "attestationFetch": "live_attestation_matched_expected_7edf41_compose_hash",
+        "attestationFetch": "live_attestation_matched_expected_a3d0_compose_hash",
         "addBalanceEndpoint": "enabled_behind_runtime_bearer_auth",
         "fundingMode": "operator_capped_validation",
         "minAddBalanceUsd": 10,
         "maxAddBalanceUsd": 10,
-        "encumbranceAllowed": true,
+        "encumbranceAllowed": false,
         "stalePreviousReadyAmount": 10,
-        "staleReason": ""
+        "staleReason": "compose_hash_not_approved"
+      },
+      "tinkerEncumbrancePreflight": {
+        "operation": "add_balance",
+        "amount": 10,
+        "composeHash": "0xa3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9",
+        "allowed": false,
+        "reason": "compose_hash_not_approved",
+        "emergencyHalted": false,
+        "maxAmountWei": "10000000000000000000",
+        "rawSecretEgress": false
       },
       "reauthAttempt": {
         "success": true,
@@ -1179,15 +1197,15 @@
         "storesRawCookiesOrLocalStorageInPlaintext": false
       },
       "fundingCommandPlan": {
-        "status": "payment_method_success_add_balance_unconfirmed",
+        "status": "blocked_until_a3d0_compose_approval",
         "amount": 10,
         "encumbranceContract": "0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e",
-        "composeHashApproved": true,
+        "composeHashApproved": false,
         "runtimeAuthRequired": true,
         "rawSecretEgress": false,
-        "latestLocalPlanCheck": "preflight_ready_true_after_compose_approval"
+        "latestLocalPlanCheck": "tinker_encumbrance_preflight_compose_hash_not_approved"
       },
-      "nextStep": "build, attest, redeploy, and approve the add-balance receipt classifier fix, then rerun a $10 add-balance attempt; do not commit or echo card details; production still requires non-dev OS before claiming final deployment",
+      "nextStep": "approve compose hash 0xa3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9 in TinkerAccountEncumbrance, then rerun a $10 add-balance attempt without re-entering card details unless bounded card status changes; production still requires non-dev OS before claiming final deployment",
       "postSelectorDiagnosticsRestore": {
         "date": "2026-07-09",
         "attestedComposeHash": "7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
@@ -1200,12 +1218,12 @@
       },
       "nekoImage": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:fd6a65a894befc66901ed7b915c792f3a669b74ef4ace01813815e1f1030b456",
       "paymentMethodStatus": {
-        "success": false,
-        "cardOnFile": null,
-        "paymentMethodCountBand": "unknown",
-        "outcome": "unknown_failure",
+        "success": true,
+        "cardOnFile": true,
+        "paymentMethodCountBand": "one_or_more",
+        "outcome": "success",
         "furthestStage": "billing_page_loaded",
-        "evidenceHash": "0b1e073401f28906cbc12339e6b78cb4bca020c4ac0d878097b7a274445b3f92",
+        "boundedMessage": "payment_method_count:one_or_more",
         "rawSecretEgress": false
       },
       "balanceRead": {
@@ -1215,12 +1233,12 @@
         "rawSecretEgress": false
       },
       "composeApproval": {
-        "composeHash": "0x7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
-        "approved": true,
-        "tx": "0x0821933345af2d0090ed0ce99e8bc0c4856202b84ef6fbe5dd184dacdba50ad2",
-        "block": 43907277,
-        "previousApprovedComposeHash": "0x9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
-        "previousApprovalTx": "0xb7e6d0fc504146d88005339bd859142a5f2d6c3f99315d81cb00742ebc15d48e"
+        "composeHash": "0xa3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9",
+        "approved": false,
+        "tx": "",
+        "block": 0,
+        "previousApprovedComposeHash": "0x7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
+        "previousApprovalTx": "0x0821933345af2d0090ed0ce99e8bc0c4856202b84ef6fbe5dd184dacdba50ad2"
       },
       "latestPacketAttempt": {
         "packetDir": "/tmp/dnai-tinker-funding-validation-packet-20260709T074049Z",
@@ -1244,7 +1262,7 @@
         "rawSecretEgress": false
       },
       "pendingSourceFix": {
-        "status": "local_tests_passed_not_deployed",
+        "status": "deployed_pending_compose_approval",
         "narrowPaymentMethodErrorRegex": true,
         "requireExplicitAddBalanceSuccessCopy": true,
         "boundedUnconfirmedAddBalanceMessage": true,

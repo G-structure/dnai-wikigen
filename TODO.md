@@ -1521,8 +1521,24 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   status now uses bounded DOM signals such as remove-card
                   controls instead of returning card details or assuming an
                   add-card button means zero cards.
-            - [ ] Build, attest, redeploy, and approve the add-balance receipt
-                  classifier fix before rerunning a top-up attempt.
+            - [x] Build, attest, and redeploy the add-balance receipt
+                  classifier/card-status fix. Done 2026-07-09: source
+                  `2ab388103817bfbfaa7e20579a79213ed87fd85a` built in GitHub
+                  Actions run `29002851796`; delegate image
+                  `06c8d0fadd98922f0c6f5bded92b414be2bf423fc3c3e6af1b8e9e36b8c6975f`
+                  has verified provenance and SPDX SBOM attestations; Phala
+                  redeploy completed on the existing CVM and live attestation
+                  reports compose hash
+                  `a3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9`.
+                  `/auth/reauth` succeeds and bounded card status now reports
+                  `card_on_file=true` / count band `one_or_more` with no card
+                  details.
+            - [ ] Approve compose hash
+                  `0xa3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9`
+                  in `TinkerAccountEncumbrance`, then rerun a `$10`
+                  add-balance attempt without re-entering card details unless
+                  the bounded status changes. Current on-chain preflight returns
+                  `compose_hash_not_approved`.
             The item remains unchecked until a bounded add-balance receipt and
             live balance read prove a low-value top-up succeeded; the CVM
             dev-OS warning also remains before production.
