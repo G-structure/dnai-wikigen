@@ -119,9 +119,10 @@ class FakeRestClient:
 class FakeServiceClient:
     last_instance = None
 
-    def __init__(self, api_key, project_id=None):
+    def __init__(self, api_key, project_id=None, base_url=None):
         self.api_key = api_key
         self.project_id = project_id
+        self.base_url = base_url
         self.training_client = FakeTrainingClient("run-secret")
         self.sampling_paths = []
         self.rest_client = FakeRestClient()
@@ -183,6 +184,14 @@ class CapabilityProbeFailingServiceClient(FakeServiceClient):
     def get_server_capabilities(self):
         raise PermissionError(
             f"provider body with {FAKE_PROVIDER_KEY} and {FAKE_PROVIDER_EMAIL}"
+        )
+
+
+class ServiceClientCreateFailingServiceClient(FakeServiceClient):
+    def __init__(self, api_key, project_id=None, base_url=None):
+        raise BadRequestError(
+            "Bad request creating session "
+            f"with key {FAKE_PROVIDER_KEY}, project {project_id}, base {base_url}"
         )
 
 
@@ -266,16 +275,31 @@ class TinkerSmokeTest(unittest.TestCase):
             patch("tinker_delegate.tinker_smoke.preflight_tinker_operation", return_value=_allowed_policy()),
         ):
             result = run_tinker_sdk_smoke(
-                Settings(real_sdk_max_usd=0.05, project_id="proj-secret"),
+                Settings(
+                    real_sdk_max_usd=0.05,
+                    project_id="proj-secret",
+                    base_url="https://custom.thinkingmachines.dev/services/tinker-prod",
+                ),
                 TinkerSmokeRequest(deal_id="deal-secret", max_usd=0.05),
             )
 
         rendered = json.dumps(result)
         self.assertTrue(result["success"])
         self.assertEqual(FakeServiceClient.last_instance.project_id, "proj-secret")
+        self.assertEqual(
+            FakeServiceClient.last_instance.base_url,
+            "https://custom.thinkingmachines.dev/services/tinker-prod",
+        )
         self.assertTrue(result["sdk_diagnostics"]["project"]["configured"])
         self.assertRegex(result["sdk_diagnostics"]["project"]["project_hash"], r"^[0-9a-f]{64}$")
+        client_config = result["sdk_diagnostics"]["client_config"]
+        self.assertEqual(client_config["api_key_argument"], "provided")
+        self.assertEqual(client_config["project_id_argument"], "provided")
+        self.assertEqual(client_config["base_url_argument"], "provided")
+        self.assertEqual(client_config["base_url_host_family"], "thinkingmachines")
+        self.assertRegex(client_config["base_url_hash"], r"^[0-9a-f]{64}$")
         self.assertNotIn("proj-secret", rendered)
+        self.assertNotIn("custom.thinkingmachines.dev", rendered)
 
     def test_smoke_fails_closed_when_encumbrance_denies(self):
         denied = TinkerEncumbrancePolicyResult(
@@ -358,6 +382,10 @@ class TinkerSmokeTest(unittest.TestCase):
             },
         )
         self.assertFalse(diagnostics["project"]["configured"])
+        self.assertEqual(diagnostics["client_config"]["api_key_argument"], "provided")
+        self.assertEqual(diagnostics["client_config"]["project_id_argument"], "omitted")
+        self.assertEqual(diagnostics["client_config"]["base_url_argument"], "sdk_default")
+        self.assertEqual(diagnostics["client_config"]["base_url_host_family"], "sdk_default")
         self.assertEqual(diagnostics["capabilities"]["checked"], True)
         self.assertEqual(diagnostics["capabilities"]["attempted_model_supported"], True)
         self.assertEqual(diagnostics["capabilities"]["supported_model_count_band"], "1-10")
@@ -373,6 +401,40 @@ class TinkerSmokeTest(unittest.TestCase):
         self.assertNotIn("123e4567-e89b-12d3-a456-426614174000", rendered)
         self.assertNotIn("deal-secret", rendered)
         self.assertFalse(result["raw_secret_egress"])
+
+    def test_smoke_service_client_create_failure_keeps_bounded_client_config(self):
+        with (
+            patch.object(FAKE_TINKER, "ServiceClient", ServiceClientCreateFailingServiceClient),
+            patch.object(session_module, "tinker", FAKE_TINKER),
+            patch("tinker_delegate.tinker_smoke.resolve_api_key", return_value="tml-secret-value"),
+            patch("tinker_delegate.tinker_smoke.preflight_tinker_operation", return_value=_allowed_policy()),
+        ):
+            result = run_tinker_sdk_smoke(
+                Settings(
+                    real_sdk_max_usd=0.05,
+                    project_id="proj-secret",
+                    base_url="https://custom.thinkingmachines.dev/services/tinker-prod",
+                ),
+                TinkerSmokeRequest(deal_id="deal-secret", max_usd=0.05),
+            )
+
+        rendered = json.dumps(result)
+        self.assertFalse(result["success"])
+        self.assertEqual(result["furthest_stage"], "api_key_loaded")
+        self.assertEqual(result["sdk_error"]["failure_site"], "service_client_create")
+        self.assertEqual(result["sdk_error"]["operator_action"], "check_sdk_client_configuration")
+        diagnostics = result["sdk_diagnostics"]
+        self.assertTrue(diagnostics["project"]["configured"])
+        self.assertRegex(diagnostics["project"]["project_hash"], r"^[0-9a-f]{64}$")
+        self.assertEqual(diagnostics["client_config"]["api_key_argument"], "provided")
+        self.assertEqual(diagnostics["client_config"]["project_id_argument"], "provided")
+        self.assertEqual(diagnostics["client_config"]["base_url_argument"], "provided")
+        self.assertEqual(diagnostics["client_config"]["base_url_host_family"], "thinkingmachines")
+        self.assertRegex(diagnostics["client_config"]["base_url_hash"], r"^[0-9a-f]{64}$")
+        self.assertFalse(diagnostics["capabilities"]["checked"])
+        self.assertNotIn("proj-secret", rendered)
+        self.assertNotIn("custom.thinkingmachines.dev", rendered)
+        self.assertNotIn(FAKE_PROVIDER_KEY, rendered)
 
     def test_smoke_capabilities_probe_success_does_not_leak_model_list(self):
         with (

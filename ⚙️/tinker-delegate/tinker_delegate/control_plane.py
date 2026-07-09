@@ -138,14 +138,27 @@ class DealContext:
 class ControlPlane:
     """Orchestrates deal lifecycle inside the TEE."""
 
-    def __init__(self, tinker_api_key: str, run_metadata_store=None):
+    def __init__(
+        self,
+        tinker_api_key: str,
+        run_metadata_store=None,
+        project_id: str = "",
+        base_url: str = "",
+    ):
         self._api_key = tinker_api_key
+        self._project_id = project_id
+        self._base_url = base_url
         self._deals: dict[str, DealContext] = {}
         self._run_metadata_store = run_metadata_store
 
     def _create_service_client(self) -> tinker.ServiceClient:
         """Create a Tinker ServiceClient with the sealed API key."""
-        return tinker.ServiceClient(api_key=self._api_key)
+        kwargs = {"api_key": self._api_key}
+        if self._project_id:
+            kwargs["project_id"] = self._project_id
+        if self._base_url:
+            kwargs["base_url"] = self._base_url
+        return tinker.ServiceClient(**kwargs)
 
     # --- Deal lifecycle ---
 

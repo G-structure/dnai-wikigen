@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     # Tinker auth
     tinker_console_url: str = "https://tinker-console.thinkingmachines.ai"
     project_id: str = ""
+    base_url: str = ""
 
     # Account details (auto-fetched from oracle if not set)
     email: str = ""

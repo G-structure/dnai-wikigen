@@ -9,6 +9,7 @@ import uuid
 from dataclasses import dataclass
 from importlib import metadata
 from typing import Any
+from urllib.parse import urlparse
 
 from tinker_delegate.api_key_store import resolve_api_key
 from tinker_delegate.redaction import redact_text
@@ -113,23 +114,27 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
     checkpoint_path = ""
     cleanup = None
     failure_site = "service_client_create"
+    project_id = getattr(settings, "project_id", "")
+    base_url = getattr(settings, "base_url", "")
     sdk_diagnostics = _bounded_sdk_diagnostics(
         service_client=None,
         model=model,
         rank=rank,
         deal_id=deal_id,
+        project_id=project_id,
+        base_url=base_url,
     )
     try:
         import tinker
 
-        project_id = getattr(settings, "project_id", "")
-        service_client = _create_service_client(tinker, api_key, project_id)
+        service_client = _create_service_client(tinker, api_key, project_id, base_url)
         sdk_diagnostics = _bounded_sdk_diagnostics(
             service_client=service_client,
             model=model,
             rank=rank,
             deal_id=deal_id,
             project_id=project_id,
+            base_url=base_url,
         )
         session = IsolatedTinkerSession(service_client, deal_id)
 
@@ -253,10 +258,12 @@ def _wait(value):
     return value
 
 
-def _create_service_client(tinker_module, api_key: str, project_id: str):
+def _create_service_client(tinker_module, api_key: str, project_id: str, base_url: str = ""):
     kwargs: dict[str, str] = {"api_key": api_key}
     if project_id:
         kwargs["project_id"] = project_id
+    if base_url:
+        kwargs["base_url"] = base_url
     return tinker_module.ServiceClient(**kwargs)
 
 
@@ -427,6 +434,13 @@ def _empty_sdk_diagnostics() -> dict[str, Any]:
             "configured": False,
             "project_hash": "",
         },
+        "client_config": {
+            "api_key_argument": "unknown",
+            "project_id_argument": "unknown",
+            "base_url_argument": "unknown",
+            "base_url_host_family": "unknown",
+            "base_url_hash": "",
+        },
         "capabilities": {
             "checked": False,
             "method": "",
@@ -447,6 +461,7 @@ def _bounded_sdk_diagnostics(
     rank: int,
     deal_id: str,
     project_id: str = "",
+    base_url: str = "",
 ) -> dict[str, Any]:
     return {
         "schema_version": 1,
@@ -478,8 +493,41 @@ def _bounded_sdk_diagnostics(
             "configured": bool(project_id),
             "project_hash": stable_hash(project_id, prefix="tinker_project") if project_id else "",
         },
+        "client_config": _bounded_client_config(project_id=project_id, base_url=base_url),
         "capabilities": _bounded_capability_probe(service_client, model),
     }
+
+
+def _bounded_client_config(*, project_id: str = "", base_url: str = "") -> dict[str, Any]:
+    return {
+        "api_key_argument": "provided",
+        "project_id_argument": "provided" if project_id else "omitted",
+        "base_url_argument": "provided" if base_url else "sdk_default",
+        "base_url_host_family": _base_url_host_family(base_url),
+        "base_url_hash": stable_hash(base_url, prefix="tinker_base_url") if base_url else "",
+    }
+
+
+def _base_url_host_family(base_url: str) -> str:
+    if not base_url:
+        return "sdk_default"
+    try:
+        host = (urlparse(base_url).hostname or "").lower()
+    except Exception:
+        return "invalid"
+    if not host:
+        return "invalid"
+    if host in {"localhost", "127.0.0.1", "::1"}:
+        return "localhost"
+    if (
+        host.startswith("10.")
+        or host.startswith("192.168.")
+        or re.match(r"^172\.(1[6-9]|2\d|3[0-1])\.", host)
+    ):
+        return "private_network"
+    if host.endswith("thinkingmachines.ai") or host.endswith("thinkingmachines.dev"):
+        return "thinkingmachines"
+    return "other"
 
 
 def _sdk_version() -> str:

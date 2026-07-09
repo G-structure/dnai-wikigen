@@ -12,6 +12,8 @@ API_KEY_ENV = "TINKER_API_KEY"
 BUDGET_ENV = "TINKER_REAL_SDK_MAX_USD"
 MODEL_ENV = "TINKER_REAL_SDK_MODEL"
 RANK_ENV = "TINKER_REAL_SDK_RANK"
+PROJECT_ID_ENV = "TINKER_PROJECT_ID"
+BASE_URL_ENV = "TINKER_BASE_URL"
 HARD_MAX_USD = Decimal("0.50")
 DEFAULT_MODEL = "Qwen/Qwen3-8B"
 
@@ -54,6 +56,17 @@ def _wait(value):
     return value
 
 
+def _service_client_kwargs(api_key: str) -> dict[str, str]:
+    kwargs = {"api_key": api_key}
+    project_id = os.environ.get(PROJECT_ID_ENV, "").strip()
+    base_url = os.environ.get(BASE_URL_ENV, "").strip()
+    if project_id:
+        kwargs["project_id"] = project_id
+    if base_url:
+        kwargs["base_url"] = base_url
+    return kwargs
+
+
 class TinkerRealSdkGateTest(unittest.TestCase):
     def test_budget_cap_requires_decimal_value(self):
         with patch.dict(os.environ, {BUDGET_ENV: ""}, clear=False):
@@ -74,6 +87,29 @@ class TinkerRealSdkGateTest(unittest.TestCase):
     def test_budget_cap_accepts_low_value(self):
         with patch.dict(os.environ, {BUDGET_ENV: "0.05"}, clear=False):
             self.assertEqual(_budget_cap_usd(), Decimal("0.05"))
+
+    def test_service_client_kwargs_include_optional_project_and_base_url(self):
+        env = {
+            PROJECT_ID_ENV: "proj-secret",
+            BASE_URL_ENV: "https://custom.thinkingmachines.dev/services/tinker-prod",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            self.assertEqual(
+                _service_client_kwargs("tml-secret-value"),
+                {
+                    "api_key": "tml-secret-value",
+                    "project_id": "proj-secret",
+                    "base_url": "https://custom.thinkingmachines.dev/services/tinker-prod",
+                },
+            )
+
+    def test_service_client_kwargs_omit_blank_optional_values(self):
+        env = {
+            PROJECT_ID_ENV: "",
+            BASE_URL_ENV: "  ",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            self.assertEqual(_service_client_kwargs("tml-secret-value"), {"api_key": "tml-secret-value"})
 
 
 @unittest.skipUnless(_enabled(), f"set {ENABLE_ENV}=1 to run real Tinker SDK tests")
@@ -116,7 +152,7 @@ class TinkerRealSdkIntegrationTest(unittest.TestCase):
         model = os.environ.get(MODEL_ENV, DEFAULT_MODEL)
         rank = int(os.environ.get(RANK_ENV, "4"))
         deal_id = f"real-sdk-smoke-{uuid.uuid4()}"
-        service_client = self.tinker.ServiceClient(api_key=os.environ[API_KEY_ENV])
+        service_client = self.tinker.ServiceClient(**_service_client_kwargs(os.environ[API_KEY_ENV]))
         session = IsolatedTinkerSession(service_client, deal_id)
         run_id = None
 

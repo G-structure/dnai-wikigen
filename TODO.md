@@ -1755,7 +1755,25 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `d0aea171db3483ae1dae4ff73294548ca5906481166893114ce048688bf2f3f9`
             and rendered compose SHA
             `c8d16bc2cefb5a01425defe6fe8fddbc7d850a18cf2ec709a0724ccfb199713d`.
-            This is not yet a live Phala redeploy or on-chain approval.
+            Follow-up evidence below records the live Phala redeploy and
+            on-chain approval for that image.
+      - [x] Add bounded Tinker SDK client-configuration diagnostics and wire the
+            same project/base-url settings into future evaluator sessions. Done
+            2026-07-09: smoke receipts now record a bounded `client_config`
+            block showing whether the API key argument, project-id argument, and
+            base-url argument were provided, plus only a host-family and hash for
+            any non-default base URL. This fixes the constructor-failure case so
+            a future `ServiceClient` failure still reports
+            `project.configured=true` if `TINKER_PROJECT_ID` was set, without
+            leaking the raw project id or endpoint. `ControlPlane` now passes the
+            same `TINKER_PROJECT_ID` / `TINKER_BASE_URL` settings when creating
+            real evaluator sessions, and the gated direct real-SDK integration
+            test now uses the same optional settings. The updated local
+            rendered-compose candidate hashes to
+            `cbf788e98d2d562a4cad0407a76fc64add8f5cad1d7ebd9e9f27fc2604950cf8`
+            with `allowed_envs=[]`; this source/compose fix is not yet built,
+            Phala-deployed, checked with the Phala raw-compose/allowed-env
+            deploy mode, or approved on-chain.
       - [ ] Run `tinker-smoke --api-url ... --max-usd 0.05
             --require-encumbrance` successfully from the deployed CVM and record
             the bounded receipt plus attestation evidence.
@@ -2586,15 +2604,16 @@ vision Wiki is reaching for.
       returned `$10.00`. The add-balance receipt remains intentionally
       conservative because it did not observe explicit success copy.
 - [ ] `Deploy` Run a tiny funded Tinker job and record the attestation.
-      Blocked 2026-07-09: smoke-capable Phala compose
-      `c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da`
-      is deployed and approved for `SPEND_TINKER_COMPUTE`, but the real smoke
-      fails closed with `BadRequestError` at `api_key_loaded` before training
-      creation. The bounded diagnostic receipt reports `invalid_request` /
-      `4xx` from Tinker SDK `0.15.0`. `Qwen/Qwen3-8B` rank `16` and rank `32`
-      retries failed with the same bounded hash; next deployment should include
-      project-aware diagnostics and test with `TINKER_PROJECT_ID` if the console
-      exposes one.
+      Blocked 2026-07-09: project-aware Phala compose
+      `314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816`
+      is deployed, attested, and approved for `SPEND_TINKER_COMPUTE`, but the
+      real smoke still fails before training creation at
+      `sdk_error.failure_site=service_client_create` with
+      `sdk_error.operator_action=check_sdk_client_configuration`, correct
+      Qwen/rank-32 request shape, and `project.configured=false`. Next step:
+      obtain or configure the correct Tinker project/client/base-url settings,
+      rebuild/redeploy/approve the new bounded client-config follow-up, then
+      rerun smoke.
 - [ ] `Deploy` Create a synthetic test room on Base Sepolia.
 - [ ] `Deploy` Fund the synthetic test deal.
 - [ ] `Deploy` Upload encrypted synthetic artifact.
@@ -2752,10 +2771,11 @@ vision Wiki is reaching for.
        a bounded balance read returned `$10.00`.
 12. [ ] Run one real tiny Tinker training session through `IsolatedTinkerSession`.
        Current blocker: deployed smoke fails with `BadRequestError` at
-       `api_key_loaded` before Tinker training creation; bounded diagnostics
-       classify it as `invalid_request` / `4xx` from Tinker SDK `0.15.0`.
-       Official-model retries with `Qwen/Qwen3-8B` rank `16` and `32` still
-       failed before run creation.
+       `sdk_error.failure_site=service_client_create` before Tinker training
+       creation; bounded diagnostics classify it as client-configuration work
+       with `project.configured=false`. Obtain or configure the correct Tinker
+       project/client/base-url settings, rebuild/redeploy/approve the bounded
+       client-config follow-up, then rerun smoke.
 13. [ ] Merge the `gate-health-frontend` UI and wire it to real verifier/status
        APIs.
 

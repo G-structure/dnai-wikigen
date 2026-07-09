@@ -103,6 +103,7 @@ Latest Tinker execution buildout, 2026-07-09:
 - Focused validation passed locally with mocked Tinker SDK and API/CLI gates:
   `uv run python -m unittest tests.test_tinker_smoke tests.test_api_tinker_smoke
   tests.test_cli_bounded_outputs tests.test_isolated_session
+  tests.test_run_metadata_store
   tests.test_tinker_real_sdk_integration.TinkerRealSdkGateTest`. The
   smoke-capable delegate image has now been built by GitHub Actions, pinned in
   the Phala funding-validation compose, redeployed, and approved on-chain for
@@ -157,6 +158,23 @@ Latest Tinker execution buildout, 2026-07-09:
   `sdk_error.failure_site=service_client_create`,
   `sdk_error.operator_action=check_sdk_client_configuration`, correct
   Qwen/rank-32 request shape, and `project.configured=false`.
+- Source follow-up after that live receipt fixes the next diagnostic blind spot:
+  if `ServiceClient` construction fails, receipts now still include accurate
+  bounded client configuration evidence for `TINKER_PROJECT_ID` and
+  `TINKER_BASE_URL`. The new `client_config` block records only whether the API
+  key, project-id, and base-url arguments were provided, plus a base-url host
+  family and hash; it never returns the raw project id or endpoint. `ControlPlane`
+  now passes the same project/base-url settings to future evaluator sessions, so
+  the smoke path and real deal path stay aligned. The gated direct real-SDK
+  integration test also uses the same optional settings. The updated local
+  rendered-compose candidate hashes to
+  `cbf788e98d2d562a4cad0407a76fc64add8f5cad1d7ebd9e9f27fc2604950cf8` with
+  rendered compose SHA
+  `b4a690458656c8aa6a9501960889645596c5b8a50c92a364b96a0f622590ef6f`.
+  `verify-compose-hash` reported `allowed_envs=[]` for this local check. This
+  follow-up has not yet been built into a new image, redeployed to Phala,
+  checked with the Phala raw-compose/allowed-env deploy mode, or approved
+  on-chain.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned

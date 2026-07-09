@@ -77,6 +77,34 @@ class ControlPlaneRunMetadataTest(unittest.TestCase):
     def setUp(self):
         sys.modules.setdefault("tinker", types.SimpleNamespace())
 
+    def test_control_plane_service_client_receives_project_and_base_url(self):
+        from tinker_delegate import control_plane as control_plane_module
+
+        created = {}
+
+        class FakeServiceClient:
+            def __init__(self, **kwargs):
+                created.update(kwargs)
+
+        original_tinker = control_plane_module.tinker
+        control_plane_module.tinker = types.SimpleNamespace(ServiceClient=FakeServiceClient)
+        try:
+            cp = control_plane_module.ControlPlane(
+                "tml-secret-value",
+                project_id="proj-secret",
+                base_url="https://custom.thinkingmachines.dev/services/tinker-prod",
+            )
+            cp._create_service_client()
+        finally:
+            control_plane_module.tinker = original_tinker
+
+        self.assertEqual(created["api_key"], "tml-secret-value")
+        self.assertEqual(created["project_id"], "proj-secret")
+        self.assertEqual(
+            created["base_url"],
+            "https://custom.thinkingmachines.dev/services/tinker-prod",
+        )
+
     def test_control_plane_records_bounded_lifecycle_metadata(self):
         from tinker_delegate.control_plane import ControlPlane, DealContext
 

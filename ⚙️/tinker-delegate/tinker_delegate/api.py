@@ -156,7 +156,12 @@ def _get_control_plane():
                     "Tinker agent stack is not installed in this deployment",
                 ) from exc
             raise
-        _control_plane = ControlPlane(api_key, run_metadata_store=build_run_metadata_store(settings))
+        _control_plane = ControlPlane(
+            api_key,
+            run_metadata_store=build_run_metadata_store(settings),
+            project_id=settings.project_id,
+            base_url=settings.base_url,
+        )
     return _control_plane
 
 
