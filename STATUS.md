@@ -321,6 +321,20 @@ startup-deferred oracle fix still needs GitHub image build, attestation
 verification, digest pin, Phala redeploy, and live health/preflight
 verification.
 
+Startup-deferred oracle image follow-up, 2026-07-09: GitHub Actions run
+`29008021529` built source `03e4c356a19e96a51d8027389d99a7ef36c1d48a`; CI run
+`29008021545` also passed. Local attestation verification passed for
+`tee-email-oracle@sha256:e5d641e1650fe08748017dead5870bf8bb7b844428899da2233030f631b80335`
+with GitHub provenance and SPDX SBOM attestations and `raw_secret_egress=false`.
+The funding-validation compose now pins that startup-deferred oracle digest.
+Local image-policy hash is
+`ecb54f8916b279d1e1968c0ca633aee0f6bef31dc2955af9d8351cbc984ab0fc`, rendered
+compose SHA-256 is
+`1ce5d1422b6de881cbc9e2e80063b031d68b815551039c80f5ccc57ec608f587`, and Phala
+raw-compose hash is
+`1f16c4a93adb3b09f29f7e6f7c97870ea781c4cca9c2dbf7d72a982a83e5a4b7`. This pin
+still needs Phala redeploy and live health/preflight verification.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce

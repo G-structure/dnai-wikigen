@@ -2285,8 +2285,18 @@ vision Wiki is reaching for.
                   `917caeff047da50b79a4077233ad275d01a5edbbe51b63d19c6a21b58d9f408a`,
                   but oracle `/health` still disconnected because startup was
                   blocked in `IMAPClient.connect()`.
-            - [ ] Build, verify, pin, and redeploy the startup-deferred oracle
-                  image.
+            - [x] Build, verify, and pin the startup-deferred oracle image.
+                  Done from source
+                  `03e4c356a19e96a51d8027389d99a7ef36c1d48a` with oracle
+                  digest
+                  `e5d641e1650fe08748017dead5870bf8bb7b844428899da2233030f631b80335`;
+                  local image-policy hash is
+                  `ecb54f8916b279d1e1968c0ca633aee0f6bef31dc2955af9d8351cbc984ab0fc`,
+                  rendered compose SHA-256 is
+                  `1ce5d1422b6de881cbc9e2e80063b031d68b815551039c80f5ccc57ec608f587`,
+                  and Phala raw-compose hash is
+                  `1f16c4a93adb3b09f29f7e6f7c97870ea781c4cca9c2dbf7d72a982a83e5a4b7`.
+            - [ ] Redeploy the startup-deferred oracle image to Phala.
             - [ ] Re-test live public `/health`, `/attestation?context=billing`,
                   and `/billing/funding-preflight` before approving any new
                   compose hash on-chain.
