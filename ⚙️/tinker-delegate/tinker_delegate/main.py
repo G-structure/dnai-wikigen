@@ -661,6 +661,60 @@ def cli():
     )
     funding_command_plan_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
 
+    tinker_smoke_plan_p = sub.add_parser(
+        "tinker-smoke-command-plan",
+        help="Build a bounded manifest-derived operator command plan for live Tinker SDK smoke",
+    )
+    tinker_smoke_plan_p.add_argument(
+        "--manifest",
+        default="",
+        help="Deployment manifest path; defaults to repo deployments/base-sepolia.json",
+    )
+    tinker_smoke_plan_p.add_argument(
+        "--compose",
+        default="docker-compose.tinker-funding-validation.phala.yaml",
+        help="Compose file path as run from the tinker-delegate directory",
+    )
+    tinker_smoke_plan_p.add_argument(
+        "--runtime-env",
+        default="../../.env",
+        help="Runtime env file path used by the Phala redeploy helper",
+    )
+    tinker_smoke_plan_p.add_argument(
+        "--api-env",
+        default="../../.env",
+        help="Phala API env file path used by the Phala redeploy helper",
+    )
+    tinker_smoke_plan_p.add_argument("--max-usd", type=float, default=0.05)
+    tinker_smoke_plan_p.add_argument("--model", default="Qwen/Qwen3-8B")
+    tinker_smoke_plan_p.add_argument("--rank", type=int, default=32)
+    tinker_smoke_plan_p.add_argument(
+        "--output-path-template",
+        default="/tmp/dnai-tinker-smoke-project-id-$(date -u +%Y%m%dT%H%M%SZ).json",
+        help="Smoke receipt output template for the generated command",
+    )
+    tinker_smoke_plan_p.add_argument(
+        "--encumbrance-rpc-env",
+        default="BASE_SEPOLIA_RPC_URL",
+        help="Environment variable name containing the Base Sepolia RPC URL",
+    )
+    tinker_smoke_plan_p.add_argument(
+        "--runtime-auth-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable name containing the delegate runtime bearer token",
+    )
+    tinker_smoke_plan_p.add_argument(
+        "--project-id-env",
+        default="TINKER_PROJECT_ID",
+        help="Environment variable name containing the Tinker project id; value is never printed",
+    )
+    tinker_smoke_plan_p.add_argument(
+        "--base-url-env",
+        default="TINKER_BASE_URL",
+        help="Environment variable name for optional provider-specific Tinker base URL",
+    )
+    tinker_smoke_plan_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+
     funding_manifest_p = sub.add_parser(
         "funding-manifest",
         help="Build a bounded funding validation manifest from preflight and receipt JSON",
@@ -1523,6 +1577,29 @@ def cli():
             runtime_auth_env=args.runtime_auth_env,
             include_reauth=not args.skip_reauth,
             include_add_balance=not args.skip_add_balance,
+        ).to_public_dict()
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result["ready"] else 1)
+
+    elif args.command == "tinker-smoke-command-plan":
+        from tinker_delegate.tinker_smoke_command_plan import (
+            DEFAULT_MANIFEST_PATH,
+            build_tinker_smoke_command_plan,
+        )
+
+        result = build_tinker_smoke_command_plan(
+            manifest_path=args.manifest or DEFAULT_MANIFEST_PATH,
+            compose_path=args.compose,
+            runtime_env_path=args.runtime_env,
+            api_env_path=args.api_env,
+            max_usd=args.max_usd,
+            model=args.model,
+            rank=args.rank,
+            output_path_template=args.output_path_template,
+            encumbrance_rpc_env=args.encumbrance_rpc_env,
+            runtime_auth_env=args.runtime_auth_env,
+            project_id_env=args.project_id_env,
+            base_url_env=args.base_url_env,
         ).to_public_dict()
         _emit_bounded_json(result, output_path=args.output)
         sys.exit(0 if result["ready"] else 1)

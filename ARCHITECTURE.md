@@ -311,7 +311,10 @@ also live, attested, and approved at app-compose hash
 smoke receipt confirms bounded `client_config.project_id_argument=omitted` and
 `client_config.base_url_argument=sdk_default`, so the next required input is the
 correct Tinker project/client configuration rather than another model/rank
-retry.
+retry. A bounded `tinker-smoke-command-plan` CLI now turns that next step into
+an explicit redeploy/attest/approve/preflight/smoke sequence using environment
+variable names and compose-hash placeholders only; it does not accept or emit
+raw project IDs, tokens, API keys, RPC URLs, run IDs, checkpoints, or samples.
 
 ### Bounded Output
 
@@ -1675,6 +1678,13 @@ Implementation status:
             id or endpoint. The same `TINKER_PROJECT_ID` / `TINKER_BASE_URL`
             settings are wired into `ControlPlane` so future evaluator sessions
             use the same client configuration as smoke validation.
+[real]      `tinker-smoke-command-plan` provides a bounded operator control
+            surface for the next live retry. It reads the deployment manifest,
+            reports whether `TINKER_PROJECT_ID` is present locally and in the
+            live CVM evidence, and emits redeploy, attestation, compose-approval,
+            spend-preflight, and smoke command templates without including raw
+            project IDs, bearer tokens, API keys, RPC URLs, run IDs, checkpoint
+            paths, or samples.
 [partial]   The client-configuration diagnostic source follow-up changes the
             local funding-validation compose to allow `TINKER_BASE_URL` through
             encrypted Phala env selection. GitHub Actions run `29023713771`

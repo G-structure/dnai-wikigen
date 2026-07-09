@@ -1787,6 +1787,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `TinkerAccountEncumbrance` approved the new compose hash in tx
             `0xc597c8e2bbfcc58255c6d407ce615ec4befd992b4e4ef2c34854b99a4d4c52b2`
             at block `43919367`.
+      - [x] Add a bounded project-config smoke command-plan CLI so the next
+            live retry has an explicit no-secret redeploy/approve/smoke path.
+            Done 2026-07-09: `tinker-smoke-command-plan` reads
+            `deployments/base-sepolia.json`, reports whether
+            `TINKER_PROJECT_ID` is present locally and in the latest live CVM
+            evidence, and emits command templates for Phala redeploy,
+            attestation verification, `TinkerAccountEncumbrance` approval,
+            spend preflight, and bounded smoke. The output uses environment
+            variable names and a new-compose placeholder only; it never prints
+            project IDs, bearer tokens, API keys, RPC URLs, run IDs,
+            checkpoint paths, or sample text.
       - [ ] Run `tinker-smoke --api-url ... --max-usd 0.05
             --require-encumbrance` successfully from the deployed CVM and record
             the bounded receipt plus attestation evidence.
@@ -2813,7 +2824,9 @@ vision Wiki is reaching for.
        `client_config.project_id_argument=omitted`. Obtain or configure the
        correct Tinker project/client/base-url settings, redeploy with that
        encrypted runtime env, approve the resulting compose hash, then rerun
-       smoke.
+       smoke. A bounded `tinker-smoke-command-plan` CLI now emits the no-secret
+       command sequence for that retry and reports `ready=false` until both the
+       operator env and live CVM evidence include `TINKER_PROJECT_ID`.
 13. [ ] Merge the `gate-health-frontend` UI and wire it to real verifier/status
        APIs.
 

@@ -198,6 +198,12 @@ Latest Tinker execution buildout, 2026-07-09:
   `client_config.project_id_argument=omitted`, and
   `client_config.base_url_argument=sdk_default`, with `raw_secret_egress=false`.
   The blocker is now specifically missing Tinker project/client configuration.
+  Follow-up source slice: `tinker-smoke-command-plan` now emits a bounded
+  no-secret redeploy/attest/approve/preflight/smoke command plan for the next
+  retry. It reports `ready=false` until `TINKER_PROJECT_ID` is present in both
+  the operator/runtime env and live CVM evidence, and it uses only environment
+  variable names plus a new-compose placeholder rather than project IDs, bearer
+  tokens, API keys, RPC URLs, run IDs, checkpoint paths, or sample text.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned
@@ -1897,8 +1903,10 @@ explicitly legacy.
   `0.15.0` and confirms
   `client_config.project_id_argument=omitted`; older `Qwen/Qwen3-8B` rank `16`
   and rank `32` retries failed with the same bounded hash before this
-  client-config receipt was live. No deployed Tinker run ID, checkpoint, sample,
-  cleanup receipt, or spend proof exists yet.
+  client-config receipt was live. The new `tinker-smoke-command-plan` CLI makes
+  the next retry reproducible but does not itself prove Tinker training. No
+  deployed Tinker run ID, checkpoint, sample, cleanup receipt, or spend proof
+  exists yet.
 - Bio-validation must remain fail-closed until risk screening, reviewer queues,
   and bounded schemas exist.
 
