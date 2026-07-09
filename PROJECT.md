@@ -120,6 +120,11 @@ For the current implementation this means:
   tokens or upstream Tinker credentials.
 - Proxy operations return bounded receipts: configured booleans, hashes,
   capability names, score/spend bands, attestation metadata, and audit events.
+- Proxy-authorized operation responses should carry only a bounded
+  `proxy_auth_context`: auth kind, required scope, subject hash, JWT-id hash,
+  granted scopes, expiry, and `raw_secret_egress=false`. That context lets an
+  external verifier replay token issue/revoke chronology against operation
+  receipts without seeing the plaintext JWT or upstream Tinker credentials.
 - Raw samples, run IDs, checkpoint paths, provider messages, card details,
   upstream credentials, and project ids remain non-egress data.
 

@@ -118,7 +118,6 @@ class TinkerProxyApiTest(unittest.TestCase):
                 scopes=["proxy:status"],
                 ttl_seconds=60,
             )
-            del claims
             client = TestClient(api.app)
 
             response = client.get(
@@ -129,6 +128,9 @@ class TinkerProxyApiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["surface"], "tinker_proxy")
+        self.assertEqual(body["proxy_auth_context"]["auth_kind"], "proxy")
+        self.assertEqual(body["proxy_auth_context"]["required_scope"], "proxy:status")
+        self.assertEqual(body["proxy_auth_context"]["jwt_id_hash"], claims.to_public_dict()["jwt_id_hash"])
         self.assertFalse(body["raw_secret_egress"])
 
     def test_proxy_token_audit_and_revoke_are_operator_only(self):

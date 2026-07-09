@@ -152,12 +152,16 @@ def _bearer_token(authorization: str) -> str:
     return supplied
 
 
-def _require_runtime_or_proxy_auth(required_scope: str, authorization: str = Header(default="")) -> None:
+def _require_runtime_or_proxy_auth(required_scope: str, authorization: str = Header(default="")) -> dict[str, Any]:
     """Allow the operator runtime token or a scoped Tinker proxy JWT."""
     if _runtime_auth_enabled():
         try:
             _require_runtime_auth(authorization)
-            return
+            return {
+                "auth_kind": "runtime",
+                "required_scope": required_scope,
+                "raw_secret_egress": False,
+            }
         except HTTPException:
             pass
 
@@ -171,9 +175,31 @@ def _require_runtime_or_proxy_auth(required_scope: str, authorization: str = Hea
     try:
         from tinker_delegate.tinker_proxy import verify_proxy_token
 
-        verify_proxy_token(settings, token, required_scope=required_scope)
+        verification = verify_proxy_token(settings, token, required_scope=required_scope)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=redact_text(exc)) from exc
+    return {
+        "auth_kind": "proxy",
+        "required_scope": required_scope,
+        "subject_hash": verification["subject_hash"],
+        "jwt_id_hash": verification["jwt_id_hash"],
+        "scopes": verification["scopes"],
+        "expires_at": verification["expires_at"],
+        "raw_secret_egress": False,
+    }
+
+
+def _attach_proxy_auth_context(payload: Any, auth_context: dict[str, Any]) -> Any:
+    """Attach bounded proxy auth evidence without changing runtime-token responses."""
+    if auth_context.get("auth_kind") != "proxy":
+        return payload
+    if isinstance(payload, dict):
+        bounded = dict(payload)
+        bounded["proxy_auth_context"] = auth_context
+        return bounded
+    if hasattr(payload, "proxy_auth_context"):
+        payload.proxy_auth_context = auth_context
+    return payload
 
 
 def _get_control_plane():
@@ -279,10 +305,10 @@ def tinker_proxy_status(authorization: str = Header(default="")):
             status_code=403,
             detail="Tinker proxy endpoint is disabled",
         )
-    _require_runtime_or_proxy_auth("proxy:status", authorization)
+    auth_context = _require_runtime_or_proxy_auth("proxy:status", authorization)
     from tinker_delegate.tinker_proxy import build_tinker_proxy_status
 
-    return build_tinker_proxy_status(settings)
+    return _attach_proxy_auth_context(build_tinker_proxy_status(settings), auth_context)
 
 
 @app.post("/tinker/proxy/token")
@@ -478,9 +504,9 @@ async def billing_balance():
 @app.get("/billing/payment-method-status", response_model=BillingResponse)
 async def billing_payment_method_status(authorization: str = Header(default="")):
     """Return bounded card-on-file status without card details."""
-    _require_runtime_or_proxy_auth("billing:payment-method-status", authorization)
+    auth_context = _require_runtime_or_proxy_auth("billing:payment-method-status", authorization)
     result = await handle_payment_method_status(settings)
-    return result
+    return _attach_proxy_auth_context(result, auth_context)
 
 
 @app.get("/billing/funding-policy")
@@ -594,9 +620,9 @@ async def billing_add_balance(payload: BalancePayload, authorization: str = Head
                 "CLI path or explicitly enable TINKER_ALLOW_ADD_BALANCE_ENDPOINT"
             ),
         )
-    _require_runtime_or_proxy_auth("billing:add-balance", authorization)
+    auth_context = _require_runtime_or_proxy_auth("billing:add-balance", authorization)
     result = await handle_add_balance(payload, settings)
-    return result
+    return _attach_proxy_auth_context(result, auth_context)
 
 
 @app.post("/tinker/smoke")
@@ -612,21 +638,24 @@ def tinker_smoke(payload: TinkerSmokeRequestBody, authorization: str = Header(de
             status_code=403,
             detail="Tinker smoke endpoint is disabled",
         )
-    _require_runtime_or_proxy_auth("tinker:smoke", authorization)
+    auth_context = _require_runtime_or_proxy_auth("tinker:smoke", authorization)
     from tinker_delegate.tinker_smoke import TinkerSmokeRequest, run_tinker_sdk_smoke
 
     try:
-        return run_tinker_sdk_smoke(
-            settings,
-            TinkerSmokeRequest(
-                deal_id=payload.deal_id,
-                max_usd=payload.max_usd,
-                model=payload.model,
-                rank=payload.rank,
-                ttl_seconds=payload.ttl_seconds,
-                compose_hash=payload.compose_hash,
-                require_encumbrance=payload.require_encumbrance,
+        return _attach_proxy_auth_context(
+            run_tinker_sdk_smoke(
+                settings,
+                TinkerSmokeRequest(
+                    deal_id=payload.deal_id,
+                    max_usd=payload.max_usd,
+                    model=payload.model,
+                    rank=payload.rank,
+                    ttl_seconds=payload.ttl_seconds,
+                    compose_hash=payload.compose_hash,
+                    require_encumbrance=payload.require_encumbrance,
+                ),
             ),
+            auth_context,
         )
     except ValueError as exc:
         raise HTTPException(400, redact_text(exc)) from exc

@@ -362,14 +362,27 @@ run IDs, checkpoint paths, samples, or private reward data.
             not delegated to user proxy JWTs in this slice. The `add-balance`
             CLI can now call a deployed delegate with `--api-url` and a scoped
             bearer token, writing bounded JSON and optional receipt files.
+            When a proxy JWT authorizes one of these routes, the response now
+            includes a top-level bounded `proxy_auth_context` with auth kind,
+            required scope, subject hash, JWT-id hash, granted scopes, expiry,
+            and `raw_secret_egress=false`. Runtime-operator bearer responses do
+            not get this context.
 [real]      Proxy-token issue/revoke audit is now source/test-real:
             `ProxyTokenStore` stores bounded `issued` and `revoked` records
             under AES-GCM using local test key material or dstack-derived key
             material. Issuance appends an `issued` record; operator-only
             `/tinker/proxy/tokens` and `/tinker/proxy/token/revoke` expose
             bounded audit listing and hash-only revocation; token verification
-            rejects revoked `jwt_id_hash` values. This is still not a complete
-            external audit replay artifact or production identity policy.
+            rejects revoked `jwt_id_hash` values.
+[real]      External proxy-token audit replay is source/test-real:
+            `verify-tinker-proxy-token-audit` verifies exported bounded audit
+            JSON and optional operation receipts without plaintext JWTs. It
+            checks record schema, summary counts, issue/revoke chronology,
+            supported scopes, expiry windows, revocation timing, receipt
+            boundedness, and `proxy_auth_context` binding when present or
+            required. This is still not a production identity/spend approval
+            policy, and the proxy has not yet been redeployed and attested with
+            this verifier surface as a live production path.
 
 ### Bounded Output
 

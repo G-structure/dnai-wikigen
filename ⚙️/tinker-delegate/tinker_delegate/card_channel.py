@@ -129,6 +129,7 @@ class BillingResponse(BaseModel):
     payment_method_count_band: Optional[str] = None
     tdx_quote: Optional[str] = None  # hex-encoded TDX quote in production
     attempt_record: Optional[dict] = None
+    proxy_auth_context: Optional[dict] = None
 
 
 # ---------------------------------------------------------------------------

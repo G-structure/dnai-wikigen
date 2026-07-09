@@ -124,6 +124,10 @@ def _receipt_or_raise(response: dict[str, Any] | Any) -> dict[str, Any]:
     receipt = response.get("attempt_record") if isinstance(response, dict) else None
     if not isinstance(receipt, dict):
         raise ValueError("bounded receipt output requested, but response has no attempt_record")
+    proxy_auth_context = response.get("proxy_auth_context")
+    if isinstance(proxy_auth_context, dict):
+        receipt = dict(receipt)
+        receipt["proxy_auth_context"] = proxy_auth_context
     return receipt
 
 
@@ -535,6 +539,23 @@ def cli():
         help="Environment variable containing delegate runtime bearer token for --api-url",
     )
     tinker_proxy_audit_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    verify_proxy_audit_p = sub.add_parser(
+        "verify-tinker-proxy-token-audit",
+        help="Externally verify bounded proxy token audit records and operation receipts",
+    )
+    verify_proxy_audit_p.add_argument("--audit-json", required=True, help="Path to bounded proxy-token audit JSON")
+    verify_proxy_audit_p.add_argument(
+        "--operation-receipt-json",
+        action="append",
+        default=[],
+        help="Path to bounded operation receipt JSON; repeat for multiple receipts",
+    )
+    verify_proxy_audit_p.add_argument(
+        "--require-operation-binding",
+        action="store_true",
+        help="Fail if an operation receipt lacks bounded proxy_auth_context",
+    )
+    verify_proxy_audit_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     tinker_proxy_revoke_p = sub.add_parser(
         "revoke-tinker-proxy-token",
         help="Revoke a Tinker proxy JWT by bounded jwt_id_hash",
@@ -1718,6 +1739,22 @@ def cli():
         result = summarize_proxy_token_records(build_proxy_token_store(settings).load())
         _emit_bounded_json(result, output_path=args.output)
         sys.exit(0)
+
+    elif args.command == "verify-tinker-proxy-token-audit":
+        from tinker_delegate.tinker_proxy_audit import verify_proxy_token_audit
+
+        audit = json.loads(Path(args.audit_json).read_text(encoding="utf-8"))
+        operation_receipts = [
+            json.loads(Path(path).read_text(encoding="utf-8"))
+            for path in args.operation_receipt_json
+        ]
+        result = verify_proxy_token_audit(
+            audit=audit,
+            operation_receipts=operation_receipts,
+            require_operation_binding=args.require_operation_binding,
+        ).to_public_dict()
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result["ok"] else 1)
 
     elif args.command == "revoke-tinker-proxy-token":
         if args.api_url:

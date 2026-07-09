@@ -77,7 +77,7 @@ class TinkerSmokeApiTest(unittest.TestCase):
                 proxy_token_store_path=f"{tmpdir}/proxy_tokens.enc",
                 proxy_token_store_key="33" * 32,
             )
-            _, token = issue_proxy_token(
+            claims, token = issue_proxy_token(
                 api.settings,
                 subject="buyer-agent-1",
                 scopes=["tinker:smoke"],
@@ -93,7 +93,14 @@ class TinkerSmokeApiTest(unittest.TestCase):
                 )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), BOUNDED_SMOKE_RESULT)
+        body = response.json()
+        self.assertEqual(
+            {key: value for key, value in body.items() if key != "proxy_auth_context"},
+            BOUNDED_SMOKE_RESULT,
+        )
+        self.assertEqual(body["proxy_auth_context"]["required_scope"], "tinker:smoke")
+        self.assertEqual(body["proxy_auth_context"]["jwt_id_hash"], claims.to_public_dict()["jwt_id_hash"])
+        self.assertFalse(body["proxy_auth_context"]["raw_secret_egress"])
         smoke.assert_called_once()
 
     def test_smoke_endpoint_rejects_proxy_jwt_without_scope(self):

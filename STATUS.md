@@ -107,16 +107,25 @@ Latest Tinker execution buildout, 2026-07-09:
   `GET /tinker/proxy/status`, `POST /tinker/smoke`,
   `GET /billing/payment-method-status`, and `POST /billing/add-balance` accept
   either the operator runtime bearer token or a proxy JWT with the matching
-  scope. Token issuance, reauth, card add/remove, and funding receipts remain
-  operator-only. The `add-balance` CLI now supports `--api-url`,
-  `--auth-token-env`, `--output`, and `--receipt-output` for remote bounded
-  add-balance attempts.
+  scope. Proxy-authorized responses include a bounded top-level
+  `proxy_auth_context` with auth kind, required scope, subject hash,
+  JWT-id hash, granted scopes, expiry, and `raw_secret_egress=false`; runtime
+  operator bearer responses do not. Token issuance, reauth, card add/remove,
+  and funding receipts remain operator-only. The `add-balance` CLI now supports
+  `--api-url`, `--auth-token-env`, `--output`, and `--receipt-output` for
+  remote bounded add-balance attempts, and receipt files copy the bounded proxy
+  context when a proxy JWT authorized the call.
 - Proxy-token audit and revocation are source/test-real. `ProxyTokenStore`
   persists bounded `issued` and `revoked` records in AES-GCM sealed storage;
   issuance appends an audit record, operator-only API/CLI surfaces can list
   bounded audit records and revoke by `jwt_id_hash`, and proxy-token
-  verification rejects revoked JWT IDs. External audit replay/verifier
-  artifacts and production identity/spend policy binding remain open.
+  verification rejects revoked JWT IDs. `verify-tinker-proxy-token-audit` is
+  now source/test-real: it verifies exported bounded audit JSON and optional
+  bounded operation receipts without plaintext JWTs, checking record schema,
+  counts, chronology, supported scopes, expiry, revocation timing, receipt
+  boundedness, and `proxy_auth_context` binding when present or required.
+  Production identity/spend policy binding and live Phala deployment of this
+  latest proxy verifier/context build remain open.
 - Source now has a bounded real-SDK smoke surface for the funded Tinker account.
   `tinker_delegate.tinker_smoke.run_tinker_sdk_smoke()` uses the sealed API-key
   resolver, checks `TinkerAccountEncumbrance` with `SPEND_TINKER_COMPUTE`,

@@ -96,8 +96,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             bearer token or a proxy JWT with the matching scope:
             `proxy:status`, `tinker:smoke`,
             `billing:payment-method-status`, or `billing:add-balance`.
-            Card mutation, card removal, funding receipts, reauth, and token
-            issuance remain operator-runtime only.
+            Proxy-authorized responses include a top-level bounded
+            `proxy_auth_context` for external replay; card mutation, card
+            removal, funding receipts, reauth, and token issuance remain
+            operator-runtime only.
       - [ ] Convert future approved-user Tinker operations to scoped proxy
             authorization rather than runtime-operator bearer tokens.
       - [x] Add sealed proxy-token issue/revoke audit records and revocation
@@ -109,9 +111,20 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             values; operator-only API/CLI surfaces can list bounded audit
             records and revoke by hash without accepting or returning plaintext
             JWTs.
-      - [ ] Add external proxy-token audit-log replay/verifier artifact that
+      - [x] Add external proxy-token audit-log replay/verifier artifact that
             checks issue/revoke chronology, expiration, scopes, and operation
             receipts without access to plaintext tokens.
+            Done 2026-07-09: `verify-tinker-proxy-token-audit` verifies
+            exported bounded audit JSON plus optional bounded operation receipt
+            JSON. It checks record schema, summary counts, issue/revoke
+            chronology, supported scopes, expiry windows, revocation timing,
+            receipt `raw_secret_egress=false`, and `proxy_auth_context`
+            binding when present or explicitly required. Tests cover happy
+            path, revoked-before-operation, missing binding, unsupported scope,
+            secret-key rejection, and CLI output.
+      - [ ] Deploy and attest the proxy-token verifier/context build on Phala,
+            then record live bounded audit and operation-receipt replay
+            evidence in `STATUS.md`.
 - [ ] `P0` No human operator can access the TEE-owned email account or Tinker
       account once production custody is established.
 - [ ] `P0` Card/payment material is encrypted to a verified TEE before use and is
