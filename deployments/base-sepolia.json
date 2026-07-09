@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-08T22:19:53Z",
+  "lastReviewedAt": "2026-07-09T03:28:07Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -42,13 +42,13 @@
     }
   },
   "phala": {
-    "status": "running_tinker_funding_validation_profile_auth_gated_billing_auth_required_real_card_blocked",
+    "status": "running_tinker_funding_validation_profile_policy_ready_auth_blocked_encumbrance_missing",
     "cvmId": "cvm_1w85mGjo",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d",
-    "deployHelperComposeHash": "a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d",
-    "localRawComposeImagePolicyHash": "7a0a82403c0b19e737f53c397b29879ab1e612fb65c4ef8f38719c53445b4f6b",
-    "renderedComposeSha256": "75a344e3a3e84769e5c8381640b47a48644145ea7b9d86d739af86225e7968ee",
+    "composeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
+    "deployHelperComposeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
+    "localRawComposeImagePolicyHash": "c6398343e7ab1c82932b1c2ab1e7450626f932016b1939a571e092ee465a22c7",
+    "renderedComposeSha256": "b87cbfa8b8d956d8b8d3840b3c47394e956940f4eb1412f57f4ea91fa8f6ab2b",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -90,10 +90,10 @@
         "TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "266264870becc5f697d6375b96341d252317ba94",
+    "sourceDigest": "eb3bde3b5b156dfdd46f701ab2df8f1f19d94120",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 28986442238,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28986442238",
+    "githubActionsRunId": 28991312580,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/28991312580",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -103,13 +103,13 @@
     "imageDigests": [
       {
         "service": "oracle",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:e45eb105a546f276c478e265d7181a94e071e7a5fb42f4af151381cc334bb130",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:455722601044214b948ee24ee09abcc75845d0534fc8cd2b6d1c8233d80916f8",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
@@ -121,9 +121,9 @@
     "quoteEvidence": {
       "mode": "tdx",
       "context": "artifact",
-      "quoteSize": 10020,
-      "reportData": "e66e4fe6b85ec5949eb5d11c3c7aac98fbf82f7e3b3f72a80ebd6dd4c48cbef8",
-      "encryptionPublicKey": "bb1e21e7d6fae491f670d5430415b0d9cebbd4d8c11d458b9ae416f03d742c15",
+      "quoteSize": 5010,
+      "reportData": "e98f76f55a1a74f911e960ea68e03a5ef0847537be8878900f22e1a2d74c3c12",
+      "encryptionPublicKey": "bf77f61ae2a3efeb342b1a56f2fc2a02c1f33de155f816b1a88097da0a7cbe6e",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -1046,21 +1046,21 @@
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "fundingValidationEvidence": {
-      "status": "live_auth_gated_profile_billing_auth_required_real_card_blocked",
+      "status": "live_policy_ready_auth_blocked_encumbrance_missing_real_card_blocked",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
-      "sourceDigest": "266264870becc5f697d6375b96341d252317ba94",
-      "githubActionsRunId": 28986442238,
-      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:e45eb105a546f276c478e265d7181a94e071e7a5fb42f4af151381cc334bb130",
-      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:455722601044214b948ee24ee09abcc75845d0534fc8cd2b6d1c8233d80916f8",
-      "deployHelperComposeHash": "a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d",
-      "localRawComposeImagePolicyHash": "7a0a82403c0b19e737f53c397b29879ab1e612fb65c4ef8f38719c53445b4f6b",
-      "renderedComposeSha256": "75a344e3a3e84769e5c8381640b47a48644145ea7b9d86d739af86225e7968ee",
-      "attestedComposeHash": "a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d",
-      "deploymentBundleVerification": "not_run_for_auth_stage_redeploy_direct_attestation_matches_deploy_hash",
+      "sourceDigest": "eb3bde3b5b156dfdd46f701ab2df8f1f19d94120",
+      "githubActionsRunId": 28991312580,
+      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3",
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381",
+      "deployHelperComposeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
+      "localRawComposeImagePolicyHash": "c6398343e7ab1c82932b1c2ab1e7450626f932016b1939a571e092ee465a22c7",
+      "renderedComposeSha256": "b87cbfa8b8d956d8b8d3840b3c47394e956940f4eb1412f57f4ea91fa8f6ab2b",
+      "attestedComposeHash": "b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
+      "deploymentBundleVerification": "passed_with_github_provenance_sbom_and_live_tdx_attestation",
       "billingAttestation": {
-        "reportData": "600bad986a0c4368e4f4863bfcac309f55fb08b9b36932c81e70b79fae679f20",
-        "encryptionPublicKey": "bb1e21e7d6fae491f670d5430415b0d9cebbd4d8c11d458b9ae416f03d742c15",
-        "quoteSize": 10020
+        "reportData": "e98f76f55a1a74f911e960ea68e03a5ef0847537be8878900f22e1a2d74c3c12",
+        "encryptionPublicKey": "bf77f61ae2a3efeb342b1a56f2fc2a02c1f33de155f816b1a88097da0a7cbe6e",
+        "quoteSize": 5010
       },
       "runtimeEnv": {
         "policy": "compose-refs",
@@ -1083,7 +1083,9 @@
       "fundingPreflight": {
         "ready": true,
         "amount": 5,
-        "attestationFetch": "direct_tdx_verified_remote_preflight_fetch_timed_out_once"
+        "attestationFetch": "external_verify_deployment_bundle_passed_remote_self_fetch_timed_out_once",
+        "addBalanceEndpoint": "enabled",
+        "fundingMode": "operator_capped_validation"
       },
       "reauthAttempt": {
         "success": false,
@@ -1105,6 +1107,7 @@
         "outcome": "auth_required",
         "furthestStage": "billing_page_loaded",
         "amountBand": "5_25_usd",
+        "evidenceHash": "f73f32e91e8ba99b5780ef3e6d693d8ec396594826be5397bd1390cf9a7a509f",
         "rawSecretEgress": false
       },
       "browserSessionStore": {
@@ -1113,7 +1116,12 @@
         "dstackKeyPath": "tinker/browser_session",
         "storesRawCookiesOrLocalStorageInPlaintext": false
       },
-      "nextStep": "repair deployed Tinker auth access-blocked posture so /auth/reauth reaches OTP, saves browser session state, and billing page is authenticated before approved real-card prompt"
+      "fundingCommandPlan": {
+        "status": "not_ready_until_tinker_account_encumbrance_deployed",
+        "amount": 5,
+        "requiredMissingEvidence": "missing_tinker_encumbrance_contract"
+      },
+      "nextStep": "deploy TinkerAccountEncumbrance from an interactive terminal, then repair deployed Tinker auth access-blocked posture so /auth/reauth reaches OTP, saves browser session state, and billing page is authenticated before approved real-card prompt"
     }
   },
   "freshDeployment": {

@@ -1,6 +1,6 @@
 # dnai-wikigen Status
 
-Last updated: 2026-07-08
+Last updated: 2026-07-09
 
 Scope: current repository evidence only. This file is a status ledger, not a
 production deployment manifest.
@@ -32,49 +32,46 @@ quote-internal TDX verification, live CVM-originated TEE-to-chain signing, and
 RLVR/bio-validation remain incomplete. Phala auth is configured for profile
 `wikigen` in workspace `wiki`.
 
-Latest Phala evidence, 2026-07-08: GitHub Actions built source commit
-`266264870becc5f697d6375b96341d252317ba94` into GHCR digest-pinned
-`tee-email-oracle@sha256:e45eb105a546f276c478e265d7181a94e071e7a5fb42f4af151381cc334bb130`
+Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
+`eb3bde3b5b156dfdd46f701ab2df8f1f19d94120` into GHCR digest-pinned
+`tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3`
 and
-`tinker-delegate@sha256:455722601044214b948ee24ee09abcc75845d0534fc8cd2b6d1c8233d80916f8`
+`tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381`
 images. Local `verify-ghcr-image-attestation` checks passed for both SLSA
 provenance and SPDX SBOM attestations. The current CVM `cvm_1w85mGjo` is
 temporarily running the auth-gated funding-validation profile for app ID
 `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, not the normal locked-down compose.
 The live Phala attested compose hash is
-`a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`,
-matching the redeploy helper's local policy hash for the pinned compose and
-six-key runtime env surface. The standalone raw-compose verifier reports
-`7a0a82403c0b19e737f53c397b29879ab1e612fb65c4ef8f38719c53445b4f6b`
-for the all-env view of the same file, so the attested deploy hash is treated
-as the Phala-bound verifier target for this redeploy. Direct attestation checks
-against the live endpoint
-returned OS image hash
-`de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`, artifact
-context report data
-`e66e4fe6b85ec5949eb5d11c3c7aac98fbf82f7e3b3f72a80ebd6dd4c48cbef8`,
+`b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`, with local
+image-policy hash
+`c6398343e7ab1c82932b1c2ab1e7450626f932016b1939a571e092ee465a22c7`,
+rendered compose SHA-256
+`b87cbfa8b8d956d8b8d3840b3c47394e956940f4eb1412f57f4ea91fa8f6ab2b`, and the
+same six-key runtime env surface. `verify-deployment-bundle` passed against
+the live endpoint with those GHCR attestations, required Playwright sidecar
+digest, app ID, OS image hash, report data
+`e98f76f55a1a74f911e960ea68e03a5ef0847537be8878900f22e1a2d74c3c12`,
 encryption public key
-`bb1e21e7d6fae491f670d5430415b0d9cebbd4d8c11d458b9ae416f03d742c15`, and quote
-size `10020`; billing-context attestation returned the same compose/app/OS-image
-with report data
-`600bad986a0c4368e4f4863bfcac309f55fb08b9b36932c81e70b79fae679f20` and quote
-size `10020`. Public logs remain disabled. Health is OK, the oracle is ready,
+`bf77f61ae2a3efeb342b1a56f2fc2a02c1f33de155f816b1a88097da0a7cbe6e`, and quote
+size `5010`. Public logs remain disabled. Health is OK, the oracle is ready,
 IMAP is connected, and unauthenticated `/auth/reauth` plus
 `/billing/add-balance` fail closed with `401 Bearer token required`.
 
-Funding profile live result, 2026-07-08: remote preflight for `$5` with
+Funding profile live result, 2026-07-09: remote preflight for `$5` with
 `operator_capped_validation`, the add-balance endpoint requirement, and live
-billing measurement policy configured returned ready; direct billing
-attestation verification matched the live TDX envelope. Authenticated
+deployment identity configured returned ready; external
+`verify-deployment-bundle` matched the live TDX envelope. The manifest-driven
+`funding-command-plan --amount 5` now targets attested compose hash
+`b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7` but still
+returns `ready=false` with `missing_tinker_encumbrance_contract`. Authenticated
 `/auth/reauth` reached the delegate but failed bounded with
 `auth_access_blocked` at `auth_email_submitted`, before OTP
 (`raw_secret_egress=false`). Authenticated `$5` add-balance without a card
-reached `billing_page_loaded` and failed bounded with `auth_required`.
-Authenticated encrypted Stripe test-card payment-method submission destroyed the
-card payload and failed bounded with `payment_method` / `auth_required` at
-`billing_page_loaded` (`raw_secret_egress=false`). Therefore the Phala funding
-profile is live and guarded, but approved real-card funding is still blocked on
-Tinker auth/session repair and must not be attempted yet.
+reached `billing_page_loaded` and failed bounded with `auth_required`
+(`raw_secret_egress=false`). Therefore the Phala funding profile is live and
+guarded, but approved real-card funding is still blocked on both
+`TinkerAccountEncumbrance` deployment and Tinker auth/session repair and must
+not be attempted yet.
 
 Billing auth-state classifier follow-up, 2026-07-08: source, tests, and Phala
 live evidence now distinguish billing selector drift from auth/session state
@@ -371,7 +368,11 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   `0x535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132`,
   compose hash
   `0xa43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`,
-  and `$5` add-balance/spend caps. Non-interactive broadcast did not deploy:
+  and `$5` add-balance/spend caps. The manifest now points at refreshed
+  funding-validation compose hash
+  `0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`;
+  the next interactive helper run will use that current hash. Non-interactive
+  broadcast did not deploy:
   Foundry failed while opening the encrypted keystore prompt with
   `Device not configured`, and chain checks showed nonce `3`, unchanged
   balance, and no code at the predicted address.

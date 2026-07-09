@@ -1251,6 +1251,16 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                         (`raw_secret_egress=false`), proving the deployed
                         browser reaches email submission before Tinker blocks
                         the flow.
+                  - [x] Refresh the funding-validation Phala profile with the
+                        current GitHub-attested funding-command-plan image and
+                        rerun `/auth/reauth`. Done 2026-07-09: source
+                        `eb3bde3b5b156dfdd46f701ab2df8f1f19d94120` images were
+                        pinned and deployed to live attested compose hash
+                        `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`;
+                        `verify-deployment-bundle` passed, and authenticated
+                        `/auth/reauth` still fails closed with bounded
+                        `auth_access_blocked` at `auth_email_submitted`
+                        (`raw_secret_egress=false`).
 - [ ] `P0` Prove the Stripe/Tinker billing path end-to-end with a low-value test
       account and a safe test card or approved real card.
       - [x] Stripe test card reaches live Tinker/Stripe submission and returns
@@ -1290,10 +1300,16 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             attempt after the funding-validation compose is deployed on Phala,
             its live attested compose hash is recorded, and the operator CLI
             command targets that hash with `--fetch-attestation` and
-            `--require-encumbrance`. Blocked 2026-07-08 by deployed
-            Tinker auth/billing automation:
-            `auth_access_blocked` on reauth and `auth_required` on both
-            payment-method and add-balance surfaces.
+            `--require-encumbrance`. Still blocked 2026-07-09: the refreshed
+            Phala funding-validation profile is live, remote `$5` funding
+            preflight is ready when supplied with the recorded deployment
+            identity, and `funding-command-plan` now targets attested compose
+            hash
+            `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`,
+            but it returns `ready=false` because
+            `TinkerAccountEncumbrance` is not deployed. Authenticated
+            `/auth/reauth` still returns `auth_access_blocked` and
+            authenticated `$5` add-balance still returns `auth_required`.
 - [x] `P0` Confirm PCI and Stripe obligations.
       Research whether the current encrypted-card-to-TEE flow is acceptable or
       whether the system must use Stripe-hosted tokenization / SetupIntent /
@@ -1902,6 +1918,14 @@ vision Wiki is reaching for.
 - [ ] `Deploy` Rebuild and publish pinned images for:
       email oracle, tinker delegate, Neko/browser sidecar, props room, frontend
       worker if any.
+      - [x] Refresh deploy-critical oracle/delegate funding-validation images
+            from current source. Done 2026-07-09: GitHub Actions run
+            `28991312580` published and attested
+            `tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3`
+            and
+            `tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381`
+            from source
+            `eb3bde3b5b156dfdd46f701ab2df8f1f19d94120`.
 - [x] `Deploy` Redeploy Phala CVM with final image digests.
       Refreshed 2026-07-08: CVM `670b3b21-4338-4d4e-ae72-7c8922579f59` /
       `cvm_1w85mGjo` now
@@ -1923,6 +1947,14 @@ vision Wiki is reaching for.
       with narrowed `allowed_env_count=7`. Live update with disabled public
       logs/sysinfo succeeded, but Phala still reports `dstack-dev-0.5.9` /
       `is_dev=true`.
+      Refreshed 2026-07-09 for the temporary funding-validation profile from
+      source `eb3bde3b5b156dfdd46f701ab2df8f1f19d94120`: CVM
+      `cvm_1w85mGjo` now attests compose hash
+      `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`
+      with oracle image
+      `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3`
+      and delegate image
+      `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381`.
 - [ ] `Deploy` Verify CVM endpoints:
       `/health`, `/attestation`, oracle `/pin` auth rejection, delegate status,
       browser CDP internal-only or protected.
@@ -1956,6 +1988,18 @@ vision Wiki is reaching for.
             `9c664e88ba1c79108f6f9c2987f667aa2e6ee6fa853b19277c7a8f8abfd43441`,
             and live attested compose hash
             `e9e07417f7df3b0dae2fdc148fc6847751afa240b9167cc81e76883060ecd586`.
+            Refreshed 2026-07-09: `verify-deployment-bundle` also passes
+            against the temporary funding-validation profile from source
+            `eb3bde3b5b156dfdd46f701ab2df8f1f19d94120`, oracle image
+            `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3`,
+            delegate image
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381`,
+            local image-policy hash
+            `c6398343e7ab1c82932b1c2ab1e7450626f932016b1939a571e092ee465a22c7`,
+            rendered compose SHA-256
+            `b87cbfa8b8d956d8b8d3840b3c47394e956940f4eb1412f57f4ea91fa8f6ab2b`,
+            and live attested compose hash
+            `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`.
       - [x] Redeploy the fresh bounded-signup Tinker delegate image to the
             main CVM and re-run live health, attestation, credential endpoint,
             and add-balance endpoint gates.
@@ -2024,6 +2068,9 @@ vision Wiki is reaching for.
                   `0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`, `forge build
                   --sizes`, 9 focused Foundry tests, and a successful
                   simulation estimating `0.00001471492 ETH`.
+                  The manifest now points at refreshed compose hash
+                  `0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`;
+                  the next interactive helper run will use that current hash.
             - [ ] Broadcast the helper from an interactive terminal so Foundry
                   can unlock keystore account `dev`, then verify code and
                   on-chain policy reads. Codex non-interactive broadcast

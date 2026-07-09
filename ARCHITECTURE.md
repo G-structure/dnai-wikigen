@@ -687,14 +687,17 @@ Implementation status:
             `deployments/base-sepolia.json` only after successful on-chain
             reads.
 [partial]   TinkerAccountEncumbrance is not yet deployed or recorded in the
-            Base Sepolia manifest. The helper dry-runs successfully with the
-            current Phala compose hash
+            Base Sepolia manifest. The helper dry-ran successfully with the
+            earlier Phala compose hash
             `a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`
-            and `$5` policy caps, but actual broadcast is blocked in this
-            non-interactive Codex shell because Foundry cannot open the
-            encrypted keystore prompt (`Device not configured`). The next
-            evidence step is an interactive terminal broadcast followed by code
-            and policy reads.
+            and `$5` policy caps; the current manifest now points at the
+            refreshed funding-validation attested compose hash
+            `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`,
+            which the helper will use on the next run. Actual broadcast is
+            blocked in this non-interactive Codex shell because Foundry cannot
+            open the encrypted keystore prompt (`Device not configured`). The
+            next evidence step is an interactive terminal broadcast followed by
+            code and policy reads.
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
 [real]      Signup/bootstrap stores captured Tinker API keys in encrypted
             storage and returns only bounded hash/status metadata.
@@ -1083,27 +1086,32 @@ Implementation status:
             `TINKER_FUNDING_MODE=operator_capped_validation`, caps top-ups at
             `$5`, and routes browser work through the Playwright sidecar rather
             than the currently blocked Neko CDP path.
-[real]      The funding-validation profile was redeployed to Phala on
-            2026-07-08 with GitHub-attested source
-            `266264870becc5f697d6375b96341d252317ba94` images, redeploy-helper
-            compose hash
-            `a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`,
-            and matching live attested compose hash
-            `a43a894e6c0a6e0976f94e86f11050301b46093dad03e065ee91fda98fcf456d`.
+[real]      The funding-validation profile was refreshed on Phala on
+            2026-07-09 with GitHub-attested source
+            `eb3bde3b5b156dfdd46f701ab2df8f1f19d94120` images:
+            `tee-email-oracle@sha256:f6103cd24ba2f63c859b55f5c1caab43fec92db9ac49009c7fdf0a07ffd9a7e3`
+            and
+            `tinker-delegate@sha256:17f22d8e87f774717a1989f1501ea659ad13bf409e7d601af6cf7b1c1fdc7381`.
+            `verify-deployment-bundle` passed with GitHub provenance/SBOM
+            attestations, local image-policy hash
+            `c6398343e7ab1c82932b1c2ab1e7450626f932016b1939a571e092ee465a22c7`,
+            and live attested compose hash
+            `b3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`.
             Health is OK, the email oracle is ready, IMAP is connected, public
             logs remain disabled, and unauthenticated reauth/add-balance calls
             fail closed with `401 Bearer token required`.
 [partial]   The funding-validation profile is live and quote-bound, but it is
-            not ready for approved real-card funding. Authenticated
-            `/auth/reauth` currently returns bounded `auth_access_blocked` at
-            `auth_email_submitted`, before OTP or session-state save;
-            authenticated encrypted Stripe test-card
-            payment-method submission destroys the card payload but returns
-            bounded `payment_method` / `auth_required` at
-            `billing_page_loaded`; authenticated `$5` add-balance without a
-            card also returns bounded `auth_required`. The next live step is
-            Tinker auth/session repair on Phala, not a real-card
-            prompt.
+            not ready for approved real-card funding. Remote
+            `/billing/funding-preflight` is ready for `$5` when supplied with
+            the recorded deployment identity, but the manifest-driven command
+            plan still returns `ready=false` because
+            `TinkerAccountEncumbrance` is not deployed. Authenticated
+            `/auth/reauth` on the refreshed profile still returns bounded
+            `auth_access_blocked` at `auth_email_submitted`, before OTP or
+            session-state save; authenticated `$5` add-balance without a card
+            returns bounded `auth_required` at `billing_page_loaded`. The next
+            live steps are the interactive encumbrance broadcast and Tinker
+            auth/session repair on Phala, not a real-card prompt.
 [real]      Source/tests now distinguish billing selector drift from auth-state
             failure before card fields or top-up controls are touched. The
             payment-method and add-balance flows classify a billing navigation
