@@ -2044,6 +2044,18 @@ Implementation status:
             returned. `gate_turn_requests()` is the explicit fan-out adapter
             into `coordination.GateResults`; the coordination reducer remains
             event-driven and does not call gates implicitly.
+[real]      `tinker-delegate policy-gate` is an operator-exercisable source
+            proof path for this kernel. In single-corpus mode it reads one
+            `AccessRequest` JSON and one `CorpusPolicy` JSON and emits a bounded
+            gate receipt. In coordination mode it reads a `Turn` JSON plus a
+            corpus-ref-to-policy JSON map, validates one request/policy per
+            corpus, runs deterministic fan-out, and emits a bounded
+            `GateResults` summary. The CLI uses the shared bounded JSON renderer
+            and returns decisions, actions, route labels, policy/request hashes,
+            category hashes/counts, and `raw_*_egress=false`; it does not expose
+            raw policy clauses, raw category labels, private artifacts, or
+            secrets. This is still a local/operator proof, not a deployed TEE
+            governance endpoint.
 [real]      `TinkerAccountEncumbrance` is deployed on Base Sepolia at
             `0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`. It enforces approved
             compose hashes, operation caps for add-balance and Tinker-compute
@@ -2226,6 +2238,9 @@ Implementation status:
             and emits `GateResults` with `coordination.GateDecision` values.
             Policy denies remain terminal even if consent grants exist; holds
             carry stable reviewer-route labels into hold tickets.
+[real]      The `policy-gate` CLI can now produce replayable bounded receipts
+            for those single-corpus gates and turn fan-out gates before any
+            service or deployed TEE integration exists.
 [real]      Strict composition is executable: any deny denies, any hold opens a
             ticket and withholds output, only all-pass can reach consent and
             settlement, and gate results must cover exactly the turn's corpus set.

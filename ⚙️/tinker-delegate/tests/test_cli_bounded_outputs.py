@@ -30,6 +30,77 @@ def _env(tmpdir: str, *, funding_mode: str = "manual_prefund") -> dict[str, str]
 
 
 class CliBoundedOutputsTest(unittest.TestCase):
+    def test_policy_gate_cli_writes_bounded_receipt(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            request_path = Path(tmpdir) / "request.json"
+            policy_path = Path(tmpdir) / "policy.json"
+            output_path = Path(tmpdir) / "policy-gate.json"
+            request_path.write_text(
+                json.dumps(
+                    {
+                        "request_id": "request-1",
+                        "requester_ref": "agent://buyer",
+                        "purpose": "rank-candidates",
+                        "pipeline": "sft-rerank",
+                        "data_classes": ["dual-use-uncertain"],
+                        "output_schema": "score-band-v1",
+                        "operations": ["score"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            policy_path.write_text(
+                json.dumps(
+                    {
+                        "policy_id": "policy-atlas",
+                        "version": "policy-kernel/v1",
+                        "corpus_ref": "corpus://atlas",
+                        "allowed_purposes": ["rank-candidates"],
+                        "denied_purposes": ["publish-raw-records"],
+                        "allowed_pipelines": ["sft-rerank"],
+                        "allowed_output_schemas": ["score-band-v1"],
+                        "allowed_operations": ["score"],
+                        "known_data_classes": ["dual-use-uncertain"],
+                        "restricted_categories": [],
+                        "hold_categories": [],
+                        "ambiguous_categories": ["dual-use-uncertain"],
+                        "hold_routes": {"dual-use-uncertain": "ethics-legal-reviewer"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "policy-gate",
+                    "--request-json",
+                    str(request_path),
+                    "--policy-json",
+                    str(policy_path),
+                    "--output",
+                    str(output_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=_env(tmpdir),
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
+            receipt = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(receipt["surface"], "conseca_policy_gate")
+            self.assertEqual(receipt["decision"], "hold")
+            self.assertEqual(receipt["action"], "route_to_review")
+            rendered = json.dumps(receipt, sort_keys=True)
+            self.assertNotIn("dual-use-uncertain", rendered)
+            self.assertNotIn("rank-candidates", rendered)
+            self.assertFalse(receipt["raw_secret_egress"])
+
     def test_balance_can_query_deployed_delegate_api(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "balance.json"

@@ -419,6 +419,8 @@ def _require_string_tuple(payload: dict[str, Any], key: str) -> tuple[str, ...]:
 def _optional_string_tuple(payload: dict[str, Any], key: str, default: tuple[str, ...]) -> tuple[str, ...]:
     if key not in payload:
         return default
+    if payload[key] == [] or payload[key] == ():
+        return ()
     return _string_tuple(payload[key], key)
 
 

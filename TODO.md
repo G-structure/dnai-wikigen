@@ -2552,8 +2552,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       restricted-deny, hold-route, ambiguous-review, unsupported policy version,
       coordination `GatedQuery` conversion, fan-out coverage checks, and policy
       deny beating consent.
+- [x] `P1` Add an operator-exercisable bounded policy-gate proof path. Done
+      2026-07-09: `tinker-delegate policy-gate` evaluates either
+      `--request-json` + `--policy-json` or `--turn-json` + `--policies-json`
+      and writes bounded receipts with decisions, actions, policy/request
+      hashes, coordination fan-out summaries, route labels, and
+      `raw_secret_egress=false`. Focused tests cover direct receipt generation
+      and CLI `--output` behavior without leaking raw purpose/category text.
 - [ ] `P1` Extend policy tests for every additional production purpose, route,
       and restricted category when the production policy catalog exists.
+- [ ] `P1` Wire `policy-gate` receipts into a deployed, runtime-authenticated
+      TEE service endpoint once policy authoring/review custody is defined.
 - [ ] `P1` Add policy versioning and migration.
 - [ ] `P1` Add policy diff review for corpus owners and reviewers.
 

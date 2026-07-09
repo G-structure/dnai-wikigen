@@ -481,6 +481,31 @@ def cli():
         help="Candidate keyword to query; repeat for multiple candidates",
     )
     synthetic_reward_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    policy_gate_p = sub.add_parser(
+        "policy-gate",
+        help="Evaluate a deterministic bounded corpus policy gate",
+    )
+    policy_gate_p.add_argument(
+        "--request-json",
+        default="",
+        help="Path to one AccessRequest JSON payload for single-corpus evaluation",
+    )
+    policy_gate_p.add_argument(
+        "--policy-json",
+        default="",
+        help="Path to one CorpusPolicy JSON payload for single-corpus evaluation",
+    )
+    policy_gate_p.add_argument(
+        "--turn-json",
+        default="",
+        help="Path to a coordination Turn JSON payload for fan-out evaluation",
+    )
+    policy_gate_p.add_argument(
+        "--policies-json",
+        default="",
+        help="Path to a JSON object mapping corpus refs to CorpusPolicy payloads",
+    )
+    policy_gate_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     tinker_proxy_status_p = sub.add_parser(
         "tinker-proxy-status",
         help="Return bounded sealed Tinker proxy/client configuration status",
@@ -1695,6 +1720,30 @@ def cli():
             output_path=args.output,
             forbidden_values=hidden_demo_forbidden_values(candidates or None),
         )
+
+    elif args.command == "policy-gate":
+        from tinker_delegate.policy_gate_receipt import (
+            build_policy_gate_receipt,
+            build_policy_turn_gate_receipt,
+        )
+
+        single_mode = bool(args.request_json or args.policy_json)
+        turn_mode = bool(args.turn_json or args.policies_json)
+        if single_mode == turn_mode:
+            raise SystemExit("provide either --request-json/--policy-json or --turn-json/--policies-json")
+        if single_mode:
+            if not args.request_json or not args.policy_json:
+                raise SystemExit("--request-json and --policy-json must be provided together")
+            request_payload = json.loads(Path(args.request_json).read_text(encoding="utf-8"))
+            policy_payload = json.loads(Path(args.policy_json).read_text(encoding="utf-8"))
+            result = build_policy_gate_receipt(request_payload, policy_payload)
+        else:
+            if not args.turn_json or not args.policies_json:
+                raise SystemExit("--turn-json and --policies-json must be provided together")
+            turn_payload = json.loads(Path(args.turn_json).read_text(encoding="utf-8"))
+            policies_payload = json.loads(Path(args.policies_json).read_text(encoding="utf-8"))
+            result = build_policy_turn_gate_receipt(turn_payload, policies_payload)
+        _emit_bounded_json(result, output_path=args.output)
 
     elif args.command == "tinker-smoke":
         payload = {

@@ -38,8 +38,8 @@ the wikigen / NDAI Attested Diligence Room stack — and how real each function 
 
 | Function | What the user does | Status | Where |
 |---|---|---|---|
-| Submit an access request | Ask to run a pipeline against a corpus for a declared purpose | 🟡 partial | `AccessRequest` + `gate_turn_requests`; service/API wiring 🔴 |
-| Four-stage pre-inference gate | Purpose → pipeline/output → category risk/review → bounded pass; stop at first non-pass | ✅ real (pure fn) | `tinker_delegate.policy_kernel`, focused tests; attested service wiring 🔴 |
+| Submit an access request | Ask to run a pipeline against a corpus for a declared purpose | 🟡 partial | `AccessRequest` + `gate_turn_requests` + `policy-gate` CLI; service/API wiring 🔴 |
+| Four-stage pre-inference gate | Purpose → pipeline/output → category risk/review → bounded pass; stop at first non-pass | ✅ real (pure fn + CLI proof) | `tinker_delegate.policy_kernel`, `policy-gate`, focused tests; attested service wiring 🔴 |
 | Purpose + allowlist enforcement | Only allowed purposes/pipelines clear | ✅ real | deterministic policy stages 1-2 |
 | Bio-risk screen-and-deny | Restricted categories deny; ambiguous/dual-use categories hold for review | 🟡 partial | deterministic stage 3; real biosecurity classifier 🔴 |
 | Hold → human review | Ambiguous/dual-use requests routed to a reviewer | 🟡 partial | route labels and coordination hold tickets real; durable queue/UI 🔴 |
