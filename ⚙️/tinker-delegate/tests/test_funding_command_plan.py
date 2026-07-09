@@ -21,8 +21,8 @@ def _manifest(*, with_encumbrance: bool = True) -> dict:
             "address": ENCUMBRANCE_ADDRESS,
             "initialComposeHash": COMPOSE_HASH,
             "initialComposeHashApproved": True,
-            "maxAddBalanceWei": 5 * 10**18,
-            "maxSpendWei": 5 * 10**18,
+            "maxAddBalanceWei": 10 * 10**18,
+            "maxSpendWei": 10 * 10**18,
             "policyUnitsPerUsdWei": 10**18,
             "emergencyHalted": False,
         }
@@ -72,7 +72,7 @@ class FundingCommandPlanTest(unittest.TestCase):
 
             plan = build_funding_command_plan(
                 manifest_path=manifest_path,
-                amount_dollars=5,
+                amount_dollars=10,
                 output_dir="./packet",
                 validation_id="run-1",
             ).to_public_dict()
@@ -100,7 +100,7 @@ class FundingCommandPlanTest(unittest.TestCase):
 
             plan = build_funding_command_plan(
                 manifest_path=manifest_path,
-                amount_dollars=6,
+                amount_dollars=11,
             ).to_public_dict()
 
             self.assertFalse(plan["ready"])

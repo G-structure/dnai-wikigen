@@ -22,6 +22,8 @@ class AutomationSurface(StrEnum):
     TINKER_AUTH = "tinker_auth"
     API_KEY_PROVISIONING = "api_key_provisioning"
     PAYMENT_METHOD = "payment_method"
+    PAYMENT_METHOD_STATUS = "payment_method_status"
+    PAYMENT_METHOD_REMOVAL = "payment_method_removal"
     ADD_BALANCE = "add_balance"
 
 
@@ -171,6 +173,8 @@ def classify_automation_error(error: str | None) -> AutomationOutcome:
         "exceeds approved cap" in text
         or "must be finite and positive" in text
         or "must be positive" in text
+        or "below tinker minimum" in text
+        or "whole-dollar" in text
         or "policy" in text
     ):
         return AutomationOutcome.POLICY_DENIED

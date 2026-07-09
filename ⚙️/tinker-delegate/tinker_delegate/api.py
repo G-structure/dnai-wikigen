@@ -7,11 +7,13 @@ Endpoints:
   GET  /browser/readiness         — bounded browser-control readiness probe, disabled unless explicitly enabled
   GET  /browser/selector-probe    — bounded read-only selector/frame probe, disabled unless explicitly enabled
   GET  /billing/balance           — current Tinker balance
+  GET  /billing/payment-method-status — bounded card-on-file status
   GET  /billing/funding-policy    — bounded active funding mode
   GET  /billing/funding-preflight — bounded operator validation readiness
   GET  /billing/funding-receipts  — bounded funding attempt audit records
   POST /billing/card              — add payment method (plaintext — local dev only)
   POST /billing/card/encrypted    — add payment method (encrypted to TEE — production)
+  POST /billing/card/remove       — remove payment method
   POST /billing/add-balance       — add credit balance
   POST /deal/chain-event       — bounded chain event audit marker (internal)
   POST /deal/{deal_id}/artifact/encrypted — upload seller's encrypted artifact
@@ -62,6 +64,8 @@ from tinker_delegate.card_channel import (
     handle_encrypted_card_update,
     handle_add_balance,
     handle_get_balance,
+    handle_payment_method_status,
+    handle_remove_payment_method,
 )
 
 app = FastAPI(
@@ -306,6 +310,14 @@ async def billing_balance():
     return result.model_dump()
 
 
+@app.get("/billing/payment-method-status", response_model=BillingResponse)
+async def billing_payment_method_status(authorization: str = Header(default="")):
+    """Return bounded card-on-file status without card details."""
+    _require_runtime_auth(authorization)
+    result = await handle_payment_method_status(settings)
+    return result
+
+
 @app.get("/billing/funding-policy")
 async def billing_funding_policy():
     """Return the bounded funding-mode policy for this delegate."""
@@ -392,6 +404,14 @@ async def billing_card_encrypted(payload: EncryptedCardPayload, authorization: s
     """
     _require_runtime_auth(authorization)
     result = await handle_encrypted_card_update(payload, settings)
+    return result
+
+
+@app.post("/billing/card/remove", response_model=BillingResponse)
+async def billing_card_remove(authorization: str = Header(default="")):
+    """Remove the card-on-file through bounded authenticated automation."""
+    _require_runtime_auth(authorization)
+    result = await handle_remove_payment_method(settings)
     return result
 
 

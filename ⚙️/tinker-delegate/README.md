@@ -166,7 +166,7 @@ uv venv && uv pip install playwright httpx pydantic pydantic-settings
   --address-state "CA" --address-postal "94105"
 
 # Add balance (requires card on file)
-.venv/bin/python -m tinker_delegate.main add-balance 50.00
+.venv/bin/python -m tinker_delegate.main add-balance 10
 
 # Add payment method through attestation-verified encrypted channel
 .venv/bin/python -m tinker_delegate.main add-card-encrypted http://localhost:8080 \
@@ -186,8 +186,17 @@ uv venv && uv pip install playwright httpx pydantic pydantic-settings
   --receipt-output ./payment-method-receipt.json
 
 # Save a bounded add-balance receipt if the validation reaches top-up
-.venv/bin/python -m tinker_delegate.main add-balance 5 \
+.venv/bin/python -m tinker_delegate.main add-balance 10 \
   --receipt-output ./add-balance-receipt.json
+
+# Query only whether a card is on file; no card metadata is returned
+.venv/bin/python -m tinker_delegate.main payment-method-status https://<deployed-tee> \
+  --auth-token-env TINKER_RUNTIME_AUTH_TOKEN
+
+# Admin/operator removal path; emits only a bounded removal receipt
+.venv/bin/python -m tinker_delegate.main remove-card https://<deployed-tee> \
+  --auth-token-env TINKER_RUNTIME_AUTH_TOKEN \
+  --receipt-output ./remove-card-receipt.json
 
 # Start API server (for TEE deployment)
 .venv/bin/python -m tinker_delegate.main serve --port 8080
@@ -198,7 +207,7 @@ build a public manifest:
 
 ```bash
 .venv/bin/python -m tinker_delegate.main funding-preflight \
-  --amount 5 \
+  --amount 10 \
   --api-url https://delegate.example \
   --compose-hash 0xEXPECTED_COMPOSE_HASH \
   --app-id 0xEXPECTED_APP_ID \
@@ -228,7 +237,7 @@ build a public manifest:
 .venv/bin/python -m tinker_delegate.main funding-validation-packet \
   --output-dir ./funding-validation-packet \
   --api-url https://delegate.example \
-  --amount 5 \
+  --amount 10 \
   --compose-hash 0xEXPECTED_COMPOSE_HASH \
   --app-id 0xEXPECTED_APP_ID \
   --os-image-hash 0xEXPECTED_OS_IMAGE_HASH \
@@ -264,7 +273,7 @@ For the real operator path, prefer generating the command from recorded
 deployment evidence:
 
 ```bash
-uv run python -m tinker_delegate.main funding-command-plan --amount 5
+uv run python -m tinker_delegate.main funding-command-plan --amount 10
 ```
 
 The command plan reads `deployments/base-sepolia.json` and emits bounded
@@ -276,8 +285,10 @@ missing, the same plan also emits absolute dry-run and broadcast commands for
 `contracts/scripts/deploy-tinker-encumbrance-base-sepolia.sh`; the broadcast
 helper uses Foundry `--account` through the encrypted keystore and must be run
 from an interactive terminal so the keystore password is never placed in the
-plan, command line, or repo. The plan remains `ready=false` until the manifest
-contains a deployed `TinkerAccountEncumbrance` address and policy.
+plan, command line, or repo. The current deployed encumbrance exists, but the
+live cap is still `$5`; the `$10` Tinker-minimum flow remains blocked until the
+owner raises the cap, the updated compose is redeployed, and the new compose
+hash is approved.
 
 The CLI card flags are for local test-card development only. Read
 `docs/STRIPE-PCI-FUNDING-SCOPE.md` before any real-card attempt. The encrypted
@@ -352,8 +363,10 @@ GET  /billing/balance     — current Tinker balance
 GET  /billing/funding-policy — bounded funding-mode policy
 GET  /billing/funding-preflight — bounded operator funding readiness checks
 GET  /billing/funding-receipts — bounded funding attempt audit records
+GET  /billing/payment-method-status — bounded card-on-file status, no card details
 POST /billing/card        — plaintext local-dev hook, disabled by default
 POST /billing/card/encrypted — add payment method after attestation-verified encryption
+POST /billing/card/remove — admin/operator payment-method removal
 POST /billing/add-balance — add credit balance
 POST /deal/{id}/artifact/encrypted — upload artifact encrypted to TEE key
 POST /deal/{id}/artifact — plaintext local-dev hook, disabled by default
@@ -413,7 +426,8 @@ All settings use the `TINKER_` env prefix:
 | `TINKER_RUN_METADATA_STORE_KEY` | *(empty)* | Local-dev hex key override; dstack should derive the key instead |
 | `TINKER_RUN_METADATA_KEY_PATH` | `tinker/run_metadata` | dstack key path for run metadata storage |
 | `TINKER_FUNDING_MODE` | `manual_prefund` | Funding mode: `manual_prefund`, `operator_capped_validation`, or reserved `official_tokenized` |
-| `TINKER_MAX_ADD_BALANCE_USD` | `5.0` | Maximum add-balance amount allowed before browser automation starts |
+| `TINKER_MIN_ADD_BALANCE_USD` | `10.0` | Minimum whole-dollar add-balance amount accepted before browser automation starts |
+| `TINKER_MAX_ADD_BALANCE_USD` | `10.0` | Maximum add-balance amount allowed before browser automation starts |
 | `TINKER_ALLOW_ADD_BALANCE_ENDPOINT` | `false` | Enables `POST /billing/add-balance`; leave false unless running a deliberate capped operator validation |
 | `TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT` | `false` | Local-dev only flag for `POST /billing/card`; production uses `/billing/card/encrypted` |
 | `TINKER_DEBUG_ARTIFACT_DIR` | *(empty)* | Optional browser debug artifact directory; card submissions purge known secret-bearing trace/HAR/video/card screenshot files here |
@@ -495,13 +509,28 @@ contracts/
 - **Selector drift handling**: payment-method and add-balance automation use
   explicit fallback families for balance/payment controls, submit buttons,
   cardholder/address fields, add-balance amount inputs, and top-up confirmation.
-  Mock-page tests cover current selectors plus data-testid/aria-style variants;
-  missing top-up controls return bounded `selector_missing` receipts without
-  returning page text.
+  Mock-page tests cover current selectors plus data-testid/aria-style variants,
+  card-on-file management copy, and preset amount buttons; missing top-up
+  controls return bounded `selector_missing` receipts without returning page
+  text.
+- **Card-on-file status/removal**: `GET /billing/payment-method-status` returns
+  only `card_on_file` and a zero/one-or-more/unknown count band. Authenticated
+  `POST /billing/card/remove` can remove the payment method and emits a bounded
+  receipt. Neither path returns card brand, last4, expiry, address, or page
+  text.
+- **Top-up minimum**: Tinker's UI requires whole-dollar amounts from `$10`;
+  the delegate rejects below-minimum or fractional add-balance requests before
+  browser automation.
 - **hCaptcha**: Invisible on form (no manual solve needed in neko)
 - **Model**: Prepaid balance (add credit, spend on API usage)
 - **Local test-card result**: Stripe test card reaches submission and returns `Your card was declined.`
 - **No-card funding result**: add-balance fails closed with `Payment method required before adding balance`
+- **First deployed real-card validation**: live balance remained `$0.00`; the
+  payment-method receipt reached `payment_submitted` with bounded card-management
+  copy, while add-balance reached the modal and failed closed with
+  `Add-balance amount input not found`. The source fix is tested locally but
+  still needs a digest-pinned Phala redeploy and a successful add-balance
+  receipt before funding is considered real.
 - **Attempt records**: payment-method and add-balance responses expose bounded
   `surface`, `outcome`, `furthest_stage`, `issued_at`, `evidence_hash`,
   amount/balance bands, TDX quote hash when present, and card-payload

@@ -43,6 +43,7 @@ ADD_TO_BALANCE_SELECTORS = (
 PAYMENT_METHODS_SELECTORS = (
     'button:has-text("Payment methods")',
     'a:has-text("Payment methods")',
+    'text="Payment methods"',
     'button[aria-label="Payment methods"]',
     '[data-testid="payment-methods"]',
 )
@@ -58,22 +59,73 @@ ADD_PAYMENT_METHOD_SELECTORS = (
     '[data-testid="save-payment-method"]',
 )
 
+REMOVE_PAYMENT_METHOD_SELECTORS = (
+    'button:has-text("Remove")',
+    'button:has-text("Remove card")',
+    'button:has-text("Delete")',
+    'button:has-text("Delete card")',
+    'button[aria-label*="Remove" i]',
+    'button[aria-label*="Delete" i]',
+    '[data-testid="remove-payment-method"]',
+    '[data-testid="delete-payment-method"]',
+)
+
+CONFIRM_REMOVE_PAYMENT_METHOD_SELECTORS = (
+    'button:has-text("Remove")',
+    'button:has-text("Delete")',
+    'button:has-text("Confirm")',
+    'button[aria-label*="Remove" i]',
+    'button[aria-label*="Delete" i]',
+    '[data-testid="confirm-remove-payment-method"]',
+)
+
 CARDHOLDER_NAME_SELECTORS = (
     "#cardholder-name",
     'input[name="cardholderName"]',
     'input[autocomplete="cc-name"]',
+    'input[placeholder*="Name on card" i]',
     'input[placeholder*="Name"]',
 )
 
 ADDRESS_FIELD_SELECTORS = (
-    ("address_line1", ("#service-line1", 'input[name="line1"]', 'input[autocomplete="billing address-line1"]')),
-    ("address_city", ("#service-city", 'input[name="city"]', 'input[autocomplete="billing address-level2"]')),
-    ("address_state", ("#service-state", 'input[name="state"]', 'input[autocomplete="billing address-level1"]')),
+    (
+        "address_line1",
+        (
+            "#service-line1",
+            'input[name="line1"]',
+            'input[autocomplete="billing address-line1"]',
+            'input[placeholder*="Address line 1" i]',
+        ),
+    ),
+    ("address_city", ("#service-city", 'input[name="city"]', 'input[autocomplete="billing address-level2"]', 'input[placeholder*="City" i]')),
+    (
+        "address_state",
+        (
+            "#service-state",
+            'input[name="state"]',
+            'input[autocomplete="billing address-level1"]',
+            'input[placeholder*="State" i]',
+            'input[placeholder*="Province" i]',
+        ),
+    ),
     (
         "address_postal",
-        ("#service-postal-code", 'input[name="postalCode"]', 'input[autocomplete="billing postal-code"]'),
+        (
+            "#service-postal-code",
+            'input[name="postalCode"]',
+            'input[autocomplete="billing postal-code"]',
+            'input[placeholder*="Postal code" i]',
+        ),
     ),
-    ("address_country", ("#service-country", 'select[name="country"]', 'input[name="country"]')),
+    (
+        "address_country",
+        (
+            "#service-country",
+            'select[name="country"]',
+            'input[name="country"]',
+            'input[placeholder*="Country" i]',
+        ),
+    ),
 )
 
 ADD_BALANCE_DIALOG_SELECTORS = (
@@ -86,16 +138,25 @@ ADD_BALANCE_DIALOG_SELECTORS = (
 ADD_BALANCE_AMOUNT_SELECTORS = (
     'input[type="number"], input[placeholder*="amount"], input[name*="amount"]',
     'input[name="amount"]',
+    'input[id*="amount" i]',
+    'input[aria-label*="amount" i]',
     'input[placeholder*="Amount"]',
+    'input[placeholder*="$"]',
+    'input[inputmode="decimal"]',
+    'input[inputmode="numeric"]',
+    'input[type="text"]',
+    '[role="spinbutton"]',
     '[data-testid="add-balance-amount"]',
 )
 
 ADD_BALANCE_CONFIRM_SELECTORS = (
-    'button:has-text("Confirm"), button:has-text("Add balance"), button:has-text("Pay")',
+    'button:has-text("Confirm"), button:has-text("Add balance"), button:has-text("Add credit"), button:has-text("Pay")',
     'button:has-text("Confirm")',
     'button:has-text("Add balance")',
+    'button:has-text("Add credit")',
     'button:has-text("Pay")',
     'button[aria-label="Confirm"]',
+    'button[aria-label="Add credit"]',
     '[data-testid="confirm-add-balance"]',
 )
 
@@ -118,6 +179,7 @@ AUTO_RELOAD_SAVE_SELECTORS = (
 STRIPE_CARD_NUMBER_SELECTORS = (
     'input[name="cardnumber"]',
     'input[data-elements-stable-field-name="cardNumber"]',
+    'input[placeholder*="Card number" i]',
 )
 
 STRIPE_CARD_EXPIRY_SELECTORS = (
@@ -198,23 +260,27 @@ async def _fill_stripe_card(frame: Frame, card: CardDetails) -> None:
     # The Stripe card element is a single input that handles all fields
     # Type card number, then tab to exp, then tab to CVC
     card_input = frame.locator(", ".join(STRIPE_CARD_NUMBER_SELECTORS))
+    exp_input = frame.locator(", ".join(STRIPE_CARD_EXPIRY_SELECTORS))
+    cvc_input = frame.locator(", ".join(STRIPE_CARD_CVC_SELECTORS))
+
     if await card_input.count() > 0:
         await card_input.click()
         await card_input.type(card.number, delay=30)
         await asyncio.sleep(0.5)
 
     # Exp date
-    exp_input = frame.locator(", ".join(STRIPE_CARD_EXPIRY_SELECTORS))
     if await exp_input.count() > 0:
         await exp_input.click()
         await exp_input.type(_format_expiry(card), delay=30)
         await asyncio.sleep(0.3)
 
     # CVC
-    cvc_input = frame.locator(", ".join(STRIPE_CARD_CVC_SELECTORS))
     if await cvc_input.count() > 0:
         await cvc_input.click()
         await cvc_input.type(card.cvc, delay=30)
+        await asyncio.sleep(0.3)
+    elif await card_input.count() > 0 and await exp_input.count() <= 0:
+        await card_input.type(f" {_format_expiry(card)} {card.cvc}", delay=30)
         await asyncio.sleep(0.3)
 
 
@@ -227,13 +293,41 @@ def _format_expiry(card: CardDetails) -> str:
     return f"{month}{year}"
 
 
+def _format_add_balance_amount(amount_dollars: float) -> str:
+    """Return the whole-dollar amount string expected by Tinker's balance modal."""
+    return str(int(amount_dollars)) if float(amount_dollars).is_integer() else str(amount_dollars)
+
+
+def _add_balance_policy_error(amount_dollars: float, settings: Settings) -> str | None:
+    if not math.isfinite(amount_dollars) or amount_dollars <= 0:
+        return "Funding amount must be finite and positive"
+    min_amount = float(getattr(settings, "min_add_balance_usd", 0) or 0)
+    if amount_dollars < min_amount:
+        return f"Funding amount is below Tinker minimum ${_format_add_balance_amount(min_amount)}"
+    if not float(amount_dollars).is_integer():
+        return "Funding amount must be a whole-dollar amount"
+    if amount_dollars > settings.max_add_balance_usd:
+        return "Funding amount exceeds approved cap"
+    return None
+
+
 def _billing_error_message(text: str) -> str | None:
     """Extract the most useful visible billing failure without returning the page."""
     normalized = re.sub(r"\s+", " ", text).strip()
+    success_hints = (
+        "this card can be removed at any time",
+        "payment method added",
+        "card added",
+        "default payment method",
+        "charge your default payment method to add credit",
+    )
+    lowered = normalized.lower()
+    if any(hint in lowered for hint in success_hints):
+        return None
     patterns = [
         r"(Your card[^.]*\.)",
         r"(The card[^.]*\.)",
-        r"(This card[^.]*\.)",
+        r"(This card (?:was|is|has)[^.]*\.)",
         r"(Payment method[^.]*\.)",
         r"(Unable to[^.]*\.)",
         r"(Failed to[^.]*\.)",
@@ -282,6 +376,23 @@ async def _fill_first_available(scope, selectors: tuple[str, ...], value: str) -
     return None
 
 
+def _amount_choice_selectors(amount_dollars: float) -> tuple[str, ...]:
+    """Return exact-text selectors for preset amount buttons in the scoped modal."""
+    amount = f"{amount_dollars:.2f}"
+    dollars = amount[:-3] if amount.endswith(".00") else amount
+    labels = tuple(dict.fromkeys((f"${dollars}", f"${amount}", dollars, amount)))
+    selectors: list[str] = []
+    for label in labels:
+        selectors.extend(
+            [
+                f'button:text-is("{label}")',
+                f'[role="button"]:text-is("{label}")',
+                f'label:text-is("{label}")',
+            ]
+        )
+    return tuple(selectors)
+
+
 async def _first_available_scope(scope, selectors: tuple[str, ...]):
     """Return the first matching locator scope, or the original scope."""
     for selector in selectors:
@@ -289,6 +400,31 @@ async def _first_available_scope(scope, selectors: tuple[str, ...]):
         if await locator.count() > 0:
             return locator.last
     return scope
+
+
+def _payment_method_status_from_text(text: str) -> dict:
+    """Return bounded card-on-file status without card brand, last4, or expiry."""
+    lowered = text.lower()
+    no_card = (
+        "no payment methods yet" in lowered
+        or "add a card to get started" in lowered
+        or ("add payment method" in lowered and "this card can be removed at any time" not in lowered)
+    )
+    card_on_file = (
+        "this card can be removed at any time" in lowered
+        or "default payment method" in lowered
+        or "remove card" in lowered
+    )
+    if card_on_file:
+        count_band = "one_or_more"
+    elif no_card:
+        count_band = "zero"
+    else:
+        count_band = "unknown"
+    return {
+        "card_on_file": card_on_file if count_band != "unknown" else None,
+        "payment_method_count_band": count_band,
+    }
 
 
 async def _billing_auth_blocker(page: Page) -> str | None:
@@ -431,7 +567,16 @@ async def _do_add_payment_method(card: CardDetails, settings: Settings) -> dict:
             return _payment_method_result(False, error_msg, furthest_stage, text)
 
         # Check if payment method now shows up
-        success = "ending in" in text.lower() or "visa" in text.lower() or "mastercard" in text.lower()
+        lowered = text.lower()
+        success = (
+            "ending in" in lowered
+            or "visa" in lowered
+            or "mastercard" in lowered
+            or "this card can be removed at any time" in lowered
+            or "payment method added" in lowered
+            or "card added" in lowered
+            or "charge your default payment method to add credit" in lowered
+        )
         print(f"[billing] payment method added: {success}")
 
         if not success:
@@ -448,11 +593,8 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
         settings = Settings()
 
     furthest_stage = AutomationStage.NOT_STARTED
-    if not math.isfinite(amount_dollars) or amount_dollars <= 0:
-        error = "Funding amount must be finite and positive"
-        return _add_balance_result(False, error, amount_dollars, furthest_stage, error)
-    if amount_dollars > settings.max_add_balance_usd:
-        error = "Funding amount exceeds approved cap"
+    error = _add_balance_policy_error(amount_dollars, settings)
+    if error:
         return _add_balance_result(False, error, amount_dollars, furthest_stage, error)
 
     async with async_playwright() as p:
@@ -484,7 +626,11 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
 
         # Look for amount input
         scope = await _first_available_scope(page, ADD_BALANCE_DIALOG_SELECTORS)
-        if await _fill_first_available(scope, ADD_BALANCE_AMOUNT_SELECTORS, str(amount_dollars)):
+        amount_text = _format_add_balance_amount(amount_dollars)
+        if await _fill_first_available(scope, ADD_BALANCE_AMOUNT_SELECTORS, amount_text):
+            await asyncio.sleep(0.5)
+            furthest_stage = AutomationStage.ADD_BALANCE_AMOUNT_FILLED
+        elif await _click_first_available(scope, _amount_choice_selectors(amount_dollars)):
             await asyncio.sleep(0.5)
             furthest_stage = AutomationStage.ADD_BALANCE_AMOUNT_FILLED
         else:
@@ -506,6 +652,73 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
         if error_msg:
             return _add_balance_result(False, error_msg, amount_dollars, furthest_stage, text)
         return _add_balance_result(True, None, amount_dollars, furthest_stage, text)
+
+
+async def get_payment_method_status(settings: Settings | None = None) -> dict:
+    """Return bounded payment-method presence, never card details."""
+    if settings is None:
+        settings = Settings()
+
+    furthest_stage = AutomationStage.NOT_STARTED
+    async with async_playwright() as p:
+        browser = await connect_chromium(p, settings)
+        context = await get_browser_context(browser, settings)
+        page = context.pages[0] if context.pages else await context.new_page()
+
+        await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
+        await asyncio.sleep(3)
+        furthest_stage = AutomationStage.BILLING_PAGE_LOADED
+        auth_blocker = await _billing_auth_blocker(page)
+        if auth_blocker:
+            return _payment_method_status_result(False, auth_blocker, furthest_stage, auth_blocker)
+
+        await _click_first_available(page, PAYMENT_METHODS_SELECTORS)
+        await asyncio.sleep(2)
+        text = await page.evaluate("() => document.body?.innerText || ''")
+        status = _payment_method_status_from_text(text)
+        if status["payment_method_count_band"] == "unknown":
+            return _payment_method_status_result(False, "Payment method status unknown", furthest_stage, text, **status)
+        return _payment_method_status_result(True, None, furthest_stage, status, **status)
+
+
+async def remove_payment_method(settings: Settings | None = None) -> dict:
+    """Remove a card-on-file from the Tinker billing page without exposing details."""
+    if settings is None:
+        settings = Settings()
+
+    furthest_stage = AutomationStage.NOT_STARTED
+    async with async_playwright() as p:
+        browser = await connect_chromium(p, settings)
+        context = await get_browser_context(browser, settings)
+        page = context.pages[0] if context.pages else await context.new_page()
+
+        await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
+        await asyncio.sleep(3)
+        furthest_stage = AutomationStage.BILLING_PAGE_LOADED
+        auth_blocker = await _billing_auth_blocker(page)
+        if auth_blocker:
+            return _payment_method_removal_result(False, auth_blocker, furthest_stage, auth_blocker)
+
+        await _click_first_available(page, PAYMENT_METHODS_SELECTORS)
+        await asyncio.sleep(2)
+        text = await page.evaluate("() => document.body?.innerText || ''")
+        status = _payment_method_status_from_text(text)
+        if status["payment_method_count_band"] == "zero":
+            return _payment_method_removal_result(True, None, furthest_stage, {"already_absent": True})
+
+        if not await _click_first_available(page, REMOVE_PAYMENT_METHOD_SELECTORS, prefer_last=True):
+            error = "Remove payment method selector not found"
+            return _payment_method_removal_result(False, error, furthest_stage, error)
+        await asyncio.sleep(1)
+
+        if await _click_first_available(page, CONFIRM_REMOVE_PAYMENT_METHOD_SELECTORS, prefer_last=True):
+            await asyncio.sleep(3)
+
+        text = await page.evaluate("() => document.body?.innerText || ''")
+        status = _payment_method_status_from_text(text)
+        if status["payment_method_count_band"] == "zero":
+            return _payment_method_removal_result(True, None, furthest_stage, {"removed": True})
+        return _payment_method_removal_result(False, "Payment method removal not confirmed", furthest_stage, text)
 
 
 async def configure_auto_reload(
@@ -622,5 +835,52 @@ def _add_balance_result(
         evidence=evidence if success else error,
         bounded_message="balance_added" if success else (error or "add_balance_failed"),
         amount_dollars=amount_dollars,
+    )
+    return {"success": success, "error": error, "attempt_record": receipt.to_public_dict()}
+
+
+def _payment_method_status_result(
+    success: bool,
+    error: str | None,
+    furthest_stage: AutomationStage,
+    evidence: object,
+    *,
+    card_on_file: bool | None = None,
+    payment_method_count_band: str = "unknown",
+) -> dict:
+    outcome = AutomationOutcome.SUCCESS if success else classify_automation_error(error)
+    receipt = make_receipt(
+        surface=AutomationSurface.PAYMENT_METHOD_STATUS,
+        outcome=outcome,
+        furthest_stage=furthest_stage,
+        evidence=evidence if success else error,
+        bounded_message=(
+            f"payment_method_count:{payment_method_count_band}"
+            if success
+            else (error or "payment_method_status_failed")
+        ),
+    )
+    return {
+        "success": success,
+        "error": error,
+        "card_on_file": card_on_file,
+        "payment_method_count_band": payment_method_count_band,
+        "attempt_record": receipt.to_public_dict(),
+    }
+
+
+def _payment_method_removal_result(
+    success: bool,
+    error: str | None,
+    furthest_stage: AutomationStage,
+    evidence: object,
+) -> dict:
+    outcome = AutomationOutcome.SUCCESS if success else classify_automation_error(error)
+    receipt = make_receipt(
+        surface=AutomationSurface.PAYMENT_METHOD_REMOVAL,
+        outcome=outcome,
+        furthest_stage=furthest_stage,
+        evidence=evidence if success else error,
+        bounded_message="payment_method_absent" if success else (error or "payment_method_removal_failed"),
     )
     return {"success": success, "error": error, "attempt_record": receipt.to_public_dict()}

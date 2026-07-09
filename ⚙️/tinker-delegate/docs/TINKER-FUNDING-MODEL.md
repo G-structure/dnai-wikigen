@@ -58,14 +58,14 @@ Before a one-off operator validation attempt, run the bounded preflight:
 
 ```bash
 python -m tinker_delegate.main funding-preflight \
-  --amount 5 \
+  --amount 10 \
   --api-url https://delegate.example \
   --compose-hash EXPECTED_COMPOSE_HASH \
   --app-id EXPECTED_APP_ID \
   --fetch-attestation \
   --output ./preflight.json
 
-curl 'http://localhost:8080/billing/funding-preflight?amount_dollars=5&api_url=http://localhost:8080&allow_local_attestation=true'
+curl 'http://localhost:8080/billing/funding-preflight?amount_dollars=10&api_url=http://localhost:8080&allow_local_attestation=true'
 ```
 
 The preflight checks funding mode, amount cap, optional add-balance endpoint
@@ -83,7 +83,7 @@ python -m tinker_delegate.main add-card-encrypted-prompt https://delegate.exampl
   --os-image-hash EXPECTED_OS_IMAGE_HASH \
   --receipt-output ./payment-method-receipt.json
 
-python -m tinker_delegate.main add-balance 5 \
+python -m tinker_delegate.main add-balance 10 \
   --receipt-output ./add-balance-receipt.json
 ```
 
@@ -91,6 +91,24 @@ The prompt command keeps card fields out of shell history and process
 arguments, requires deployed compose/app/OS-image attestation expectations
 unless explicitly run in local-development mode, and refuses to print or write a
 response that contains submitted card values or secret-shaped fields.
+
+The Tinker UI currently accepts whole-dollar top-ups starting at `$10`, so the
+delegate enforces `TINKER_MIN_ADD_BALANCE_USD=10.0` before browser launch. To
+inspect payment-method state without leaking card metadata, use the bounded
+status endpoint:
+
+```bash
+python -m tinker_delegate.main payment-method-status https://delegate.example \
+  --auth-token-env TINKER_RUNTIME_AUTH_TOKEN
+
+python -m tinker_delegate.main remove-card https://delegate.example \
+  --auth-token-env TINKER_RUNTIME_AUTH_TOKEN \
+  --receipt-output ./remove-card-receipt.json
+```
+
+The status output is limited to `card_on_file` and
+`payment_method_count_band`; the removal command writes a bounded receipt. No
+card brand, last4, expiry, address, or browser page text is exposed.
 
 Build a bounded public manifest from the saved preflight and bounded receipt:
 
@@ -117,7 +135,7 @@ python -m tinker_delegate.main verify-funding-manifest \
 python -m tinker_delegate.main funding-validation-packet \
   --output-dir ./funding-validation-packet \
   --api-url https://delegate.example \
-  --amount 5 \
+  --amount 10 \
   --compose-hash EXPECTED_COMPOSE_HASH \
   --app-id EXPECTED_APP_ID \
   --os-image-hash EXPECTED_OS_IMAGE_HASH \
@@ -194,7 +212,12 @@ What is real:
 
 What remains partial:
 
-- No live Phala encrypted-card attempt has been validated yet.
-- No real-card low-value top-up has been attempted.
+- A live Phala encrypted-card attempt reached bounded payment-method UI copy,
+  but it has not yet been proven to leave a usable card on file.
+- A real-card low-value top-up was attempted, but the account balance stayed
+  `$0.00`; add-balance stopped at a missing amount selector. The source fix is
+  local/tested but not yet Phala-deployed.
+- The deployed encumbrance still caps add-balance/spend at `$5`; it must be
+  raised to `$10` before the next Tinker-minimum top-up attempt.
 - No reusable payment-method token/reference is captured or persisted.
 - Production or repeated card funding still requires legal/compliance approval.

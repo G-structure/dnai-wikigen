@@ -73,7 +73,7 @@ class FundingPolicyTest(unittest.IsolatedAsyncioTestCase):
                 funding_receipt_store_key="44" * 32,
             )
 
-            result = funding_validation_preflight(settings, amount_dollars=5.0)
+            result = funding_validation_preflight(settings, amount_dollars=10.0)
 
         body = result.to_public_dict()
         self.assertFalse(body["ready"])
@@ -94,7 +94,7 @@ class FundingPolicyTest(unittest.IsolatedAsyncioTestCase):
 
             result = funding_validation_preflight(
                 settings,
-                amount_dollars=5.0,
+                amount_dollars=10.0,
                 api_url="http://localhost:8080",
                 allow_local_attestation=True,
             )
@@ -107,13 +107,13 @@ class FundingPolicyTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(checks["billing_attestation_policy"]["status"], "configured")
         self.assertEqual(checks["billing_attestation_fetch"]["status"], "skipped")
 
-    def test_preflight_rejects_over_cap_amount_and_disabled_endpoint(self):
+    def test_preflight_rejects_below_minimum_amount_and_disabled_endpoint(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = Settings(
                 funding_mode="operator_capped_validation",
                 funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
                 funding_receipt_store_key="66" * 32,
-                max_add_balance_usd=5.0,
+                max_add_balance_usd=10.0,
                 allow_add_balance_endpoint=False,
             )
 
@@ -128,7 +128,7 @@ class FundingPolicyTest(unittest.IsolatedAsyncioTestCase):
         body = result.to_public_dict()
         self.assertFalse(body["ready"])
         checks = {check["name"]: check for check in body["checks"]}
-        self.assertEqual(checks["requested_amount"]["status"], "outside_cap")
+        self.assertEqual(checks["requested_amount"]["status"], "below_minimum")
         self.assertEqual(checks["add_balance_endpoint"]["status"], "disabled")
 
     async def test_default_policy_denies_plaintext_card_before_browser(self):
@@ -189,7 +189,7 @@ class FundingPolicyTest(unittest.IsolatedAsyncioTestCase):
             )
 
             with patch("tinker_delegate.card_channel.add_balance", new=AsyncMock()) as add_balance:
-                result = await handle_add_balance(BalancePayload(amount_dollars=5.0), settings)
+                result = await handle_add_balance(BalancePayload(amount_dollars=10.0), settings)
 
             self.assertFalse(result.success)
             self.assertEqual(result.attempt_record["surface"], "add_balance")
@@ -259,7 +259,7 @@ class FundingPolicyTest(unittest.IsolatedAsyncioTestCase):
             )
 
             with patch("tinker_delegate.card_channel.add_balance", new=AsyncMock()) as add_balance:
-                result = await handle_add_balance(BalancePayload(amount_dollars=5.0), settings)
+                result = await handle_add_balance(BalancePayload(amount_dollars=10.0), settings)
 
             self.assertFalse(result.success)
             self.assertIn("missing_contract", result.error)
@@ -299,7 +299,7 @@ class FundingPolicyApiTest(unittest.TestCase):
             response = client.get(
                 "/billing/funding-preflight",
                 params={
-                    "amount_dollars": 5.0,
+                    "amount_dollars": 10.0,
                     "api_url": "http://localhost:8080",
                     "allow_local_attestation": True,
                 },

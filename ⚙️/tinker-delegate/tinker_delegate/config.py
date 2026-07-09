@@ -84,4 +84,5 @@ class Settings(BaseSettings):
     allow_plaintext_artifact_endpoint: bool = False
     allow_add_balance_endpoint: bool = False
     funding_mode: str = "manual_prefund"
-    max_add_balance_usd: float = 5.0
+    min_add_balance_usd: float = 10.0
+    max_add_balance_usd: float = 10.0

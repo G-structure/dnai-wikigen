@@ -1238,6 +1238,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             families for the Tinker billing UI, with mock-page tests covering
             data-testid/aria-style drift and bounded `selector_missing`
             receipts when top-up controls cannot be found.
+      - [x] Add bounded card-on-file status and admin/operator removal controls:
+            `GET /billing/payment-method-status` returns only `card_on_file`
+            plus a zero/one-or-more/unknown count band, and
+            `POST /billing/card/remove` drives the Tinker removal UI with a
+            bounded receipt. Neither path returns card brand, last4, expiry,
+            billing address, or browser page text.
       - [x] Add `add-card-encrypted-prompt` so approved operator card details
             are entered interactively instead of as command-line flags; the
             prompt path requires deployed compose/app/OS-image attestation
@@ -1260,7 +1266,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             signup/bootstrap and plaintext card input disabled, enables only
             capped operator reauth/encrypted-card/add-balance endpoints, uses
             the custom GitHub-attested `neko-chrome` CDP path, caps top-up
-            attempts at `$5`, and quote-binds the profile through digest-pinned
+            attempts at `$10`, and quote-binds the profile through digest-pinned
             registry images plus explicit runtime env policy.
       - [x] Run a fresh local FastAPI encrypted-card smoke with local billing
             attestation and a Stripe test card: `$5` operator preflight returns
@@ -1390,9 +1396,10 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             encumbrance-preflight, encumbrance deploy dry-run/broadcast, and
             prompt-packet argv/shell templates
             without card details, bearer tokens, API keys, OTPs, or RPC values.
-            The current manifest correctly returns `ready=true` for `$5` with
+            The earlier manifest correctly returned `ready=true` for `$5` with
             the deployed encumbrance contract, approved compose hash, and no raw
-            secret egress.
+            secret egress. The current Tinker-minimum `$10` path is blocked
+            until the deployed encumbrance caps are raised.
             Refreshed 2026-07-09: the plan now includes absolute
             no-raw-key deploy helper commands for
             `deploy-tinker-encumbrance-base-sepolia.sh`, with a note that the
@@ -1420,16 +1427,35 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             attempt after the funding-validation compose is deployed on Phala,
             its live attested compose hash is recorded, and the operator CLI
             command targets that hash with `--fetch-attestation` and
-            `--require-encumbrance`. Ready for operator validation 2026-07-09:
-            the refreshed Phala funding-validation profile is live at attested
-            compose hash
+            `--require-encumbrance`.
+            Evidence 2026-07-09: the refreshed Phala funding-validation profile
+            is live at attested compose hash
             `f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552`,
-            remote `$5` funding preflight is ready, `funding-command-plan`
-            returns `ready=true`, authenticated `/auth/reauth` succeeds, and
+            remote `$5` funding preflight was ready under the old deployed cap,
+            `funding-command-plan` returned `ready=true` for that historical
+            `$5` validation path, authenticated `/auth/reauth` succeeds, and
             the compose hash is approved by `TinkerAccountEncumbrance`. The
-            item remains unchecked until an approved operator runs the real-card
-            prompt and records a bounded funding receipt; the CVM dev-OS warning
-            also remains before production.
+            first approved real-card validation packet reached
+            `payment_submitted` and saw bounded card-management copy
+            (`This card can be removed at any time.`), but live balance remains
+            `$0.00` and add-balance stopped at `add_balance_modal_opened` with
+            `selector_missing` / `Add-balance amount input not found`.
+            - [x] Source/test fix: treat Tinker card-management copy as
+                  payment-method success instead of a card error, add scoped
+                  add-balance amount-input fallbacks plus exact preset-amount
+                  selectors, and cover both with focused mock-page tests.
+            - [x] Source/test fix: enforce Tinker's `$10` whole-dollar minimum,
+                  expose bounded card-on-file status, and add an authenticated
+                  admin/operator card removal path.
+            - [ ] Update deployed `TinkerAccountEncumbrance` funding policy from
+                  `$5` to `$10` add-balance/spend caps before rerunning live
+                  preflight or any add-balance attempt.
+            - [ ] Build, attest, digest-pin, redeploy, and approve the updated
+                  funding-validation compose hash, then rerun add-balance only
+                  if the existing card-on-file state is still present.
+            The item remains unchecked until a bounded add-balance receipt and
+            live balance read prove a low-value top-up succeeded; the CVM
+            dev-OS warning also remains before production.
 - [x] `P0` Confirm PCI and Stripe obligations.
       Research whether the current encrypted-card-to-TEE flow is acceptable or
       whether the system must use Stripe-hosted tokenization / SetupIntent /

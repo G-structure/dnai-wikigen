@@ -32,7 +32,7 @@ class CliBoundedOutputsTest(unittest.TestCase):
                     "tinker_delegate.main",
                     "funding-preflight",
                     "--amount",
-                    "5",
+                    "10",
                     "--api-url",
                     "http://localhost:8080",
                     "--allow-local-attestation",

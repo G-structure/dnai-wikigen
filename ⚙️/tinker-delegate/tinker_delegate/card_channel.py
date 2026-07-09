@@ -49,7 +49,14 @@ from tinker_delegate.automation_receipts import (
     make_receipt,
     quote_hash,
 )
-from tinker_delegate.billing import CardDetails, add_payment_method, add_balance, get_balance
+from tinker_delegate.billing import (
+    CardDetails,
+    add_payment_method,
+    add_balance,
+    get_balance,
+    get_payment_method_status,
+    remove_payment_method,
+)
 from tinker_delegate.config import Settings
 from tinker_delegate.crypto import TEEKeyPair, EncryptedPayload
 from tinker_delegate.dstack_utils import get_attestation_details, is_dstack_enabled
@@ -118,6 +125,8 @@ class BillingResponse(BaseModel):
     success: bool
     error: Optional[str] = None
     balance: Optional[str] = None
+    card_on_file: Optional[bool] = None
+    payment_method_count_band: Optional[str] = None
     tdx_quote: Optional[str] = None  # hex-encoded TDX quote in production
     attempt_record: Optional[dict] = None
 
@@ -464,6 +473,44 @@ async def handle_get_balance(settings: Settings) -> BillingResponse:
         )
     except Exception as e:
         return BillingResponse(success=False, error=redact_text(e))
+
+
+async def handle_payment_method_status(settings: Settings) -> BillingResponse:
+    """Return bounded payment-method presence without card details."""
+    try:
+        result = await get_payment_method_status(settings)
+        return BillingResponse(
+            success=result.get("success", False),
+            error=result.get("error"),
+            card_on_file=result.get("card_on_file"),
+            payment_method_count_band=result.get("payment_method_count_band"),
+            attempt_record=result.get("attempt_record"),
+        )
+    except Exception as e:
+        return BillingResponse(success=False, error=redact_text(e))
+
+
+async def handle_remove_payment_method(settings: Settings) -> BillingResponse:
+    """Remove payment method through the authenticated Tinker billing UI."""
+    try:
+        result = await remove_payment_method(settings)
+        return _billing_response_with_persisted_receipt(
+            settings,
+            success=result.get("success", False),
+            error=result.get("error"),
+            attempt_record=_attempt_record_or_fallback(
+                result,
+                AutomationSurface.PAYMENT_METHOD_REMOVAL,
+            ),
+        )
+    except Exception as e:
+        error = redact_text(e)
+        return _billing_response_with_persisted_receipt(
+            settings,
+            success=False,
+            error=error,
+            attempt_record=_exception_receipt(AutomationSurface.PAYMENT_METHOD_REMOVAL, error),
+        )
 
 
 def _with_quote_hash(attempt_record: Optional[dict], quote: Optional[str]) -> Optional[dict]:

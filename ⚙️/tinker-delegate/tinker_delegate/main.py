@@ -115,6 +115,15 @@ def _receipt_or_raise(response: dict[str, Any] | Any) -> dict[str, Any]:
     return receipt
 
 
+def _api_endpoint(api_url: str, path: str) -> str:
+    return api_url.rstrip("/") + path
+
+
+def _runtime_auth_headers(auth_token_env: str) -> dict[str, str]:
+    token = os.environ.get(auth_token_env, "")
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
 def _prompt_billing_card_payload(prompt_fn=getpass.getpass) -> dict[str, str]:
     """Read card fields without placing them in shell history or argv."""
     fields = (
@@ -513,7 +522,7 @@ def cli():
     funding_command_plan_p.add_argument(
         "--amount",
         type=float,
-        default=5.0,
+        default=10.0,
         help="Planned add-balance amount in USD for the command plan",
     )
     funding_command_plan_p.add_argument(
@@ -689,6 +698,31 @@ def cli():
     add_bal_p = sub.add_parser("add-balance", help="Add credit balance to Tinker account")
     add_bal_p.add_argument("amount", type=float, help="Amount in USD to add")
     add_bal_p.add_argument("--receipt-output", default="", help="Optional output path for bounded receipt JSON")
+
+    payment_method_status_p = sub.add_parser(
+        "payment-method-status",
+        help="Query bounded card-on-file status from a deployed delegate",
+    )
+    payment_method_status_p.add_argument("api_url", help="Tinker delegate API base URL")
+    payment_method_status_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token",
+    )
+    payment_method_status_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+
+    remove_card_p = sub.add_parser(
+        "remove-card",
+        help="Remove the card-on-file through a deployed delegate",
+    )
+    remove_card_p.add_argument("api_url", help="Tinker delegate API base URL")
+    remove_card_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token",
+    )
+    remove_card_p.add_argument("--receipt-output", default="", help="Optional output path for bounded receipt JSON")
+    remove_card_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
 
     add_card_encrypted_p = sub.add_parser(
         "add-card-encrypted",
@@ -1480,6 +1514,28 @@ def cli():
             _emit_bounded_json(_receipt_or_raise(body), output_path=args.receipt_output)
         _emit_bounded_json(body)
         sys.exit(0 if result.success else 1)
+
+    elif args.command == "payment-method-status":
+        import httpx
+
+        headers = _runtime_auth_headers(args.auth_token_env)
+        with httpx.Client(timeout=120.0) as client:
+            response = client.get(_api_endpoint(args.api_url, "/billing/payment-method-status"), headers=headers)
+        body = response.json()
+        _emit_bounded_json(body, output_path=args.output)
+        sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
+
+    elif args.command == "remove-card":
+        import httpx
+
+        headers = _runtime_auth_headers(args.auth_token_env)
+        with httpx.Client(timeout=120.0) as client:
+            response = client.post(_api_endpoint(args.api_url, "/billing/card/remove"), headers=headers)
+        body = response.json()
+        if args.receipt_output:
+            _emit_bounded_json(_receipt_or_raise(body), output_path=args.receipt_output)
+        _emit_bounded_json(body, output_path=args.output)
+        sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
 
     elif args.command == "add-card-encrypted":
         from tinker_delegate.attestation_verifier import AttestationVerificationError

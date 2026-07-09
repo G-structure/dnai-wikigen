@@ -72,16 +72,30 @@ secret egress.
 
 Funding profile live result, 2026-07-09: remote preflight for `$5` with
 `operator_capped_validation`, the add-balance endpoint requirement, and live
-deployment identity configured returns ready. The manifest-driven
-`funding-command-plan --amount 5` targets attested compose hash
+deployment identity configured returned ready for the historical `$5` validation
+path. The manifest-driven `funding-command-plan --amount 5` targeted attested
+compose hash
 `f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552` plus the
 deployed `TinkerAccountEncumbrance`
-`0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`, and returns `ready=true` with
+`0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`, and returned `ready=true` with
 `raw_secret_egress=false`. Authenticated `/auth/reauth` now succeeds and the
-browser session store is available for billing. The current funding profile is
-ready for a bounded, operator-approved `$5` real-card funding validation command,
-but production deployment remains partial because the CVM still reports
-`dstack-dev-0.5.9` / `is_dev=true` and quote internals are not yet parsed.
+browser session store is available for billing. The first bounded,
+operator-approved real-card validation attempt did not fund the account: live
+`GET /billing/balance` returned `$0.00`, the payment-method receipt reached
+`payment_submitted` and saw only bounded card-management copy (`This card can be
+removed at any time.`), and the add-balance receipt stopped at
+`add_balance_modal_opened` with `selector_missing` /
+`Add-balance amount input not found`. Source now has a focused local fix that
+treats that card-management copy as payment-method success and adds scoped
+amount-input/preset-amount fallbacks for the add-balance modal; it also models
+Tinker's `$10` whole-dollar minimum, exposes bounded card-on-file status
+(`card_on_file` plus count band only), and adds an authenticated admin/operator
+card-removal path with bounded receipts. The source fix is tested but not yet
+deployed to Phala. The deployed `TinkerAccountEncumbrance` still has the older
+`$5` add-balance/spend caps and must be updated to `$10` before the next live
+top-up attempt. Production deployment remains partial because the CVM still
+reports `dstack-dev-0.5.9` / `is_dev=true`, quote internals are not yet parsed,
+and live low-value top-up has not succeeded.
 
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
@@ -400,10 +414,10 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   preflight, encumbrance-preflight, and prompt-packet command templates from
   `deployments/base-sepolia.json`. It references runtime bearer and RPC values
   only by environment-variable name and returns bounded JSON with
-  `raw_secret_egress=false`. Against the current manifest it reports
-  `ready=true` for a `$5` operator validation command, with the deployed
-  encumbrance contract, approved compose hash, and runtime-authenticated
-  endpoint references.
+  `raw_secret_egress=false`. Against the earlier `$5` validation path it
+  reported `ready=true` with the deployed encumbrance contract, approved compose
+  hash, and runtime-authenticated endpoint references. The current `$10`
+  Tinker-minimum path is blocked until the deployed encumbrance cap is raised.
 - A no-raw-key Base Sepolia deploy helper now exists for
   `TinkerAccountEncumbrance`. It uses Foundry `--account dev`, validates
   bytes32 commitments and policy caps, defaults the initial compose hash from
@@ -666,13 +680,16 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   temporary one-shot Phala profile for the approved low-value real-card test.
   It disables signup/bootstrap and plaintext card input, enables only
   runtime-authenticated reauth/encrypted-card/add-balance endpoints, sets
-  `operator_capped_validation` with `TINKER_MAX_ADD_BALANCE_USD=5.0`, and uses
-  the custom GitHub-attested `neko-chrome` CDP path. The profile is live at
-  attested compose hash
+  `operator_capped_validation` with `TINKER_MIN_ADD_BALANCE_USD=10.0` and
+  `TINKER_MAX_ADD_BALANCE_USD=10.0`, and uses the custom GitHub-attested
+  `neko-chrome` CDP path. The current live CVM still reflects the previous
+  deployment until this source fix is rebuilt and redeployed. The profile is
+  live at attested compose hash
   `f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552`;
   authenticated `/auth/reauth` succeeds, the API key is available from the
-  encrypted store, and the next bounded operator action is the `$5`
-  real-card funding-validation packet.
+  encrypted store. The next bounded operator action is not another `$5`
+  validation packet; it is the `$10` encumbrance policy update plus redeploy,
+  followed by bounded card-on-file status and add-balance validation.
 - `python -m tinker_delegate.main check-funding-validation-packet` replay-checks
   packet directories and returns bounded pass/fail checks. It can require
   add-balance evidence and can require live deployed TDX attestation evidence;

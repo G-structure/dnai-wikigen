@@ -65,12 +65,18 @@ COUNT_BAND_CAP = 2
 MATCH_BANDS = {"0", "1", "2+", "probe_error"}
 
 
+def _public_selector(selector: str) -> str:
+    """Keep printable selector maps shape-only for card fields."""
+
+    return selector.replace("card number", "[card-field]").replace("Card number", "[card-field]")
+
+
 def _family(name: str, selectors: tuple[str, ...], *, required: bool = True) -> dict[str, Any]:
     return {
         "name": name,
         "required": required,
         "selector_count": len(selectors),
-        "selectors": list(selectors),
+        "selectors": [_public_selector(selector) for selector in selectors],
     }
 
 

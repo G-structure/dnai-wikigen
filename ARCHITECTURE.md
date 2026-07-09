@@ -275,9 +275,18 @@ The Tinker side is intentionally marked in progress. The account can only become
 useful once it can be funded without leaking card details or handing account
 credentials to a human. The intended path is card data encrypted to the TEE,
 then browser automation drives the Tinker/Stripe billing form from inside the
-TEE and clears the card payload from memory. The current blocker is reliable
-browser posture around Tinker auth and Stripe/Tinker bot checks, not the
-existence of the email oracle.
+TEE and clears the card payload from memory. The deployed auth/API-key browser
+posture is now working, but low-value funding remains partial: the first live
+operator-card validation left the account balance at `$0.00`; the payment-method
+path likely reached card-on-file UI copy, while add-balance stopped at a missing
+amount selector. Source now treats card-management copy as bounded
+payment-method success and can choose scoped preset top-up amounts, but that fix
+still needs a GitHub-attested image, Phala redeploy, compose-hash approval, and
+a successful bounded add-balance receipt before funding is real.
+The billing control plane also has a bounded card-on-file status path and
+admin/operator card-removal path: callers can learn only whether a payment
+method appears present and a zero/one-or-more/unknown count band, never card
+brand, last4, expiry, billing address, or browser page text.
 
 ### Bounded Output
 
@@ -1000,10 +1009,18 @@ Implementation status:
             artifact hashes and size bands, score/offer/cost bands, and
             cleanup counts; raw artifacts, API keys, card fields, checkpoint
             IDs, and raw Tinker run IDs are not allowed in the schema.
-[real]      Add-balance automation enforces `TINKER_MAX_ADD_BALANCE_USD`
-            before launching browser automation. Non-finite, non-positive, and
-            over-cap requests return bounded `policy_denied` `add_balance`
-            receipts at `not_started` with amount bands, not page text.
+[real]      Add-balance automation enforces whole-dollar
+            `TINKER_MIN_ADD_BALANCE_USD` / `TINKER_MAX_ADD_BALANCE_USD`
+            bounds before launching browser automation. Non-finite,
+            non-positive, below-minimum, fractional, and over-cap requests
+            return bounded `policy_denied` `add_balance` receipts at
+            `not_started` with amount bands, not page text.
+[real]      Card-on-file status is exposed only through bounded
+            `GET /billing/payment-method-status`: `card_on_file` and
+            `payment_method_count_band`. The admin/operator removal surface is
+            `POST /billing/card/remove`, emits a bounded removal receipt, and
+            does not expose card brand, last4, expiry, billing address, or raw
+            page text.
 [real]      `TINKER_FUNDING_MODE=manual_prefund` is the default production
             funding model and denies card/add-balance browser automation before
             decryption or browser launch. `operator_capped_validation` is
@@ -1103,9 +1120,11 @@ Implementation status:
             It uses registry digest images only, disables signup/bootstrap and
             plaintext card submission, enables reauth/encrypted-card/add-balance
             only behind runtime bearer auth, sets
-            `TINKER_FUNDING_MODE=operator_capped_validation`, caps top-ups at
-            `$5`, and routes browser work through the custom GitHub-attested
-            `neko-chrome` CDP path with the baked proxy on `9222`.
+            `TINKER_FUNDING_MODE=operator_capped_validation`, source defaults
+            cap top-ups at the current Tinker minimum `$10`, and routes browser
+            work through the custom GitHub-attested `neko-chrome` CDP path with
+            the baked proxy on `9222`. The live deployed encumbrance still has
+            the older `$5` cap until an owner policy transaction updates it.
 [real]      `docker-compose.selector-diagnostics.phala.yaml` is a temporary
             Phala diagnostics profile for the main CVM. It uses registry image
             digests only, disables Tinker bootstrap and all card/funding
@@ -1133,13 +1152,13 @@ Implementation status:
             remain disabled, and unauthenticated reauth/add-balance calls fail
             closed with `401 Bearer token required`.
 [partial]   The funding-validation profile is live, quote-bound, backed by a
-            deployed TinkerAccountEncumbrance policy, and ready for an approved
-            low-value operator funding validation attempt. Remote
-            `/billing/funding-preflight` passes policy checks for `$5`; the
-            manifest-driven command plan returns `ready=true` with the deployed
-            encumbrance address and `raw_secret_egress=false`; authenticated
-            `/auth/reauth` succeeds; and the current funding compose hash is
-            approved on Base Sepolia. It is still not production-final because
+            deployed TinkerAccountEncumbrance policy, and has working
+            authenticated `/auth/reauth`. Remote `/billing/funding-preflight`
+            passed policy checks for the old `$5` cap, but the Tinker UI
+            minimum is `$10`, so the next approved low-value validation is
+            blocked on raising the deployed encumbrance cap to `$10`, redeploying
+            the updated source, and approving the new compose hash. It is still
+            not production-final because
             the CVM still reports dev OS, quote internals are not parsed, and a
             successful live real-card add-balance receipt has not yet been
             produced.

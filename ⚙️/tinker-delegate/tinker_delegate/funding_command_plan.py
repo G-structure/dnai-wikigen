@@ -17,6 +17,7 @@ from typing import Any
 PLAN_VERSION = "tinker_funding_command_plan/v1"
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_MANIFEST_PATH = DEFAULT_REPO_ROOT / "deployments" / "base-sepolia.json"
+TINKER_MIN_ADD_BALANCE_USD = 10.0
 
 
 @dataclass(frozen=True)
@@ -89,7 +90,7 @@ class FundingCommandPlan:
 def build_funding_command_plan(
     *,
     manifest_path: str | Path = DEFAULT_MANIFEST_PATH,
-    amount_dollars: float = 5.0,
+    amount_dollars: float = TINKER_MIN_ADD_BALANCE_USD,
     output_dir: str = "./funding-validation-packet",
     validation_id: str = "operator-real-card-validation",
     encumbrance_rpc_env: str = "BASE_SEPOLIA_RPC_URL",
@@ -290,6 +291,10 @@ def _normalize_amount(value: float) -> float:
     amount = float(value)
     if not math.isfinite(amount) or amount <= 0:
         raise ValueError("amount must be finite and positive")
+    if amount < TINKER_MIN_ADD_BALANCE_USD:
+        raise ValueError("amount must be at least Tinker's $10 add-balance minimum")
+    if not amount.is_integer():
+        raise ValueError("amount must be a whole-dollar value")
     return amount
 
 

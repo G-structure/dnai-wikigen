@@ -118,7 +118,7 @@ class PromptBillingCliTest(unittest.TestCase):
             "tinker_delegate.tinker_encumbrance.preflight_tinker_operation",
             return_value=allowed,
         ) as preflight:
-            _validate_prompt_billing_policy(args, Settings(), amount_dollars=5.0)
+            _validate_prompt_billing_policy(args, Settings(), amount_dollars=10.0)
 
         self.assertEqual(preflight.call_count, 2)
         self.assertTrue(all(call.kwargs["required"] for call in preflight.call_args_list))

@@ -38,6 +38,7 @@ class FundingPolicyStatus:
     production_model: str
     card_automation_allowed: bool
     add_balance_automation_allowed: bool
+    min_add_balance_usd: float
     max_add_balance_usd: float
     plaintext_card_endpoint_allowed: bool
     add_balance_endpoint_allowed: bool
@@ -50,6 +51,7 @@ class FundingPolicyStatus:
             "production_model": self.production_model,
             "card_automation_allowed": self.card_automation_allowed,
             "add_balance_automation_allowed": self.add_balance_automation_allowed,
+            "min_add_balance_usd": self.min_add_balance_usd,
             "max_add_balance_usd": self.max_add_balance_usd,
             "plaintext_card_endpoint_allowed": self.plaintext_card_endpoint_allowed,
             "add_balance_endpoint_allowed": self.add_balance_endpoint_allowed,
@@ -111,6 +113,7 @@ def funding_policy_status(settings) -> FundingPolicyStatus:
         ),
         card_automation_allowed=operator_validation,
         add_balance_automation_allowed=operator_validation,
+        min_add_balance_usd=settings.min_add_balance_usd,
         max_add_balance_usd=settings.max_add_balance_usd,
         plaintext_card_endpoint_allowed=bool(settings.allow_plaintext_card_endpoint and operator_validation),
         add_balance_endpoint_allowed=bool(settings.allow_add_balance_endpoint and operator_validation),
@@ -196,26 +199,44 @@ def funding_validation_preflight(
         )
     )
 
+    min_amount = float(settings.min_add_balance_usd)
     max_amount = float(settings.max_add_balance_usd)
-    cap_ok = math.isfinite(max_amount) and max_amount > 0
+    cap_ok = math.isfinite(min_amount) and math.isfinite(max_amount) and 0 < min_amount <= max_amount
     checks.append(
         FundingPreflightCheck(
             name="max_add_balance_cap",
             ok=cap_ok,
-            status=str(settings.max_add_balance_usd),
-            detail="configured cap must be finite and positive",
+            status=f"{settings.min_add_balance_usd}..{settings.max_add_balance_usd}",
+            detail="configured min/cap must be finite, positive, and min must not exceed cap",
         )
     )
 
     if amount_dollars is not None:
         amount = float(amount_dollars)
-        amount_ok = math.isfinite(amount) and 0 < amount <= max_amount
+        amount_ok = (
+            math.isfinite(amount)
+            and min_amount <= amount <= max_amount
+            and amount.is_integer()
+        )
+        if not math.isfinite(amount) or amount <= 0:
+            amount_status = "invalid_amount"
+        elif amount < min_amount:
+            amount_status = "below_minimum"
+        elif not amount.is_integer():
+            amount_status = "not_whole_dollar"
+        elif amount > max_amount:
+            amount_status = "outside_cap"
+        else:
+            amount_status = "within_cap"
         checks.append(
             FundingPreflightCheck(
                 name="requested_amount",
                 ok=amount_ok,
-                status="within_cap" if amount_ok else "outside_cap",
-                detail="requested amount must be positive, finite, and no larger than TINKER_MAX_ADD_BALANCE_USD",
+                status=amount_status,
+                detail=(
+                    "requested amount must be a whole-dollar value no smaller than "
+                    "TINKER_MIN_ADD_BALANCE_USD and no larger than TINKER_MAX_ADD_BALANCE_USD"
+                ),
             )
         )
 

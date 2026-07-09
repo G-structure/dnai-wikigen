@@ -177,12 +177,93 @@ class BillingApiPolicyTest(unittest.TestCase):
         self.assertEqual(body["receipts"][0]["outcome"], "card_declined")
         self.assertNotIn("4242424242424242", repr(body))
 
+    def test_payment_method_status_requires_runtime_auth_when_enabled(self):
+        api.settings = Settings(
+            runtime_auth_required=True,
+            runtime_auth_token="operator-secret",
+        )
+        client = TestClient(api.app)
+
+        with patch("tinker_delegate.api.handle_payment_method_status", new=AsyncMock()) as handle_status:
+            missing = client.get("/billing/payment-method-status")
+            wrong = client.get(
+                "/billing/payment-method-status",
+                headers={"Authorization": "Bearer wrong"},
+            )
+
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(wrong.status_code, 403)
+        handle_status.assert_not_called()
+
+    def test_payment_method_status_returns_bounded_card_presence_only(self):
+        api.settings = Settings(
+            runtime_auth_required=True,
+            runtime_auth_token="operator-secret",
+        )
+        client = TestClient(api.app)
+
+        with patch(
+            "tinker_delegate.api.handle_payment_method_status",
+            new=AsyncMock(
+                return_value={
+                    "success": True,
+                    "card_on_file": True,
+                    "payment_method_count_band": "one_or_more",
+                    "attempt_record": {
+                        "surface": "payment_method_status",
+                        "outcome": "success",
+                        "furthest_stage": "billing_page_loaded",
+                        "bounded_message": "payment_method_count:one_or_more",
+                        "evidence_hash": "a" * 64,
+                        "account_hash": "",
+                        "amount_band": "",
+                        "balance_band": "",
+                        "tdx_quote_hash": "",
+                        "card_payload_destroyed": False,
+                        "raw_secret_egress": False,
+                        "issued_at": 123,
+                    },
+                }
+            ),
+        ):
+            response = client.get(
+                "/billing/payment-method-status",
+                headers={"Authorization": "Bearer operator-secret"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["card_on_file"])
+        self.assertEqual(body["payment_method_count_band"], "one_or_more")
+        rendered = repr(body)
+        self.assertNotIn("4242424242424242", rendered)
+        self.assertNotIn("last4", rendered)
+        self.assertNotIn("expiry", rendered)
+
+    def test_remove_card_endpoint_requires_runtime_auth_when_enabled(self):
+        api.settings = Settings(
+            runtime_auth_required=True,
+            runtime_auth_token="operator-secret",
+        )
+        client = TestClient(api.app)
+
+        with patch("tinker_delegate.api.handle_remove_payment_method", new=AsyncMock()) as handle_remove:
+            missing = client.post("/billing/card/remove")
+            wrong = client.post(
+                "/billing/card/remove",
+                headers={"Authorization": "Bearer wrong"},
+            )
+
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(wrong.status_code, 403)
+        handle_remove.assert_not_called()
+
     def test_add_balance_endpoint_disabled_by_default(self):
         api.settings = Settings(allow_add_balance_endpoint=False)
         client = TestClient(api.app)
 
         with patch("tinker_delegate.api.handle_add_balance", new=AsyncMock()) as handle_add_balance:
-            response = client.post("/billing/add-balance", json={"amount_dollars": 5.0})
+            response = client.post("/billing/add-balance", json={"amount_dollars": 10.0})
 
         self.assertEqual(response.status_code, 403)
         self.assertIn("Add-balance endpoint is disabled", response.json()["detail"])
@@ -199,7 +280,7 @@ class BillingApiPolicyTest(unittest.TestCase):
             "tinker_delegate.api.handle_add_balance",
             new=AsyncMock(return_value={"success": False, "error": "stubbed"}),
         ) as handle_add_balance:
-            response = client.post("/billing/add-balance", json={"amount_dollars": 5.0})
+            response = client.post("/billing/add-balance", json={"amount_dollars": 10.0})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["error"], "stubbed")
@@ -215,10 +296,10 @@ class BillingApiPolicyTest(unittest.TestCase):
         client = TestClient(api.app)
 
         with patch("tinker_delegate.api.handle_add_balance", new=AsyncMock()) as handle_add_balance:
-            missing = client.post("/billing/add-balance", json={"amount_dollars": 5.0})
+            missing = client.post("/billing/add-balance", json={"amount_dollars": 10.0})
             wrong = client.post(
                 "/billing/add-balance",
-                json={"amount_dollars": 5.0},
+                json={"amount_dollars": 10.0},
                 headers={"Authorization": "Bearer wrong"},
             )
 

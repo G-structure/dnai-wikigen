@@ -12,6 +12,7 @@ from tinker_delegate.billing import (
     _billing_error_message,
     _format_expiry,
     _payment_method_result,
+    _payment_method_status_from_text,
 )
 from tinker_delegate.config import Settings
 
@@ -39,6 +40,28 @@ class BillingHelpersTest(unittest.TestCase):
         text = "Add payment method Your card number is invalid. Cancel"
 
         self.assertEqual(_billing_error_message(text), "Your card number is invalid.")
+
+    def test_billing_error_message_does_not_treat_card_management_copy_as_failure(self):
+        text = "Payment methods This card can be removed at any time."
+
+        self.assertIsNone(_billing_error_message(text))
+
+    def test_billing_error_message_does_not_treat_add_credit_modal_as_failure(self):
+        text = "Add to balance Charge your default payment method to add credit to your balance."
+
+        self.assertIsNone(_billing_error_message(text))
+
+    def test_payment_method_status_text_is_bounded_for_empty_state(self):
+        status = _payment_method_status_from_text("No payment methods yet. Add a card to get started.")
+
+        self.assertEqual(status["card_on_file"], False)
+        self.assertEqual(status["payment_method_count_band"], "zero")
+
+    def test_payment_method_status_text_is_bounded_for_card_on_file(self):
+        status = _payment_method_status_from_text("Payment methods This card can be removed at any time.")
+
+        self.assertEqual(status["card_on_file"], True)
+        self.assertEqual(status["payment_method_count_band"], "one_or_more")
 
     def test_payment_method_result_returns_bounded_decline_receipt(self):
         result = _payment_method_result(
@@ -106,9 +129,33 @@ class BillingHelpersTest(unittest.TestCase):
         self.assertEqual(result["attempt_record"]["furthest_stage"], "not_started")
         self.assertEqual(result["attempt_record"]["amount_band"], "invalid_amount")
 
+    def test_add_balance_rejects_below_tinker_minimum_before_browser(self):
+        with patch("tinker_delegate.billing.async_playwright") as playwright:
+            result = asyncio.run(add_balance(5.0, Settings(min_add_balance_usd=10.0, max_add_balance_usd=10.0)))
+
+        playwright.assert_not_called()
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Funding amount is below Tinker minimum $10")
+        self.assertEqual(result["attempt_record"]["surface"], "add_balance")
+        self.assertEqual(result["attempt_record"]["outcome"], "policy_denied")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "not_started")
+        self.assertEqual(result["attempt_record"]["amount_band"], "5_25_usd")
+
+    def test_add_balance_rejects_fractional_amount_before_browser(self):
+        with patch("tinker_delegate.billing.async_playwright") as playwright:
+            result = asyncio.run(add_balance(10.5, Settings(min_add_balance_usd=10.0, max_add_balance_usd=25.0)))
+
+        playwright.assert_not_called()
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Funding amount must be a whole-dollar amount")
+        self.assertEqual(result["attempt_record"]["surface"], "add_balance")
+        self.assertEqual(result["attempt_record"]["outcome"], "policy_denied")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "not_started")
+        self.assertEqual(result["attempt_record"]["amount_band"], "5_25_usd")
+
     def test_add_balance_rejects_over_cap_amount_before_browser(self):
         with patch("tinker_delegate.billing.async_playwright") as playwright:
-            result = asyncio.run(add_balance(10.0, Settings(max_add_balance_usd=5.0)))
+            result = asyncio.run(add_balance(11.0, Settings(min_add_balance_usd=10.0, max_add_balance_usd=10.0)))
 
         playwright.assert_not_called()
         self.assertFalse(result["success"])

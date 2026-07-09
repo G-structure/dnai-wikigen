@@ -18,7 +18,8 @@ def _preflight():
         "ready": True,
         "policy": {
             "mode": "operator_capped_validation",
-            "max_add_balance_usd": 5.0,
+            "min_add_balance_usd": 10.0,
+            "max_add_balance_usd": 10.0,
             "raw_card_scope": "operator-owned capped validation only",
         },
         "checks": [
