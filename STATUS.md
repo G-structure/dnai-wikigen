@@ -372,6 +372,10 @@ that shape when `--require-add-balance` is set. Focused validation passed with
 `uv run python -m py_compile tinker_delegate/funding_validation_packet.py
 tests/test_funding_validation_packet.py`. Funding remains unproven until the
 fixed command produces a bounded add-balance receipt and balance read-back.
+The operator `balance` CLI now also accepts `--api-url`, `--auth-token-env`,
+and `--output` for deployed delegate balance reads; the prior
+`unrecognized arguments` error was a local CLI gap, not evidence about the
+Tinker account balance.
 
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia

@@ -3,7 +3,9 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from tinker_delegate.main import _render_bounded_json
@@ -22,6 +24,76 @@ def _env(tmpdir: str, *, funding_mode: str = "manual_prefund") -> dict[str, str]
 
 
 class CliBoundedOutputsTest(unittest.TestCase):
+    def test_balance_can_query_deployed_delegate_api(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "balance.json"
+            seen_headers: list[str] = []
+
+            class Handler(BaseHTTPRequestHandler):
+                def do_GET(self):
+                    if self.path != "/billing/balance":
+                        self.send_response(404)
+                        self.end_headers()
+                        return
+                    seen_headers.append(self.headers.get("Authorization", ""))
+                    body = json.dumps(
+                        {
+                            "success": True,
+                            "attempt_record": {
+                                "surface": "balance",
+                                "outcome": "success",
+                                "amount_band": "",
+                                "balance_band": "0_25_usd",
+                                "raw_secret_egress": False,
+                            },
+                        }
+                    ).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
+                def log_message(self, format, *args):
+                    return
+
+            server = HTTPServer(("127.0.0.1", 0), Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                env = _env(tmpdir)
+                env["TINKER_RUNTIME_AUTH_TOKEN"] = "operator-secret"
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "tinker_delegate.main",
+                        "balance",
+                        "--api-url",
+                        f"http://127.0.0.1:{server.server_port}",
+                        "--auth-token-env",
+                        "TINKER_RUNTIME_AUTH_TOKEN",
+                        "--output",
+                        str(output_path),
+                    ],
+                    check=False,
+                    cwd=Path(__file__).resolve().parents[1],
+                    env=env,
+                    text=True,
+                    capture_output=True,
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
+            self.assertEqual(seen_headers, ["Bearer operator-secret"])
+            body = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(body["success"])
+            self.assertEqual(body["attempt_record"]["balance_band"], "0_25_usd")
+            self.assertFalse(body["attempt_record"]["raw_secret_egress"])
+
     def test_preflight_can_write_bounded_json_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "preflight.json"

@@ -1037,7 +1037,10 @@ Implementation status:
             `payment_method_count_band`. The admin/operator removal surface is
             `POST /billing/card/remove`, emits a bounded removal receipt, and
             does not expose card brand, last4, expiry, billing address, or raw
-            page text.
+            page text. The operator `balance` CLI can target a deployed
+            delegate with `--api-url` and emits the same bounded response shape
+            as `GET /billing/balance`, so balance read-back can be captured
+            without exposing card metadata.
 [real]      `TINKER_FUNDING_MODE=manual_prefund` is the default production
             funding model and denies card/add-balance browser automation before
             decryption or browser launch. `operator_capped_validation` is

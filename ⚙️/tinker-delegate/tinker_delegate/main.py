@@ -469,7 +469,18 @@ def cli():
     synthetic_reward_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
 
     # Billing commands
-    sub.add_parser("balance", help="Get current Tinker account balance")
+    balance_p = sub.add_parser("balance", help="Get current Tinker account balance")
+    balance_p.add_argument(
+        "--api-url",
+        default="",
+        help="Optional deployed Tinker delegate API base URL; omitted uses the local browser session",
+    )
+    balance_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token for --api-url",
+    )
+    balance_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     sub.add_parser("funding-policy", help="Print bounded Tinker funding-mode policy")
 
     funding_preflight_p = sub.add_parser(
@@ -1326,9 +1337,19 @@ def cli():
         )
 
     elif args.command == "balance":
+        if args.api_url:
+            import httpx
+
+            headers = _runtime_auth_headers(args.auth_token_env)
+            with httpx.Client(timeout=120.0) as client:
+                response = client.get(_api_endpoint(args.api_url, "/billing/balance"), headers=headers)
+            body = response.json()
+            _emit_bounded_json(body, output_path=args.output)
+            sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
+
         from tinker_delegate.billing import get_balance
         result = asyncio.run(get_balance(settings))
-        print(json.dumps(result, indent=2))
+        _emit_bounded_json(result, output_path=args.output)
 
     elif args.command == "funding-policy":
         from tinker_delegate.funding_policy import funding_policy_status
