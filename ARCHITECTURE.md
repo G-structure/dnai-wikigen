@@ -352,6 +352,10 @@ retry. A bounded `tinker-smoke-command-plan` CLI now turns that next step into
 an explicit redeploy/attest/approve/preflight/smoke sequence using environment
 variable names and compose-hash placeholders only; it does not accept or emit
 raw project IDs, tokens, API keys, RPC URLs, run IDs, checkpoints, or samples.
+Source now also includes a sealed client-config store and runtime-authenticated
+installer so a running delegate can receive `TINKER_PROJECT_ID` and optional
+`TINKER_BASE_URL` without returning them. Live use of that installer and a
+successful post-install smoke run are still pending.
 
 The intended external Tinker surface is now the Tinker proxy, not direct
 credential sharing. In the target shape, approved users and agents receive
@@ -1971,6 +1975,19 @@ Implementation status:
             id or endpoint. The same `TINKER_PROJECT_ID` / `TINKER_BASE_URL`
             settings are wired into `ControlPlane` so future evaluator sessions
             use the same client configuration as smoke validation.
+[real]      `tinker_delegate.tinker_client_config_store` provides encrypted
+            local/dstack-backed custody for Tinker SDK project/client settings.
+            `GET/PUT /tinker/proxy/client-config` require runtime bearer auth;
+            `tinker-client-config --install` reads project/base-url values from
+            environment variables rather than CLI arguments and can install them
+            into a deployed delegate. Bounded receipts/status expose only
+            project hash, base-url hash, host-family classification, encrypted
+            store state, and `raw_secret_egress=false`. Proxy status,
+            `run_tinker_sdk_smoke()`, and lazy `ControlPlane` construction
+            resolve project/base-url from this sealed store when direct env
+            settings are absent. This is source-real and locally tested; live
+            Phala provisioning and successful real Tinker training creation are
+            still partial.
 [real]      `tinker-smoke-command-plan` provides a bounded operator control
             surface for the next live retry. It reads the deployment manifest,
             reports whether `TINKER_PROJECT_ID` is present locally and in the

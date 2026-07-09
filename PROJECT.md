@@ -110,6 +110,12 @@ For the current implementation this means:
 
 - `TINKER_API_KEY`, `TINKER_PROJECT_ID`, account cookies, card state, and
   funding receipts stay inside the CVM boundary.
+- `TINKER_PROJECT_ID` and optional `TINKER_BASE_URL` can be sealed into an
+  encrypted Tinker client-config store through a runtime-authenticated
+  `tinker-client-config --install` / `PUT /tinker/proxy/client-config` path.
+  Status surfaces return only hashes, host-family classification, and store
+  readiness; smoke tests and future evaluator sessions resolve SDK client
+  config from this sealed store when direct env settings are absent.
 - The delegate may issue short-lived scoped JWTs only through an
   operator-approved issuance path, and production issuance should additionally
   bind approved users/agents to policy records. The first source-real policy

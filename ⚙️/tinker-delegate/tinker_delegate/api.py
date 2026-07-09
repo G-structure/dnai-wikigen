@@ -17,6 +17,8 @@ Endpoints:
   POST /billing/add-balance       — add credit balance
   POST /coordination/consent-decision — bounded source-modeled owner consent receipt
   GET  /tinker/proxy/status       — bounded sealed Tinker proxy configuration
+  GET  /tinker/proxy/client-config — bounded sealed Tinker client config status
+  PUT  /tinker/proxy/client-config — seal Tinker project/base-url config
   GET  /tinker/proxy/issue-policy — bounded proxy issue-policy status
   PUT  /tinker/proxy/issue-policy — install hash-only proxy issue policy
   GET  /tinker/proxy/identity-registry — bounded proxy identity-registry status
@@ -69,6 +71,7 @@ from tinker_delegate.redaction import redact_text
 from tinker_delegate.run_metadata_store import build_run_metadata_store
 from tinker_delegate.runtime_hardening import disable_core_dumps
 from tinker_delegate.runtime_state import get_runtime_state, update_runtime_state
+from tinker_delegate.tinker_client_config_store import resolve_tinker_client_config
 from tinker_delegate.card_channel import (
     CardPayload,
     EncryptedCardPayload,
@@ -252,11 +255,12 @@ def _get_control_plane():
                     "Tinker agent stack is not installed in this deployment",
                 ) from exc
             raise
+        client_config = resolve_tinker_client_config(settings)
         _control_plane = ControlPlane(
             api_key,
             run_metadata_store=build_run_metadata_store(settings),
-            project_id=settings.project_id,
-            base_url=settings.base_url,
+            project_id=client_config["project_id"],
+            base_url=client_config["base_url"],
         )
     return _control_plane
 
@@ -344,6 +348,13 @@ class TinkerProxyTokenRevokeRequestBody(BaseModel):
     reason: str = ""
 
 
+class TinkerClientConfigRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = ""
+    base_url: str = ""
+
+
 class CoordinationConsentDecisionRequestBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -366,6 +377,41 @@ def tinker_proxy_status(authorization: str = Header(default="")):
     from tinker_delegate.tinker_proxy import build_tinker_proxy_status
 
     return _attach_proxy_auth_context(build_tinker_proxy_status(settings), auth_context)
+
+
+@app.get("/tinker/proxy/client-config")
+def tinker_proxy_client_config(authorization: str = Header(default="")):
+    """Return bounded evidence for the sealed Tinker SDK client config."""
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_client_config_store import build_tinker_client_config_status
+
+    try:
+        return build_tinker_client_config_status(settings)
+    except ValueError as exc:
+        raise HTTPException(400, redact_text(exc)) from exc
+
+
+@app.put("/tinker/proxy/client-config")
+def tinker_proxy_client_config_set(
+    payload: TinkerClientConfigRequestBody,
+    authorization: str = Header(default=""),
+):
+    """Seal Tinker project/base-url config for SDK calls inside the delegate."""
+    global _control_plane
+
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_client_config_store import save_tinker_client_config
+
+    try:
+        result = save_tinker_client_config(
+            settings,
+            project_id=payload.project_id,
+            base_url=payload.base_url,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, redact_text(exc)) from exc
+    _control_plane = None
+    return result
 
 
 @app.get("/tinker/proxy/issue-policy")

@@ -34,6 +34,7 @@ from tinker_delegate.chain_submitter import normalize_address
 from tinker_delegate.crypto import _derive_aes_key, encrypt_for_tee
 from tinker_delegate.dstack_utils import derive_storage_key, is_dstack_enabled
 from tinker_delegate.run_metadata_store import stable_hash
+from tinker_delegate.tinker_client_config_store import resolve_tinker_client_config
 from tinker_delegate.tinker_proxy_store import (
     build_proxy_token_store,
     make_proxy_token_issue_record,
@@ -126,8 +127,9 @@ def build_tinker_proxy_status(settings) -> dict[str, Any]:
     """Return bounded evidence about the sealed Tinker proxy configuration."""
 
     api_key_configured = bool(resolve_api_key(settings))
-    project_id = getattr(settings, "project_id", "")
-    base_url = getattr(settings, "base_url", "")
+    client_config = resolve_tinker_client_config(settings)
+    project_id = client_config["project_id"]
+    base_url = client_config["base_url"]
     return {
         "surface": "tinker_proxy",
         "schema_version": 1,

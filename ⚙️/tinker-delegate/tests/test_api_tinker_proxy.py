@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
@@ -83,6 +84,83 @@ class TinkerProxyApiTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertIn("Tinker proxy endpoint is disabled", response.json()["detail"])
+
+    def test_client_config_install_requires_runtime_auth_and_returns_hashes(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            api.settings = self._settings(
+                tmpdir,
+                runtime_auth_required=True,
+                runtime_auth_token="operator-secret",
+                client_config_store_path=f"{tmpdir}/client_config.enc",
+                client_config_store_key=STORE_KEY_HEX,
+            )
+            client = TestClient(api.app)
+
+            missing = client.put(
+                "/tinker/proxy/client-config",
+                json={
+                    "project_id": "proj-sensitive",
+                    "base_url": "https://api.thinkingmachines.ai/services/tinker-prod",
+                },
+            )
+            response = client.put(
+                "/tinker/proxy/client-config",
+                headers={"Authorization": "Bearer operator-secret"},
+                json={
+                    "project_id": "proj-sensitive",
+                    "base_url": "https://api.thinkingmachines.ai/services/tinker-prod",
+                },
+            )
+            status = client.get(
+                "/tinker/proxy/client-config",
+                headers={"Authorization": "Bearer operator-secret"},
+            )
+
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(status.status_code, 200)
+        body = response.json()
+        rendered = json.dumps({"install": body, "status": status.json()}, sort_keys=True)
+        self.assertEqual(body["surface"], "tinker_client_config_install")
+        self.assertTrue(body["client_config"]["project_id_configured"])
+        self.assertEqual(body["client_config"]["base_url_host_family"], "thinkingmachines")
+        self.assertTrue(status.json()["store"]["exists"])
+        self.assertNotIn("proj-sensitive", rendered)
+        self.assertNotIn("api.thinkingmachines.ai", rendered)
+        self.assertFalse(body["raw_secret_egress"])
+
+    def test_proxy_status_uses_installed_client_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            api.settings = self._settings(
+                tmpdir,
+                allow_tinker_proxy_endpoint=True,
+                runtime_auth_required=True,
+                runtime_auth_token="operator-secret",
+                client_config_store_path=f"{tmpdir}/client_config.enc",
+                client_config_store_key=STORE_KEY_HEX,
+            )
+            client = TestClient(api.app)
+            client.put(
+                "/tinker/proxy/client-config",
+                headers={"Authorization": "Bearer operator-secret"},
+                json={
+                    "project_id": "proj-sensitive",
+                    "base_url": "https://api.thinkingmachines.ai/services/tinker-prod",
+                },
+            )
+            with patch.dict(os.environ, {"TINKER_API_KEY": "tml-secretsecretsecretsecretsecret"}, clear=False):
+                response = client.get(
+                    "/tinker/proxy/status",
+                    headers={"Authorization": "Bearer operator-secret"},
+                )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        rendered = json.dumps(body, sort_keys=True)
+        self.assertTrue(body["sealed_client_config"]["project_id_configured"])
+        self.assertEqual(body["sealed_client_config"]["base_url_host_family"], "thinkingmachines")
+        self.assertNotIn("proj-sensitive", rendered)
+        self.assertNotIn("api.thinkingmachines.ai", rendered)
 
     def test_proxy_token_issuance_disabled_by_default(self):
         api.settings = Settings(runtime_auth_required=True, runtime_auth_token="operator-secret")

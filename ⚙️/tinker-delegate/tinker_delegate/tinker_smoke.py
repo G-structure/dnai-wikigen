@@ -15,6 +15,7 @@ from tinker_delegate.api_key_store import resolve_api_key
 from tinker_delegate.redaction import redact_text
 from tinker_delegate.run_metadata_store import stable_hash, value_band
 from tinker_delegate.session import DEFAULT_TTL, IsolatedTinkerSession
+from tinker_delegate.tinker_client_config_store import resolve_tinker_client_config
 from tinker_delegate.tinker_encumbrance import (
     TinkerOperationKind,
     preflight_tinker_operation,
@@ -114,8 +115,9 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
     checkpoint_path = ""
     cleanup = None
     failure_site = "service_client_create"
-    project_id = getattr(settings, "project_id", "")
-    base_url = getattr(settings, "base_url", "")
+    client_config = resolve_tinker_client_config(settings)
+    project_id = client_config["project_id"]
+    base_url = client_config["base_url"]
     sdk_diagnostics = _bounded_sdk_diagnostics(
         service_client=None,
         model=model,

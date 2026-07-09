@@ -88,6 +88,23 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             2026-07-09: failed issuance receipts now fail closed with a bounded
             `missing_encrypted_token` decrypt receipt before reading the
             recipient private key.
+      - [x] Add a TEE-sealed Tinker SDK client-config store and bounded
+            install/status surfaces.
+            Done 2026-07-09: `tinker_delegate.tinker_client_config_store`
+            persists `TINKER_PROJECT_ID` and optional `TINKER_BASE_URL` under
+            local test encryption or dstack-derived CVM storage. `GET/PUT
+            /tinker/proxy/client-config` require runtime bearer auth and return
+            only project/base-url hashes, host-family classification, store
+            status, and `raw_secret_egress=false`. `tinker-client-config
+            --install` reads values from env vars instead of CLI args, supports
+            deployed `--api-url` installs, and refuses to print the raw values.
+            Proxy status, smoke validation, and future `ControlPlane` evaluator
+            sessions now resolve SDK client config from this sealed store when
+            env settings are absent. Tests cover store resolution, API
+            install/status, CLI local/deployed install, proxy status, and smoke
+            `ServiceClient(project_id=...)` construction without raw config
+            egress. Live Phala provisioning/redeploy/smoke evidence remains
+            open.
       - [ ] Bind proxy JWT issuance to production approval policy:
             approved user/agent identity, delivery public key, scopes, spend
             caps, expiration, revocation, audit record, and contract/compose
@@ -2215,6 +2232,19 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             and local attestation verification passed for GitHub provenance
             and SBOM predicates. This image is not yet pinned or deployed;
             pin/redeploy it only after `TINKER_PROJECT_ID` is available.
+      - [x] Add source-real sealed Tinker client-config install/status plumbing
+            so the live CVM can receive project/client settings without
+            returning them.
+            Done 2026-07-09: `TINKER_CLIENT_CONFIG_STORE_*` settings back an
+            encrypted `tinker_client_config_store`; `tinker-client-config
+            --install` reads `TINKER_PROJECT_ID` / `TINKER_BASE_URL` from env,
+            can install to a deployed delegate with runtime bearer auth, and
+            emits only hashes/host-family/status. `run_tinker_sdk_smoke()`,
+            proxy status, and lazy `ControlPlane` construction now resolve
+            project/base-url from the sealed store when direct env settings are
+            absent. Focused tests prove the stored project id is passed to the
+            mocked Tinker `ServiceClient` and never appears in receipts. Live
+            deployment and a successful real Tinker training run remain open.
       - [ ] Run `tinker-smoke --api-url ... --max-usd 0.05
             --require-encumbrance` successfully from the deployed CVM and record
             the bounded receipt plus attestation evidence.
@@ -3214,10 +3244,12 @@ vision Wiki is reaching for.
       `sdk_error.failure_site=service_client_create` with
       `sdk_error.operator_action=check_sdk_client_configuration`,
       `project.configured=false`, and bounded
-      `client_config.project_id_argument=omitted`. Next step: obtain or
-      configure the correct Tinker project/client/base-url settings, redeploy
-      with that encrypted runtime env, approve the resulting compose hash, then
-      rerun smoke.
+      `client_config.project_id_argument=omitted`. Next step: obtain the
+      correct Tinker project/client/base-url settings, seal them into the live
+      CVM with `tinker-client-config --api-url ... --install`, verify bounded
+      proxy status reports `project_id_configured=true`, then rerun smoke. A
+      redeploy/compose approval is required only if the running CVM does not yet
+      include the sealed client-config store source.
 - [ ] `Deploy` Create a synthetic test room on Base Sepolia.
 - [ ] `Deploy` Fund the synthetic test deal.
 - [ ] `Deploy` Upload encrypted synthetic artifact.
@@ -3397,11 +3429,11 @@ vision Wiki is reaching for.
        creation; bounded diagnostics classify it as client-configuration work
        with `project.configured=false` and
        `client_config.project_id_argument=omitted`. Obtain or configure the
-       correct Tinker project/client/base-url settings, redeploy with that
-       encrypted runtime env, approve the resulting compose hash, then rerun
-       smoke. A bounded `tinker-smoke-command-plan` CLI now emits the no-secret
-       command sequence for that retry and reports `ready=false` until both the
-       operator env and live CVM evidence include `TINKER_PROJECT_ID`.
+       correct Tinker project/client/base-url settings, seal them into the live
+       CVM through `tinker-client-config --api-url ... --install`, confirm
+       bounded status reports `project_id_configured=true`, then rerun smoke. A
+       redeploy/compose approval is required only if the live CVM does not yet
+       include the sealed client-config store source.
 13. [ ] Merge the `gate-health-frontend` UI and wire it to real verifier/status
        APIs.
 

@@ -1,5 +1,6 @@
 import json
 import sys
+import tempfile
 import types
 import unittest
 from dataclasses import dataclass
@@ -209,6 +210,7 @@ sys.modules["tinker"] = FAKE_TINKER
 
 from tinker_delegate.config import Settings  # noqa: E402
 from tinker_delegate import session as session_module  # noqa: E402
+from tinker_delegate.tinker_client_config_store import save_tinker_client_config  # noqa: E402
 from tinker_delegate.tinker_encumbrance import TinkerEncumbrancePolicyResult  # noqa: E402
 from tinker_delegate.tinker_smoke import (  # noqa: E402
     TinkerSmokeRequest,
@@ -298,6 +300,42 @@ class TinkerSmokeTest(unittest.TestCase):
         self.assertEqual(client_config["base_url_argument"], "provided")
         self.assertEqual(client_config["base_url_host_family"], "thinkingmachines")
         self.assertRegex(client_config["base_url_hash"], r"^[0-9a-f]{64}$")
+        self.assertNotIn("proj-secret", rendered)
+        self.assertNotIn("custom.thinkingmachines.dev", rendered)
+
+    def test_smoke_uses_stored_project_id_without_leaking_it(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = Settings(
+                real_sdk_max_usd=0.05,
+                project_id="",
+                base_url="",
+                client_config_store_path=f"{tmpdir}/client_config.enc",
+                client_config_store_key="88" * 32,
+            )
+            save_tinker_client_config(
+                settings,
+                project_id="proj-secret",
+                base_url="https://custom.thinkingmachines.dev/services/tinker-prod",
+            )
+            with (
+                patch.object(session_module, "tinker", FAKE_TINKER),
+                patch("tinker_delegate.tinker_smoke.resolve_api_key", return_value="tml-secret-value"),
+                patch("tinker_delegate.tinker_smoke.preflight_tinker_operation", return_value=_allowed_policy()),
+            ):
+                result = run_tinker_sdk_smoke(
+                    settings,
+                    TinkerSmokeRequest(deal_id="deal-secret", max_usd=0.05),
+                )
+
+        rendered = json.dumps(result)
+        self.assertTrue(result["success"])
+        self.assertEqual(FakeServiceClient.last_instance.project_id, "proj-secret")
+        self.assertEqual(
+            FakeServiceClient.last_instance.base_url,
+            "https://custom.thinkingmachines.dev/services/tinker-prod",
+        )
+        self.assertEqual(result["sdk_diagnostics"]["client_config"]["project_id_argument"], "provided")
+        self.assertEqual(result["sdk_diagnostics"]["client_config"]["base_url_argument"], "provided")
         self.assertNotIn("proj-secret", rendered)
         self.assertNotIn("custom.thinkingmachines.dev", rendered)
 

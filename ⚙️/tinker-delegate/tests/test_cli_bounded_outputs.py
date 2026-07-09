@@ -692,6 +692,138 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertFalse(body["raw_secret_egress"])
             self.assertNotIn("operator-secret", rendered)
 
+    def test_tinker_client_config_cli_installs_from_env_without_leaking_values(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "client-config.json"
+            env = _env(tmpdir)
+            env.update(
+                {
+                    "TINKER_CLIENT_CONFIG_STORE_PATH": str(Path(tmpdir) / "client_config.enc"),
+                    "TINKER_CLIENT_CONFIG_STORE_KEY": "88" * 32,
+                    "TINKER_PROJECT_ID": "proj-sensitive",
+                    "TINKER_BASE_URL": "https://api.thinkingmachines.ai/services/tinker-prod",
+                }
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "tinker-client-config",
+                    "--install",
+                    "--output",
+                    str(output_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
+            body = json.loads(output_path.read_text(encoding="utf-8"))
+            rendered = json.dumps(body, sort_keys=True)
+            self.assertEqual(body["surface"], "tinker_client_config_install")
+            self.assertTrue(body["client_config"]["project_id_configured"])
+            self.assertEqual(body["client_config"]["base_url_host_family"], "thinkingmachines")
+            self.assertNotIn("proj-sensitive", rendered)
+            self.assertNotIn("api.thinkingmachines.ai", rendered)
+            self.assertFalse(body["raw_secret_egress"])
+
+    def test_tinker_client_config_cli_can_install_on_deployed_delegate_api(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "client-config.json"
+
+            class Handler(BaseHTTPRequestHandler):
+                def do_PUT(self):  # noqa: N802
+                    if self.path != "/tinker/proxy/client-config":
+                        self.send_response(404)
+                        self.end_headers()
+                        return
+                    body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+                    if self.headers.get("Authorization") != "Bearer runtime-secret":
+                        self.send_response(403)
+                        self.end_headers()
+                        return
+                    if body != {
+                        "project_id": "proj-sensitive",
+                        "base_url": "https://api.thinkingmachines.ai/services/tinker-prod",
+                    }:
+                        self.send_response(400)
+                        self.end_headers()
+                        return
+                    response = json.dumps(
+                        {
+                            "surface": "tinker_client_config_install",
+                            "success": True,
+                            "client_config": {
+                                "project_id_configured": True,
+                                "project_id_hash": "a" * 64,
+                                "project_id_returned": False,
+                                "base_url_configured": True,
+                                "base_url_host_family": "thinkingmachines",
+                                "base_url_hash": "b" * 64,
+                                "base_url_returned": False,
+                            },
+                            "store": {"encrypted": True, "exists": True, "path_returned": False},
+                            "raw_secret_egress": False,
+                        }
+                    ).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(response)))
+                    self.end_headers()
+                    self.wfile.write(response)
+
+                def log_message(self, format, *args):  # noqa: A002
+                    return
+
+            server = HTTPServer(("127.0.0.1", 0), Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            env = _env(tmpdir)
+            env.update(
+                {
+                    "TINKER_RUNTIME_AUTH_TOKEN": "runtime-secret",
+                    "TINKER_PROJECT_ID": "proj-sensitive",
+                    "TINKER_BASE_URL": "https://api.thinkingmachines.ai/services/tinker-prod",
+                }
+            )
+
+            try:
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "tinker_delegate.main",
+                        "tinker-client-config",
+                        "--api-url",
+                        f"http://127.0.0.1:{server.server_port}",
+                        "--install",
+                        "--output",
+                        str(output_path),
+                    ],
+                    check=False,
+                    cwd=Path(__file__).resolve().parents[1],
+                    env=env,
+                    text=True,
+                    capture_output=True,
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            body = json.loads(output_path.read_text(encoding="utf-8"))
+            rendered = json.dumps(body, sort_keys=True)
+            self.assertEqual(body["surface"], "tinker_client_config_install")
+            self.assertNotIn("proj-sensitive", rendered)
+            self.assertNotIn("api.thinkingmachines.ai", rendered)
+            self.assertFalse(body["raw_secret_egress"])
+
     def test_proxy_recipient_keygen_issue_and_decrypt_keep_token_off_stdout(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             private_key_path = Path(tmpdir) / "recipient.key"

@@ -552,6 +552,36 @@ def cli():
         help="Environment variable containing delegate runtime or proxy bearer token for --api-url",
     )
     tinker_proxy_status_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    tinker_client_config_p = sub.add_parser(
+        "tinker-client-config",
+        help="Return or seal bounded Tinker SDK client configuration",
+    )
+    tinker_client_config_p.add_argument(
+        "--api-url",
+        default="",
+        help="Optional deployed Tinker delegate API base URL; omitted reads/writes local sealed config",
+    )
+    tinker_client_config_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token for --api-url",
+    )
+    tinker_client_config_p.add_argument(
+        "--install",
+        action="store_true",
+        help="Seal project/base-url values from environment variables; omitted returns bounded status",
+    )
+    tinker_client_config_p.add_argument(
+        "--project-id-env",
+        default="TINKER_PROJECT_ID",
+        help="Environment variable containing the Tinker project ID to seal",
+    )
+    tinker_client_config_p.add_argument(
+        "--base-url-env",
+        default="TINKER_BASE_URL",
+        help="Environment variable containing optional Tinker base URL to seal",
+    )
+    tinker_client_config_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     tinker_proxy_policy_p = sub.add_parser(
         "tinker-proxy-issue-policy",
         help="Return or install bounded hash-only Tinker proxy issue policy",
@@ -1879,6 +1909,90 @@ def cli():
 
         result = build_tinker_proxy_status(settings)
         _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "tinker-client-config":
+        project_id = os.environ.get(args.project_id_env, "").strip()
+        base_url = os.environ.get(args.base_url_env, "").strip()
+        if args.install and not project_id and not base_url:
+            result = {
+                "surface": "tinker_client_config_install",
+                "success": False,
+                "error_kind": "missing_client_config_env",
+                "bounded_message": "project/base-url environment variables are not configured",
+                "project_id_returned": False,
+                "base_url_returned": False,
+                "raw_secret_egress": False,
+            }
+            _emit_bounded_json(result, output_path=args.output)
+            sys.exit(1)
+
+        if args.api_url:
+            import httpx
+
+            headers = _runtime_auth_headers(args.auth_token_env)
+            with httpx.Client(timeout=120.0) as client:
+                if args.install:
+                    response = client.put(
+                        _api_endpoint(args.api_url, "/tinker/proxy/client-config"),
+                        headers=headers,
+                        json={"project_id": project_id, "base_url": base_url},
+                    )
+                else:
+                    response = client.get(
+                        _api_endpoint(args.api_url, "/tinker/proxy/client-config"),
+                        headers=headers,
+                    )
+            try:
+                body = response.json()
+            except Exception:
+                body = {
+                    "surface": "tinker_client_config",
+                    "success": False,
+                    "outcome": "remote_non_json_response",
+                    "status_code": response.status_code,
+                    "error_kind": "non_json_response",
+                    "bounded_message": "remote endpoint returned non-json response",
+                    "raw_secret_egress": False,
+                }
+            if response.status_code >= 400:
+                detail = body.get("detail", "") if isinstance(body, dict) else ""
+                body = {
+                    "surface": "tinker_client_config",
+                    "success": False,
+                    "outcome": "remote_rejected",
+                    "status_code": response.status_code,
+                    "error_kind": "remote_error",
+                    "bounded_message": redact_text(detail or "remote endpoint rejected client config request"),
+                    "project_id_returned": False,
+                    "base_url_returned": False,
+                    "raw_secret_egress": False,
+                }
+            _emit_bounded_json(body, output_path=args.output, forbidden_values=(project_id, base_url))
+            sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
+
+        from tinker_delegate.tinker_client_config_store import (
+            build_tinker_client_config_status,
+            save_tinker_client_config,
+        )
+
+        try:
+            result = (
+                save_tinker_client_config(settings, project_id=project_id, base_url=base_url)
+                if args.install
+                else build_tinker_client_config_status(settings)
+            )
+        except ValueError as exc:
+            result = {
+                "surface": "tinker_client_config_install" if args.install else "tinker_client_config",
+                "success": False,
+                "error_kind": "invalid_client_config",
+                "bounded_message": redact_text(exc),
+                "project_id_returned": False,
+                "base_url_returned": False,
+                "raw_secret_egress": False,
+            }
+        _emit_bounded_json(result, output_path=args.output, forbidden_values=(project_id, base_url))
         sys.exit(0 if result.get("success") else 1)
 
     elif args.command == "tinker-proxy-issue-policy":
