@@ -290,11 +290,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                                     issuance without returning raw identities,
                                     runtime bearer token, signer address, raw
                                     signature, or plaintext JWT.
-                  - [ ] Redeploy the lifecycle/signature-required proxy issue
+                  - [x] Redeploy the lifecycle/signature-required proxy issue
                         policy source slice to Phala, approve the resulting
                         compose hash, install an active lifecycle-bound issue
                         policy plus signed hash-only identity registry, and
-                        record bounded issuance evidence.
+                        record bounded issuance evidence. Done 2026-07-09:
+                        after operator terminal approval tx
+                        `0x3bc992cc2979aa8198923bcaf856d2c82d387646e49e750dada1f5cb203b3d17`,
+                        live encrypted issuance succeeded for
+                        `proxy:status`, local recipient decrypt saved a
+                        plaintext JWT without returning it, and the live
+                        `tinker-proxy-status` call accepted that scoped JWT
+                        with bounded `proxy_auth_context`.
                         - [x] Redeploy the signature-required runtime gate to
                               the live Phala operator-validation CVM. Done
                               2026-07-09: live `tinker-proxy-status` reports
@@ -315,15 +322,22 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                               two active identities (`agent`, `reviewer`),
                               signature verified, and
                               `raw_secret_egress=false`.
-                        - [ ] Approve the current compose hash on-chain and
+                        - [x] Approve the current compose hash on-chain and
                               rerun encrypted token issuance/decrypt/status.
-                              Blocked 2026-07-09 on interactive Foundry
-                              keystore signing in the operator terminal:
-                              `cast send` from the headless shell failed with
-                              `Device not configured`, and live
-                              `issue-tinker-proxy-token` correctly fails closed
-                              with `compose_hash_not_approved` for
-                              `0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7`.
+                              Done 2026-07-09: operator terminal approved
+                              `0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7`
+                              in tx
+                              `0x3bc992cc2979aa8198923bcaf856d2c82d387646e49e750dada1f5cb203b3d17`;
+                              `approvedComposeHashes(...)` returned `true`;
+                              live encrypted issuance returned
+                              `plaintext_token_returned=false` and
+                              `raw_secret_egress=false`; decrypt receipt
+                              returned only token hash
+                              `c77372674ecb06cef9a1a96bf22f2baa18edc980ce9f739e07906a7c16383d7c`;
+                              scoped status returned subject hash
+                              `979fb71132214bf62a7f332696061f0be32b1e60f00d02256d589df198393af8`
+                              and JWT-id hash
+                              `0acd4d8ffd865d253d8b200d209213bc7f384b59483f79c95fad240d663d1aee`.
                               Follow-up 2026-07-09: remote
                               `issue-tinker-proxy-token --api-url` now wraps
                               HTTP rejection bodies into bounded

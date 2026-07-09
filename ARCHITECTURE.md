@@ -416,9 +416,11 @@ run IDs, checkpoint paths, samples, or private reward data.
             source/test-real and the lifecycle/signature-required env gate is
             now live in the operator-validation Phala CVM. A fresh hash-only
             issue policy and signed hash-only identity registry were installed
-            through the live runtime-authenticated API on 2026-07-09; issuance
-            currently fails closed with `compose_hash_not_approved` until the
-            current compose hash is approved in `TinkerAccountEncumbrance`.
+            through the live runtime-authenticated API on 2026-07-09; after
+            `TinkerAccountEncumbrance` approval, live encrypted proxy-token
+            issuance, local recipient decrypt, and scoped `proxy:status`
+            authorization succeeded with only bounded hashes and
+            `raw_secret_egress=false`.
             The current source compose carries lifecycle and signed
             identity-registry env knobs; local raw/image-policy compose hash is
             `e682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7`

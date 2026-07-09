@@ -38,7 +38,7 @@ verification, live CVM-originated TEE-to-chain signing, and RLVR/bio-validation
 remain incomplete. Phala auth is configured for profile `wikigen` in workspace
 `wiki`.
 
-Latest signature-required proxy registry deployment attempt, 2026-07-09:
+Latest signature-required proxy registry deployment, 2026-07-09:
 
 - GitHub Actions run `29048558164` built source
   `0aeb8182fe6552e2546d1f9d9b16acb06f655db4` into delegate image
@@ -72,15 +72,22 @@ Latest signature-required proxy registry deployment attempt, 2026-07-09:
   `162df4185df255268bb03857d37da10c658240ae5b7067b1ff7eee40477bbb6a`,
   two active identities (`agent`, `reviewer`), verified registry signature
   binding, and `raw_secret_egress=false`.
-- Encrypted proxy-token issuance is intentionally blocked until the current
-  compose hash is approved on-chain. The live issue command returned the
-  bounded denial `proxy deployment policy denied token issuance:
-  compose_hash_not_approved`; read-only chain state reports
-  `approvedComposeHashes(0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7)=false`.
-  Headless `cast send` could not prompt for the Foundry keystore password and
-  failed locally with `Device not configured`, so the next required operator
-  action is approving that hash from an interactive terminal using the
-  `dev` keystore account.
+- The current compose hash was approved on-chain by the operator terminal in
+  tx `0x3bc992cc2979aa8198923bcaf856d2c82d387646e49e750dada1f5cb203b3d17`;
+  read-only chain state reports
+  `approvedComposeHashes(0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7)=true`.
+  Live encrypted proxy-token issuance then succeeded for `proxy:status` with
+  subject hash
+  `979fb71132214bf62a7f332696061f0be32b1e60f00d02256d589df198393af8`,
+  JWT-id hash
+  `0acd4d8ffd865d253d8b200d209213bc7f384b59483f79c95fad240d663d1aee`,
+  TTL `300`, `plaintext_token_returned=false`, and `raw_secret_egress=false`.
+  Recipient-side decrypt wrote the JWT to ignored local scratch storage with
+  token hash
+  `c77372674ecb06cef9a1a96bf22f2baa18edc980ce9f739e07906a7c16383d7c`
+  and did not return the plaintext token or private key. A live
+  `tinker-proxy-status` call using that scoped JWT succeeded and returned a
+  bounded `proxy_auth_context` for `proxy:status`.
 - This remains operator-validation, not production governance: the registry
   signer is a temporary local verifier key kept in ignored `data/` scratch
   storage, and `TINKER_PROJECT_ID` is still not sealed/configured.
