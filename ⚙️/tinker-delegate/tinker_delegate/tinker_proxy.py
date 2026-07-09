@@ -156,6 +156,7 @@ def build_tinker_proxy_status(settings) -> dict[str, Any]:
             "issue_policy_required": bool(getattr(settings, "proxy_require_issue_policy", False)),
             "issue_policy_configured": bool(getattr(settings, "proxy_issue_policy_path", "")),
             "deployment_policy_required": bool(getattr(settings, "proxy_require_deployment_policy", False)),
+            "grant_lifecycle_required": bool(getattr(settings, "proxy_require_grant_lifecycle", False)),
             "encumbrance_contract_configured": bool(getattr(settings, "encumbrance_contract_address", "")),
             "encumbrance_compose_hash_configured": bool(getattr(settings, "encumbrance_compose_hash", "")),
             "plaintext_token_returned": False,
@@ -215,6 +216,7 @@ def issue_encrypted_proxy_token(
         scopes=normalized_scopes,
         recipient_public_key_hash=recipient_public_key_hash,
         ttl_seconds=normalized_ttl,
+        now=now,
     )
     deployment_binding = _validate_proxy_deployment_policy(
         settings,
@@ -342,6 +344,7 @@ def summarize_proxy_issue_policy(policy: dict[str, Any], *, configured: bool = T
                 "recipient_public_key_hash": grant["recipient_public_key_hash"],
                 "scopes": grant["scopes"],
                 "scope_limits": grant.get("scope_limits", {}),
+                "lifecycle": grant.get("lifecycle", {}),
                 "max_ttl_seconds": grant["max_ttl_seconds"],
                 "raw_secret_egress": False,
             }
@@ -388,6 +391,9 @@ def normalize_proxy_issue_policy(policy: dict[str, Any]) -> dict[str, Any]:
         }
         if scope_limits:
             normalized_grant["scope_limits"] = scope_limits
+        lifecycle = _normalize_proxy_grant_lifecycle(grant.get("lifecycle"))
+        if lifecycle:
+            normalized_grant["lifecycle"] = lifecycle
         normalized_grants.append(normalized_grant)
     return {
         "schema_version": 1,
@@ -532,6 +538,7 @@ def _validate_proxy_issue_policy(
     scopes: tuple[str, ...],
     recipient_public_key_hash: str,
     ttl_seconds: int,
+    now: int | None = None,
 ) -> dict[str, Any]:
     policy_path = str(getattr(settings, "proxy_issue_policy_path", "") or "").strip()
     require_policy = bool(getattr(settings, "proxy_require_issue_policy", False))
@@ -551,7 +558,10 @@ def _validate_proxy_issue_policy(
     subject_hash = stable_hash(subject, prefix="proxy_subject")
     requested_scopes = set(scopes)
     policy_hash = stable_hash(_canonical_json(policy), prefix="proxy_issue_policy")
+    lifecycle_required = bool(getattr(settings, "proxy_require_grant_lifecycle", False))
+    now_int = int(time.time() if now is None else now)
     ttl_cap_fail = False
+    lifecycle_fail = ""
 
     for grant in grants:
         if not isinstance(grant, dict):
@@ -577,6 +587,15 @@ def _validate_proxy_issue_policy(
             requested_scopes,
             require_spend_limits=True,
         )
+        try:
+            grant_lifecycle = _validate_proxy_grant_lifecycle(
+                grant.get("lifecycle", {}),
+                required=lifecycle_required,
+                now=now_int,
+            )
+        except ValueError as exc:
+            lifecycle_fail = str(exc)
+            continue
         return {
             "required": True,
             "configured": True,
@@ -587,12 +606,15 @@ def _validate_proxy_issue_policy(
             "requested_scopes": list(scopes),
             "granted_scopes": sorted(normalized_grant_scopes),
             "scope_limits": scope_limits,
+            "grant_lifecycle": grant_lifecycle,
             "max_ttl_seconds": max_ttl,
             "ttl_seconds": ttl_seconds,
             "raw_secret_egress": False,
         }
     if ttl_cap_fail:
         raise ValueError("proxy token ttl exceeds policy cap")
+    if lifecycle_fail:
+        raise ValueError(lifecycle_fail)
     raise ValueError("proxy token issuance is not allowed by policy")
 
 
@@ -675,6 +697,71 @@ def _scope_limit_amount(policy_binding: dict[str, Any], scope: str) -> float:
     if amount <= 0:
         raise ValueError("proxy deployment policy spend cap must be positive")
     return amount
+
+
+def _normalize_proxy_grant_lifecycle(raw_lifecycle: Any) -> dict[str, Any]:
+    if raw_lifecycle in (None, ""):
+        return {}
+    if not isinstance(raw_lifecycle, dict):
+        raise ValueError("proxy issue policy grant lifecycle must be an object")
+    status = str(raw_lifecycle.get("status", "")).strip().lower()
+    if status not in {"active", "pending", "revoked", "expired"}:
+        raise ValueError("proxy issue policy grant lifecycle status is invalid")
+    lifecycle: dict[str, Any] = {"status": status}
+    approved_by_hash = str(raw_lifecycle.get("approved_by_hash", "") or "").strip()
+    if approved_by_hash:
+        lifecycle["approved_by_hash"] = _normalize_hex_hash(
+            approved_by_hash,
+            "approved_by_hash",
+        )
+    approval_event_hash = str(raw_lifecycle.get("approval_event_hash", "") or "").strip()
+    if approval_event_hash:
+        lifecycle["approval_event_hash"] = _normalize_hex_hash(
+            approval_event_hash,
+            "approval_event_hash",
+        )
+    approved_at = int(raw_lifecycle.get("approved_at", 0) or 0)
+    expires_at = int(raw_lifecycle.get("expires_at", 0) or 0)
+    if approved_at:
+        lifecycle["approved_at"] = approved_at
+    if expires_at:
+        lifecycle["expires_at"] = expires_at
+    if status == "active":
+        if "approved_by_hash" not in lifecycle:
+            raise ValueError("proxy issue policy active grant lifecycle requires approved_by_hash")
+        if approved_at <= 0:
+            raise ValueError("proxy issue policy active grant lifecycle requires approved_at")
+        if expires_at <= 0:
+            raise ValueError("proxy issue policy active grant lifecycle requires expires_at")
+        if expires_at <= approved_at:
+            raise ValueError("proxy issue policy active grant lifecycle expires before approval")
+    return lifecycle
+
+
+def _validate_proxy_grant_lifecycle(
+    lifecycle: dict[str, Any],
+    *,
+    required: bool,
+    now: int,
+) -> dict[str, Any]:
+    if not lifecycle:
+        if required:
+            raise ValueError("proxy issue policy grant lifecycle is required")
+        return {}
+    normalized = _normalize_proxy_grant_lifecycle(lifecycle)
+    if normalized.get("status") != "active":
+        raise ValueError("proxy issue policy grant lifecycle is not active")
+    approved_at = int(normalized.get("approved_at", 0) or 0)
+    expires_at = int(normalized.get("expires_at", 0) or 0)
+    if approved_at > now:
+        raise ValueError("proxy issue policy grant lifecycle is not active yet")
+    if expires_at <= now:
+        raise ValueError("proxy issue policy grant lifecycle expired")
+    return {
+        **normalized,
+        "checked": True,
+        "raw_secret_egress": False,
+    }
 
 
 def _load_proxy_issue_policy(policy_path: str) -> dict[str, Any]:

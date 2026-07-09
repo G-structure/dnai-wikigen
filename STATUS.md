@@ -169,8 +169,19 @@ Latest Tinker execution buildout, 2026-07-09:
   the issue-policy grant. Live funding-validation deployment, attestation,
   audit replay, compose/contract binding, policy install, pre-mint
   deployment-policy checks, and encrypted proxy-token delivery are now proven
-  in the deployed operator-validation slice above. Production identity and
-  reviewer-controlled grant lifecycle remain open.
+  in the deployed operator-validation slice above. Source/test-real grant
+  lifecycle enforcement now exists too:
+  `TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE=true` rejects missing, pending,
+  revoked, expired, or future-approved grants before JWT minting, and bounded
+  outputs expose only lifecycle status, reviewer/approval-event hashes,
+  timestamps, and `raw_secret_egress=false`. The source compose now includes
+  the disabled lifecycle env knob; local `verify-compose-hash
+  --phala-raw-compose` computes raw/image-policy hash
+  `1d5f971478416b9966bedeefafaf0f591a3bf8f2860a8b245e1176f14a1f0b86` and
+  rendered compose SHA-256
+  `5ccfcc1a9639f48662c53e59fc4dd713fa1efc43b202d81ed9f81762e1d10097`.
+  Production reviewer identity binding and live lifecycle-required Phala
+  deployment remain open.
 - First proxy-token authorization wiring is source/test-real:
   `GET /tinker/proxy/status`, `POST /tinker/smoke`,
   `GET /billing/payment-method-status`, and `POST /billing/add-balance` accept

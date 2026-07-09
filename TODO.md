@@ -175,6 +175,33 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             - [ ] Bind proxy grants to production user/agent identity approval
                   and reviewer-controlled grant lifecycle before treating this
                   as production governance.
+                  - [x] Add hash-only grant lifecycle enforcement for
+                        proxy issue policies. Done 2026-07-09:
+                        `TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE=true` makes
+                        token issuance fail closed unless the matching policy
+                        grant has bounded lifecycle metadata with
+                        `status=active`, `approved_by_hash`, `approved_at`,
+                        and `expires_at`. Pending, revoked, expired, missing,
+                        or future-approved grants are rejected before JWT
+                        minting. Policy summaries and issuance bindings expose
+                        only lifecycle status, reviewer/approval-event hashes,
+                        timestamps, and `raw_secret_egress=false`; tests prove
+                        no raw reviewer identity is emitted. The
+                        funding-validation compose now carries the disabled
+                        `TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE` env knob; local
+                        `verify-compose-hash --phala-raw-compose` computes
+                        raw/image-policy hash
+                        `1d5f971478416b9966bedeefafaf0f591a3bf8f2860a8b245e1176f14a1f0b86`
+                        and rendered compose SHA-256
+                        `5ccfcc1a9639f48662c53e59fc4dd713fa1efc43b202d81ed9f81762e1d10097`.
+                  - [ ] Bind lifecycle approver/reviewer hashes to a
+                        production identity registry or verifier-controlled
+                        approval workflow, instead of accepting any operator
+                        supplied hash-only lifecycle file.
+                  - [ ] Redeploy the lifecycle-required proxy issue policy
+                        source slice to Phala, approve the resulting compose
+                        hash, install an active lifecycle-bound issue policy,
+                        and record bounded issuance evidence.
       - [x] Accept scoped proxy JWTs on the first bounded operation endpoints.
             Done 2026-07-09: `GET /tinker/proxy/status`,
             `POST /tinker/smoke`, `GET /billing/payment-method-status`, and

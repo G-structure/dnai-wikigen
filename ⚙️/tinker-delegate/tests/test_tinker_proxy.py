@@ -60,6 +60,7 @@ def _write_proxy_issue_policy(
     scopes: list[str],
     ttl: int,
     scope_limits: dict | None = None,
+    lifecycle: dict | None = None,
 ):
     grant = {
         "subject_hash": stable_hash(subject, prefix="proxy_subject"),
@@ -72,6 +73,8 @@ def _write_proxy_issue_policy(
     }
     if scope_limits is not None:
         grant["scope_limits"] = scope_limits
+    if lifecycle is not None:
+        grant["lifecycle"] = lifecycle
     policy = {
         "schema_version": 1,
         "grants": [grant],
@@ -79,6 +82,16 @@ def _write_proxy_issue_policy(
     with open(path, "w") as handle:
         json.dump(policy, handle, sort_keys=True)
     return policy
+
+
+def _active_grant_lifecycle(*, approved_at: int = 900, expires_at: int = 2000) -> dict:
+    return {
+        "status": "active",
+        "approved_by_hash": stable_hash("reviewer-1", prefix="proxy_grant_reviewer"),
+        "approval_event_hash": stable_hash("approval-event-1", prefix="proxy_grant_approval"),
+        "approved_at": approved_at,
+        "expires_at": expires_at,
+    }
 
 
 class _EncumbranceResult:
@@ -257,6 +270,160 @@ class TinkerProxyTest(unittest.TestCase):
             verification["scope_limits"],
             {"billing:add-balance": {"max_amount_usd": 10.0}},
         )
+
+    def test_issue_policy_can_require_active_hash_only_grant_lifecycle(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            private_key, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            lifecycle = _active_grant_lifecycle()
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=lifecycle,
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+            )
+
+            issued = issue_encrypted_proxy_token(
+                settings,
+                subject="buyer-agent-1",
+                scopes=["proxy:status"],
+                recipient_public_key_hex=public_key_hex,
+                ttl_seconds=60,
+                now=1000,
+            )
+            token = _decrypt_token(private_key, issued)
+            verification = verify_proxy_token(settings, token, required_scope="proxy:status", now=1001)
+
+        grant_lifecycle = issued["policy_binding"]["grant_lifecycle"]
+        rendered = repr(issued)
+        self.assertEqual(grant_lifecycle["status"], "active")
+        self.assertEqual(grant_lifecycle["approved_by_hash"], lifecycle["approved_by_hash"])
+        self.assertEqual(grant_lifecycle["approval_event_hash"], lifecycle["approval_event_hash"])
+        self.assertTrue(grant_lifecycle["checked"])
+        self.assertFalse(grant_lifecycle["raw_secret_egress"])
+        self.assertEqual(verification["scopes"], ["proxy:status"])
+        self.assertNotIn("reviewer-1", rendered)
+        self.assertNotIn("approval-event-1", rendered)
+
+    def test_issue_policy_requires_grant_lifecycle_when_enabled(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+            )
+
+            with self.assertRaisesRegex(ValueError, "grant lifecycle is required"):
+                issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
+
+    def test_issue_policy_rejects_inactive_grant_lifecycle(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle={"status": "pending"},
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+            )
+
+            with self.assertRaisesRegex(ValueError, "grant lifecycle is not active"):
+                issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
+
+    def test_issue_policy_rejects_expired_or_future_grant_lifecycle(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            expired_policy_path = os.path.join(tmpdir, "expired-policy.json")
+            _write_proxy_issue_policy(
+                expired_policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=_active_grant_lifecycle(approved_at=100, expires_at=900),
+            )
+            expired_settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=expired_policy_path,
+                proxy_require_grant_lifecycle=True,
+            )
+
+            with self.assertRaisesRegex(ValueError, "grant lifecycle expired"):
+                issue_encrypted_proxy_token(
+                    expired_settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
+
+            future_policy_path = os.path.join(tmpdir, "future-policy.json")
+            _write_proxy_issue_policy(
+                future_policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=_active_grant_lifecycle(approved_at=1200, expires_at=2000),
+            )
+            future_settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=future_policy_path,
+                proxy_require_grant_lifecycle=True,
+            )
+
+            with self.assertRaisesRegex(ValueError, "grant lifecycle is not active yet"):
+                issue_encrypted_proxy_token(
+                    future_settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
 
     def test_issue_policy_can_require_deployment_policy_before_minting(self):
         with tempfile.TemporaryDirectory() as tmpdir:

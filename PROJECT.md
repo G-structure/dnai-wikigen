@@ -119,10 +119,12 @@ For the current implementation this means:
   `max_amount_usd` limits that proxy routes enforce before touching browser or
   payment automation. Operators can install this hash-only policy through a
   runtime-authenticated bounded API/CLI, not by exposing raw upstream Tinker
-  credentials or plaintext proxy JWTs. A deployment-policy gate can also
-  require public `TinkerAccountEncumbrance` compose/cap approval before minting
-  spend-bearing proxy JWTs; production user identity and reviewer governance
-  remain separate work.
+  credentials or plaintext proxy JWTs. Policy grants can also carry hash-only
+  lifecycle metadata, so pending, revoked, expired, missing, or future-approved
+  grants fail closed without exposing raw reviewer identities. A
+  deployment-policy gate can also require public `TinkerAccountEncumbrance`
+  compose/cap approval before minting spend-bearing proxy JWTs; production user
+  identity and reviewer governance remain separate work.
 - JWT delivery should use an attestation-verified encrypted channel to the
   recipient, not plaintext logs, shell history, or documentation.
 - JWT issuance and revocation should leave bounded sealed audit records so a

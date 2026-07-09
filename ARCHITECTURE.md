@@ -366,6 +366,23 @@ run IDs, checkpoint paths, samples, or private reward data.
             TTL cap denial, and missing required policy. Production identity
             approval remains open, and live deployment evidence depends on the
             active Phala compose.
+[real]      Proxy issue-policy grants can now require bounded hash-only
+            lifecycle approval before minting. When
+            `TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE=true`, a matching grant must
+            include `lifecycle.status=active`, `approved_by_hash`,
+            `approved_at`, and `expires_at`; pending, revoked, expired, missing,
+            or future-approved grants fail closed before JWT creation. Policy
+            summaries and issuance bindings expose only lifecycle status,
+            reviewer/approval-event hashes, timestamps, and
+            `raw_secret_egress=false`; they do not expose raw reviewer,
+            operator, user, or agent identities. This is source/test-real and
+            wired into the funding-validation compose as a disabled-by-default
+            env knob; the local raw/image-policy compose hash for that source
+            shape is
+            `1d5f971478416b9966bedeefafaf0f591a3bf8f2860a8b245e1176f14a1f0b86`.
+            It is not yet deployed as a lifecycle-required Phala policy, and
+            the approver hashes are not yet bound to a production identity
+            registry or reviewer-controlled workflow.
 [real]      Policy-issued proxy JWTs can now carry bounded per-scope spend
             limits. A policy grant may define `scope_limits`, and
             spend-bearing scopes such as `billing:add-balance` require
