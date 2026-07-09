@@ -385,6 +385,21 @@ receipt evidence. This bounded-error source fix still needs image build,
 attestation verification, Phala redeploy, and compose approval before the live
 endpoint behavior changes.
 
+Add-balance-only live attempt follow-up, 2026-07-09: packet
+`/tmp/dnai-tinker-add-balance-packet-20260709T095232Z` used the approved
+compose hash
+`1fc656544b1583b83d65d769f369f3d1ad6d07d7e812073fbd3c1f7f2f84eb28` and passed
+preflight plus on-chain encumbrance gating. It produced an add-balance-only
+receipt/manifest/verification packet with no payment-method receipt files.
+Verification passed, `raw_secret_egress=false`, and the receipt outcome was
+`auth_required` at `billing_page_loaded` with bounded message
+`Tinker auth required before billing`. This proves the add-balance-only packet
+shape works against the live endpoint, but it does not prove a charge or
+top-up. The next live attempt should refresh Tinker auth in the same packet
+with `--run-reauth-attempt` before `--run-add-balance-attempt`, or redeploy the
+bounded read-only error fix first if we want status probes corrected before
+another charge-capable run.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce

@@ -1555,6 +1555,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   exceptions are bounded to outcome labels instead of returning
                   raw Playwright call logs or Tinker URLs. Build/redeploy is
                   still required before the live endpoint has this fix.
+                  Live attempt 2026-07-09:
+                  `/tmp/dnai-tinker-add-balance-packet-20260709T095232Z`
+                  proved the add-balance-only packet shape against the live
+                  endpoint, but the receipt failed closed as `auth_required` at
+                  `billing_page_loaded`; no top-up or charge is proven. Next
+                  retry should include `--run-reauth-attempt` before
+                  `--run-add-balance-attempt`.
             The item remains unchecked until a bounded add-balance receipt and
             live balance read prove a low-value top-up succeeded; the CVM
             dev-OS warning also remains before production.
