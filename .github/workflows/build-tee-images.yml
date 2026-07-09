@@ -28,6 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
           - name: tinker-delegate
@@ -102,14 +103,14 @@ jobs:
           upload-artifact: true
 
       - name: Generate GitHub provenance attestation
-        uses: actions/attest@v4
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
       - name: Generate GitHub SBOM attestation
-        uses: actions/attest@v4
+        uses: actions/attest-sbom@v4
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
