@@ -551,6 +551,20 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             the derived signer as `teeIdentity`, broadcasts `submitResult()`,
             and verifies the real `EvaluationSubmitted` event without accepting
             or printing raw private keys.
+      - [x] Prove the local synthetic room can drive real local escrow
+            submission, settlement, and cleanup without widening egress.
+            Done 2026-07-09 with
+            `⚙️/tinker-delegate/scripts/prove-local-synthetic-room-anvil.py`:
+            it starts ephemeral Anvil, deploys `DiligenceRoom`, creates/funds a
+            deal, uploads an encrypted synthetic artifact through the FastAPI
+            ingress, evaluates through `ControlPlane` + `IsolatedTinkerSession`
+            + fake Tinker, obtains verifier authorization through the bounded
+            `authorize-result` CLI, broadcasts `submit-result` from the
+            dstack-simulator signer, accepts the deal, verifies
+            `EvaluationSubmitted` and `DealAccepted`, checks pull-payment bands,
+            and records cleanup attestations. It emits only hashes, bands,
+            booleans, and transaction hashes; it does not prove deployed Phala,
+            Base Sepolia, real Tinker SDK, or frontend verification.
       - [ ] Repeat the submitter proof from a deployed Phala CVM before marking
             production CVM signing complete.
 - [ ] `P0` Bind `teeIdentity` to an attested compose/app identity instead of a
@@ -3218,9 +3232,10 @@ vision Wiki is reaching for.
        registry enforcement are implemented locally. Base Sepolia compose-hash
        registration remains a separate deployment step.
 7. [ ] Add chain watcher + TEE chain signer for `DiligenceRoom`.
-       Local watcher and signer/broadcaster plumbing now exist; remaining proof
-       is dstack/CVM-originated `submitResult()` broadcast and measured-code
-       binding.
+       Local watcher, signer/broadcaster plumbing, dstack-simulator
+       `submitResult()` broadcast, and a local synthetic-room-to-Anvil
+       settlement proof now exist. Remaining proof is deployed Phala
+       CVM-originated broadcast plus measured-code binding.
 8. [x] Build a fake Tinker backend and full local synthetic room test.
        Done 2026-07-09: source now includes a deterministic fake Tinker backend
        and local synthetic room harness. The focused regression encrypts a
@@ -3229,8 +3244,13 @@ vision Wiki is reaching for.
        `IsolatedTinkerSession`, resolves the deal, verifies artifact zeroing
        and checkpoint cleanup, and asserts the public modeled packet contains
        only hashes, bands, counts, booleans, and `raw_secret_egress=false`.
-       This does not claim real Tinker SDK execution, deployed Phala evidence,
-       on-chain result submission, or settlement.
+       Companion script
+       `⚙️/tinker-delegate/scripts/prove-local-synthetic-room-anvil.py` now
+       connects that modeled room to real local `DiligenceRoom` submission,
+       `DealAccepted` settlement, pull-payment bands, and cleanup through
+       ephemeral Anvil and the dstack simulator. This still does not claim real
+       Tinker SDK execution, deployed Phala evidence, Base Sepolia state, or
+       frontend verification.
 9. [x] Rework the one-shot deployed bootstrap browser path to headed Neko
        inside Phala.
        Done 2026-07-08 for `docker-compose.tinker-bootstrap.phala.yaml`; later

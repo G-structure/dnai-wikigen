@@ -142,6 +142,15 @@ Important current status:
             emitting bounded authorization metadata and the public verifier
             signature required by the contract. The dstack-simulator Anvil proof
             now uses this CLI path instead of ad hoc Anvil `eth_sign`.
+[real]      Local synthetic-room-to-Anvil settlement proof. The
+            `scripts/prove-local-synthetic-room-anvil.py` harness composes
+            encrypted artifact ingress, `ControlPlane`, `IsolatedTinkerSession`,
+            fake Tinker, the result-verifier CLI, the dstack-simulator signer,
+            real local `DiligenceRoom.submitResult()`, `acceptDeal()`, settlement
+            bands, and cleanup attestations into one bounded proof. Its public
+            JSON contains hashes, bands, booleans, and transaction hashes only.
+            It is not deployed Phala evidence, Base Sepolia evidence, real
+            Tinker SDK training evidence, or frontend quote verification.
 [partial]   Production result-verifier service. The policy/signature library and
             operator CLI are real, but not yet deployed as a Phala/CVM service,
             and they still rely on bounded dstack quote envelope checks rather
@@ -2000,6 +2009,18 @@ Implementation status:
             parsing/freshness validation, downstream evaluator/Tinker/browser
             no-disk audit, sealed-retention key hierarchy if retention is added,
             and evaluator-side raw-byte lifetime audit.
+[real]      The source-modeled synthetic room is now wired through real local
+            escrow settlement. `prove-local-synthetic-room-anvil.py` starts
+            ephemeral Anvil, deploys `DiligenceRoom`, creates/funds a deal,
+            uploads an encrypted synthetic artifact to the FastAPI ingress,
+            evaluates with the fake Tinker backend, authorizes the bounded
+            result through `authorize-result`, submits from the dstack simulator
+            signer, accepts the deal, reads `EvaluationSubmitted` and
+            `DealAccepted`, reports pull-payment bands, and resolves cleanup.
+            It keeps the raw artifact, fake API key/project id, run ID,
+            checkpoint paths, and sample text out of public output. This is a
+            local modeled proof only; deployed CVM execution and real Tinker SDK
+            training remain separate blockers.
 [real]      `TinkerAccountEncumbrance` is deployed on Base Sepolia at
             `0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`. It enforces approved
             compose hashes, operation caps for add-balance and Tinker-compute

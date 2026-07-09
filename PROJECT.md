@@ -179,9 +179,13 @@ The current branch already contains:
   fake Tinker backend to exercise encrypted artifact ingress, one-run
   `IsolatedTinkerSession` evaluation, bounded modeled packets, and cleanup
   without requiring a real Tinker project; this is CI/offline modeling, not
-  deployed Phala or real Tinker training evidence. Tinker run metadata is also
-  treated as an egress channel: evaluator-supplied metadata is size-limited,
-  allowlisted, and hash-represented before it reaches the upstream SDK.
+  deployed Phala or real Tinker training evidence. A companion local Anvil
+  proof now connects that synthetic room to real `DiligenceRoom` result
+  submission, `DealAccepted` settlement, pull-payment bands, and cleanup through
+  the dstack simulator while emitting only bounded public JSON. Tinker run
+  metadata is also treated as an egress channel: evaluator-supplied metadata is
+  size-limited, allowlisted, and hash-represented before it reaches the upstream
+  SDK.
 
 - `⚙️/props-room`
   Source-controller and sealed-asset control plane stub.
