@@ -184,6 +184,8 @@ def classify_automation_error(error: str | None) -> AutomationOutcome:
         "timeout" in text
         or "browser" in text
         or "navigation" in text
+        or "page.goto" in text
+        or "err_aborted" in text
         or "cdp" in text
         or "did not become ready" in text
     ):

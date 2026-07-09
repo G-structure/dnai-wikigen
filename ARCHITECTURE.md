@@ -1040,7 +1040,11 @@ Implementation status:
             page text. The operator `balance` CLI can target a deployed
             delegate with `--api-url` and emits the same bounded response shape
             as `GET /billing/balance`, so balance read-back can be captured
-            without exposing card metadata.
+            without exposing card metadata. Read-only billing endpoints also
+            classify browser/navigation exceptions into stable outcome labels
+            such as `transient_browser_failure`; they must not return raw
+            Playwright call logs, Tinker URLs, selectors, page text, or
+            screenshots.
 [real]      `TINKER_FUNDING_MODE=manual_prefund` is the default production
             funding model and denies card/add-balance browser automation before
             decryption or browser launch. `operator_capped_validation` is

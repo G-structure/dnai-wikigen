@@ -1550,6 +1550,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   supplies the bounded evidence, and
                   `check-funding-validation-packet --require-add-balance`
                   replay-verifies that packet shape.
+                  Source/test fix 2026-07-09: deployed-balance CLI reads now
+                  accept `balance --api-url ...`, and read-only billing
+                  exceptions are bounded to outcome labels instead of returning
+                  raw Playwright call logs or Tinker URLs. Build/redeploy is
+                  still required before the live endpoint has this fix.
             The item remains unchecked until a bounded add-balance receipt and
             live balance read prove a low-value top-up succeeded; the CVM
             dev-OS warning also remains before production.

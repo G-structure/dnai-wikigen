@@ -472,7 +472,7 @@ async def handle_get_balance(settings: Settings) -> BillingResponse:
             balance=result.get("balance"),
         )
     except Exception as e:
-        return BillingResponse(success=False, error=redact_text(e))
+        return BillingResponse(success=False, error=_bounded_error_label(e))
 
 
 async def handle_payment_method_status(settings: Settings) -> BillingResponse:
@@ -487,7 +487,12 @@ async def handle_payment_method_status(settings: Settings) -> BillingResponse:
             attempt_record=result.get("attempt_record"),
         )
     except Exception as e:
-        return BillingResponse(success=False, error=redact_text(e))
+        error = _bounded_error_label(e)
+        return BillingResponse(
+            success=False,
+            error=error,
+            attempt_record=_exception_receipt(AutomationSurface.PAYMENT_METHOD_STATUS, redact_text(e)),
+        )
 
 
 async def handle_remove_payment_method(settings: Settings) -> BillingResponse:
@@ -608,3 +613,9 @@ def _exception_receipt(
         bounded_message=outcome.value,
         card_payload_destroyed=card_payload_destroyed,
     ).to_public_dict()
+
+
+def _bounded_error_label(error: object) -> str:
+    """Return a public error label without browser URLs, selectors, or page text."""
+
+    return classify_automation_error(redact_text(error)).value

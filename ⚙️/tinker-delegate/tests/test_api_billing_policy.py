@@ -76,6 +76,52 @@ class BillingApiPolicyTest(unittest.TestCase):
         self.assertEqual(response.json()["error"], "stubbed")
         handle_card_update.assert_awaited_once()
 
+    def test_payment_method_status_exception_is_bounded(self):
+        api.settings = Settings()
+        client = TestClient(api.app)
+        raw_error = (
+            "Page.goto: net::ERR_ABORTED at "
+            "https://tinker-console.thinkingmachines.ai/billing/balance"
+        )
+
+        with patch(
+            "tinker_delegate.card_channel.get_payment_method_status",
+            new=AsyncMock(side_effect=RuntimeError(raw_error)),
+        ):
+            response = client.get("/billing/payment-method-status")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        rendered = str(body)
+        self.assertFalse(body["success"])
+        self.assertEqual(body["error"], "transient_browser_failure")
+        self.assertEqual(body["attempt_record"]["surface"], "payment_method_status")
+        self.assertEqual(body["attempt_record"]["outcome"], "transient_browser_failure")
+        self.assertNotIn("tinker-console.thinkingmachines.ai", rendered)
+        self.assertNotIn("Page.goto", rendered)
+
+    def test_balance_exception_is_bounded(self):
+        api.settings = Settings()
+        client = TestClient(api.app)
+        raw_error = (
+            "Page.goto: net::ERR_ABORTED at "
+            "https://tinker-console.thinkingmachines.ai/billing/balance"
+        )
+
+        with patch(
+            "tinker_delegate.card_channel.get_balance",
+            new=AsyncMock(side_effect=RuntimeError(raw_error)),
+        ):
+            response = client.get("/billing/balance")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        rendered = str(body)
+        self.assertFalse(body["success"])
+        self.assertEqual(body["error"], "transient_browser_failure")
+        self.assertNotIn("tinker-console.thinkingmachines.ai", rendered)
+        self.assertNotIn("Page.goto", rendered)
+
     def test_attestation_endpoint_binds_requested_billing_context(self):
         client = TestClient(api.app)
 

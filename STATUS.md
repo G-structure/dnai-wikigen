@@ -375,7 +375,15 @@ fixed command produces a bounded add-balance receipt and balance read-back.
 The operator `balance` CLI now also accepts `--api-url`, `--auth-token-env`,
 and `--output` for deployed delegate balance reads; the prior
 `unrecognized arguments` error was a local CLI gap, not evidence about the
-Tinker account balance.
+Tinker account balance. A read-only probe with that fixed CLI reached the live
+delegate and returned `success=true` with balance `unknown`. A concurrent
+`payment-method-status` probe failed in the browser navigation path and exposed
+a raw Playwright `Page.goto` / Tinker URL error in the public `error` field.
+Source now bounds read-only balance/status exceptions to stable labels such as
+`transient_browser_failure` and hashes the raw exception only inside the bounded
+receipt evidence. This bounded-error source fix still needs image build,
+attestation verification, Phala redeploy, and compose approval before the live
+endpoint behavior changes.
 
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
