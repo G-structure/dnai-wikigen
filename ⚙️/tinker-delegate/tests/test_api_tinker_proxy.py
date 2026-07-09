@@ -17,25 +17,23 @@ STORE_KEY_HEX = "77" * 32
 
 
 def _write_proxy_issue_policy(path: str, *, subject: str, recipient_public_key_hex: str, scopes: list[str], ttl: int):
-    with open(path, "w") as handle:
-        json.dump(
+    policy = {
+        "schema_version": 1,
+        "grants": [
             {
-                "schema_version": 1,
-                "grants": [
-                    {
-                        "subject_hash": stable_hash(subject, prefix="proxy_subject"),
-                        "recipient_public_key_hash": stable_hash(
-                            recipient_public_key_hex.lower(),
-                            prefix="proxy_recipient_public_key",
-                        ),
-                        "scopes": scopes,
-                        "max_ttl_seconds": ttl,
-                    }
-                ],
-            },
-            handle,
-            sort_keys=True,
-        )
+                "subject_hash": stable_hash(subject, prefix="proxy_subject"),
+                "recipient_public_key_hash": stable_hash(
+                    recipient_public_key_hex.lower(),
+                    prefix="proxy_recipient_public_key",
+                ),
+                "scopes": scopes,
+                "max_ttl_seconds": ttl,
+            }
+        ],
+    }
+    with open(path, "w") as handle:
+        json.dump(policy, handle, sort_keys=True)
+    return policy
 
 
 class TinkerProxyApiTest(unittest.TestCase):
@@ -133,6 +131,50 @@ class TinkerProxyApiTest(unittest.TestCase):
         self.assertFalse(body["raw_secret_egress"])
         self.assertNotIn("operator-secret", rendered)
         self.assertNotIn("buyer-agent-1", rendered)
+
+    def test_proxy_issue_policy_endpoint_installs_and_returns_bounded_summary(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recipient_public_key = X25519PrivateKey.generate().public_key().public_bytes_raw().hex()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            input_path = os.path.join(tmpdir, "input-policy.json")
+            policy = _write_proxy_issue_policy(
+                input_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=recipient_public_key,
+                scopes=["proxy:status"],
+                ttl=60,
+            )
+            api.settings = self._settings(
+                tmpdir,
+                runtime_auth_required=True,
+                runtime_auth_token="operator-secret",
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+            )
+            client = TestClient(api.app)
+
+            installed = client.put(
+                "/tinker/proxy/issue-policy",
+                headers={"Authorization": "Bearer operator-secret"},
+                json={"policy": policy},
+            )
+            status = client.get(
+                "/tinker/proxy/issue-policy",
+                headers={"Authorization": "Bearer operator-secret"},
+            )
+
+        self.assertEqual(installed.status_code, 200)
+        self.assertEqual(status.status_code, 200)
+        body = status.json()
+        rendered = repr([installed.json(), body])
+        self.assertTrue(body["success"])
+        self.assertTrue(body["required"])
+        self.assertTrue(body["policy_present"])
+        self.assertEqual(body["grant_count"], 1)
+        self.assertFalse(body["raw_secret_egress"])
+        self.assertNotIn("operator-secret", rendered)
+        self.assertNotIn("buyer-agent-1", rendered)
+        self.assertNotIn(recipient_public_key, rendered)
 
     def test_proxy_token_issuance_can_require_hash_only_policy(self):
         with tempfile.TemporaryDirectory() as tmpdir:

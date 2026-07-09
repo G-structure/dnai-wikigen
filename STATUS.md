@@ -110,10 +110,20 @@ Latest Tinker execution buildout, 2026-07-09:
   hashes/scopes/caps and `raw_secret_egress=false`. Spend-bearing scopes can
   also require `scope_limits.max_amount_usd`; policy-issued add-balance tokens
   carry that bounded limit, and `/billing/add-balance` rejects over-cap proxy
-  requests before browser/payment automation starts. Live funding-validation
-  deployment, attestation, audit replay, and compose/contract binding are now
-  proven for the operator-validation slice below, but this new spend-limit
-  source slice is not yet deployed.
+  requests before browser/payment automation starts. Runtime operators can now
+  install and inspect canonical hash-only issue policies through
+  `GET/PUT /tinker/proxy/issue-policy` or `tinker-proxy-issue-policy`; outputs
+  are bounded policy/grant summaries, not raw subjects, public keys, bearer
+  tokens, or plaintext JWTs. Live funding-validation deployment, attestation,
+  audit replay, and compose/contract binding are now proven for the
+  operator-validation slice below, but this new policy-management/spend-limit
+  source slice is not yet deployed. The source compose now carries
+  disabled-by-default policy env knobs for the next Phala redeploy; local
+  `verify-compose-hash --phala-raw-compose` with the new policy env knobs
+  allowed computes raw/image-policy hash
+  `e29475fe45086162e6f3dedb39a911619d32b8f484642ee37c627f30a4d24a87`
+  and rendered compose SHA-256
+  `5bee67bd89213039a1d285fb22c79c29ead67f97ff2d22c21bda70a80a0f417b`.
 - First proxy-token authorization wiring is source/test-real:
   `GET /tinker/proxy/status`, `POST /tinker/smoke`,
   `GET /billing/payment-method-status`, and `POST /billing/add-balance` accept

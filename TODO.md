@@ -110,6 +110,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   proxy-authorized requests above the cap before invoking
                   browser/payment automation. Tests cover limit embedding,
                   missing-cap denial, over-cap rejection, and within-cap pass.
+            - [x] Add operator-only proxy issue-policy install/status surfaces.
+                  Done 2026-07-09: `GET/PUT /tinker/proxy/issue-policy` and
+                  `tinker-proxy-issue-policy` install or read canonical
+                  hash-only policy grants through runtime bearer auth. Outputs
+                  are bounded summaries with policy/grant hashes, subject
+                  hashes, recipient-key hashes, scopes, TTL caps, spend caps,
+                  and `raw_secret_egress=false`; tests cover local save/status,
+                  API install/status, and deployed-API CLI install without
+                  leaking bearer tokens or raw subject/public-key material. The
+                  funding-validation compose now includes disabled-by-default
+                  policy env knobs for the next redeploy.
             - [ ] Bind proxy issue policy grants to on-chain compose policy,
                   live deployment evidence, and production user/agent identity
                   approval before treating this as production governance.

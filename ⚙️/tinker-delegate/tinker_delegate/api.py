@@ -16,6 +16,8 @@ Endpoints:
   POST /billing/card/remove       — remove payment method
   POST /billing/add-balance       — add credit balance
   GET  /tinker/proxy/status       — bounded sealed Tinker proxy configuration
+  GET  /tinker/proxy/issue-policy — bounded proxy issue-policy status
+  PUT  /tinker/proxy/issue-policy — install hash-only proxy issue policy
   POST /tinker/proxy/token        — encrypted scoped proxy JWT issuance
   GET  /tinker/proxy/tokens       — bounded proxy token audit records
   POST /tinker/proxy/token/revoke — revoke proxy token by JWT-id hash
@@ -311,6 +313,12 @@ class TinkerProxyTokenIssueRequestBody(BaseModel):
     ttl_seconds: Optional[int] = None
 
 
+class TinkerProxyIssuePolicyRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    policy: dict[str, Any]
+
+
 class TinkerProxyTokenRevokeRequestBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -330,6 +338,30 @@ def tinker_proxy_status(authorization: str = Header(default="")):
     from tinker_delegate.tinker_proxy import build_tinker_proxy_status
 
     return _attach_proxy_auth_context(build_tinker_proxy_status(settings), auth_context)
+
+
+@app.get("/tinker/proxy/issue-policy")
+def tinker_proxy_issue_policy(authorization: str = Header(default="")):
+    """Return bounded hash-only proxy issue-policy status."""
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_proxy import get_proxy_issue_policy_status
+
+    try:
+        return get_proxy_issue_policy_status(settings)
+    except ValueError as exc:
+        raise HTTPException(400, redact_text(exc)) from exc
+
+
+@app.put("/tinker/proxy/issue-policy")
+def tinker_proxy_issue_policy_set(payload: TinkerProxyIssuePolicyRequestBody, authorization: str = Header(default="")):
+    """Install a hash-only proxy issue policy for future token minting."""
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_proxy import save_proxy_issue_policy
+
+    try:
+        return save_proxy_issue_policy(settings, payload.policy)
+    except ValueError as exc:
+        raise HTTPException(400, redact_text(exc)) from exc
 
 
 @app.post("/tinker/proxy/token")

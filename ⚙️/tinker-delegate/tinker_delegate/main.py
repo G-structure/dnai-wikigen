@@ -496,6 +496,26 @@ def cli():
         help="Environment variable containing delegate runtime or proxy bearer token for --api-url",
     )
     tinker_proxy_status_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    tinker_proxy_policy_p = sub.add_parser(
+        "tinker-proxy-issue-policy",
+        help="Return or install bounded hash-only Tinker proxy issue policy",
+    )
+    tinker_proxy_policy_p.add_argument(
+        "--api-url",
+        default="",
+        help="Optional deployed Tinker delegate API base URL; omitted reads/writes local settings",
+    )
+    tinker_proxy_policy_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token for --api-url",
+    )
+    tinker_proxy_policy_p.add_argument(
+        "--policy-json",
+        default="",
+        help="Optional path to hash-only policy JSON to install; omitted returns current status",
+    )
+    tinker_proxy_policy_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     tinker_proxy_token_p = sub.add_parser(
         "issue-tinker-proxy-token",
         help="Issue a scoped Tinker proxy JWT encrypted to a recipient public key",
@@ -1673,6 +1693,54 @@ def cli():
         from tinker_delegate.tinker_proxy import build_tinker_proxy_status
 
         result = build_tinker_proxy_status(settings)
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "tinker-proxy-issue-policy":
+        policy = json.loads(Path(args.policy_json).read_text(encoding="utf-8")) if args.policy_json else None
+        if args.api_url:
+            import httpx
+
+            headers = _runtime_auth_headers(args.auth_token_env)
+            with httpx.Client(timeout=120.0) as client:
+                if policy is None:
+                    response = client.get(_api_endpoint(args.api_url, "/tinker/proxy/issue-policy"), headers=headers)
+                else:
+                    response = client.put(
+                        _api_endpoint(args.api_url, "/tinker/proxy/issue-policy"),
+                        headers=headers,
+                        json={"policy": policy},
+                    )
+            try:
+                body = response.json()
+            except Exception:
+                body = {
+                    "surface": "tinker_proxy_issue_policy",
+                    "success": False,
+                    "outcome": "remote_non_json_response",
+                    "status_code": response.status_code,
+                    "error_kind": "non_json_response",
+                    "bounded_message": "remote endpoint returned non-json response",
+                    "raw_secret_egress": False,
+                }
+            _emit_bounded_json(body, output_path=args.output)
+            sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
+
+        from tinker_delegate.tinker_proxy import (
+            get_proxy_issue_policy_status,
+            save_proxy_issue_policy,
+        )
+
+        try:
+            result = save_proxy_issue_policy(settings, policy) if policy is not None else get_proxy_issue_policy_status(settings)
+        except ValueError as exc:
+            result = {
+                "surface": "tinker_proxy_issue_policy",
+                "success": False,
+                "error_kind": "invalid_proxy_issue_policy",
+                "bounded_message": redact_text(exc),
+                "raw_secret_egress": False,
+            }
         _emit_bounded_json(result, output_path=args.output)
         sys.exit(0 if result.get("success") else 1)
 

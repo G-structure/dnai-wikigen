@@ -374,6 +374,16 @@ run IDs, checkpoint paths, samples, or private reward data.
             proxy-authorized request above the cap before browser or payment
             automation starts. This is source/test-real; live deployment and
             on-chain/prod identity binding remain separate.
+[real]      Runtime operators can now install and inspect the hash-only issue
+            policy without SSH or image edits. `GET/PUT
+            /tinker/proxy/issue-policy` and `tinker-proxy-issue-policy` require
+            runtime bearer auth, canonicalize policy JSON, persist it at the
+            configured delegate path, and return only bounded policy/grant
+            hashes, subject hashes, recipient-key hashes, scopes, TTL caps,
+            spend caps, and `raw_secret_egress=false`. The funding-validation
+            compose carries disabled-by-default policy env knobs for the next
+            Phala redeploy. The current live `5bea...` deployment does not yet
+            include this source slice.
 [real]      The first bounded operation endpoints now accept scoped proxy JWTs:
             `proxy:status` for proxy status, `tinker:smoke` for the paid smoke
             surface, `billing:payment-method-status` for card-on-file status,

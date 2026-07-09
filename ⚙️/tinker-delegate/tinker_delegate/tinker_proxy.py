@@ -258,6 +258,137 @@ def issue_encrypted_proxy_token(
     }
 
 
+def save_proxy_issue_policy(settings, policy: dict[str, Any]) -> dict[str, Any]:
+    """Persist a canonical hash-only proxy issue policy in delegate storage."""
+
+    path = _proxy_issue_policy_path(settings, required=True)
+    normalized = normalize_proxy_issue_policy(policy)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(_canonical_json(normalized), encoding="utf-8")
+    tmp_path.replace(path)
+    return summarize_proxy_issue_policy(
+        normalized,
+        configured=True,
+        required=bool(getattr(settings, "proxy_require_issue_policy", False)),
+    )
+
+
+def get_proxy_issue_policy_status(settings) -> dict[str, Any]:
+    """Return bounded status for the configured proxy issue policy."""
+
+    policy_path = _proxy_issue_policy_path(settings, required=False)
+    if policy_path is None:
+        return {
+            "surface": "tinker_proxy_issue_policy",
+            "schema_version": 1,
+            "success": True,
+            "required": bool(getattr(settings, "proxy_require_issue_policy", False)),
+            "path_configured": False,
+            "policy_present": False,
+            "grant_count": 0,
+            "raw_secret_egress": False,
+        }
+    if not policy_path.exists():
+        return {
+            "surface": "tinker_proxy_issue_policy",
+            "schema_version": 1,
+            "success": True,
+            "required": bool(getattr(settings, "proxy_require_issue_policy", False)),
+            "path_configured": True,
+            "policy_present": False,
+            "grant_count": 0,
+            "raw_secret_egress": False,
+        }
+    policy = _load_proxy_issue_policy(str(policy_path))
+    return summarize_proxy_issue_policy(
+        policy,
+        configured=True,
+        required=bool(getattr(settings, "proxy_require_issue_policy", False)),
+    )
+
+
+def summarize_proxy_issue_policy(policy: dict[str, Any], *, configured: bool = True, required: bool = True) -> dict[str, Any]:
+    """Return bounded policy summary without raw identities or credentials."""
+
+    normalized = normalize_proxy_issue_policy(policy)
+    grants = normalized["grants"]
+    return {
+        "surface": "tinker_proxy_issue_policy",
+        "schema_version": 1,
+        "success": True,
+        "required": required,
+        "path_configured": configured,
+        "policy_present": True,
+        "policy_hash": stable_hash(_canonical_json(normalized), prefix="proxy_issue_policy"),
+        "grant_count": len(grants),
+        "grants": [
+            {
+                "grant_hash": stable_hash(_canonical_json(grant), prefix="proxy_issue_grant"),
+                "subject_hash": grant["subject_hash"],
+                "recipient_public_key_hash": grant["recipient_public_key_hash"],
+                "scopes": grant["scopes"],
+                "scope_limits": grant.get("scope_limits", {}),
+                "max_ttl_seconds": grant["max_ttl_seconds"],
+                "raw_secret_egress": False,
+            }
+            for grant in grants
+        ],
+        "raw_secret_egress": False,
+    }
+
+
+def normalize_proxy_issue_policy(policy: dict[str, Any]) -> dict[str, Any]:
+    """Validate and canonicalize a hash-only proxy issue policy."""
+
+    if not isinstance(policy, dict):
+        raise ValueError("proxy issue policy must be an object")
+    if policy.get("schema_version") != 1:
+        raise ValueError("proxy issue policy schema_version must be 1")
+    grants = policy.get("grants")
+    if not isinstance(grants, list):
+        raise ValueError("proxy issue policy grants must be a list")
+    normalized_grants: list[dict[str, Any]] = []
+    for grant in grants:
+        if not isinstance(grant, dict):
+            raise ValueError("proxy issue policy grant must be an object")
+        grant_scopes_raw = grant.get("scopes", [])
+        if not isinstance(grant_scopes_raw, list) or not all(isinstance(scope, str) for scope in grant_scopes_raw):
+            raise ValueError("proxy issue policy grant scopes must be strings")
+        grant_scopes = list(_normalize_scopes(tuple(grant_scopes_raw)))
+        max_ttl = int(grant.get("max_ttl_seconds", 0) or 0)
+        if max_ttl <= 0:
+            raise ValueError("proxy issue policy grant ttl cap is required")
+        scope_limits = _normalize_scope_limits(
+            grant.get("scope_limits", {}),
+            set(grant_scopes),
+            require_spend_limits=True,
+        )
+        normalized_grant: dict[str, Any] = {
+            "subject_hash": _normalize_hex_hash(str(grant.get("subject_hash", "")), "subject_hash"),
+            "recipient_public_key_hash": _normalize_hex_hash(
+                str(grant.get("recipient_public_key_hash", "")),
+                "recipient_public_key_hash",
+            ),
+            "scopes": grant_scopes,
+            "max_ttl_seconds": max_ttl,
+        }
+        if scope_limits:
+            normalized_grant["scope_limits"] = scope_limits
+        normalized_grants.append(normalized_grant)
+    return {
+        "schema_version": 1,
+        "grants": sorted(
+            normalized_grants,
+            key=lambda item: (
+                item["subject_hash"],
+                item["recipient_public_key_hash"],
+                ",".join(item["scopes"]),
+            ),
+        ),
+    }
+
+
 def issue_proxy_token(
     settings,
     *,
@@ -460,11 +591,27 @@ def _load_proxy_issue_policy(policy_path: str) -> dict[str, Any]:
         raise ValueError("proxy issue policy is unavailable") from exc
     except json.JSONDecodeError as exc:
         raise ValueError("proxy issue policy is invalid JSON") from exc
-    if not isinstance(policy, dict):
-        raise ValueError("proxy issue policy must be an object")
-    if policy.get("schema_version") != 1:
-        raise ValueError("proxy issue policy schema_version must be 1")
-    return policy
+    return normalize_proxy_issue_policy(policy)
+
+
+def _proxy_issue_policy_path(settings, *, required: bool) -> Path | None:
+    raw_path = str(getattr(settings, "proxy_issue_policy_path", "") or "").strip()
+    if not raw_path:
+        if required:
+            raise ValueError("proxy issue policy path is not configured")
+        return None
+    return Path(raw_path)
+
+
+def _normalize_hex_hash(value: str, field_name: str) -> str:
+    normalized = value.lower()
+    if len(normalized) != 64:
+        raise ValueError(f"proxy issue policy {field_name} must be a 64-char hex hash")
+    try:
+        int(normalized, 16)
+    except ValueError as exc:
+        raise ValueError(f"proxy issue policy {field_name} must be hex") from exc
+    return normalized
 
 
 def _canonical_json(value: Any) -> str:

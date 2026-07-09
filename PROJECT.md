@@ -117,7 +117,9 @@ For the current implementation this means:
   recipient public-key hash, scope subset, and TTL cap matches before minting a
   token. For spend-bearing scopes, policy-issued tokens can also carry bounded
   `max_amount_usd` limits that proxy routes enforce before touching browser or
-  payment automation.
+  payment automation. Operators can install this hash-only policy through a
+  runtime-authenticated bounded API/CLI, not by exposing raw upstream Tinker
+  credentials or plaintext proxy JWTs.
 - JWT delivery should use an attestation-verified encrypted channel to the
   recipient, not plaintext logs, shell history, or documentation.
 - JWT issuance and revocation should leave bounded sealed audit records so a

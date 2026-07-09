@@ -15,7 +15,9 @@ from tinker_delegate.crypto import _derive_aes_key
 from tinker_delegate.tinker_proxy import (
     PROXY_TOKEN_HKDF_INFO,
     build_tinker_proxy_status,
+    get_proxy_issue_policy_status,
     issue_encrypted_proxy_token,
+    save_proxy_issue_policy,
     verify_proxy_token,
 )
 from tinker_delegate.tinker_proxy_store import build_proxy_token_store
@@ -73,6 +75,7 @@ def _write_proxy_issue_policy(
     }
     with open(path, "w") as handle:
         json.dump(policy, handle, sort_keys=True)
+    return policy
 
 
 class TinkerProxyTest(unittest.TestCase):
@@ -322,6 +325,37 @@ class TinkerProxyTest(unittest.TestCase):
                     recipient_public_key_hex=public_key_hex,
                     ttl_seconds=60,
                 )
+
+    def test_save_proxy_issue_policy_writes_canonical_bounded_summary(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            input_policy_path = os.path.join(tmpdir, "input-policy.json")
+            policy = _write_proxy_issue_policy(
+                input_policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["billing:add-balance"],
+                ttl=60,
+                scope_limits={"billing:add-balance": {"max_amount_usd": 10}},
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+            )
+
+            saved = save_proxy_issue_policy(settings, policy)
+            status = get_proxy_issue_policy_status(settings)
+
+        rendered = repr([saved, status])
+        self.assertTrue(saved["success"])
+        self.assertTrue(status["policy_present"])
+        self.assertEqual(status["grant_count"], 1)
+        self.assertEqual(status["grants"][0]["scope_limits"]["billing:add-balance"]["max_amount_usd"], 10.0)
+        self.assertFalse(status["raw_secret_egress"])
+        self.assertNotIn("buyer-agent-1", rendered)
+        self.assertNotIn(public_key_hex, rendered)
 
     def test_issuer_rejects_unapproved_subject(self):
         with tempfile.TemporaryDirectory() as tmpdir:
