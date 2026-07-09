@@ -198,44 +198,53 @@ def run_funding_validation_packet(
                 reauth_fn=reauth_fn or _post_reauth,
             )
 
-        receipt = _load_or_create_receipt(
-            receipt_path=receipt_path,
-            receipt_json=receipt_json,
-            run_card_attempt=run_card_attempt,
-            card_data=card_data,
-            api_url=api_url,
-            policy=BillingCardUploadPolicy(
-                expected_compose_hash=expected_compose_hash,
-                expected_app_id=expected_app_id,
-                expected_os_image_hash=expected_os_image_hash,
-                allow_local=allow_local_attestation,
-                auth_token=auth_token,
-            ),
-            upload_fn=upload_fn,
-        )
+        receipt: dict[str, Any] | None = None
+        manifest: dict[str, Any] | None = None
+        verification: dict[str, Any] | None = None
+        card_receipt_requested = bool(receipt_json is not None or run_card_attempt)
+        add_balance_receipt_requested = bool(add_balance_receipt_json is not None or run_add_balance_attempt)
+        if not card_receipt_requested and not add_balance_receipt_requested:
+            raise ValueError("funding-validation-packet requires payment-method or add-balance evidence")
 
-        manifest = build_funding_validation_manifest(
-            preflight=preflight,
-            receipt=receipt,
-            validation_id=validation_id,
-            attestation_policy=policy,
-        ).to_public_dict()
-        _write_bounded_json(manifest_path, manifest)
+        if card_receipt_requested:
+            receipt = _load_or_create_receipt(
+                receipt_path=receipt_path,
+                receipt_json=receipt_json,
+                run_card_attempt=run_card_attempt,
+                card_data=card_data,
+                api_url=api_url,
+                policy=BillingCardUploadPolicy(
+                    expected_compose_hash=expected_compose_hash,
+                    expected_app_id=expected_app_id,
+                    expected_os_image_hash=expected_os_image_hash,
+                    allow_local=allow_local_attestation,
+                    auth_token=auth_token,
+                ),
+                upload_fn=upload_fn,
+            )
 
-        verification = verify_funding_validation_manifest(
-            preflight=preflight,
-            receipt=receipt,
-            manifest=manifest,
-            validation_id=validation_id,
-            attestation_policy=policy,
-            require_ready=True,
-        ).to_public_dict()
-        _write_bounded_json(verification_path, verification)
+            manifest = build_funding_validation_manifest(
+                preflight=preflight,
+                receipt=receipt,
+                validation_id=validation_id,
+                attestation_policy=policy,
+            ).to_public_dict()
+            _write_bounded_json(manifest_path, manifest)
+
+            verification = verify_funding_validation_manifest(
+                preflight=preflight,
+                receipt=receipt,
+                manifest=manifest,
+                validation_id=validation_id,
+                attestation_policy=policy,
+                require_ready=True,
+            ).to_public_dict()
+            _write_bounded_json(verification_path, verification)
 
         add_balance_receipt: dict[str, Any] | None = None
         add_balance_manifest: dict[str, Any] | None = None
         add_balance_verification: dict[str, Any] | None = None
-        if add_balance_receipt_json is not None or run_add_balance_attempt:
+        if add_balance_receipt_requested:
             add_balance_receipt = _load_or_create_add_balance_receipt(
                 receipt_path=add_balance_receipt_path,
                 receipt_json=add_balance_receipt_json,
@@ -266,14 +275,14 @@ def run_funding_validation_packet(
         return _write_summary(
             summary_path,
             FundingValidationPacketResult(
-                ok=bool(verification["ok"]) and (
+                ok=(verification is None or bool(verification["ok"])) and (
                     add_balance_verification is None or bool(add_balance_verification["ok"])
                 ),
                 output_dir=str(output_dir),
                 preflight_path=str(preflight_path),
-                receipt_path=str(receipt_path),
-                manifest_path=str(manifest_path),
-                verification_path=str(verification_path),
+                receipt_path=str(receipt_path) if receipt else "",
+                manifest_path=str(manifest_path) if manifest else "",
+                verification_path=str(verification_path) if verification else "",
                 add_balance_receipt_path=str(add_balance_receipt_path) if add_balance_receipt else "",
                 add_balance_manifest_path=str(add_balance_manifest_path) if add_balance_manifest else "",
                 add_balance_verification_path=(
@@ -284,19 +293,19 @@ def run_funding_validation_packet(
                 reauth_attempt_run=run_reauth_attempt,
                 add_balance_attempt_run=run_add_balance_attempt,
                 reauth_receipt_path=str(reauth_receipt_path) if reauth_receipt else "",
-                receipt_surface=str(receipt.get("surface", "")),
+                receipt_surface=str(receipt.get("surface", "")) if receipt else "",
                 reauth_receipt_outcome=(
                     str(reauth_receipt.get("outcome", "")) if reauth_receipt else ""
                 ),
-                receipt_outcome=str(receipt.get("outcome", "")),
+                receipt_outcome=str(receipt.get("outcome", "")) if receipt else "",
                 add_balance_receipt_outcome=(
                     str(add_balance_receipt.get("outcome", "")) if add_balance_receipt else ""
                 ),
-                manifest_hash=str(manifest.get("manifest_hash", "")),
+                manifest_hash=str(manifest.get("manifest_hash", "")) if manifest else "",
                 add_balance_manifest_hash=(
                     str(add_balance_manifest.get("manifest_hash", "")) if add_balance_manifest else ""
                 ),
-                verification_ok=bool(verification["ok"]),
+                verification_ok=bool(verification["ok"]) if verification else False,
                 add_balance_verification_ok=(
                     bool(add_balance_verification["ok"]) if add_balance_verification else False
                 ),
@@ -480,7 +489,7 @@ def check_funding_validation_packet(
         "add_balance_verification": packet_dir / "add-balance-verification.json",
     }
 
-    required_names = ("preflight", "receipt", "manifest", "verification", "summary")
+    required_names = ("preflight", "summary")
     missing_required = [name for name in required_names if not paths[name].exists()]
     checks.append(_packet_check(
         "required_files",
@@ -497,9 +506,6 @@ def check_funding_validation_packet(
 
     try:
         preflight = _load_packet_json(paths["preflight"])
-        receipt = _load_packet_json(paths["receipt"])
-        manifest = _load_packet_json(paths["manifest"])
-        verification_file = _load_packet_json(paths["verification"])
         summary = _load_packet_json(paths["summary"])
     except ValueError as exc:
         checks.append(_packet_check("bounded_json", False, str(exc)))
@@ -510,30 +516,75 @@ def check_funding_validation_packet(
             issued_at=issued_at,
         )
 
-    payment_verification = verify_funding_validation_manifest(
-        preflight=preflight,
-        receipt=receipt,
-        manifest=manifest,
-        validation_id=validation_id,
-        attestation_policy=policy,
-        require_ready=True,
-    ).to_public_dict()
+    payment_names = ("receipt", "manifest", "verification")
+    add_balance_names = ("add_balance_receipt", "add_balance_manifest", "add_balance_verification")
+    payment_file_count = sum(1 for name in payment_names if paths[name].exists())
+    add_balance_file_count = sum(1 for name in add_balance_names if paths[name].exists())
+    payment_present = payment_file_count == len(payment_names)
+    add_balance_present = add_balance_file_count == len(add_balance_names)
+    payment_partial = 0 < payment_file_count < len(payment_names)
+    add_balance_partial = 0 < add_balance_file_count < len(add_balance_names)
+    if payment_partial:
+        checks.append(_packet_check("payment_files", False, "partial"))
+    if add_balance_partial:
+        checks.append(_packet_check("add_balance_files", False, "partial"))
     checks.append(_packet_check(
-        "payment_manifest_replay",
-        bool(payment_verification["ok"]),
-        "ok" if payment_verification["ok"] else "failed",
+        "evidence_files",
+        (payment_present or add_balance_present) and not payment_partial and not add_balance_partial,
+        "present" if payment_present or add_balance_present else "missing",
     ))
-    checks.append(_packet_check(
-        "payment_verification_file",
-        verification_file.get("ok") is True
-        and verification_file.get("manifest_hash") == payment_verification.get("manifest_hash"),
-        "matches" if verification_file.get("manifest_hash") == payment_verification.get("manifest_hash") else "mismatch",
-    ))
-    checks.append(_packet_check(
-        "summary_payment_hash",
-        summary.get("manifest_hash") == manifest.get("manifest_hash"),
-        "matches" if summary.get("manifest_hash") == manifest.get("manifest_hash") else "mismatch",
-    ))
+    if payment_partial or add_balance_partial or (not payment_present and not add_balance_present):
+        return FundingValidationPacketCheck(
+            ok=False,
+            packet_dir=str(packet_dir),
+            checks=checks,
+            summary_ok=bool(summary.get("ok")),
+            issued_at=issued_at,
+        )
+
+    manifest: dict[str, Any] | None = None
+    payment_manifest_hash = ""
+    if payment_present:
+        try:
+            receipt = _load_packet_json(paths["receipt"])
+            manifest = _load_packet_json(paths["manifest"])
+            verification_file = _load_packet_json(paths["verification"])
+        except ValueError as exc:
+            checks.append(_packet_check("payment_bounded_json", False, str(exc)))
+        else:
+            payment_verification = verify_funding_validation_manifest(
+                preflight=preflight,
+                receipt=receipt,
+                manifest=manifest,
+                validation_id=validation_id,
+                attestation_policy=policy,
+                require_ready=True,
+            ).to_public_dict()
+            payment_manifest_hash = str(manifest.get("manifest_hash", ""))
+            checks.append(_packet_check(
+                "payment_manifest_replay",
+                bool(payment_verification["ok"]),
+                "ok" if payment_verification["ok"] else "failed",
+            ))
+            checks.append(_packet_check(
+                "payment_verification_file",
+                verification_file.get("ok") is True
+                and verification_file.get("manifest_hash") == payment_verification.get("manifest_hash"),
+                "matches"
+                if verification_file.get("manifest_hash") == payment_verification.get("manifest_hash")
+                else "mismatch",
+            ))
+            checks.append(_packet_check(
+                "summary_payment_hash",
+                summary.get("manifest_hash") == manifest.get("manifest_hash"),
+                "matches" if summary.get("manifest_hash") == manifest.get("manifest_hash") else "mismatch",
+            ))
+    else:
+        checks.append(_packet_check(
+            "payment_files",
+            True,
+            "not_required_for_add_balance_only",
+        ))
 
     deployed_evidence = _has_deployed_attestation(preflight)
     checks.append(_packet_check(
@@ -542,10 +593,6 @@ def check_funding_validation_packet(
         "tdx_verified" if deployed_evidence else "not_required" if not require_deployed_attestation else "missing",
     ))
 
-    add_balance_present = all(
-        paths[name].exists()
-        for name in ("add_balance_receipt", "add_balance_manifest", "add_balance_verification")
-    )
     checks.append(_packet_check(
         "add_balance_files",
         add_balance_present if require_add_balance else True,
@@ -598,7 +645,7 @@ def check_funding_validation_packet(
         ok=all(check["ok"] for check in checks),
         packet_dir=str(packet_dir),
         checks=checks,
-        payment_manifest_hash=str(manifest.get("manifest_hash", "")),
+        payment_manifest_hash=payment_manifest_hash,
         add_balance_manifest_hash=add_balance_manifest_hash,
         summary_ok=bool(summary.get("ok")),
         deployed_evidence=deployed_evidence,

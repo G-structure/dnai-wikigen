@@ -358,6 +358,21 @@ encumbrance preflight returns `allowed=true` for `$10` add-balance with
 funding is still not proven until a bounded add-balance receipt and live balance
 read show the top-up succeeded.
 
+Add-balance-only packet tooling follow-up, 2026-07-09: packet
+`/tmp/dnai-tinker-add-balance-packet-20260709T093900Z` did not reach the live
+browser or charge path. It failed locally before any add-balance mutation with
+`ValueError: no receipt_json provided and run_card_attempt is false`, because
+the packet runner still required payment-method evidence even when the card was
+already on file and only `--run-add-balance-attempt` was requested. Source now
+allows card-on-file add-balance-only packets: it writes preflight, add-balance
+receipt, add-balance manifest, add-balance verification, and summary without
+creating payment-method receipt/manifest files. The replay checker also accepts
+that shape when `--require-add-balance` is set. Focused validation passed with
+`uv run python -m unittest tests.test_funding_validation_packet` and
+`uv run python -m py_compile tinker_delegate/funding_validation_packet.py
+tests/test_funding_validation_packet.py`. Funding remains unproven until the
+fixed command produces a bounded add-balance receipt and balance read-back.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce

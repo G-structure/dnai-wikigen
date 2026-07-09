@@ -310,6 +310,72 @@ class FundingValidationPacketTest(unittest.TestCase):
             verification = json.loads((output_dir / "add-balance-verification.json").read_text(encoding="utf-8"))
             self.assertTrue(verification["ok"])
 
+    def test_runner_allows_add_balance_only_packet_when_card_is_on_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "packet"
+            settings = Settings(
+                funding_mode="operator_capped_validation",
+                allow_add_balance_endpoint=True,
+                funding_receipt_store_path=str(Path(tmpdir) / "funding_receipts.enc"),
+                funding_receipt_store_key="ab" * 32,
+            )
+
+            def fake_add_balance(api_url, amount_dollars, auth_token):
+                self.assertEqual(api_url, "http://localhost:8080")
+                self.assertEqual(amount_dollars, 10.0)
+                self.assertEqual(auth_token, "operator-secret")
+                return {
+                    "success": False,
+                    "error": "Add-balance completion not confirmed",
+                    "attempt_record": {
+                        **_add_balance_receipt(),
+                        "outcome": "unknown_failure",
+                        "furthest_stage": "add_balance_submitted",
+                        "bounded_message": "Add-balance completion not confirmed",
+                    },
+                }
+
+            result = run_funding_validation_packet(
+                settings,
+                output_dir=output_dir,
+                api_url="http://localhost:8080",
+                amount_dollars=10.0,
+                allow_local_attestation=True,
+                validation_id="operator-run-1",
+                run_add_balance_attempt=True,
+                auth_token="operator-secret",
+                add_balance_fn=fake_add_balance,
+            ).to_public_dict()
+
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["add_balance_attempt_run"])
+            self.assertFalse(result["card_attempt_run"])
+            self.assertEqual(result["receipt_path"], "")
+            self.assertEqual(result["manifest_path"], "")
+            self.assertEqual(result["verification_path"], "")
+            self.assertEqual(result["receipt_surface"], "")
+            self.assertEqual(result["receipt_outcome"], "")
+            self.assertEqual(result["manifest_hash"], "")
+            self.assertFalse(result["verification_ok"])
+            self.assertEqual(result["add_balance_receipt_outcome"], "unknown_failure")
+            self.assertTrue(result["add_balance_receipt_path"].endswith("add-balance-receipt.json"))
+            self.assertTrue(result["add_balance_manifest_path"].endswith("add-balance-manifest.json"))
+            self.assertTrue(result["add_balance_verification_path"].endswith("add-balance-verification.json"))
+            self.assertFalse((output_dir / "payment-method-receipt.json").exists())
+            self.assertFalse((output_dir / "funding-manifest.json").exists())
+            self.assertFalse((output_dir / "funding-verification.json").exists())
+
+            check = check_funding_validation_packet(
+                packet_dir=output_dir,
+                validation_id="operator-run-1",
+                require_add_balance=True,
+            ).to_public_dict()
+            self.assertTrue(check["ok"])
+            self.assertEqual(check["payment_manifest_hash"], "")
+            checks = {item["name"]: item for item in check["checks"]}
+            self.assertEqual(checks["payment_files"]["status"], "not_required_for_add_balance_only")
+            self.assertEqual(checks["add_balance_manifest_replay"]["status"], "ok")
+
     def test_runner_reauth_attempt_uses_runtime_auth_token(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             receipt_path = Path(tmpdir) / "existing-receipt.json"

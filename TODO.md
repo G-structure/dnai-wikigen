@@ -1543,6 +1543,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   `allowed=true` for `$10`.
             - [ ] Rerun a `$10` add-balance attempt without re-entering card
                   details unless the bounded card-on-file status changes.
+                  Source/test fix 2026-07-09: `funding-validation-packet` now
+                  supports an add-balance-only packet for the card-on-file case.
+                  It no longer requires a payment-method receipt when
+                  `--run-add-balance-attempt` or `--add-balance-receipt-json`
+                  supplies the bounded evidence, and
+                  `check-funding-validation-packet --require-add-balance`
+                  replay-verifies that packet shape.
             The item remains unchecked until a bounded add-balance receipt and
             live balance read prove a low-value top-up succeeded; the CVM
             dev-OS warning also remains before production.

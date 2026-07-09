@@ -1131,7 +1131,13 @@ Implementation status:
             summary fields. The runner can bind an existing bounded top-up
             receipt, or POST only the amount to `/billing/add-balance` when
             `--run-add-balance-attempt` is explicitly set and `--amount` is
-            provided.
+            provided. When a bounded `card_on_file` check already establishes
+            that Tinker has a payment method, an add-balance-only packet is
+            valid: it writes only the add-balance receipt/manifest/verification
+            plus preflight and summary, and replay checking accepts that shape
+            with `--require-add-balance`. It still refuses empty packets and
+            does not include card details, card metadata, or payment-method
+            receipts unless a card attempt is explicitly requested.
 [real]      `docker-compose.tinker-funding-validation.phala.yaml` is a
             temporary one-shot Phala profile for capped operator validation.
             It uses registry digest images only, disables signup/bootstrap and
