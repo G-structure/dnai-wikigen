@@ -1105,7 +1105,7 @@
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "fundingValidationEvidence": {
-      "status": "live_redeployed_modal_fix_pending_compose_approval",
+      "status": "payment_method_success_add_balance_unconfirmed_classifier_fix_pending_deploy",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
       "sourceDigest": "658f6020db9972e0f7e1e914f72422ff5d08535f",
       "githubActionsRunId": 29001302688,
@@ -1143,16 +1143,16 @@
         "bootstrapAttempted": false
       },
       "fundingPreflight": {
-        "ready": false,
+        "ready": true,
         "amount": 10,
         "attestationFetch": "live_attestation_matched_expected_7edf41_compose_hash",
         "addBalanceEndpoint": "enabled_behind_runtime_bearer_auth",
         "fundingMode": "operator_capped_validation",
         "minAddBalanceUsd": 10,
         "maxAddBalanceUsd": 10,
-        "encumbranceAllowed": false,
+        "encumbranceAllowed": true,
         "stalePreviousReadyAmount": 10,
-        "staleReason": "compose_hash_not_approved"
+        "staleReason": ""
       },
       "reauthAttempt": {
         "success": true,
@@ -1179,15 +1179,15 @@
         "storesRawCookiesOrLocalStorageInPlaintext": false
       },
       "fundingCommandPlan": {
-        "status": "blocked_until_7edf41_compose_approval",
+        "status": "payment_method_success_add_balance_unconfirmed",
         "amount": 10,
         "encumbranceContract": "0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e",
-        "composeHashApproved": false,
+        "composeHashApproved": true,
         "runtimeAuthRequired": true,
         "rawSecretEgress": false,
-        "latestLocalPlanCheck": "tinker_encumbrance_preflight_compose_hash_not_approved"
+        "latestLocalPlanCheck": "preflight_ready_true_after_compose_approval"
       },
-      "nextStep": "operator must approve compose hash 0x7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476 in TinkerAccountEncumbrance, then rerun the $10 funding-validation packet; do not commit or echo card details; production still requires non-dev OS before claiming final deployment",
+      "nextStep": "build, attest, redeploy, and approve the add-balance receipt classifier fix, then rerun a $10 add-balance attempt; do not commit or echo card details; production still requires non-dev OS before claiming final deployment",
       "postSelectorDiagnosticsRestore": {
         "date": "2026-07-09",
         "attestedComposeHash": "7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
@@ -1200,40 +1200,55 @@
       },
       "nekoImage": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:fd6a65a894befc66901ed7b915c792f3a669b74ef4ace01813815e1f1030b456",
       "paymentMethodStatus": {
-        "success": true,
-        "cardOnFile": false,
-        "paymentMethodCountBand": "zero",
-        "outcome": "success",
+        "success": false,
+        "cardOnFile": null,
+        "paymentMethodCountBand": "unknown",
+        "outcome": "unknown_failure",
         "furthestStage": "billing_page_loaded",
-        "evidenceHash": "eef006f1698ac9c39549deccf64b53218f12f99f620b7f264d283473f74933f1",
+        "evidenceHash": "0b1e073401f28906cbc12339e6b78cb4bca020c4ac0d878097b7a274445b3f92",
         "rawSecretEgress": false
       },
       "balanceRead": {
-        "success": false,
-        "errorKind": "navigation_aborted",
+        "success": true,
+        "balance": "unknown",
+        "errorKind": "",
         "rawSecretEgress": false
       },
       "composeApproval": {
         "composeHash": "0x7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476",
-        "approved": false,
-        "tx": "",
-        "block": 0,
+        "approved": true,
+        "tx": "0x0821933345af2d0090ed0ce99e8bc0c4856202b84ef6fbe5dd184dacdba50ad2",
+        "block": 43907277,
         "previousApprovedComposeHash": "0x9f0754be7b7bcd3db9c808e5630f7f0aca39a33bbe37f898b8714de6d9aa4d71",
         "previousApprovalTx": "0xb7e6d0fc504146d88005339bd859142a5f2d6c3f99315d81cb00742ebc15d48e"
       },
       "latestPacketAttempt": {
-        "packetDir": "/tmp/dnai-tinker-funding-validation-packet-20260709T065233Z",
-        "ok": false,
-        "errorKind": "ReadTimeout",
+        "packetDir": "/tmp/dnai-tinker-funding-validation-packet-20260709T074049Z",
+        "ok": true,
+        "errorKind": "",
         "preflightReady": true,
         "cardAttemptRun": true,
         "reauthAttemptRun": false,
         "addBalanceAttemptRun": true,
-        "paymentMethodReceiptWritten": false,
-        "addBalanceReceiptWritten": false,
-        "postAttemptCardOnFile": false,
-        "paymentMethodCountBand": "zero",
+        "paymentMethodReceiptWritten": true,
+        "paymentMethodReceiptOutcome": "success",
+        "paymentMethodFurthestStage": "payment_submitted",
+        "paymentMethodReceiptHash": "dedb6b44cdb0c3f8822ceeeeb05fcd79c56b982b94049e379d385b0b99a5138f",
+        "addBalanceReceiptWritten": true,
+        "addBalanceReceiptOutcome": "unknown_failure",
+        "addBalanceFurthestStage": "add_balance_submitted",
+        "addBalanceReceiptHash": "cae4ae05f6f0eb5b3714d867fbd906cbf3fdafa3f757c5640689df1b3d43af5d",
+        "addBalanceManifestHash": "f1f9d469b1bf2c7130607c79b34ab59db68bdaa1cabcb8ded3d3aba81f839236",
+        "postAttemptCardOnFile": null,
+        "paymentMethodCountBand": "unknown",
         "rawSecretEgress": false
+      },
+      "pendingSourceFix": {
+        "status": "local_tests_passed_not_deployed",
+        "narrowPaymentMethodErrorRegex": true,
+        "requireExplicitAddBalanceSuccessCopy": true,
+        "boundedUnconfirmedAddBalanceMessage": true,
+        "boundedCardStatusUsesRemoveControlSignal": true
       },
       "clientFix": {
         "commit": "658f602",

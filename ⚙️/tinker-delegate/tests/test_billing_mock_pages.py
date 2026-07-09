@@ -7,12 +7,14 @@ from tinker_delegate.billing import (
     ADD_PAYMENT_METHOD_SELECTORS,
     ADD_TO_BALANCE_SELECTORS,
     CARDHOLDER_NAME_SELECTORS,
+    REMOVE_PAYMENT_METHOD_SELECTORS,
     CardDetails,
     _do_add_payment_method,
     _fill_stripe_card,
     _find_stripe_card_frame,
     _amount_choice_selectors,
     add_balance,
+    get_payment_method_status,
 )
 from tinker_delegate.config import Settings
 
@@ -539,6 +541,51 @@ class BillingMockPagesTest(unittest.IsolatedAsyncioTestCase):
             ),
             page.actions,
         )
+
+    async def test_add_balance_reports_unconfirmed_completion_without_page_text(self):
+        page = FakeBillingPage(
+            initial_text="Current balance $0",
+            result_text="Payment methods Billing history Credit grants Pricing Settings Current balance Credit available to spend.",
+        )
+
+        with (
+            patch("tinker_delegate.billing.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.billing.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.billing.get_browser_context", new=AsyncMock(return_value=FakeContext(page))),
+            patch("tinker_delegate.billing.asyncio.sleep", new=AsyncMock()),
+        ):
+            result = await add_balance(10.0, Settings(min_add_balance_usd=10.0, max_add_balance_usd=10.0))
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Add-balance completion not confirmed")
+        self.assertEqual(result["attempt_record"]["outcome"], "unknown_failure")
+        self.assertEqual(result["attempt_record"]["furthest_stage"], "add_balance_submitted")
+        self.assertNotIn("Payment methods", result["attempt_record"]["bounded_message"])
+        self.assertNotIn("Credit available", repr(result))
+
+    async def test_payment_method_status_uses_remove_control_without_card_details(self):
+        page = FakeBillingPage(
+            initial_text="Current balance $0",
+            result_text="Payment methods Billing history Credit grants Pricing Settings",
+            available_overrides={
+                'button:has-text("Payment methods")': 1,
+                REMOVE_PAYMENT_METHOD_SELECTORS[0]: 1,
+            },
+        )
+
+        with (
+            patch("tinker_delegate.billing.async_playwright", return_value=AsyncPlaywrightStub()),
+            patch("tinker_delegate.billing.connect_chromium", new=AsyncMock(return_value=object())),
+            patch("tinker_delegate.billing.get_browser_context", new=AsyncMock(return_value=FakeContext(page))),
+            patch("tinker_delegate.billing.asyncio.sleep", new=AsyncMock()),
+        ):
+            result = await get_payment_method_status(Settings())
+
+        self.assertTrue(result["success"])
+        self.assertTrue(result["card_on_file"])
+        self.assertEqual(result["payment_method_count_band"], "one_or_more")
+        self.assertEqual(result["attempt_record"]["bounded_message"], "payment_method_count:one_or_more")
+        self.assertNotIn("Payment methods Billing history", repr(result))
 
 
 if __name__ == "__main__":

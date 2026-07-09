@@ -1493,7 +1493,7 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   raw Playwright/page text, and fix masked-prompt newlines.
                   Focused tests cover the scrim fallback and receipt/message
                   boundaries.
-            - [ ] Build, attest, redeploy, and approve the new modal-dismiss
+            - [x] Build, attest, redeploy, and approve the new modal-dismiss
                   funding-validation image before the next real-card packet.
                   Build/redeploy evidence 2026-07-09: source
                   `658f6020db9972e0f7e1e914f72422ff5d08535f` built in GitHub
@@ -1502,10 +1502,27 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   has verified provenance/SBOM attestations; Phala now attests
                   compose hash
                   `7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476`
-                  and `/auth/reauth` plus bounded card-status succeed. This
-                  subtask remains unchecked only because the new compose hash
-                  is not yet approved on-chain:
-                  `approvedComposeHashes(0x7edf41...) == false`.
+                  and `/auth/reauth` plus bounded card-status succeed. Follow-up
+                  2026-07-09: compose approval succeeded in tx
+                  `0x0821933345af2d0090ed0ce99e8bc0c4856202b84ef6fbe5dd184dacdba50ad2`
+                  at block `43907277`; packet
+                  `/tmp/dnai-tinker-funding-validation-packet-20260709T074049Z`
+                  produced `payment_method` `success` at `payment_submitted`
+                  with card payload destroyed and no raw secret egress. The
+                  add-balance leg reached `add_balance_submitted` but remained
+                  `unknown_failure`; live balance read-back did not prove a
+                  top-up.
+            - [x] Source/test fix: stop treating `Payment methods` navigation
+                  text as a billing error and require explicit add-balance
+                  success copy before returning a successful add-balance
+                  receipt. Unconfirmed top-ups now fail closed with a bounded
+                  `Add-balance completion not confirmed` message instead of
+                  returning page chrome in `bounded_message`; card-on-file
+                  status now uses bounded DOM signals such as remove-card
+                  controls instead of returning card details or assuming an
+                  add-card button means zero cards.
+            - [ ] Build, attest, redeploy, and approve the add-balance receipt
+                  classifier fix before rerunning a top-up attempt.
             The item remains unchecked until a bounded add-balance receipt and
             live balance read prove a low-value top-up succeeded; the CVM
             dev-OS warning also remains before production.

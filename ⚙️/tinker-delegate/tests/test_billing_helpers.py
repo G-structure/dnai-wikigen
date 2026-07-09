@@ -7,6 +7,7 @@ from tinker_delegate.billing import (
     CardDetails,
     add_balance,
     add_payment_method,
+    _add_balance_success_detected,
     _debug_screenshot,
     _add_balance_result,
     _billing_error_message,
@@ -51,6 +52,19 @@ class BillingHelpersTest(unittest.TestCase):
 
         self.assertIsNone(_billing_error_message(text))
 
+    def test_billing_error_message_does_not_treat_payment_methods_nav_as_failure(self):
+        text = "Payment methods Billing history Credit grants Pricing Settings Current balance Credit available to spend."
+
+        self.assertIsNone(_billing_error_message(text))
+
+    def test_add_balance_success_requires_explicit_success_copy(self):
+        self.assertTrue(_add_balance_success_detected("Credit added to your balance."))
+        self.assertFalse(
+            _add_balance_success_detected(
+                "Payment methods Billing history Credit grants Pricing Settings Current balance Credit available to spend."
+            )
+        )
+
     def test_payment_method_status_text_is_bounded_for_empty_state(self):
         status = _payment_method_status_from_text("No payment methods yet. Add a card to get started.")
 
@@ -62,6 +76,18 @@ class BillingHelpersTest(unittest.TestCase):
 
         self.assertEqual(status["card_on_file"], True)
         self.assertEqual(status["payment_method_count_band"], "one_or_more")
+
+    def test_payment_method_status_uses_bounded_remove_control_signal(self):
+        status = _payment_method_status_from_text("Payment methods", remove_control_present=True)
+
+        self.assertEqual(status["card_on_file"], True)
+        self.assertEqual(status["payment_method_count_band"], "one_or_more")
+
+    def test_payment_method_status_does_not_treat_add_button_alone_as_empty(self):
+        status = _payment_method_status_from_text("Payment methods Add payment method")
+
+        self.assertIsNone(status["card_on_file"])
+        self.assertEqual(status["payment_method_count_band"], "unknown")
 
     def test_payment_method_result_returns_bounded_decline_receipt(self):
         result = _payment_method_result(

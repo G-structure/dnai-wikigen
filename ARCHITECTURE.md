@@ -282,12 +282,15 @@ path likely reached card-on-file UI copy, while add-balance stopped at a missing
 amount selector. Source now treats card-management copy as bounded
 payment-method success and can choose scoped preset top-up amounts; that fix has
 been deployed and approved, and `$10` preflight now passes. The latest real-card
-packet still did not prove funding: payment-method fallback was blocked by an
-open modal scrim, and add-balance returned an unconfirmed failure after submit.
-Local source now dismisses open billing dialogs before background tab fallback
-and bounds browser-exception receipt messages to outcome classes, but that
-hardening still needs a GitHub-attested image, Phala redeploy, compose-hash
-approval, and a successful bounded add-balance receipt before funding is real.
+packet still did not prove funding, but it did prove the deployed
+encrypted-card/payment-method leg: the payment-method receipt succeeded at
+`payment_submitted` with card payload destroyed and no raw secret egress.
+Add-balance reached `add_balance_submitted` and then returned an unconfirmed
+failure. Local source now narrows the billing-error classifier, requires
+explicit add-balance success copy before returning success, and uses bounded DOM
+signals such as remove-card controls for card-on-file status; that hardening
+still needs a GitHub-attested image, Phala redeploy, compose-hash approval, and
+a successful bounded add-balance receipt before funding is real.
 The billing control plane also has a bounded card-on-file status path and
 admin/operator card-removal path: callers can learn only whether a payment
 method appears present and a zero/one-or-more/unknown count band, never card
@@ -1205,12 +1208,19 @@ Implementation status:
             and redeployed to the existing CVM. The live TDX envelope now
             reports compose hash
             `7edf41c2b7bec5531639df94b90e2d2b5d1ac181f07db17f012c085d8cdb6476`;
-            reauth succeeds and card status is bounded `zero`. The funding
-            path is currently fail-closed on the encumbrance contract because
-            that new compose hash is not approved on-chain. The profile is
-            still not production-final because the CVM reports dev OS, quote
-            internals are not parsed, and a successful live real-card
-            add-balance receipt has not yet been produced.
+            reauth succeeds, and the operator approved that compose hash
+            on-chain. The next deployed packet produced a real `payment_method`
+            success at `payment_submitted`, proving the encrypted-card/payment
+            method leg. Add-balance remains partial: the
+            receipt reached `add_balance_submitted` but was unconfirmed and
+            exposed an overly broad billing-error classifier for `Payment
+            methods` navigation text. Source now tightens that classifier and
+            requires explicit add-balance success copy before returning success;
+            this fix needs another build/redeploy/approval before the next
+            top-up attempt. The profile is still not production-final because
+            the CVM reports dev OS, quote internals are not parsed, and a
+            successful live real-card add-balance receipt has not yet been
+            produced.
 [real]      Source/tests now distinguish billing selector drift from auth-state
             failure before card fields or top-up controls are touched. The
             payment-method and add-balance flows classify a billing navigation

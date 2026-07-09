@@ -336,7 +336,7 @@ def _billing_error_message(text: str) -> str | None:
         r"(Your card[^.]*\.)",
         r"(The card[^.]*\.)",
         r"(This card (?:was|is|has)[^.]*\.)",
-        r"(Payment method[^.]*\.)",
+        r"(Payment method\b(?: required| failed| was| is| has| could| cannot| can't| not)[^.]*\.)",
         r"(Unable to[^.]*\.)",
         r"(Failed to[^.]*\.)",
         r"(declined[^.]*\.)",
@@ -350,6 +350,23 @@ def _billing_error_message(text: str) -> str | None:
         if match:
             return match.group(1).strip()
     return None
+
+
+def _add_balance_success_detected(text: str) -> bool:
+    """Return true only for explicit add-balance success copy."""
+    normalized = re.sub(r"\s+", " ", text).strip().lower()
+    success_hints = (
+        "added to your balance",
+        "credit added",
+        "balance updated",
+        "payment successful",
+        "payment succeeded",
+        "transaction successful",
+        "add balance successful",
+        "add credit successful",
+        "balance ending in card accepted",
+    )
+    return any(hint in normalized for hint in success_hints)
 
 
 async def _debug_screenshot(page: Page, settings: Settings, path: str, *, contains_secrets: bool = False) -> bool:
@@ -382,6 +399,14 @@ async def _fill_first_available(scope, selectors: tuple[str, ...], value: str) -
         await locator.first.fill(value)
         return selector
     return None
+
+
+async def _any_available(scope, selectors: tuple[str, ...]) -> bool:
+    """Return whether any selector in a bounded family is present."""
+    for selector in selectors:
+        if await scope.locator(selector).count() > 0:
+            return True
+    return False
 
 
 def _amount_choice_selectors(amount_dollars: float) -> tuple[str, ...]:
@@ -429,16 +454,16 @@ async def _dismiss_open_dialog(page: Page) -> bool:
     return False
 
 
-def _payment_method_status_from_text(text: str) -> dict:
+def _payment_method_status_from_text(text: str, *, remove_control_present: bool = False) -> dict:
     """Return bounded card-on-file status without card brand, last4, or expiry."""
     lowered = text.lower()
     no_card = (
         "no payment methods yet" in lowered
         or "add a card to get started" in lowered
-        or ("add payment method" in lowered and "this card can be removed at any time" not in lowered)
     )
     card_on_file = (
-        "this card can be removed at any time" in lowered
+        remove_control_present
+        or "this card can be removed at any time" in lowered
         or "default payment method" in lowered
         or "remove card" in lowered
     )
@@ -679,7 +704,10 @@ async def add_balance(amount_dollars: float, settings: Settings | None = None) -
         error_msg = _billing_error_message(text)
         if error_msg:
             return _add_balance_result(False, error_msg, amount_dollars, furthest_stage, error_msg)
-        return _add_balance_result(True, None, amount_dollars, furthest_stage, text)
+        if _add_balance_success_detected(text):
+            return _add_balance_result(True, None, amount_dollars, furthest_stage, text)
+        error = "Add-balance completion not confirmed"
+        return _add_balance_result(False, error, amount_dollars, furthest_stage, text)
 
 
 async def get_payment_method_status(settings: Settings | None = None) -> dict:
@@ -703,7 +731,8 @@ async def get_payment_method_status(settings: Settings | None = None) -> dict:
         await _click_first_available(page, PAYMENT_METHODS_SELECTORS)
         await asyncio.sleep(2)
         text = await page.evaluate("() => document.body?.innerText || ''")
-        status = _payment_method_status_from_text(text)
+        remove_control_present = await _any_available(page, REMOVE_PAYMENT_METHOD_SELECTORS)
+        status = _payment_method_status_from_text(text, remove_control_present=remove_control_present)
         if status["payment_method_count_band"] == "unknown":
             return _payment_method_status_result(False, "Payment method status unknown", furthest_stage, text, **status)
         return _payment_method_status_result(True, None, furthest_stage, status, **status)

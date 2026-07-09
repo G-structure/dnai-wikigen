@@ -167,6 +167,26 @@ compose is deliberately blocked at the on-chain encumbrance layer:
 `compose_hash_not_approved`. The next live funding packet must wait until the
 operator approves this new compose hash.
 
+Funding retry follow-up 3, 2026-07-09: the operator approved the modal-fix
+compose hash on-chain in tx
+`0x0821933345af2d0090ed0ce99e8bc0c4856202b84ef6fbe5dd184dacdba50ad2` at
+block `43907277`, and read-back returned `true`. Packet
+`/tmp/dnai-tinker-funding-validation-packet-20260709T074049Z` then passed
+preflight and produced the first deployed real-card payment-method success:
+`payment_method` receipt outcome `success`, furthest stage `payment_submitted`,
+`card_payload_destroyed=true`, TDX quote hash present, and `raw_secret_egress=false`.
+This proves the deployed encrypted-card/payment-method leg is working. The
+same packet did not prove funding: the add-balance receipt reached
+`add_balance_submitted` but returned `unknown_failure`, and balance read-back
+still returned `unknown`. The live add-balance receipt exposed a bounded-message
+bug: the billing error classifier matched ordinary navigation text beginning
+with `Payment methods`. Source now narrows that classifier and makes add-balance
+fail closed as `Add-balance completion not confirmed` unless explicit success
+copy is seen. It also improves bounded card-on-file status by using DOM signals
+such as remove-card controls without exposing brand, last4, expiry, or billing
+address. This source fix has tests but still needs GitHub-attested build, Phala
+redeploy, compose approval, and a fresh add-balance attempt.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce
