@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import math
+import re
 import time
 import uuid
 from dataclasses import dataclass
+from importlib import metadata
 from typing import Any
 
 from tinker_delegate.api_key_store import resolve_api_key
@@ -110,10 +112,22 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
     furthest_stage = "api_key_loaded"
     checkpoint_path = ""
     cleanup = None
+    sdk_diagnostics = _bounded_sdk_diagnostics(
+        service_client=None,
+        model=model,
+        rank=rank,
+        deal_id=deal_id,
+    )
     try:
         import tinker
 
         service_client = tinker.ServiceClient(api_key=api_key)
+        sdk_diagnostics = _bounded_sdk_diagnostics(
+            service_client=service_client,
+            model=model,
+            rank=rank,
+            deal_id=deal_id,
+        )
         session = IsolatedTinkerSession(service_client, deal_id)
 
         session.create_training(base_model=model, rank=rank)
@@ -182,6 +196,7 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
             checkpoint_path=checkpoint_path,
             cleanup=cleanup,
             sample_observed=sample_result is not None,
+            sdk_diagnostics=sdk_diagnostics,
         )
     except Exception as exc:
         cleanup_error_kind = ""
@@ -202,10 +217,12 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
             policy=policy.to_public_dict(),
             error_kind=exc.__class__.__name__,
             bounded_message=redact_text(exc.__class__.__name__),
+            sdk_error=_bounded_sdk_error(exc),
             session=session,
             checkpoint_path=checkpoint_path,
             cleanup=cleanup,
             cleanup_error_kind=cleanup_error_kind,
+            sdk_diagnostics=sdk_diagnostics,
         )
 
 
@@ -242,6 +259,7 @@ def _success_receipt(
     checkpoint_path: str,
     cleanup,
     sample_observed: bool,
+    sdk_diagnostics: dict[str, Any],
 ) -> dict[str, Any]:
     return _base_receipt(
         issued_at=issued_at,
@@ -257,6 +275,7 @@ def _success_receipt(
         checkpoint_path=checkpoint_path,
         cleanup=cleanup,
         sample_observed=sample_observed,
+        sdk_diagnostics=sdk_diagnostics,
     )
 
 
@@ -278,6 +297,8 @@ def _base_receipt(
     cleanup=None,
     cleanup_error_kind: str = "",
     sample_observed: bool = False,
+    sdk_error: dict[str, Any] | None = None,
+    sdk_diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     cleanup_public = _bounded_cleanup(cleanup)
     spent_usd = float(session.meter.total_cost_usd) if session is not None else 0.0
@@ -305,6 +326,8 @@ def _base_receipt(
         "cleanup_error_kind": cleanup_error_kind,
         "policy": policy,
         "error_kind": error_kind,
+        "sdk_error": sdk_error or _empty_sdk_error(),
+        "sdk_diagnostics": sdk_diagnostics or _empty_sdk_diagnostics(),
         "bounded_message": bounded_message or outcome,
         "raw_secret_egress": False,
     }
@@ -348,3 +371,294 @@ def _usd_band(value: float) -> str:
     if value <= 1.0:
         return "<=1.00"
     return ">1.00"
+
+
+def _empty_sdk_error() -> dict[str, Any]:
+    return {
+        "bucket": "",
+        "message_hash": "",
+        "message_length_band": "zero",
+        "http_status_class": "",
+    }
+
+
+def _bounded_sdk_error(exc: Exception) -> dict[str, Any]:
+    """Return a correlation-safe SDK error fingerprint without raw provider text."""
+
+    normalized = _normalize_exception_message(exc)
+    return {
+        "bucket": _classify_sdk_error(exc, normalized),
+        "message_hash": stable_hash(normalized or exc.__class__.__name__, prefix="tinker_sdk_error"),
+        "message_length_band": _message_length_band(normalized),
+        "http_status_class": _http_status_class(exc),
+    }
+
+
+def _empty_sdk_diagnostics() -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "sdk_package": "tinker",
+        "sdk_version": "unknown",
+        "training_create": {},
+        "capabilities": {
+            "checked": False,
+            "method": "",
+            "attempted_model_supported": None,
+            "supported_model_count_band": "unknown",
+            "supported_models_hash": "",
+            "max_batch_size_band": "unknown",
+            "error_kind": "",
+            "http_status_class": "",
+        },
+    }
+
+
+def _bounded_sdk_diagnostics(
+    *,
+    service_client,
+    model: str,
+    rank: int,
+    deal_id: str,
+) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "sdk_package": "tinker",
+        "sdk_version": _sdk_version(),
+        "training_create": {
+            "method": "ServiceClient.create_lora_training_client",
+            "explicit_kwargs": ["base_model", "rank"],
+            "injected_user_metadata_keys": ["deal_id"],
+            "implicit_sdk_defaults": [
+                "seed=None",
+                "train_mlp=True",
+                "train_attn=True",
+                "train_unembed=True",
+            ],
+            "model_hash": stable_hash(model, prefix="tinker_model"),
+            "model_family": _model_family(model),
+            "rank": rank,
+            "rank_band": _rank_band(rank),
+            "deal_hash": stable_hash(deal_id, prefix="deal"),
+        },
+        "capabilities": _bounded_capability_probe(service_client, model),
+    }
+
+
+def _sdk_version() -> str:
+    try:
+        return metadata.version("tinker")
+    except metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def _bounded_capability_probe(service_client, attempted_model: str) -> dict[str, Any]:
+    method = "ServiceClient.get_server_capabilities"
+    base = {
+        "checked": False,
+        "method": method,
+        "attempted_model_supported": None,
+        "supported_model_count_band": "unknown",
+        "supported_models_hash": "",
+        "max_batch_size_band": "unknown",
+        "error_kind": "",
+        "http_status_class": "",
+    }
+    if service_client is None or not hasattr(service_client, "get_server_capabilities"):
+        return base
+    try:
+        capabilities = service_client.get_server_capabilities()
+    except Exception as exc:
+        return {
+            **base,
+            "checked": True,
+            "error_kind": exc.__class__.__name__,
+            "http_status_class": _http_status_class(exc),
+        }
+
+    supported_models = sorted(set(_extract_capability_models(capabilities)))
+    supported_hash = (
+        stable_hash("\n".join(supported_models), prefix="tinker_supported_models")
+        if supported_models
+        else ""
+    )
+    return {
+        **base,
+        "checked": True,
+        "attempted_model_supported": attempted_model in supported_models if supported_models else None,
+        "supported_model_count_band": _count_band(len(supported_models)) if supported_models else "unknown",
+        "supported_models_hash": supported_hash,
+        "max_batch_size_band": _max_batch_size_band(capabilities),
+    }
+
+
+def _extract_capability_models(value: Any) -> list[str]:
+    models: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            key_text = str(key).lower()
+            if "model" in key_text:
+                models.extend(_string_items(item))
+            models.extend(_extract_capability_models(item))
+        return models
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            if isinstance(item, str):
+                continue
+            models.extend(_extract_capability_models(item))
+        return models
+    if hasattr(value, "__dict__"):
+        return _extract_capability_models(vars(value))
+    return models
+
+
+def _string_items(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple, set)):
+        return [item for item in value if isinstance(item, str)]
+    return []
+
+
+def _max_batch_size_band(capabilities: Any) -> str:
+    value = _find_numeric_capability(capabilities, ("max_batch_size", "maximum_batch_size"))
+    if value is None:
+        return "unknown"
+    if value <= 0:
+        return "invalid"
+    if value <= 8:
+        return "<=8"
+    if value <= 32:
+        return "<=32"
+    return ">32"
+
+
+def _find_numeric_capability(value: Any, keys: tuple[str, ...]) -> int | None:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            key_text = str(key).lower()
+            if key_text in keys and isinstance(item, int):
+                return item
+            found = _find_numeric_capability(item, keys)
+            if found is not None:
+                return found
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            found = _find_numeric_capability(item, keys)
+            if found is not None:
+                return found
+    if hasattr(value, "__dict__"):
+        return _find_numeric_capability(vars(value), keys)
+    return None
+
+
+def _model_family(model: str) -> str:
+    lowered = model.lower()
+    if lowered.startswith("meta-llama/") or "llama" in lowered:
+        return "meta-llama"
+    if lowered.startswith("qwen/") or "qwen" in lowered:
+        return "qwen"
+    if "gpt" in lowered:
+        return "gpt"
+    return "other"
+
+
+def _rank_band(rank: int) -> str:
+    if rank <= 0:
+        return "invalid"
+    if rank <= 8:
+        return "<=8"
+    if rank <= 32:
+        return "<=32"
+    if rank <= 64:
+        return "<=64"
+    return ">64"
+
+
+def _count_band(count: int) -> str:
+    if count <= 0:
+        return "zero"
+    if count <= 10:
+        return "1-10"
+    if count <= 50:
+        return "11-50"
+    return ">50"
+
+
+def _http_status_class(exc: Exception) -> str:
+    status = _extract_http_status(exc)
+    if status is None:
+        kind = exc.__class__.__name__.lower()
+        if "badrequest" in kind:
+            return "4xx"
+        if "permission" in kind or "auth" in kind or "forbidden" in kind:
+            return "4xx"
+        if "notfound" in kind:
+            return "4xx"
+        if "rate" in kind and "limit" in kind:
+            return "4xx"
+        return ""
+    if 100 <= status < 600:
+        return f"{status // 100}xx"
+    return "unknown"
+
+
+def _extract_http_status(exc: Exception) -> int | None:
+    for attr in ("status_code", "status"):
+        value = getattr(exc, attr, None)
+        if isinstance(value, int):
+            return value
+    response = getattr(exc, "response", None)
+    value = getattr(response, "status_code", None)
+    if isinstance(value, int):
+        return value
+    return None
+
+
+def _normalize_exception_message(exc: Exception) -> str:
+    text = redact_text(exc)
+    text = re.sub(r"https?://\S+", "<url>", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b[0-9a-fA-F]{32,}\b", "<hex>", text)
+    text = re.sub(
+        r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
+        "<uuid>",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"\b\d+\b", "<n>", text)
+    text = re.sub(r"\s+", " ", text).strip().lower()
+    return text[:512]
+
+
+def _classify_sdk_error(exc: Exception, normalized_message: str) -> str:
+    kind = exc.__class__.__name__.lower()
+    text = f"{kind} {normalized_message}"
+    if "timeout" in text or "timed out" in text:
+        return "transient_timeout"
+    if "rate" in text and "limit" in text:
+        return "rate_limited"
+    if "unauthor" in text or "forbidden" in text or "permission" in text:
+        return "auth_or_entitlement"
+    if "quota" in text or "balance" in text or "billing" in text or "fund" in text or "payment" in text:
+        return "quota_or_funding"
+    if "model" in text or "rank" in text or "lora" in text or "base_model" in text:
+        return "model_or_rank"
+    if "not found" in text or "404" in text:
+        return "not_found"
+    if "badrequest" in kind or "bad request" in text or "invalid" in text or "required" in text:
+        return "invalid_request"
+    if "connection" in text or "network" in text:
+        return "transient_network"
+    return "unknown"
+
+
+def _message_length_band(value: str) -> str:
+    length = len(value)
+    if length == 0:
+        return "zero"
+    if length <= 64:
+        return "<=64"
+    if length <= 256:
+        return "<=256"
+    if length <= 512:
+        return "<=512"
+    return ">512"

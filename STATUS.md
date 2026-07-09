@@ -28,8 +28,10 @@ encrypted artifact upload -> TEE-bound attestation report_data -> hash-checked i
 Production deployment is now partially real on Phala: the combined
 email-oracle + tinker-delegate CVM is running from digest-pinned registry
 images and has live TDX envelope verification. Low-value operator validation
-funding has now produced a bounded `$10.00` Tinker balance read, but production
-or repeated funding, full quote-internal TDX verification, live CVM-originated
+funding has now produced a bounded `$10.00` Tinker balance read, and the
+smoke-capable Phala compose has been deployed and approved for bounded compute
+spend, but the deployed SDK smoke fails before training creation. Production or
+repeated funding, full quote-internal TDX verification, live CVM-originated
 TEE-to-chain signing, and RLVR/bio-validation remain incomplete. Phala auth is
 configured for profile `wikigen` in workspace `wiki`.
 
@@ -93,19 +95,32 @@ Latest Tinker execution buildout, 2026-07-09:
   hashes, cost bands, policy state, sample-observed boolean, and cleanup counts.
   It does not return API keys, raw run IDs, checkpoint paths, checkpoint IDs,
   sample text, weights, or raw model output.
-- Operator surfaces are source/test-real but not yet deployed-real:
+- Operator surfaces are source/test-real and deployment-partial:
   `tinker-smoke` can run in-process inside the CVM/container or call
   `POST /tinker/smoke --api-url`; the HTTP endpoint is disabled by default,
   requires runtime bearer auth when enabled, and is enabled only in the
-  temporary funding-validation compose profile for the next deployed smoke
-  proof.
+  temporary funding-validation compose profile for explicit smoke validation.
 - Focused validation passed locally with mocked Tinker SDK and API/CLI gates:
   `uv run python -m unittest tests.test_tinker_smoke tests.test_api_tinker_smoke
   tests.test_cli_bounded_outputs tests.test_isolated_session
-  tests.test_tinker_real_sdk_integration.TinkerRealSdkGateTest`. The real
-  deployed smoke still needs a GitHub-built image, Phala redeploy, compose-hash
-  approval for `SPEND_TINKER_COMPUTE`, and one explicit low-cost run before the
-  Tinker SDK smoke P0 can be checked off.
+  tests.test_tinker_real_sdk_integration.TinkerRealSdkGateTest`. The
+  smoke-capable delegate image has now been built by GitHub Actions, pinned in
+  the Phala funding-validation compose, redeployed, and approved on-chain for
+  `SPEND_TINKER_COMPUTE` under compose hash
+  `f8d4c7b1e15dd81d100cac837cba1460c129bc6894ca1d443e2aabf16af065bf` in
+  `TinkerAccountEncumbrance`
+  `0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`; approval tx
+  `0x0f0426d18b0f77b4b53efbb15a345011b91bd1c9a83cdc71c2868d56e68d59f2`.
+  The live smoke attempt is still not complete: it passes policy and sealed
+  API-key load, then fails closed with `BadRequestError` at `api_key_loaded`
+  before Tinker training creation.
+- Source now adds bounded SDK failure diagnostics for the next deployed smoke
+  attempt: receipts include an allowlisted `sdk_error.bucket`, normalized
+  redacted `sdk_error.message_hash`, coarse `message_length_band`, and bounded
+  `sdk_diagnostics` covering request shape plus capability probing. Focused
+  tests prove raw provider-message text, supported model lists, API-key-shaped,
+  email-shaped, card-shaped, request-ID-shaped, deal ID, run ID, checkpoint, and
+  sample material do not leave the receipt.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned
@@ -1764,10 +1779,10 @@ explicitly legacy.
 - Production or repeated card funding needs legal/compliance approval; raw-card
   encrypted delivery remains limited to an operator-owned capped validation
   path.
-- Deployed Phala/CVM credential provisioning is present and attested, but
-  intentionally disabled by default. It has not been run with real mailbox
-  credentials; the oracle has no sealed email credentials, and the delegate has
-  no Tinker API key configured.
+- Generic deployed credential provisioning remains disabled by default and has
+  not been run as a production provisioning flow. The funding-validation CVM has
+  sealed Tinker API-key state sufficient to reach `api_key_loaded`, but this is
+  still an operator-validation posture, not production credential custody.
 - Cock.li account genesis inside Phala is source-fixed and debug-proven for the
   standalone oracle-genesis compose, including bounded public `/health` and
   `/attestation` plus runtime-authenticated `/email`. The main combined Phala
@@ -1794,6 +1809,10 @@ explicitly legacy.
   delegate images, not every side service.
 - Real Tinker SDK training/sampling/cleanup inside a deployed CVM is not yet
   proven.
+- The deployed Tinker SDK smoke path is now past image/redeploy/compose-approval
+  prerequisites, but the live run fails closed with `BadRequestError` at
+  `api_key_loaded` before training creation. No deployed Tinker run ID,
+  checkpoint, sample, cleanup receipt, or spend proof exists yet.
 - Bio-validation must remain fail-closed until risk screening, reviewer queues,
   and bounded schemas exist.
 

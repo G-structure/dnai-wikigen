@@ -280,26 +280,30 @@ or handing account credentials to a human. The current validation path encrypts
 card data to the TEE, drives the Tinker/Stripe billing form from inside the TEE,
 clears the card payload from memory, and returns only bounded receipts. The
 deployed auth/API-key browser posture is working, bounded card-on-file status
-can be queried without card details, and the latest same-context
-reauth/add-balance packet reached `add_balance_submitted` with
-`raw_secret_egress=false`. The receipt still fails closed because it did not see
-explicit success copy, but an independent bounded balance read returned
-`$10.00`, so low-value operator-validation funding is real. Production funding
-still needs a hardened CVM posture, compliance approval, and preferably an
-official tokenized payment route. Source narrows the billing-error classifier,
-requires explicit add-balance success copy before returning success, and uses bounded DOM
-signals such as remove-card controls for card-on-file status. That hardening has
-now been built by GitHub Actions, verified with provenance and SBOM
-attestations, and redeployed to the existing Phala CVM. The live TDX envelope
-reports compose hash
-`a3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9`; reauth
-succeeds and bounded card status reports `card_on_file=true` /
-`one_or_more`. The new compose hash is not yet approved on-chain, so a
-successful bounded add-balance receipt is still required before funding is real.
-The billing control plane also has a bounded card-on-file status path and
-admin/operator card-removal path: callers can learn only whether a payment
+can be queried without card details, and the same-context reauth/add-balance
+packet reached `add_balance_submitted` with `raw_secret_egress=false`. The
+receipt stayed conservative because it did not see explicit success copy, but
+an independent bounded balance read returned `$10.00`, so low-value
+operator-validation funding is real. Production funding still needs a hardened
+CVM posture, compliance approval, and preferably an official tokenized payment
+route. The billing control plane also has a bounded card-on-file status path
+and admin/operator card-removal path: callers can learn only whether a payment
 method appears present and a zero/one-or-more/unknown count band, never card
 brand, last4, expiry, billing address, or browser page text.
+
+The next boundary is Tinker compute. The smoke-capable delegate image has been
+built through GitHub Actions with provenance/SBOM attestations, pinned in the
+funding-validation compose, redeployed to Phala, attested with live compose hash
+`f8d4c7b1e15dd81d100cac837cba1460c129bc6894ca1d443e2aabf16af065bf`, and
+approved on-chain in `TinkerAccountEncumbrance` for `SPEND_TINKER_COMPUTE`.
+That proves the image/compose/contract policy chain for a bounded Tinker spend
+attempt, but not real training. The deployed smoke currently passes the policy
+check and sealed API-key load, then fails closed with `BadRequestError` at
+`api_key_loaded` before Tinker training creation. Receipts now include bounded
+SDK-error diagnostics: an allowlisted bucket, a redacted normalized message
+hash, and a coarse message-length band. They still do not return raw provider
+text, API keys, card fields, emails, request IDs, run IDs, samples, or
+checkpoint paths.
 
 ### Bounded Output
 
@@ -1594,6 +1598,13 @@ Implementation status:
             enables it with a `$0.05` default cap for the next deployed smoke
             proof; production profiles must leave it disabled unless a governed
             compute-spend route is approved.
+[real]      Smoke failure receipts now include bounded SDK diagnostics: an
+            allowlisted `sdk_error.bucket`, redacted normalized
+            `sdk_error.message_hash`, coarse message-length band, and bounded
+            `sdk_diagnostics` for request shape plus capability probing. Tests
+            prove API-key-shaped, email-shaped, card-shaped, request-ID-shaped,
+            raw provider-message text, and raw supported-model lists are not
+            returned.
 [real]      The `tinker-delegate` Dockerfile copies `uv.lock` and installs with
             `uv sync --frozen --no-dev --extra agent`, so the packaged delegate
             image includes the optional Tinker SDK. A local build/run of
@@ -1611,10 +1622,15 @@ Implementation status:
             `$10.00`. Payment-method token/reference capture is still missing,
             and production or repeated card funding still needs legal/compliance
             approval plus hardened CVM posture.
-[partial]   The smoke-capable source must still be built into a GitHub-attested
-            delegate image, pinned in the Phala compose, redeployed, approved
-            for `SPEND_TINKER_COMPUTE`, and run inside the deployed CVM before
-            claiming deployed real Tinker execution.
+[partial]   The smoke-capable source has been built into a GitHub-attested
+            delegate image, pinned in the Phala funding-validation compose,
+            redeployed, and approved on-chain for `SPEND_TINKER_COMPUTE` under
+            compose hash
+            `f8d4c7b1e15dd81d100cac837cba1460c129bc6894ca1d443e2aabf16af065bf`.
+            Deployed real Tinker execution is still not proven because the live
+            smoke fails closed with `BadRequestError` at `api_key_loaded` before
+            training creation. No deployed run ID, checkpoint, sample, cleanup
+            proof, or spend proof exists yet.
 [partial]   Cleanup attestations are generated by the new bounded smoke path,
             but deployed Tinker deletion and TTL-expiry behavior still need
             real SDK/CVM evidence.
@@ -2632,7 +2648,7 @@ Current project truth:
 
 ```
 email boundary       real service + contract, but API enforcement is still incomplete
-tinker boundary      service scaffold exists, auth/funding still blocked upstream
+tinker boundary      auth/API-key sealing, low-value funding, and smoke surface are real; deployed training is blocked at `api_key_loaded`
 bio-validation       target TTT/RL loop is not built; current evaluator is stub/SFT-oriented
 DNAI boundary        escrow/result-bounding primitives exist, full live path needs the above
 ```

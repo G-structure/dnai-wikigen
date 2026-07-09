@@ -1719,12 +1719,32 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             mocked SDK tests prove tiny train/sample/cleanup execution and
             bounded output; API tests prove disabled-by-default and bearer-auth
             gates; CLI tests prove remote invocation writes bounded JSON.
-      - [ ] Build/push the smoke-capable delegate image with GitHub
+      - [x] Build/push the smoke-capable delegate image with GitHub
             provenance/SBOM, pin the digest in the funding-validation compose,
-            redeploy to Phala, approve the new compose hash for
-            `SPEND_TINKER_COMPUTE`, run `tinker-smoke --api-url ... --max-usd
-            0.05 --require-encumbrance`, and record the bounded receipt plus
-            attestation evidence before checking this parent P0.
+            redeploy to Phala, and approve the new compose hash for
+            `SPEND_TINKER_COMPUTE`.
+            Done 2026-07-09: the live Phala funding-validation redeploy attests
+            compose hash
+            `f8d4c7b1e15dd81d100cac837cba1460c129bc6894ca1d443e2aabf16af065bf`.
+            `TinkerAccountEncumbrance`
+            `0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e` approved that compose
+            hash in tx
+            `0x0f0426d18b0f77b4b53efbb15a345011b91bd1c9a83cdc71c2868d56e68d59f2`.
+      - [x] Add bounded diagnostics for SDK smoke failures before redeploying
+            another debug image. Done 2026-07-09: smoke receipts now include an
+            allowlisted `sdk_error.bucket`, redacted normalized
+            `sdk_error.message_hash`, coarse message-length band, and bounded
+            `sdk_diagnostics` for request shape plus capability probing without
+            returning raw provider text, model lists, API keys, emails,
+            card-shaped strings, request IDs, run IDs, or samples.
+      - [ ] Run `tinker-smoke --api-url ... --max-usd 0.05
+            --require-encumbrance` successfully from the deployed CVM and record
+            the bounded receipt plus attestation evidence.
+            Current blocker 2026-07-09: the deployed smoke path passes
+            `TinkerAccountEncumbrance`, loads the sealed Tinker API key, and
+            then fails closed with `BadRequestError` at `api_key_loaded` before
+            Tinker training creation. No run ID, checkpoint, sample, cleanup
+            proof, or spend proof exists yet, so this parent P0 remains open.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
 - [x] `P0` Add real SDK integration tests gated by an env var and budget cap.
@@ -2527,6 +2547,11 @@ vision Wiki is reaching for.
       returned `$10.00`. The add-balance receipt remains intentionally
       conservative because it did not observe explicit success copy.
 - [ ] `Deploy` Run a tiny funded Tinker job and record the attestation.
+      Blocked 2026-07-09: smoke-capable Phala compose
+      `f8d4c7b1e15dd81d100cac837cba1460c129bc6894ca1d443e2aabf16af065bf`
+      is deployed and approved for `SPEND_TINKER_COMPUTE`, but the real smoke
+      fails closed with `BadRequestError` at `api_key_loaded` before training
+      creation.
 - [ ] `Deploy` Create a synthetic test room on Base Sepolia.
 - [ ] `Deploy` Fund the synthetic test deal.
 - [ ] `Deploy` Upload encrypted synthetic artifact.
@@ -2569,8 +2594,14 @@ vision Wiki is reaching for.
       Done for the one-off capped validation lane: bounded balance read reports
       `$10.00` after the attested/approved `$10` add-balance packet.
 - [ ] `P0` Isolated session runs tiny training.
+      Still open: the deployed smoke reached API-key-loaded state but did not
+      create a Tinker training run.
 - [ ] `P0` Checkpoints are TTL-limited and cleaned up.
+      Still open for deployed evidence: no real Tinker checkpoint exists yet
+      because training creation failed before a run ID was issued.
 - [ ] `P0` No weights, samples, raw artifact, or API key leave the TEE.
+      Source-level bounded receipts are tested, but deployed no-egress proof
+      over a real Tinker run is still absent because the run has not started.
 
 ### Demo 4: Bio Validation
 
@@ -2677,6 +2708,8 @@ vision Wiki is reaching for.
        packet emitted only bounded receipts with `raw_secret_egress=false`, and
        a bounded balance read returned `$10.00`.
 12. [ ] Run one real tiny Tinker training session through `IsolatedTinkerSession`.
+       Current blocker: deployed smoke fails with `BadRequestError` at
+       `api_key_loaded` before Tinker training creation.
 13. [ ] Merge the `gate-health-frontend` UI and wire it to real verifier/status
        APIs.
 

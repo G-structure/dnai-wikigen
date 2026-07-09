@@ -138,6 +138,53 @@ class FakeServiceClient:
         return self.rest_client
 
 
+class BadRequestError(Exception):
+    pass
+
+
+FAKE_PROVIDER_KEY = "tml-" + ("A" * 24)
+FAKE_PROVIDER_EMAIL = "luc@example.com"
+FAKE_PROVIDER_CARD = "4242 4242 4242 4242"
+
+
+class FailingServiceClient(FakeServiceClient):
+    def get_server_capabilities(self):
+        return {
+            "supported_models": [
+                "Qwen/Qwen3-8B",
+                "Qwen/Qwen3-32B",
+            ],
+            "max_batch_size": 16,
+        }
+
+    def create_lora_training_client(self, **kwargs):
+        self.training_kwargs = kwargs
+        raise BadRequestError(
+            "Bad request for model meta-llama/Llama-3.2-1B rank 4 "
+            f"using key {FAKE_PROVIDER_KEY}, "
+            f"operator {FAKE_PROVIDER_EMAIL}, card {FAKE_PROVIDER_CARD}, "
+            "request 123e4567-e89b-12d3-a456-426614174000"
+        )
+
+
+class CapabilityServiceClient(FakeServiceClient):
+    def get_server_capabilities(self):
+        return {
+            "supported_models": [
+                "meta-llama/Llama-3.2-1B",
+                "Qwen/Qwen3-8B",
+            ],
+            "max_batch_size": 8,
+        }
+
+
+class CapabilityProbeFailingServiceClient(FakeServiceClient):
+    def get_server_capabilities(self):
+        raise PermissionError(
+            f"provider body with {FAKE_PROVIDER_KEY} and {FAKE_PROVIDER_EMAIL}"
+        )
+
+
 FAKE_TINKER = types.SimpleNamespace(
     ServiceClient=FakeServiceClient,
     TrainingClient=object,
@@ -196,6 +243,8 @@ class TinkerSmokeTest(unittest.TestCase):
         self.assertEqual(result["cleanup"]["listed_checkpoint_count"], 1)
         self.assertEqual(result["cleanup"]["deleted_checkpoint_count"], 1)
         self.assertFalse(result["raw_secret_egress"])
+        self.assertEqual(result["sdk_error"]["bucket"], "")
+        self.assertEqual(result["sdk_diagnostics"]["capabilities"]["checked"], False)
         self.assertNotIn("tml-secret-value", rendered)
         self.assertNotIn("deal-secret", rendered)
         self.assertNotIn("run-secret", rendered)
@@ -250,6 +299,96 @@ class TinkerSmokeTest(unittest.TestCase):
         self.assertNotIn("rpc exploded", json.dumps(result))
         self.assertFalse(result["raw_secret_egress"])
         resolve_key.assert_not_called()
+
+    def test_smoke_sdk_failure_has_bounded_diagnostics_without_raw_message(self):
+        with (
+            patch.object(FAKE_TINKER, "ServiceClient", FailingServiceClient),
+            patch.object(session_module, "tinker", FAKE_TINKER),
+            patch("tinker_delegate.tinker_smoke.resolve_api_key", return_value="tml-secret-value"),
+            patch("tinker_delegate.tinker_smoke.preflight_tinker_operation", return_value=_allowed_policy()),
+        ):
+            result = run_tinker_sdk_smoke(
+                Settings(real_sdk_max_usd=0.05),
+                TinkerSmokeRequest(deal_id="deal-secret", max_usd=0.05),
+            )
+
+        rendered = json.dumps(result)
+        self.assertFalse(result["success"])
+        self.assertEqual(result["outcome"], "smoke_failed")
+        self.assertEqual(result["furthest_stage"], "api_key_loaded")
+        self.assertEqual(result["error_kind"], "BadRequestError")
+        self.assertEqual(result["sdk_error"]["bucket"], "model_or_rank")
+        self.assertEqual(result["sdk_error"]["http_status_class"], "4xx")
+        self.assertRegex(result["sdk_error"]["message_hash"], r"^[0-9a-f]{64}$")
+        self.assertIn(result["sdk_error"]["message_length_band"], {"<=64", "<=256", "<=512"})
+        diagnostics = result["sdk_diagnostics"]
+        self.assertEqual(diagnostics["training_create"]["method"], "ServiceClient.create_lora_training_client")
+        self.assertEqual(diagnostics["training_create"]["explicit_kwargs"], ["base_model", "rank"])
+        self.assertEqual(diagnostics["training_create"]["injected_user_metadata_keys"], ["deal_id"])
+        self.assertEqual(diagnostics["training_create"]["model_family"], "meta-llama")
+        self.assertEqual(diagnostics["training_create"]["rank_band"], "<=8")
+        self.assertEqual(diagnostics["capabilities"]["checked"], True)
+        self.assertEqual(diagnostics["capabilities"]["attempted_model_supported"], False)
+        self.assertEqual(diagnostics["capabilities"]["supported_model_count_band"], "1-10")
+        self.assertEqual(diagnostics["capabilities"]["max_batch_size_band"], "<=32")
+        self.assertRegex(diagnostics["capabilities"]["supported_models_hash"], r"^[0-9a-f]{64}$")
+        self.assertNotIn("Bad request for model", rendered)
+        self.assertNotIn("Qwen/Qwen3-8B", rendered)
+        self.assertNotIn("Qwen/Qwen3-32B", rendered)
+        self.assertNotIn("meta-llama/Llama-3.2-1B", rendered)
+        self.assertNotIn(FAKE_PROVIDER_KEY, rendered)
+        self.assertNotIn(FAKE_PROVIDER_EMAIL, rendered)
+        self.assertNotIn(FAKE_PROVIDER_CARD, rendered)
+        self.assertNotIn("123e4567-e89b-12d3-a456-426614174000", rendered)
+        self.assertNotIn("deal-secret", rendered)
+        self.assertFalse(result["raw_secret_egress"])
+
+    def test_smoke_capabilities_probe_success_does_not_leak_model_list(self):
+        with (
+            patch.object(FAKE_TINKER, "ServiceClient", CapabilityServiceClient),
+            patch.object(session_module, "tinker", FAKE_TINKER),
+            patch("tinker_delegate.tinker_smoke.resolve_api_key", return_value="tml-secret-value"),
+            patch("tinker_delegate.tinker_smoke.preflight_tinker_operation", return_value=_allowed_policy()),
+        ):
+            result = run_tinker_sdk_smoke(
+                Settings(real_sdk_max_usd=0.05),
+                TinkerSmokeRequest(deal_id="deal-secret", max_usd=0.05),
+            )
+
+        rendered = json.dumps(result)
+        self.assertTrue(result["success"])
+        diagnostics = result["sdk_diagnostics"]
+        self.assertEqual(diagnostics["capabilities"]["checked"], True)
+        self.assertEqual(diagnostics["capabilities"]["attempted_model_supported"], True)
+        self.assertEqual(diagnostics["capabilities"]["supported_model_count_band"], "1-10")
+        self.assertEqual(diagnostics["capabilities"]["max_batch_size_band"], "<=8")
+        self.assertRegex(diagnostics["capabilities"]["supported_models_hash"], r"^[0-9a-f]{64}$")
+        self.assertNotIn("meta-llama/Llama-3.2-1B", rendered)
+        self.assertNotIn("Qwen/Qwen3-8B", rendered)
+        self.assertNotIn("tml-secret-value", rendered)
+        self.assertNotIn("deal-secret", rendered)
+
+    def test_smoke_capabilities_probe_failure_is_bounded_and_non_blocking(self):
+        with (
+            patch.object(FAKE_TINKER, "ServiceClient", CapabilityProbeFailingServiceClient),
+            patch.object(session_module, "tinker", FAKE_TINKER),
+            patch("tinker_delegate.tinker_smoke.resolve_api_key", return_value="tml-secret-value"),
+            patch("tinker_delegate.tinker_smoke.preflight_tinker_operation", return_value=_allowed_policy()),
+        ):
+            result = run_tinker_sdk_smoke(
+                Settings(real_sdk_max_usd=0.05),
+                TinkerSmokeRequest(deal_id="deal-secret", max_usd=0.05),
+            )
+
+        rendered = json.dumps(result)
+        self.assertTrue(result["success"])
+        diagnostics = result["sdk_diagnostics"]
+        self.assertEqual(diagnostics["capabilities"]["checked"], True)
+        self.assertEqual(diagnostics["capabilities"]["error_kind"], "PermissionError")
+        self.assertEqual(diagnostics["capabilities"]["http_status_class"], "4xx")
+        self.assertNotIn("provider body", rendered)
+        self.assertNotIn(FAKE_PROVIDER_KEY, rendered)
+        self.assertNotIn(FAKE_PROVIDER_EMAIL, rendered)
 
     def test_smoke_rejects_overlarge_budget_before_sdk_call(self):
         with self.assertRaisesRegex(ValueError, "<= 0.5"):
