@@ -91,6 +91,15 @@ class Settings(BaseSettings):
 
     # Paid Tinker SDK smoke tests. Disabled by default; enable only for a
     # funded, attested operator-validation CVM or explicit local test context.
+    allow_tinker_proxy_endpoint: bool = False
+    allow_tinker_proxy_token_issuance: bool = False
+    proxy_jwt_key: str = ""
+    proxy_jwt_key_path: str = "tinker/proxy_jwt"
+    proxy_jwt_default_ttl_seconds: int = 900
+    proxy_jwt_max_ttl_seconds: int = 3600
+    proxy_jwt_issuer: str = "dnai-wikigen:tinker-proxy"
+    proxy_jwt_audience: str = "dnai-wikigen:tinker-delegate"
+    proxy_approved_subjects: str = ""
     allow_tinker_smoke_endpoint: bool = False
     real_sdk_max_usd: float = 0.05
     real_sdk_model: str = "Qwen/Qwen3-8B"

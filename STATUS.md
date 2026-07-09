@@ -87,6 +87,19 @@ Latest live funding/debug state, 2026-07-09:
 
 Latest Tinker execution buildout, 2026-07-09:
 
+- Source now has the first Tinker proxy credential slice. The intended proxy
+  boundary is documented in `PROJECT.md`, `ARCHITECTURE.md`, and `TODO.md`:
+  upstream `TINKER_API_KEY`, `TINKER_PROJECT_ID`, browser session, card state,
+  and provider endpoint remain sealed inside the CVM, while approved users get
+  scoped delegate JWTs. `tinker_delegate.tinker_proxy` signs scoped HS256 JWTs
+  from explicit local key material or dstack-derived CVM key material, encrypts
+  token delivery to a recipient X25519 public key with AES-256-GCM, and returns
+  only scopes, expiry, hashes, and encrypted envelope material. New
+  `GET /tinker/proxy/status` and `POST /tinker/proxy/token` endpoints are
+  disabled by default; token issuance also requires configured runtime bearer
+  auth. This is source/test-real only: production user approval, spend caps,
+  revocation, audit replay, deployment, attestation, and compose/contract
+  binding remain open.
 - Source now has a bounded real-SDK smoke surface for the funded Tinker account.
   `tinker_delegate.tinker_smoke.run_tinker_sdk_smoke()` uses the sealed API-key
   resolver, checks `TinkerAccountEncumbrance` with `SPEND_TINKER_COMPUTE`,

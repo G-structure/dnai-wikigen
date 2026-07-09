@@ -467,6 +467,49 @@ def cli():
         help="Candidate keyword to query; repeat for multiple candidates",
     )
     synthetic_reward_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    tinker_proxy_status_p = sub.add_parser(
+        "tinker-proxy-status",
+        help="Return bounded sealed Tinker proxy/client configuration status",
+    )
+    tinker_proxy_status_p.add_argument(
+        "--api-url",
+        default="",
+        help="Optional deployed Tinker delegate API base URL; omitted inspects local process settings",
+    )
+    tinker_proxy_status_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime or proxy bearer token for --api-url",
+    )
+    tinker_proxy_status_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    tinker_proxy_token_p = sub.add_parser(
+        "issue-tinker-proxy-token",
+        help="Issue a scoped Tinker proxy JWT encrypted to a recipient public key",
+    )
+    tinker_proxy_token_p.add_argument(
+        "--api-url",
+        default="",
+        help="Optional deployed Tinker delegate API base URL; omitted issues locally",
+    )
+    tinker_proxy_token_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token for --api-url",
+    )
+    tinker_proxy_token_p.add_argument("--subject", required=True, help="Approved user/agent subject")
+    tinker_proxy_token_p.add_argument(
+        "--scope",
+        action="append",
+        required=True,
+        help="Proxy scope to include; repeat for multiple scopes",
+    )
+    tinker_proxy_token_p.add_argument(
+        "--recipient-public-key",
+        required=True,
+        help="Hex X25519 public key for encrypted proxy-token delivery",
+    )
+    tinker_proxy_token_p.add_argument("--ttl-seconds", type=int, default=None)
+    tinker_proxy_token_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     tinker_smoke_p = sub.add_parser(
         "tinker-smoke",
         help="Run a bounded tiny real Tinker SDK training/checkpoint/sample/cleanup smoke",
@@ -1495,6 +1538,78 @@ def cli():
             public_hex_fields=("contract_address", "compose_hash"),
             public_decimal_fields=("amount_wei", "max_amount_wei"),
         )
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "tinker-proxy-status":
+        if args.api_url:
+            import httpx
+
+            headers = _runtime_auth_headers(args.auth_token_env)
+            with httpx.Client(timeout=120.0) as client:
+                response = client.get(_api_endpoint(args.api_url, "/tinker/proxy/status"), headers=headers)
+            try:
+                body = response.json()
+            except Exception:
+                body = {
+                    "surface": "tinker_proxy",
+                    "success": False,
+                    "outcome": "remote_non_json_response",
+                    "status_code": response.status_code,
+                    "error_kind": "non_json_response",
+                    "bounded_message": "remote endpoint returned non-json response",
+                    "raw_secret_egress": False,
+                }
+            _emit_bounded_json(body, output_path=args.output)
+            sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
+
+        from tinker_delegate.tinker_proxy import build_tinker_proxy_status
+
+        result = build_tinker_proxy_status(settings)
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "issue-tinker-proxy-token":
+        if args.api_url:
+            import httpx
+
+            headers = _runtime_auth_headers(args.auth_token_env)
+            with httpx.Client(timeout=120.0) as client:
+                response = client.post(
+                    _api_endpoint(args.api_url, "/tinker/proxy/token"),
+                    headers=headers,
+                    json={
+                        "subject": args.subject,
+                        "scopes": args.scope,
+                        "recipient_public_key": args.recipient_public_key,
+                        "ttl_seconds": args.ttl_seconds,
+                    },
+                )
+            try:
+                body = response.json()
+            except Exception:
+                body = {
+                    "surface": "tinker_proxy_token",
+                    "success": False,
+                    "outcome": "remote_non_json_response",
+                    "status_code": response.status_code,
+                    "error_kind": "non_json_response",
+                    "bounded_message": "remote endpoint returned non-json response",
+                    "plaintext_token_returned": False,
+                    "raw_secret_egress": False,
+                }
+            _emit_bounded_json(body, output_path=args.output)
+            sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
+
+        from tinker_delegate.tinker_proxy import issue_encrypted_proxy_token
+
+        result = issue_encrypted_proxy_token(
+            settings,
+            subject=args.subject,
+            scopes=args.scope,
+            recipient_public_key_hex=args.recipient_public_key,
+            ttl_seconds=args.ttl_seconds,
+        )
+        _emit_bounded_json(result, output_path=args.output)
         sys.exit(0 if result.get("success") else 1)
 
     elif args.command == "balance":

@@ -260,8 +260,13 @@ Email encumbered account
 Tinker encumbered account
   - TEE logs into Tinker through browser automation.
   - TEE captures and seals a Tinker API key.
+  - TEE keeps TINKER_PROJECT_ID, optional provider endpoint, browser session,
+    payment state, and proxy signing keys inside the CVM boundary.
+  - TEE issues short-lived scoped proxy JWTs from CVM-only key material and
+    delivers them encrypted to approved recipients.
   - TEE can check balance and has funded the one-off capped operator-validation lane; production/repeated funding remains blocked.
-  - TEE exposes only metered, scoped evaluation APIs.
+  - TEE exposes only metered, scoped proxy/evaluation APIs with bounded
+    receipts.
   - DiligenceRoom.sol settles escrow around bounded evaluation results.
 ```
 
@@ -315,6 +320,36 @@ retry. A bounded `tinker-smoke-command-plan` CLI now turns that next step into
 an explicit redeploy/attest/approve/preflight/smoke sequence using environment
 variable names and compose-hash placeholders only; it does not accept or emit
 raw project IDs, tokens, API keys, RPC URLs, run IDs, checkpoints, or samples.
+
+The intended external Tinker surface is now the Tinker proxy, not direct
+credential sharing. In the target shape, approved users and agents receive
+scoped JWTs signed by a key derived from CVM-only dstack material and delivered
+as an encrypted X25519/AES-GCM envelope to a recipient public key. The JWT scope
+authorizes named proxy operations such as bounded status, payment-method
+status, add-balance, or tiny smoke/training requests; it must never authorize a
+generic arbitrary Tinker SDK call. The proxy can report configured/missing
+booleans, stable hashes, host families, policy decisions, spend bands, and
+attestation evidence. It must not return upstream `TINKER_API_KEY`,
+`TINKER_PROJECT_ID`, account cookies, card material, raw provider messages,
+run IDs, checkpoint paths, samples, or private reward data.
+
+[planned]   Production proxy credential issuance still needs a full approval
+            policy binding users/agents to scopes, spend caps, expirations,
+            delivery public keys, revocation/audit records, and settlement
+            policy. The first implementation slice may expose an
+            operator-authenticated, disabled-by-default issuer for scoped JWTs
+            and encrypted delivery evidence, but that is not yet a production
+            user-management system.
+[real]      Source now includes the first Tinker proxy credential slice:
+            `tinker_delegate.tinker_proxy` creates scoped HS256 delegate JWTs
+            from explicit local test key material or dstack-derived CVM-only
+            key material, encrypts delivery to a recipient X25519 public key
+            using AES-256-GCM, and verifies scoped bearer tokens without
+            returning the plaintext token. `GET /tinker/proxy/status` and
+            `POST /tinker/proxy/token` are disabled by default; token issuance
+            additionally requires configured runtime bearer auth. The
+            implementation is source/test-real only until built, deployed,
+            attested, approved, and bound to a production user/scope policy.
 
 ### Bounded Output
 
@@ -615,6 +650,8 @@ Runtime role:
 ```
 use tee-email-oracle OTP to create/sign into a Tinker account
 seal Tinker API key
+seal Tinker project/client configuration and proxy JWT signing key
+issue scoped delegate JWTs only to approved recipients through encrypted delivery
 drive Tinker billing through a browser session once auth/funding is unblocked
 add balance using card-on-file or encrypted card payload once Stripe flow works
 create a one-deal isolated Tinker session

@@ -1,6 +1,6 @@
 # PROJECT: dnai-wikigen
 
-Last updated: 2026-07-08
+Last updated: 2026-07-09
 Branch context: `tinker-deligate`
 
 `dnai-wikigen` is becoming a platform for private evaluation, private reward,
@@ -78,6 +78,47 @@ Those are not separate systems. The private reward lab is the strongest form of
 the diligence room. Instead of merely reading an artifact, the evaluator can
 actively test candidate programs, policies, or model updates against the private
 data while the data remains sealed.
+
+## Encumbered Tinker Proxy
+
+Tinker should be exposed as an attested proxy, not as a shared upstream account.
+The TEE/CVM holds the upstream Tinker API key, `TINKER_PROJECT_ID`, optional
+provider endpoint, browser session, payment-method state, and funding controls.
+Buyers, sponsors, agents, optimizers, and reviewers receive only scoped
+delegate credentials for the proxy.
+
+The proxy credential shape is:
+
+```text
+approved user / agent
+  -> receives a short-lived scoped JWT
+  -> JWT is signed by a key derived from CVM-only key material
+  -> JWT is delivered encrypted to the recipient public key
+  -> caller invokes only allowlisted proxy operations
+  -> proxy returns bounded receipts, hashes, bands, yes/no decisions, and
+     attestations
+```
+
+The upstream Tinker API key and project id are never user-facing API material.
+They are sealed service configuration. The proxy may report whether they are
+configured and may return stable hashes or host-family classifications, but it
+must not return the raw values. A user-facing proxy token also must not grant a
+generic "call arbitrary Tinker SDK method" capability; every operation needs a
+named scope, bounded schema, spend policy, and leakage accounting.
+
+For the current implementation this means:
+
+- `TINKER_API_KEY`, `TINKER_PROJECT_ID`, account cookies, card state, and
+  funding receipts stay inside the CVM boundary.
+- The delegate may issue short-lived scoped JWTs only through an
+  operator-approved issuance path, and production issuance should additionally
+  bind approved users/agents to policy records.
+- JWT delivery should use an attestation-verified encrypted channel to the
+  recipient, not plaintext logs, shell history, or documentation.
+- Proxy operations return bounded receipts: configured booleans, hashes,
+  capability names, score/spend bands, attestation metadata, and audit events.
+- Raw samples, run IDs, checkpoint paths, provider messages, card details,
+  upstream credentials, and project ids remain non-egress data.
 
 ## Current Repo Pieces
 
@@ -361,6 +402,7 @@ private gradients
 reward-derived optimizer state
 checkpoints encoding private reward
 API keys, account credentials, card details
+upstream project identifiers and proxy signing keys
 ```
 
 ## Main Theorem: Leakage-Only Realization
@@ -590,7 +632,12 @@ But the security claim depends on what Tinker sees.
 
 Safe patterns:
 
-- Tinker account credentials stay sealed in the TEE.
+- Tinker account credentials, project ids, browser sessions, and proxy signing
+  keys stay sealed in the TEE.
+- Approved users receive only scoped delegate JWTs for the Tinker proxy, not
+  the upstream Tinker API key.
+- Delegate JWTs are short-lived, scope-limited, CVM-key-derived, and delivered
+  through an encrypted channel after attestation/policy checks.
 - Tinker receives only non-sensitive prompts/candidates.
 - TEE computes private rewards and releases only bounded feedback.
 - Tinker is used for candidate generation or public/synthetic training.

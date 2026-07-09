@@ -56,6 +56,35 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [ ] `P0` Raw private artifacts never leave the TEE boundary.
 - [ ] `P0` Email, Tinker, Phala, chain, Stripe, and source-account credentials are
       never committed, logged, echoed into prompts, or exposed to the browser.
+- [ ] `P0` Make the Tinker proxy the only external Tinker access path.
+      Done when upstream `TINKER_API_KEY`, `TINKER_PROJECT_ID`, account cookies,
+      browser session, card state, and provider endpoint stay sealed inside the
+      CVM; approved users/agents receive only scoped, short-lived delegate JWTs
+      derived from CVM-only key material; token delivery is encrypted to an
+      approved recipient public key; and every proxy operation returns bounded
+      receipts instead of raw Tinker identifiers or provider output.
+      - [x] Add disabled-by-default proxy status and token issuance surfaces:
+            bounded config status, CVM-derived JWT signing, scoped claims,
+            encrypted X25519/AES-GCM delivery, optional subject allowlist,
+            bearer verification helpers, and tests proving no upstream Tinker
+            key/project id/proxy token leaks in normal API or CLI output.
+            Done 2026-07-09: `tinker_delegate.tinker_proxy` issues scoped
+            HS256 proxy JWTs signed by `TINKER_PROXY_JWT_KEY` locally or
+            dstack-derived `TINKER_PROXY_JWT_KEY_PATH` in CVM mode, encrypts
+            delivery to a recipient X25519 public key with AES-256-GCM, exposes
+            only subject/JWT-id hashes plus scopes/expiry, and verifies scoped
+            bearer tokens. `GET /tinker/proxy/status` and
+            `POST /tinker/proxy/token` are disabled by default; token issuance
+            also requires configured runtime bearer auth. CLI commands
+            `tinker-proxy-status` and `issue-tinker-proxy-token` preserve
+            bounded output.
+      - [ ] Bind proxy JWT issuance to production approval policy:
+            approved user/agent identity, delivery public key, scopes, spend
+            caps, expiration, revocation, audit record, and contract/compose
+            policy.
+      - [ ] Convert future Tinker operations to scoped proxy authorization
+            rather than runtime-operator bearer tokens for approved users.
+      - [ ] Add proxy-token revocation and audit-log replay.
 - [ ] `P0` No human operator can access the TEE-owned email account or Tinker
       account once production custody is established.
 - [ ] `P0` Card/payment material is encrypted to a verified TEE before use and is

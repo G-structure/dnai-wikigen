@@ -15,6 +15,8 @@ Endpoints:
   POST /billing/card/encrypted    — add payment method (encrypted to TEE — production)
   POST /billing/card/remove       — remove payment method
   POST /billing/add-balance       — add credit balance
+  GET  /tinker/proxy/status       — bounded sealed Tinker proxy configuration
+  POST /tinker/proxy/token        — encrypted scoped proxy JWT issuance
   POST /tinker/smoke              — opt-in bounded real SDK smoke test
   POST /deal/chain-event       — bounded chain event audit marker (internal)
   POST /deal/{deal_id}/artifact/encrypted — upload seller's encrypted artifact
@@ -141,6 +143,37 @@ def _require_runtime_auth(authorization: str = Header(default="")) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid bearer token")
 
 
+def _bearer_token(authorization: str) -> str:
+    scheme, _, supplied = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not supplied:
+        return ""
+    return supplied
+
+
+def _require_runtime_or_proxy_auth(required_scope: str, authorization: str = Header(default="")) -> None:
+    """Allow the operator runtime token or a scoped Tinker proxy JWT."""
+    if _runtime_auth_enabled():
+        try:
+            _require_runtime_auth(authorization)
+            return
+        except HTTPException:
+            pass
+
+    token = _bearer_token(authorization)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bearer token required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        from tinker_delegate.tinker_proxy import verify_proxy_token
+
+        verify_proxy_token(settings, token, required_scope=required_scope)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=redact_text(exc)) from exc
+
+
 def _get_control_plane():
     global _control_plane
     if _control_plane is None:
@@ -218,6 +251,57 @@ class TinkerSmokeRequestBody(BaseModel):
     ttl_seconds: int = 3600
     compose_hash: str = ""
     require_encumbrance: bool = False
+
+
+class TinkerProxyTokenIssueRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    subject: str
+    scopes: list[str]
+    recipient_public_key: str
+    ttl_seconds: Optional[int] = None
+
+
+@app.get("/tinker/proxy/status")
+def tinker_proxy_status(authorization: str = Header(default="")):
+    """Return bounded evidence that Tinker credentials stay inside the delegate."""
+    if not settings.allow_tinker_proxy_endpoint:
+        raise HTTPException(
+            status_code=403,
+            detail="Tinker proxy endpoint is disabled",
+        )
+    _require_runtime_or_proxy_auth("proxy:status", authorization)
+    from tinker_delegate.tinker_proxy import build_tinker_proxy_status
+
+    return build_tinker_proxy_status(settings)
+
+
+@app.post("/tinker/proxy/token")
+def tinker_proxy_token(payload: TinkerProxyTokenIssueRequestBody, authorization: str = Header(default="")):
+    """Issue a scoped proxy JWT encrypted to an approved recipient public key."""
+    if not settings.allow_tinker_proxy_token_issuance:
+        raise HTTPException(
+            status_code=403,
+            detail="Tinker proxy token issuance is disabled",
+        )
+    if not _runtime_auth_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Runtime bearer auth must be configured before proxy token issuance",
+        )
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_proxy import issue_encrypted_proxy_token
+
+    try:
+        return issue_encrypted_proxy_token(
+            settings,
+            subject=payload.subject,
+            scopes=payload.scopes,
+            recipient_public_key_hex=payload.recipient_public_key,
+            ttl_seconds=payload.ttl_seconds,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, redact_text(exc)) from exc
 
 
 @app.get("/health")
