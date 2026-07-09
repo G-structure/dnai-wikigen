@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-09T05:07:03Z",
+  "lastReviewedAt": "2026-07-09T06:09:28Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -50,9 +50,12 @@
       "accountCommitment": "0x535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
       "initialComposeHash": "0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
       "initialComposeHashApproved": true,
-      "maxAddBalanceWei": 5000000000000000000,
-      "maxSpendWei": 5000000000000000000,
+      "maxAddBalanceWei": 10000000000000000000,
+      "maxSpendWei": 10000000000000000000,
       "policyUnitsPerUsdWei": 1000000000000000000,
+      "latestFundingPolicyTx": "0x3ab263bb7cb7758787fa1136dd043cca002db9cf511b29ad20ef4d1216199d3f",
+      "latestFundingPolicyBlock": 43904511,
+      "latestFundingPolicySetAt": "2026-07-09T06:09:28Z",
       "emergencyHalted": false,
       "measurementsFrozen": false,
       "currentOperatorControlled": true,
@@ -1098,8 +1101,8 @@
       "encryptionPublicKey": "409666dc58a0f0e2bf7cc706c2129c807827965ea383b55990e3edf6ad52f357",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
-    "fundingValidationEvidence": {
-      "status": "live_policy_ready_auth_solved_encumbrance_approved_real_card_not_attempted",
+      "fundingValidationEvidence": {
+      "status": "live_policy_cap_updated_needs_redeploy_and_preflight_rerun",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
       "sourceDigest": "6ff5531aabb952b3266210afa6c0b6bfb8860103",
       "githubActionsRunId": 28994301855,
@@ -1137,12 +1140,15 @@
         "bootstrapAttempted": false
       },
       "fundingPreflight": {
-        "ready": true,
-        "amount": 5,
+        "ready": false,
+        "amount": 10,
         "attestationFetch": "live_attestation_matched_expected_f472_compose_hash",
         "addBalanceEndpoint": "enabled_behind_runtime_bearer_auth",
         "fundingMode": "operator_capped_validation",
-        "maxAddBalanceUsd": 5
+        "minAddBalanceUsd": 10,
+        "maxAddBalanceUsd": 10,
+        "stalePreviousReadyAmount": 5,
+        "staleReason": "source and live CVM need redeploy after bounded card-controls and $10 policy update"
       },
       "reauthAttempt": {
         "success": true,
@@ -1168,14 +1174,15 @@
         "storesRawCookiesOrLocalStorageInPlaintext": false
       },
       "fundingCommandPlan": {
-        "status": "ready_after_manifest_refresh",
-        "amount": 5,
+        "status": "ready_after_policy_update",
+        "amount": 10,
         "encumbranceContract": "0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e",
         "composeHashApproved": true,
         "runtimeAuthRequired": true,
-        "rawSecretEgress": false
+        "rawSecretEgress": false,
+        "latestLocalPlanCheck": "ready_true_raw_secret_egress_false"
       },
-      "nextStep": "run the operator-gated funding-validation-packet for $5 with a live card prompt; do not commit or echo card details; production still requires non-dev OS before claiming final deployment",
+      "nextStep": "build and deploy the new bounded card-controls image, approve the new compose hash, then rerun $10 preflight, card-on-file status, and add-balance validation; do not commit or echo card details; production still requires non-dev OS before claiming final deployment",
       "postSelectorDiagnosticsRestore": {
         "date": "2026-07-09",
         "attestedComposeHash": "f4728f219572c09c6ccc013883a4a895f3e366ea6e9654459fd6b0002fe33552",

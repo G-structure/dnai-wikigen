@@ -1447,9 +1447,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             - [x] Source/test fix: enforce Tinker's `$10` whole-dollar minimum,
                   expose bounded card-on-file status, and add an authenticated
                   admin/operator card removal path.
-            - [ ] Update deployed `TinkerAccountEncumbrance` funding policy from
+            - [x] Update deployed `TinkerAccountEncumbrance` funding policy from
                   `$5` to `$10` add-balance/spend caps before rerunning live
-                  preflight or any add-balance attempt.
+                  preflight or any add-balance attempt. Done in tx
+                  `0x3ab263bb7cb7758787fa1136dd043cca002db9cf511b29ad20ef4d1216199d3f`
+                  at block `43904511`; read-back returned `10e18` for both caps.
             - [ ] Build, attest, digest-pin, redeploy, and approve the updated
                   funding-validation compose hash, then rerun add-balance only
                   if the existing card-on-file state is still present.

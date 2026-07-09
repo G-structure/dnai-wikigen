@@ -703,9 +703,13 @@ Implementation status:
             `0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`, approved compose
             hash
             `0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`,
-            emergency halt false, measurements frozen false, and `$5`
-            add-balance/spend caps. This makes the pre-card on-chain policy
-            gate real for the current funding-validation compose hash.
+            emergency halt false, and measurements frozen false. A follow-up
+            owner transaction
+            `0x3ab263bb7cb7758787fa1136dd043cca002db9cf511b29ad20ef4d1216199d3f`
+            raised both add-balance and spend caps to `$10`, with read-back
+            returning `10000000000000000000` for both policy values. This makes
+            the pre-card on-chain policy gate real for the current
+            funding-validation compose hash.
 [real]      Local Neko/CDP Tinker login, email OTP retrieval, onboarding, and API-key provisioning.
 [real]      Signup/bootstrap stores captured Tinker API keys in encrypted
             storage and returns only bounded hash/status metadata.

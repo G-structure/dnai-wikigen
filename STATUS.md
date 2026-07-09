@@ -91,11 +91,15 @@ amount-input/preset-amount fallbacks for the add-balance modal; it also models
 Tinker's `$10` whole-dollar minimum, exposes bounded card-on-file status
 (`card_on_file` plus count band only), and adds an authenticated admin/operator
 card-removal path with bounded receipts. The source fix is tested but not yet
-deployed to Phala. The deployed `TinkerAccountEncumbrance` still has the older
-`$5` add-balance/spend caps and must be updated to `$10` before the next live
-top-up attempt. Production deployment remains partial because the CVM still
-reports `dstack-dev-0.5.9` / `is_dev=true`, quote internals are not yet parsed,
-and live low-value top-up has not succeeded.
+deployed to Phala. The deployed `TinkerAccountEncumbrance` policy has now been
+updated from `$5` to `$10` add-balance/spend caps in tx
+`0x3ab263bb7cb7758787fa1136dd043cca002db9cf511b29ad20ef4d1216199d3f`
+at block `43904511`; local `cast` reads returned
+`10000000000000000000` for both `maxAddBalanceWei()` and `maxSpendWei()`.
+Production deployment remains partial because the CVM still reports
+`dstack-dev-0.5.9` / `is_dev=true`, quote internals are not yet parsed, the
+new bounded card-controls image is not yet deployed, and live low-value top-up
+has not succeeded.
 
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
@@ -111,9 +115,11 @@ helper from an interactive terminal. The manifest records deployed address
 `0x535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132`,
 initial compose hash
 `0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`,
-approved compose hash true, emergency halt false, measurements frozen false,
-and `$5` add-balance/spend caps. Local `cast` reads also confirmed nonzero
-bytecode, the owner, and the approved compose hash.
+approved compose hash true, emergency halt false, and measurements frozen
+false. Local `cast` reads also confirmed nonzero bytecode, the owner, and the
+approved compose hash. Follow-up operator transaction
+`0x3ab263bb7cb7758787fa1136dd043cca002db9cf511b29ad20ef4d1216199d3f`
+raised both add-balance and spend caps to `$10`.
 
 Selector diagnostics follow-up, 2026-07-09: a tracked one-shot Phala profile,
 `⚙️/tinker-delegate/docker-compose.selector-diagnostics.phala.yaml`, was added
