@@ -271,9 +271,13 @@ The command plan reads `deployments/base-sepolia.json` and emits bounded
 preflight, encumbrance-preflight, and prompt-packet command templates. It
 references `TINKER_RUNTIME_AUTH_TOKEN` and `BASE_SEPOLIA_RPC_URL` by variable
 name only; it does not print token values, RPC values, card fields, OTPs, API
-keys, cookies, or browser session material. The plan remains `ready=false`
-until the manifest contains a deployed `TinkerAccountEncumbrance` address and
-policy.
+keys, cookies, or browser session material. When the encumbrance contract is
+missing, the same plan also emits absolute dry-run and broadcast commands for
+`contracts/scripts/deploy-tinker-encumbrance-base-sepolia.sh`; the broadcast
+helper uses Foundry `--account` through the encrypted keystore and must be run
+from an interactive terminal so the keystore password is never placed in the
+plan, command line, or repo. The plan remains `ready=false` until the manifest
+contains a deployed `TinkerAccountEncumbrance` address and policy.
 
 The CLI card flags are for local test-card development only. Read
 `docs/STRIPE-PCI-FUNDING-SCOPE.md` before any real-card attempt. The encrypted

@@ -15,7 +15,8 @@ from typing import Any
 
 
 PLAN_VERSION = "tinker_funding_command_plan/v1"
-DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[3] / "deployments" / "base-sepolia.json"
+DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_MANIFEST_PATH = DEFAULT_REPO_ROOT / "deployments" / "base-sepolia.json"
 
 
 @dataclass(frozen=True)
@@ -36,9 +37,13 @@ class FundingCommandPlan:
     validation_id: str
     preflight_argv: tuple[str, ...]
     encumbrance_preflight_argv: tuple[str, ...]
+    encumbrance_deploy_dry_run_argv: tuple[str, ...]
+    encumbrance_deploy_broadcast_argv: tuple[str, ...]
     packet_argv: tuple[str, ...]
     preflight_shell: str
     encumbrance_preflight_shell: str
+    encumbrance_deploy_dry_run_shell: str
+    encumbrance_deploy_broadcast_shell: str
     packet_shell: str
 
     def to_public_dict(self) -> dict[str, Any]:
@@ -61,12 +66,21 @@ class FundingCommandPlan:
             "env_prerequisites": [
                 f"{self.runtime_auth_env} must be set in the operator shell; value is never printed",
                 f"{self.encumbrance_rpc_env} must be set in the operator shell; value is never printed",
+                "FOUNDRY_KEYSTORE_ACCOUNT must name an encrypted Foundry keystore account in .env or the operator shell",
             ],
             "preflight_argv": list(self.preflight_argv),
             "encumbrance_preflight_argv": list(self.encumbrance_preflight_argv),
+            "encumbrance_deploy_dry_run_argv": list(self.encumbrance_deploy_dry_run_argv),
+            "encumbrance_deploy_broadcast_argv": list(self.encumbrance_deploy_broadcast_argv),
             "packet_argv": list(self.packet_argv),
             "preflight_shell": self.preflight_shell,
             "encumbrance_preflight_shell": self.encumbrance_preflight_shell,
+            "encumbrance_deploy_dry_run_shell": self.encumbrance_deploy_dry_run_shell,
+            "encumbrance_deploy_broadcast_shell": self.encumbrance_deploy_broadcast_shell,
+            "encumbrance_deploy_note": (
+                "Run the dry-run first, then run the broadcast command from an interactive terminal. "
+                "The helper uses Foundry --account via the encrypted keystore and must not be given a raw private key."
+            ),
             "packet_shell": self.packet_shell,
             "raw_secret_egress": False,
         }
@@ -164,6 +178,24 @@ def build_funding_command_plan(
         f"${{{encumbrance_rpc_env}}}",
         "--required",
     )
+    deploy_helper = str(
+        DEFAULT_REPO_ROOT
+        / "⚙️"
+        / "tinker-delegate"
+        / "contracts"
+        / "scripts"
+        / "deploy-tinker-encumbrance-base-sepolia.sh"
+    )
+    encumbrance_deploy_dry_run_argv = (
+        "env",
+        "BROADCAST=false",
+        deploy_helper,
+    )
+    encumbrance_deploy_broadcast_argv = (
+        "env",
+        "BROADCAST=true",
+        deploy_helper,
+    )
     packet_argv: tuple[str, ...] = (
         "uv",
         "run",
@@ -212,11 +244,21 @@ def build_funding_command_plan(
         validation_id=validation_id,
         preflight_argv=preflight_argv,
         encumbrance_preflight_argv=encumbrance_preflight_argv,
+        encumbrance_deploy_dry_run_argv=encumbrance_deploy_dry_run_argv,
+        encumbrance_deploy_broadcast_argv=encumbrance_deploy_broadcast_argv,
         packet_argv=packet_argv,
         preflight_shell=_shell_command(preflight_argv, env_placeholders=set()),
         encumbrance_preflight_shell=_shell_command(
             encumbrance_preflight_argv,
             env_placeholders={encumbrance_rpc_env},
+        ),
+        encumbrance_deploy_dry_run_shell=_join_argv(
+            encumbrance_deploy_dry_run_argv,
+            env_placeholders=set(),
+        ),
+        encumbrance_deploy_broadcast_shell=_join_argv(
+            encumbrance_deploy_broadcast_argv,
+            env_placeholders=set(),
         ),
         packet_shell=_shell_command(packet_argv, env_placeholders={encumbrance_rpc_env, runtime_auth_env}),
     )

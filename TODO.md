@@ -1341,11 +1341,23 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `deployments/base-sepolia.json`, extracts the live delegate URL,
             compose hash, app ID, OS image hash, and
             `TinkerAccountEncumbrance` policy, then emits preflight,
-            encumbrance-preflight, and prompt-packet argv/shell templates
+            encumbrance-preflight, encumbrance deploy dry-run/broadcast, and
+            prompt-packet argv/shell templates
             without card details, bearer tokens, API keys, OTPs, or RPC values.
             The current manifest correctly returns `ready=false` with
             `missing_tinker_encumbrance_contract` until the interactive
             encumbrance broadcast records the contract address/policy.
+            Refreshed 2026-07-09: the plan now includes absolute
+            no-raw-key deploy helper commands for
+            `deploy-tinker-encumbrance-base-sepolia.sh`, with a note that the
+            broadcast must run from an interactive terminal using Foundry
+            `--account` and the encrypted keystore. A fresh helper dry-run
+            passed chain checks, build, and 9 encumbrance contract tests,
+            predicting deployment address
+            `0x9F2616f3F7B0dc363bBa19F7d72b9061f791a06e` against compose hash
+            `0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7`;
+            the manifest records this as dry-run evidence only, not a deployed
+            contract.
       - [ ] Run a capped real-card add-payment-method and low-value add-balance
             attempt after the funding-validation compose is deployed on Phala,
             its live attested compose hash is recorded, and the operator CLI

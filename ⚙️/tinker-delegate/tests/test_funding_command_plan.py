@@ -53,10 +53,17 @@ class FundingCommandPlanTest(unittest.TestCase):
             self.assertEqual(plan["delegate_api_url"], "https://delegate.example")
             self.assertIn("--require-encumbrance", plan["packet_argv"])
             self.assertIn("<missing-encumbrance-contract>", plan["packet_argv"])
+            self.assertIn("encumbrance_deploy_dry_run_shell", plan)
+            self.assertIn("encumbrance_deploy_broadcast_shell", plan)
+            self.assertIn("BROADCAST=false", plan["encumbrance_deploy_dry_run_shell"])
+            self.assertIn("BROADCAST=true", plan["encumbrance_deploy_broadcast_shell"])
+            self.assertIn("deploy-tinker-encumbrance-base-sepolia.sh", plan["encumbrance_deploy_broadcast_shell"])
             rendered = json.dumps(plan)
             self.assertNotIn("Card number", rendered)
             self.assertNotIn("Bearer ", rendered)
             self.assertNotIn("tml-", rendered)
+            self.assertNotIn("--private-key", rendered)
+            self.assertNotIn("PRIVATE_KEY", rendered)
 
     def test_ready_manifest_builds_prompt_packet_command_with_contract_policy(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -83,6 +90,8 @@ class FundingCommandPlanTest(unittest.TestCase):
             self.assertIn(ENCUMBRANCE_ADDRESS, plan["packet_shell"])
             self.assertIn('test -n "${TINKER_RUNTIME_AUTH_TOKEN:-}"', plan["packet_shell"])
             self.assertIn('test -n "${BASE_SEPOLIA_RPC_URL:-}"', plan["packet_shell"])
+            self.assertIn("Foundry --account", plan["encumbrance_deploy_note"])
+            self.assertNotIn("--private-key", json.dumps(plan))
 
     def test_amount_above_manifest_cap_is_not_ready(self):
         with tempfile.TemporaryDirectory() as tmpdir:

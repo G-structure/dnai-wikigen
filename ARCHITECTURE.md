@@ -1064,12 +1064,15 @@ Implementation status:
             operator command plan. It reads only public deployment evidence
             (`delegate` endpoint, compose hash, app ID, OS image hash, and
             TinkerAccountEncumbrance policy) and emits argv/shell templates for
-            funding preflight, encumbrance preflight, and the eventual
-            prompt-card funding-validation packet. It references
-            `TINKER_RUNTIME_AUTH_TOKEN` and `BASE_SEPOLIA_RPC_URL` by
-            environment-variable name only and never prints bearer tokens, card
-            fields, API keys, OTPs, RPC values, cookies, or browser/session
-            material. The current manifest-derived plan is intentionally
+            funding preflight, encumbrance preflight, the encumbrance deploy
+            dry-run/broadcast helper, and the eventual prompt-card
+            funding-validation packet. It references `TINKER_RUNTIME_AUTH_TOKEN`
+            and `BASE_SEPOLIA_RPC_URL` by environment-variable name only and
+            never prints bearer tokens, card fields, API keys, OTPs, RPC
+            values, cookies, or browser/session material. The deploy helper
+            commands use Foundry `--account` through the encrypted keystore and
+            require an interactive terminal for broadcast; no raw private-key
+            path is emitted. The current manifest-derived plan is intentionally
             `ready=false` until TinkerAccountEncumbrance is deployed and
             recorded.
 [real]      Operator-only mutation endpoints now have delegate runtime bearer

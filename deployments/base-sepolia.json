@@ -7,7 +7,7 @@
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
   "status": "current_operator_contracts_deployed",
-  "lastReviewedAt": "2026-07-09T03:28:07Z",
+  "lastReviewedAt": "2026-07-09T04:07:39Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -1119,7 +1119,19 @@
       "fundingCommandPlan": {
         "status": "not_ready_until_tinker_account_encumbrance_deployed",
         "amount": 5,
-        "requiredMissingEvidence": "missing_tinker_encumbrance_contract"
+        "requiredMissingEvidence": "missing_tinker_encumbrance_contract",
+        "encumbranceDeployHandoff": {
+          "status": "ready_for_interactive_operator_broadcast",
+          "dryRunCommandIncluded": true,
+          "broadcastCommandIncluded": true,
+          "commandSource": "funding-command-plan",
+          "helper": "⚙️/tinker-delegate/contracts/scripts/deploy-tinker-encumbrance-base-sepolia.sh",
+          "requiresInteractiveFoundryKeystorePrompt": true,
+          "usesFoundryAccountFlag": true,
+          "rawPrivateKeyRequired": false,
+          "rawSecretEgress": false,
+          "lastDryRunStatus": "passed_build_tests_and_simulation"
+        }
       },
       "nextStep": "deploy TinkerAccountEncumbrance from an interactive terminal, then repair deployed Tinker auth/session on Phala so /auth/reauth reaches OTP, saves browser session state, and billing page is authenticated before approved real-card prompt",
       "postSelectorDiagnosticsRestore": {
@@ -1220,6 +1232,31 @@
   },
   "freshDeployment": {
     "status": "broadcast_complete",
-    "helper": "⚙️/tinker-delegate/contracts/scripts/deploy-base-sepolia.sh"
+    "helper": "⚙️/tinker-delegate/contracts/scripts/deploy-base-sepolia.sh",
+    "tinkerAccountEncumbrance": {
+      "status": "dry_run_complete_interactive_broadcast_required",
+      "reviewedAt": "2026-07-09T04:07:39Z",
+      "helper": "⚙️/tinker-delegate/contracts/scripts/deploy-tinker-encumbrance-base-sepolia.sh",
+      "account": "dev",
+      "deployer": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
+      "owner": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
+      "chainId": 84532,
+      "balanceEthAtDryRun": "0.015959606501019536",
+      "nonceAtDryRun": 3,
+      "accountCommitment": "0x535adcedea37ac48af0e43720f390125749053a0a0215b669ce55c746cd10132",
+      "initialComposeHash": "0xb3fc9840dc7db51d2ba835f349564fbace5b64a0a122025c9c1c5923f88686f7",
+      "maxAddBalanceWei": 5000000000000000000,
+      "maxSpendWei": 5000000000000000000,
+      "freezeMeasurements": false,
+      "predictedDryRunAddress": "0x9F2616f3F7B0dc363bBa19F7d72b9061f791a06e",
+      "estimatedGasPriceGwei": "0.011",
+      "estimatedEthRequired": "0.00001471492",
+      "contractTestResult": "9_passed_0_failed",
+      "broadcastCommandSource": "funding-command-plan.encumbrance_deploy_broadcast_shell",
+      "usesFoundryKeystoreAccount": true,
+      "rawPrivateKeyRequired": false,
+      "rawSecretEgress": false,
+      "blocker": "interactive_foundry_keystore_prompt_required_for_broadcast"
+    }
   }
 }

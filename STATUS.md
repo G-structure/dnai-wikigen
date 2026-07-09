@@ -73,6 +73,17 @@ guarded, but approved real-card funding is still blocked on both
 `TinkerAccountEncumbrance` deployment and Tinker auth/session repair and must
 not be attempted yet.
 
+Encumbrance handoff follow-up, 2026-07-09: the
+`TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
+with the current funding-validation compose hash. Chain ID, balance, and nonce
+were read; build passed; `TinkerAccountEncumbrance.t.sol` passed 9 tests; and
+the dry-run predicted deployment address
+`0x9F2616f3F7B0dc363bBa19F7d72b9061f791a06e` with about
+`0.00001471492` ETH required. The manifest records this as dry-run evidence
+only. `funding-command-plan` now emits absolute dry-run and broadcast helper
+commands for the encumbrance contract, but the real broadcast still needs an
+interactive Foundry keystore prompt and must not use a raw private key.
+
 Selector diagnostics follow-up, 2026-07-09: a tracked one-shot Phala profile,
 `⚙️/tinker-delegate/docker-compose.selector-diagnostics.phala.yaml`, was added
 for bounded browser-control evidence on the main CVM. It uses registry images
