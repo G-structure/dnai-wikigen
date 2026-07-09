@@ -245,10 +245,34 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                               governance contract, and define the secure
                               recipient approval workflow that transmits
                               encrypted proxy JWTs only to approved users.
-                  - [ ] Redeploy the lifecycle-required proxy issue policy
-                        source slice to Phala, approve the resulting compose
-                        hash, install an active lifecycle-bound issue policy,
-                        and record bounded issuance evidence.
+                              - [x] Add bounded verifier CLI tooling for signed
+                                    hash-only identity registries. Done
+                                    2026-07-09:
+                                    `sign-tinker-proxy-identity-registry`
+                                    reads an unsigned hash-only registry,
+                                    normalizes it to schema-v1
+                                    `identity_hash`/role/status/expiry rows,
+                                    signs the canonical registry hash with a
+                                    verifier key supplied only by environment
+                                    variable, writes the signed registry to an
+                                    explicit output file, and emits only
+                                    registry hash, role counts, signer hash,
+                                    signature hash, output path, and
+                                    `raw_secret_egress=false`.
+                                    `verify-tinker-proxy-identity-registry`
+                                    externally verifies a signed registry
+                                    against an expected signer address while
+                                    returning only bounded hashes/status. CLI
+                                    regression coverage signs, verifies, and
+                                    uses the signed registry for actual proxy
+                                    JWT issuance without printing raw
+                                    identities, signer private key, signer
+                                    address, raw signature, or plaintext JWT.
+                  - [ ] Redeploy the lifecycle/signature-required proxy issue
+                        policy source slice to Phala, approve the resulting
+                        compose hash, install an active lifecycle-bound issue
+                        policy plus signed hash-only identity registry, and
+                        record bounded issuance evidence.
       - [x] Accept scoped proxy JWTs on the first bounded operation endpoints.
             Done 2026-07-09: `GET /tinker/proxy/status`,
             `POST /tinker/smoke`, `GET /billing/payment-method-status`, and

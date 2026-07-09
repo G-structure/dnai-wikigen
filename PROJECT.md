@@ -127,10 +127,12 @@ For the current implementation this means:
   while still exposing only hashes, roles, statuses, and expiries. Source/test
   code can require that registry to be signed by a configured verifier
   Ethereum address before minting, so an operator-supplied JSON file is not
-  enough when the signature gate is enabled. A deployment-policy gate can also
-  require public `TinkerAccountEncumbrance` compose/cap approval before
-  minting spend-bearing proxy JWTs; production verifier/reviewer governance
-  and secure recipient approval workflow remain separate work.
+  enough when the signature gate is enabled. The verifier workflow should
+  produce signed hash-only registry artifacts and bounded receipts, not raw
+  identity exports. A deployment-policy gate can also require public
+  `TinkerAccountEncumbrance` compose/cap approval before minting spend-bearing
+  proxy JWTs; production verifier/reviewer governance and secure recipient
+  approval workflow remain separate work.
 - JWT delivery should use an attestation-verified encrypted channel to the
   recipient, not plaintext logs, shell history, or documentation.
 - JWT issuance and revocation should leave bounded sealed audit records so a

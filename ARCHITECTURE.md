@@ -397,6 +397,15 @@ run IDs, checkpoint paths, samples, or private reward data.
             registry hash, signer hash, signature hash, verification status,
             and `raw_secret_egress=false`, not signer private material,
             plaintext user identities, or plaintext JWTs.
+            `sign-tinker-proxy-identity-registry` and
+            `verify-tinker-proxy-identity-registry` provide a bounded local
+            verifier workflow for this registry: the signer key is read only
+            from an environment variable, the signed registry is written to an
+            explicit file, and receipts expose only registry hash, role counts,
+            signer hash, signature hash, output path, verification status, and
+            `raw_secret_egress=false`. The signed registry artifact necessarily
+            contains the verifier signature and signer address, but not raw
+            user/reviewer identities; the receipt does not return either value.
             The current source compose carries disabled lifecycle and signed
             identity-registry env knobs; local raw/image-policy compose hash is
             `cea8860b87944f990e2afe30e0ef1e78d3aa91bccacee0aa76727fcc58381e2d`

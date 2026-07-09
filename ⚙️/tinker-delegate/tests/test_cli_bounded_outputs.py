@@ -9,6 +9,8 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+from eth_account import Account
+
 from tinker_delegate.main import _render_bounded_json
 from tinker_delegate.run_metadata_store import stable_hash
 
@@ -621,6 +623,219 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertEqual(revoke_receipt["record"]["event"], "revoked")
             self.assertNotIn(token_path.read_text(encoding="utf-8").strip(), rendered)
             self.assertNotIn(private_key_path.read_text(encoding="utf-8").strip(), rendered)
+
+    def test_proxy_identity_registry_sign_verify_and_issue_are_bounded(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            env = _env(tmpdir)
+            signer = Account.create("proxy identity registry verifier")
+            signer_key = signer.key.hex()
+            env["TINKER_PROXY_IDENTITY_REGISTRY_SIGNER_KEY"] = signer_key
+            env["TINKER_PROXY_JWT_KEY"] = "55" * 32
+            env["TINKER_PROXY_REQUIRE_ISSUE_POLICY"] = "true"
+            env["TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE"] = "true"
+            env["TINKER_PROXY_REQUIRE_IDENTITY_REGISTRY"] = "true"
+            env["TINKER_PROXY_REQUIRE_IDENTITY_REGISTRY_SIGNATURE"] = "true"
+            env["TINKER_PROXY_IDENTITY_REGISTRY_SIGNER"] = signer.address
+            policy_path = tmp / "proxy-policy.json"
+            registry_path = tmp / "identity-registry.json"
+            signed_registry_path = tmp / "signed-identity-registry.json"
+            sign_receipt_path = tmp / "sign-receipt.json"
+            verify_receipt_path = tmp / "verify-receipt.json"
+            issue_receipt_path = tmp / "issue-receipt.json"
+            recipient_private_key_path = tmp / "recipient.key"
+            recipient_keygen_path = tmp / "recipient-keygen.json"
+
+            keygen = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "tinker-proxy-recipient-keygen",
+                    "--private-key-output",
+                    str(recipient_private_key_path),
+                    "--output",
+                    str(recipient_keygen_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            public_key = json.loads(recipient_keygen_path.read_text(encoding="utf-8"))["public_key"]
+            policy = {
+                "schema_version": 1,
+                "grants": [
+                    {
+                        "subject_hash": stable_hash("buyer-agent-1", prefix="proxy_subject"),
+                        "recipient_public_key_hash": stable_hash(
+                            public_key.lower(),
+                            prefix="proxy_recipient_public_key",
+                        ),
+                        "scopes": ["proxy:status"],
+                        "max_ttl_seconds": 60,
+                        "lifecycle": {
+                            "status": "active",
+                            "approved_by_hash": stable_hash("reviewer-1", prefix="proxy_grant_reviewer"),
+                            "approval_event_hash": stable_hash(
+                                "approval-event-1",
+                                prefix="proxy_grant_approval",
+                            ),
+                            "approved_at": 1,
+                            "expires_at": 4_102_444_800,
+                        },
+                    }
+                ],
+            }
+            registry = {
+                "schema_version": 1,
+                "identities": [
+                    {
+                        "identity_hash": stable_hash("buyer-agent-1", prefix="proxy_subject"),
+                        "role": "agent",
+                        "status": "active",
+                        "expires_at": 4_102_444_800,
+                        "ignored_raw_label": "buyer-agent-1",
+                    },
+                    {
+                        "identity_hash": stable_hash("reviewer-1", prefix="proxy_grant_reviewer"),
+                        "role": "reviewer",
+                        "status": "active",
+                        "expires_at": 4_102_444_800,
+                        "ignored_raw_label": "reviewer-1",
+                    },
+                ],
+            }
+            policy_path.write_text(json.dumps(policy, sort_keys=True), encoding="utf-8")
+            registry_path.write_text(json.dumps(registry, sort_keys=True), encoding="utf-8")
+            env["TINKER_PROXY_ISSUE_POLICY_PATH"] = str(policy_path)
+            env["TINKER_PROXY_IDENTITY_REGISTRY_PATH"] = str(signed_registry_path)
+
+            signed = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "sign-tinker-proxy-identity-registry",
+                    "--registry-json",
+                    str(registry_path),
+                    "--signed-registry-output",
+                    str(signed_registry_path),
+                    "--output",
+                    str(sign_receipt_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            verified = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "verify-tinker-proxy-identity-registry",
+                    "--registry-json",
+                    str(signed_registry_path),
+                    "--expected-signer",
+                    signer.address,
+                    "--output",
+                    str(verify_receipt_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            issued = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "issue-tinker-proxy-token",
+                    "--subject",
+                    "buyer-agent-1",
+                    "--scope",
+                    "proxy:status",
+                    "--recipient-public-key",
+                    public_key,
+                    "--ttl-seconds",
+                    "60",
+                    "--output",
+                    str(issue_receipt_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(keygen.returncode, 0, keygen.stderr)
+            self.assertEqual(signed.returncode, 0, signed.stderr)
+            self.assertEqual(verified.returncode, 0, verified.stderr)
+            self.assertEqual(issued.returncode, 0, issued.stderr)
+            self.assertEqual(signed.stdout, "")
+            self.assertEqual(verified.stdout, "")
+            self.assertEqual(issued.stdout, "")
+            sign_receipt = json.loads(sign_receipt_path.read_text(encoding="utf-8"))
+            verify_receipt = json.loads(verify_receipt_path.read_text(encoding="utf-8"))
+            signed_registry = json.loads(signed_registry_path.read_text(encoding="utf-8"))
+            issue_receipt = json.loads(issue_receipt_path.read_text(encoding="utf-8"))
+            rendered_receipts = repr([sign_receipt, verify_receipt, issue_receipt])
+            rendered_registry = repr(signed_registry)
+
+            self.assertTrue(sign_receipt["success"])
+            self.assertTrue(verify_receipt["success"])
+            self.assertTrue(issue_receipt["success"])
+            self.assertTrue(verify_receipt["signature_binding"]["verified"])
+            self.assertEqual(sign_receipt["registry_hash"], verify_receipt["registry_hash"])
+            self.assertEqual(
+                issue_receipt["policy_binding"]["identity_binding"]["signature_binding"]["registry_hash"],
+                sign_receipt["registry_hash"],
+            )
+            self.assertEqual(sign_receipt["role_counts"], {"agent": 1, "reviewer": 1})
+            self.assertFalse(sign_receipt["signature"]["private_key_returned"])
+            self.assertFalse(sign_receipt["signature"]["signature_returned"])
+            self.assertFalse(sign_receipt["signature"]["signer_address_returned"])
+            self.assertFalse(sign_receipt["signed_registry_returned"])
+            self.assertNotIn(signer_key.replace("0x", ""), rendered_receipts)
+            self.assertNotIn(signer.address, rendered_receipts)
+            self.assertNotIn(signed_registry["signature"]["signature"], rendered_receipts)
+            self.assertNotIn("buyer-agent-1", rendered_receipts)
+            self.assertNotIn("reviewer-1", rendered_receipts)
+            self.assertNotIn("ignored_raw_label", rendered_registry)
+            self.assertNotIn("buyer-agent-1", rendered_registry)
+            self.assertNotIn("reviewer-1", rendered_registry)
+
+            failed_verify_path = tmp / "failed-verify.json"
+            failed_verify = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "verify-tinker-proxy-identity-registry",
+                    "--registry-json",
+                    str(signed_registry_path),
+                    "--expected-signer",
+                    Account.create("wrong registry signer").address,
+                    "--output",
+                    str(failed_verify_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            self.assertNotEqual(failed_verify.returncode, 0)
+            failed_receipt = json.loads(failed_verify_path.read_text(encoding="utf-8"))
+            self.assertFalse(failed_receipt["success"])
+            self.assertFalse(failed_receipt["raw_secret_egress"])
+            self.assertNotIn(signer_key.replace("0x", ""), repr(failed_receipt))
 
     def test_tinker_smoke_non_json_remote_response_writes_bounded_failure(self):
         with tempfile.TemporaryDirectory() as tmpdir:

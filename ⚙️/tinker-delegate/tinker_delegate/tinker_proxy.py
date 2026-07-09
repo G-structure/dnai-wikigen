@@ -982,6 +982,78 @@ def _validate_proxy_identity_registry_signature(settings, registry: dict[str, An
     }
 
 
+def sign_proxy_identity_registry(registry: dict[str, Any], signer_private_key: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return a normalized signed hash-only identity registry and bounded receipt."""
+
+    normalized = _normalize_proxy_identity_registry(registry)
+    unsigned = _proxy_identity_registry_unsigned(normalized)
+    registry_hash = _proxy_identity_registry_hash(unsigned)
+    account = Account.from_key(signer_private_key)
+    signer = normalize_address(account.address)
+    signed = account.sign_message(encode_defunct(hexstr="0x" + registry_hash))
+    signature = "0x" + bytes(signed.signature).hex()
+    signed_registry = {
+        **unsigned,
+        "signature": {
+            "kind": "ethereum_signed_message",
+            "signer": signer,
+            "registry_hash": "0x" + registry_hash,
+            "signature": signature,
+        },
+    }
+    receipt = {
+        "surface": "tinker_proxy_identity_registry_sign",
+        "success": True,
+        "registry_hash": registry_hash,
+        "identity_count": len(unsigned.get("identities", [])),
+        "role_counts": _proxy_identity_registry_role_counts(unsigned),
+        "signature": {
+            "kind": "ethereum_signed_message",
+            "signer_hash": stable_hash(signer, prefix="proxy_identity_registry_signer"),
+            "signature_hash": stable_hash(signature, prefix="proxy_identity_registry_signature"),
+            "signature_returned": False,
+            "signer_address_returned": False,
+            "private_key_returned": False,
+            "raw_secret_egress": False,
+        },
+        "raw_secret_egress": False,
+    }
+    return signed_registry, receipt
+
+
+def verify_signed_proxy_identity_registry(registry: dict[str, Any], expected_signer: str) -> dict[str, Any]:
+    """Verify a signed hash-only proxy identity registry with bounded output."""
+
+    normalized = _normalize_proxy_identity_registry(registry)
+    settings = type(
+        "ProxyIdentityRegistryVerifySettings",
+        (),
+        {
+            "proxy_require_identity_registry_signature": True,
+            "proxy_identity_registry_signer": expected_signer,
+        },
+    )()
+    signature_binding = _validate_proxy_identity_registry_signature(settings, normalized)
+    unsigned = _proxy_identity_registry_unsigned(normalized)
+    return {
+        "surface": "tinker_proxy_identity_registry_verify",
+        "success": True,
+        "registry_hash": _proxy_identity_registry_hash(unsigned),
+        "identity_count": len(unsigned.get("identities", [])),
+        "role_counts": _proxy_identity_registry_role_counts(unsigned),
+        "signature_binding": signature_binding,
+        "raw_secret_egress": False,
+    }
+
+
+def _proxy_identity_registry_role_counts(registry: dict[str, Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for identity in registry.get("identities", []):
+        role = str(identity.get("role", "unknown"))
+        counts[role] = counts.get(role, 0) + 1
+    return dict(sorted(counts.items()))
+
+
 def _find_active_proxy_identity(
     registry: dict[str, Any],
     identity_hash: str,

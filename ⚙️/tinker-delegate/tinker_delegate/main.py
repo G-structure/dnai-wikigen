@@ -516,6 +516,41 @@ def cli():
         help="Optional path to hash-only policy JSON to install; omitted returns current status",
     )
     tinker_proxy_policy_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    tinker_proxy_registry_sign_p = sub.add_parser(
+        "sign-tinker-proxy-identity-registry",
+        help="Sign a hash-only proxy identity registry with a verifier key from env",
+    )
+    tinker_proxy_registry_sign_p.add_argument(
+        "--registry-json",
+        required=True,
+        help="Path to unsigned hash-only identity registry JSON",
+    )
+    tinker_proxy_registry_sign_p.add_argument(
+        "--signer-key-env",
+        default="TINKER_PROXY_IDENTITY_REGISTRY_SIGNER_KEY",
+        help="Environment variable containing verifier Ethereum private key",
+    )
+    tinker_proxy_registry_sign_p.add_argument(
+        "--signed-registry-output",
+        required=True,
+        help="Path to write normalized signed identity registry JSON",
+    )
+    tinker_proxy_registry_sign_p.add_argument("--output", default="", help="Optional bounded receipt path")
+    tinker_proxy_registry_verify_p = sub.add_parser(
+        "verify-tinker-proxy-identity-registry",
+        help="Verify a signed hash-only proxy identity registry against an expected signer",
+    )
+    tinker_proxy_registry_verify_p.add_argument(
+        "--registry-json",
+        required=True,
+        help="Path to signed hash-only identity registry JSON",
+    )
+    tinker_proxy_registry_verify_p.add_argument(
+        "--expected-signer",
+        required=True,
+        help="Expected verifier Ethereum address",
+    )
+    tinker_proxy_registry_verify_p.add_argument("--output", default="", help="Optional bounded receipt path")
     tinker_proxy_token_p = sub.add_parser(
         "issue-tinker-proxy-token",
         help="Issue a scoped Tinker proxy JWT encrypted to a recipient public key",
@@ -1742,6 +1777,63 @@ def cli():
                 "raw_secret_egress": False,
             }
         _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "sign-tinker-proxy-identity-registry":
+        from tinker_delegate.tinker_proxy import sign_proxy_identity_registry
+
+        signer_private_key = os.environ.get(args.signer_key_env, "").strip()
+        if not signer_private_key:
+            result = {
+                "surface": "tinker_proxy_identity_registry_sign",
+                "success": False,
+                "error_kind": "missing_signer_key",
+                "bounded_message": "signer key environment variable is not configured",
+                "private_key_returned": False,
+                "raw_secret_egress": False,
+            }
+            _emit_bounded_json(result, output_path=args.output)
+            sys.exit(1)
+        registry = json.loads(Path(args.registry_json).read_text(encoding="utf-8"))
+        try:
+            signed_registry, result = sign_proxy_identity_registry(registry, signer_private_key)
+            Path(args.signed_registry_output).write_text(
+                json.dumps(signed_registry, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            result = {
+                **result,
+                "signed_registry_output": str(Path(args.signed_registry_output)),
+                "signed_registry_written": True,
+                "signed_registry_returned": False,
+            }
+        except Exception as exc:
+            result = {
+                "surface": "tinker_proxy_identity_registry_sign",
+                "success": False,
+                "error_kind": exc.__class__.__name__,
+                "bounded_message": redact_text(exc),
+                "private_key_returned": False,
+                "raw_secret_egress": False,
+            }
+        _emit_bounded_json(result, output_path=args.output, forbidden_values=(signer_private_key,))
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "verify-tinker-proxy-identity-registry":
+        from tinker_delegate.tinker_proxy import verify_signed_proxy_identity_registry
+
+        registry = json.loads(Path(args.registry_json).read_text(encoding="utf-8"))
+        try:
+            result = verify_signed_proxy_identity_registry(registry, args.expected_signer)
+        except Exception as exc:
+            result = {
+                "surface": "tinker_proxy_identity_registry_verify",
+                "success": False,
+                "error_kind": exc.__class__.__name__,
+                "bounded_message": redact_text(exc),
+                "raw_secret_egress": False,
+            }
+        _emit_bounded_json(result, output_path=args.output, forbidden_values=(args.expected_signer,))
         sys.exit(0 if result.get("success") else 1)
 
     elif args.command == "issue-tinker-proxy-token":
