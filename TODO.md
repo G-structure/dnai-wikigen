@@ -2603,8 +2603,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       - [x] Add source-modeled active consent matching for owner, corpus,
             purpose, pipeline, requester, and expiry. Missing consent leaves
             the turn `awaiting-consent` with no meters or surfaced result.
-            M-of-N quorum management and consent-confirmation effects remain
-            open.
+      - [x] Add source-modeled M-of-N consent quorum handling.
+            Done 2026-07-09: `CollabSession.consent_quorum` now supports
+            `unanimous` and `<m>-of-<n>` over the turn corpora; invalid or
+            mismatched quorum policy fails closed as `invalid_consent_quorum`,
+            below-threshold grants remain `missing_consent`, and tests prove
+            2-of-3 settlement without raw secret egress. Consent-confirmation
+            effects remain open.
 - [x] `P0` Implement revocation:
       future and in-flight turns fail closed; prior settled attestations remain
       valid.

@@ -159,6 +159,13 @@ class RoyaltyMeter:
 
 
 @dataclass(frozen=True)
+class ConsentCheck:
+    allowed: bool
+    reason: str
+    missing_corpora: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class JointAttestation:
     turn_id: str
     status: TurnStatus
@@ -328,14 +335,14 @@ def _gate_results(state: CoordinationState, event: GateResults, env: Coordinatio
         )
         return _with_turn(state, updated)
 
-    missing_consent = _missing_consent(state.session, record.turn, env)
-    if missing_consent:
+    consent_check = _consent_check(state.session, record.turn, env)
+    if not consent_check.allowed:
         updated = TurnRecord(
             turn=record.turn,
             status=TurnStatus.AWAITING_CONSENT,
             queries=tuple(event.queries),
             joint=_joint(record.turn, TurnStatus.AWAITING_CONSENT, event.queries, (), ()),
-            status_reason="missing_consent",
+            status_reason=consent_check.reason,
         )
         return _with_turn(state, updated)
 
@@ -509,11 +516,40 @@ def _delegation_allows_turn(session: CollabSession, turn: Turn, env: Coordinatio
     return False
 
 
-def _missing_consent(session: CollabSession, turn: Turn, env: CoordinationEnv) -> tuple[str, ...]:
-    missing: list[str] = []
+def _consent_check(session: CollabSession, turn: Turn, env: CoordinationEnv) -> ConsentCheck:
+    required = _required_consent_count(session.consent_quorum, len(turn.corpora))
+    if required is None:
+        return ConsentCheck(False, "invalid_consent_quorum", tuple(turn.corpora))
+
+    active = _active_consent_corpora(session, turn, env)
+    missing = tuple(corpus_ref for corpus_ref in turn.corpora if corpus_ref not in active)
+    if len(active) < required:
+        return ConsentCheck(False, "missing_consent", missing)
+    return ConsentCheck(True, "consent_quorum_met", missing)
+
+
+def _required_consent_count(quorum: str, total_corpora: int) -> int | None:
+    normalized = quorum.strip().lower()
+    if normalized == "unanimous":
+        return total_corpora
+
+    if "-of-" not in normalized:
+        return None
+    required_raw, total_raw = normalized.split("-of-", 1)
+    if not required_raw.isdigit() or not total_raw.isdigit():
+        return None
+    required = int(required_raw)
+    declared_total = int(total_raw)
+    if declared_total != total_corpora or required < 1 or required > declared_total:
+        return None
+    return required
+
+
+def _active_consent_corpora(session: CollabSession, turn: Turn, env: CoordinationEnv) -> frozenset[str]:
+    active: set[str] = set()
     for corpus_ref in turn.corpora:
         corpus = _require_known_corpus(session, corpus_ref)
-        if not any(
+        if any(
             grant.corpus_ref == corpus_ref
             and grant.owner_ref == corpus.owner_ref
             and grant.requester_ref == turn.requester_ref
@@ -523,8 +559,8 @@ def _missing_consent(session: CollabSession, turn: Turn, env: CoordinationEnv) -
             and (grant.expires_at is None or grant.expires_at > env.now)
             for grant in session.consent_grants
         ):
-            missing.append(corpus_ref)
-    return tuple(missing)
+            active.add(corpus_ref)
+    return frozenset(active)
 
 
 def _royalty_meters(session: CollabSession, turn: Turn) -> tuple[RoyaltyMeter, ...]:

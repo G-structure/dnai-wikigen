@@ -2251,10 +2251,13 @@ Implementation status:
             terminal records.
 [real]      Source-modeled consent, revocation, joint attestations, and royalty
             meters exist. Active consent grants match owner, corpus, requester,
-            purpose, pipeline, and expiry; missing consent leaves the turn
-            `awaiting-consent`; revocation fails in-flight/future turns closed
-            while preserving already-settled turns; settled turns carry bounded
-            meter bands and a joint royalty hash.
+            purpose, pipeline, and expiry. `CollabSession.consent_quorum`
+            supports `unanimous` and `<m>-of-<n>` over the turn corpora; missing
+            or below-threshold consent leaves the turn `awaiting-consent`, and
+            invalid/mismatched quorum policy fails closed as
+            `invalid_consent_quorum`. Revocation fails in-flight/future turns
+            closed while preserving already-settled turns; settled turns carry
+            bounded meter bands and a joint royalty hash.
 [real]      `tinker_delegate.review_queue` adds a bounded source-level human
             review queue. It can ingest coordination `HandoffTicket`s, persist
             and load bounded queue JSON, filter pending tickets by routed role,

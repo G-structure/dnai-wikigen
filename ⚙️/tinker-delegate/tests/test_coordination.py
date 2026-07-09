@@ -79,6 +79,57 @@ def _pass_queries() -> tuple[GatedQuery, ...]:
     )
 
 
+def _quorum_session(*, grant_count=2, quorum="2-of-3") -> CollabSession:
+    participants = (
+        Participant("owner-atlas", ParticipantRole.OWNER),
+        Participant("owner-halcyon", ParticipantRole.OWNER),
+        Participant("owner-meridian", ParticipantRole.OWNER),
+        Participant("sponsor", ParticipantRole.REQUESTER),
+        Participant("cro-agent", ParticipantRole.AGENT, owner_ref="sponsor"),
+        Participant("access-officer", ParticipantRole.REVIEWER),
+    )
+    corpora = (
+        Corpus("corpus://atlas", "owner-atlas", policy_hash="atlas-policy", royalty_per_query=10**9),
+        Corpus("corpus://halcyon", "owner-halcyon", policy_hash="halcyon-policy", royalty_per_query=2 * 10**9),
+        Corpus("corpus://meridian", "owner-meridian", policy_hash="meridian-policy", royalty_per_query=3 * 10**9),
+    )
+    all_grants = (
+        ConsentGrant("corpus://atlas", "owner-atlas", "sponsor", "rank", "sft"),
+        ConsentGrant("corpus://halcyon", "owner-halcyon", "sponsor", "rank", "sft"),
+        ConsentGrant("corpus://meridian", "owner-meridian", "sponsor", "rank", "sft"),
+    )
+    return CollabSession(
+        participants=participants,
+        corpora=corpora,
+        consent_grants=all_grants[:grant_count],
+        delegation_grants=(
+            DelegationGrant(
+                agent_ref="cro-agent",
+                grantor_ref="sponsor",
+                corpora=("corpus://atlas", "corpus://halcyon", "corpus://meridian"),
+                purposes=("rank",),
+                pipelines=("sft",),
+            ),
+        ),
+        consent_quorum=quorum,
+    )
+
+
+def _quorum_turn(turn_id="quorum-turn") -> Turn:
+    return _turn(
+        turn_id,
+        corpora=("corpus://atlas", "corpus://halcyon", "corpus://meridian"),
+    )
+
+
+def _quorum_pass_queries() -> tuple[GatedQuery, ...]:
+    return (
+        GatedQuery("corpus://atlas", GateDecision.PASS, stage=4, reason="ok"),
+        GatedQuery("corpus://halcyon", GateDecision.PASS, stage=4, reason="ok"),
+        GatedQuery("corpus://meridian", GateDecision.PASS, stage=4, reason="ok"),
+    )
+
+
 class CoordinationReducerTest(unittest.TestCase):
     def test_all_pass_with_unanimous_consent_settles_and_meters(self):
         state = CoordinationState(_session())
@@ -176,6 +227,42 @@ class CoordinationReducerTest(unittest.TestCase):
         self.assertEqual(record.status, TurnStatus.AWAITING_CONSENT)
         self.assertEqual(record.status_reason, "missing_consent")
         self.assertEqual(record.meters, ())
+
+    def test_m_of_n_consent_quorum_settles_when_threshold_is_met(self):
+        state = coordinate(CoordinationState(_quorum_session(grant_count=2)), SubmitTurn(_quorum_turn()))
+
+        state = coordinate(state, GateResults("quorum-turn", _quorum_pass_queries()))
+
+        record = state.turns["quorum-turn"]
+        self.assertEqual(record.status, TurnStatus.SETTLED)
+        self.assertEqual(record.status_reason, "settled")
+        self.assertEqual(len(record.meters), 3)
+        self.assertEqual(record.joint.raw_secret_egress, False)
+
+    def test_m_of_n_consent_quorum_withholds_below_threshold(self):
+        state = coordinate(CoordinationState(_quorum_session(grant_count=1)), SubmitTurn(_quorum_turn()))
+
+        state = coordinate(state, GateResults("quorum-turn", _quorum_pass_queries()))
+
+        record = state.turns["quorum-turn"]
+        self.assertEqual(record.status, TurnStatus.AWAITING_CONSENT)
+        self.assertEqual(record.status_reason, "missing_consent")
+        self.assertEqual(record.meters, ())
+
+    def test_invalid_consent_quorum_fails_closed(self):
+        for quorum in ("two-of-three", "2-of-4"):
+            with self.subTest(quorum=quorum):
+                state = coordinate(
+                    CoordinationState(_quorum_session(grant_count=3, quorum=quorum)),
+                    SubmitTurn(_quorum_turn()),
+                )
+
+                state = coordinate(state, GateResults("quorum-turn", _quorum_pass_queries()))
+
+                record = state.turns["quorum-turn"]
+                self.assertEqual(record.status, TurnStatus.AWAITING_CONSENT)
+                self.assertEqual(record.status_reason, "invalid_consent_quorum")
+                self.assertEqual(record.meters, ())
 
     def test_revocation_fails_in_flight_turns_but_not_settled_turns(self):
         state = CoordinationState(_session())
