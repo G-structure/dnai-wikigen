@@ -2270,6 +2270,12 @@ Implementation status:
             hashes, input/output state hashes, and `raw_secret_egress=false`.
             It does not print raw purpose, pipeline, owner refs, gate reasons, or
             full updated coordination state.
+[real]      `POST /coordination/consent-decision` exposes the same bounded
+            source-modeled consent-decision receipt through the FastAPI service
+            boundary. Unlike some local-dev routes, this endpoint requires a
+            configured runtime bearer token before it will process a request. It
+            returns the bounded receipt only; it does not expose signed owner
+            delivery, reviewer UI state, or the updated raw coordination state.
 [real]      `tinker_delegate.review_queue` adds a bounded source-level human
             review queue. It can ingest coordination `HandoffTicket`s, persist
             and load bounded queue JSON, filter pending tickets by routed role,

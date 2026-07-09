@@ -2627,6 +2627,15 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             cover grant-to-settle, grant-below-quorum, denial, malformed state
             fail-closed behavior, and CLI bounded output. Signed owner delivery
             and deployed runtime-authenticated consent endpoints remain open.
+      - [x] Expose consent-decision receipts through a runtime-authenticated API.
+            Done 2026-07-09: `POST /coordination/consent-decision` requires a
+            configured runtime bearer token, accepts coordination state plus
+            consent decision JSON, calls the same bounded receipt builder as the
+            CLI, and returns no raw purpose, pipeline, owner refs, gate reasons,
+            or full updated coordination state. Tests cover missing runtime auth
+            config, missing/wrong bearer token, successful bounded receipt, and
+            malformed-state redaction. Signed owner delivery, reviewer UI, and
+            production custody remain open.
 - [x] `P0` Implement revocation:
       future and in-flight turns fail closed; prior settled attestations remain
       valid.

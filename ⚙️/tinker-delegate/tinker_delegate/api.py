@@ -15,6 +15,7 @@ Endpoints:
   POST /billing/card/encrypted    — add payment method (encrypted to TEE — production)
   POST /billing/card/remove       — remove payment method
   POST /billing/add-balance       — add credit balance
+  POST /coordination/consent-decision — bounded source-modeled owner consent receipt
   GET  /tinker/proxy/status       — bounded sealed Tinker proxy configuration
   GET  /tinker/proxy/issue-policy — bounded proxy issue-policy status
   PUT  /tinker/proxy/issue-policy — install hash-only proxy issue policy
@@ -147,6 +148,15 @@ def _require_runtime_auth(authorization: str = Header(default="")) -> None:
         )
     if not hmac.compare_digest(supplied, expected):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid bearer token")
+
+
+def _require_configured_runtime_auth(authorization: str = Header(default="")) -> None:
+    if not _runtime_auth_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Runtime bearer auth must be configured for coordination consent decisions",
+        )
+    _require_runtime_auth(authorization)
 
 
 def _bearer_token(authorization: str) -> str:
@@ -332,6 +342,14 @@ class TinkerProxyTokenRevokeRequestBody(BaseModel):
 
     jwt_id_hash: str
     reason: str = ""
+
+
+class CoordinationConsentDecisionRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    state: dict[str, Any]
+    decision: dict[str, Any]
+    now: int = 0
 
 
 @app.get("/tinker/proxy/status")
@@ -712,6 +730,26 @@ async def billing_add_balance(payload: BalancePayload, authorization: str = Head
     _enforce_proxy_amount_limit(auth_context, "billing:add-balance", payload.amount_dollars)
     result = await handle_add_balance(payload, settings)
     return _attach_proxy_auth_context(result, auth_context)
+
+
+@app.post("/coordination/consent-decision")
+def coordination_consent_decision(
+    payload: CoordinationConsentDecisionRequestBody,
+    authorization: str = Header(default=""),
+):
+    """Apply a source-modeled owner consent event and return a bounded receipt.
+
+    This is an operator/authenticated proof endpoint for local/deployed
+    coordination evidence. It does not deliver owner email, verify signatures,
+    or return the updated raw coordination state.
+    """
+    _require_configured_runtime_auth(authorization)
+    from tinker_delegate.consent_receipt import ConsentReceiptError, build_consent_decision_receipt
+
+    try:
+        return build_consent_decision_receipt(payload.state, payload.decision, now=payload.now)
+    except ConsentReceiptError as exc:
+        raise HTTPException(status_code=400, detail=redact_text(exc)) from exc
 
 
 @app.post("/tinker/smoke")

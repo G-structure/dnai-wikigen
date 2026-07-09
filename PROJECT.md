@@ -796,9 +796,10 @@ The current repo does not yet guarantee:
   for fail-closed fan-out, unanimous or M-of-N consent, owner consent
   grant/deny effects, revocation, joint attestations, and royalty meters.
   `consent-decision` now gives those owner consent effects a bounded CLI receipt
-  path, but LLM policy authoring, policy migration/diff review, signed
-  owner/reviewer notification wiring, tee-email-oracle/DiligenceRoom effect
-  wiring, and production governance remain open
+  path plus a runtime-authenticated bounded API endpoint, but LLM policy
+  authoring, policy migration/diff review, signed owner/reviewer notification
+  wiring, tee-email-oracle/DiligenceRoom effect wiring, and production
+  governance remain open
 - production frontend wired to real APIs
 - Proof-of-Cloud or equivalent platform provenance
 
