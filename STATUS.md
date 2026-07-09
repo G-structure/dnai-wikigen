@@ -349,10 +349,14 @@ oracle `/health` returned `200` in about 0.4 seconds with `status=degraded`,
 bounded oracle state. Oracle logs show `IMAP connection deferred until pin
 request` followed by successful `/health` responses, not a startup connection
 attempt to `mail.cock.li:993`. Endpoint-level `$10` funding preflight returned
-`ready=true` with billing attestation fetch verified. On-chain
-`TinkerAccountEncumbrance` preflight for the new live compose hash correctly
-fails closed with `compose_hash_not_approved`; approve that hash before any
-real add-balance packet.
+`ready=true` with billing attestation fetch verified. The new live compose hash
+was approved in `TinkerAccountEncumbrance` in tx
+`0x9caf683b80b3c06a8b5de0f8ebeffcfd44d5a6f0305c285df9f32fdb687e402e` at block
+`43910712`; `approvedComposeHashes` now returns `true`, and on-chain
+encumbrance preflight returns `allowed=true` for `$10` add-balance with
+`raw_secret_egress=false`. The next step is a bounded `$10` add-balance packet;
+funding is still not proven until a bounded add-balance receipt and live balance
+read show the top-up succeeded.
 
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia

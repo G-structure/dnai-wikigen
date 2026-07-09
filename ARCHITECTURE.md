@@ -1225,12 +1225,15 @@ Implementation status:
             `2ab388103817bfbfaa7e20579a79213ed87fd85a`, verified against
             GitHub provenance and SPDX SBOM attestations for delegate digest
             `06c8d0fadd98922f0c6f5bded92b414be2bf423fc3c3e6af1b8e9e36b8c6975f`,
-            and redeployed. Live TDX attestation now reports compose hash
-            `a3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9`;
-            reauth succeeds and bounded payment-method status reports
-            `one_or_more`. The new compose hash is not yet approved in
-            `TinkerAccountEncumbrance`, so add-balance remains blocked until
-            approval. The profile is still not production-final because the CVM
+            and redeployed. A later startup-deferred oracle refresh moved live
+            TDX attestation to compose hash
+            `1fc656544b1583b83d65d769f369f3d1ad6d07d7e812073fbd3c1f7f2f84eb28`;
+            oracle health now serves degraded-but-bounded readiness without
+            blocking on IMAP startup, and the owner approved that compose hash
+            in `TinkerAccountEncumbrance` tx
+            `0x9caf683b80b3c06a8b5de0f8ebeffcfd44d5a6f0305c285df9f32fdb687e402e`.
+            On-chain add-balance preflight now returns `allowed=true` for
+            `$10`. The profile is still not production-final because the CVM
             reports dev OS, quote internals are not parsed, and a successful
             live real-card add-balance receipt has not yet been produced.
 [real]      Source/tests now distinguish billing selector drift from auth-state

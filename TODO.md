@@ -1533,12 +1533,16 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   `/auth/reauth` succeeds and bounded card status now reports
                   `card_on_file=true` / count band `one_or_more` with no card
                   details.
-            - [ ] Approve compose hash
-                  `0xa3d0a1bc28983731db0fcc27be5680a312d3dc8a84c47e7e30596fe5dfb16fc9`
-                  in `TinkerAccountEncumbrance`, then rerun a `$10`
-                  add-balance attempt without re-entering card details unless
-                  the bounded status changes. Current on-chain preflight returns
-                  `compose_hash_not_approved`.
+            - [x] Approve the current startup-deferred oracle funding-validation
+                  compose hash. Done 2026-07-09: live compose hash
+                  `0x1fc656544b1583b83d65d769f369f3d1ad6d07d7e812073fbd3c1f7f2f84eb28`
+                  was approved in tx
+                  `0x9caf683b80b3c06a8b5de0f8ebeffcfd44d5a6f0305c285df9f32fdb687e402e`
+                  at block `43910712`; `approvedComposeHashes` returned
+                  `true`, and on-chain add-balance preflight returned
+                  `allowed=true` for `$10`.
+            - [ ] Rerun a `$10` add-balance attempt without re-entering card
+                  details unless the bounded card-on-file status changes.
             The item remains unchecked until a bounded add-balance receipt and
             live balance read prove a low-value top-up succeeded; the CVM
             dev-OS warning also remains before production.
@@ -2306,11 +2310,13 @@ vision Wiki is reaching for.
                   with `status=degraded` / `imap_connected=false`, delegate
                   health returned `200`, and endpoint-level `$10`
                   funding-preflight returned `ready=true`.
-            - [ ] Approve live compose hash
+            - [x] Approve live compose hash
                   `0x1fc656544b1583b83d65d769f369f3d1ad6d07d7e812073fbd3c1f7f2f84eb28`
                   in `TinkerAccountEncumbrance` before any add-balance packet.
-                  On-chain encumbrance preflight correctly fails closed now with
-                  `compose_hash_not_approved`.
+                  Done in tx
+                  `0x9caf683b80b3c06a8b5de0f8ebeffcfd44d5a6f0305c285df9f32fdb687e402e`
+                  at block `43910712`; read-back returned `true`, and
+                  encumbrance preflight returned `allowed=true`.
       - [ ] `Deploy` Revert the 2026-07-09 public logs/public sysinfo/dev-SSH
             diagnostic exception after collecting enough evidence; record the
             reverted live compose hash and rerun `verify-cvm-attestation`.
