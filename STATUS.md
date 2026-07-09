@@ -101,8 +101,9 @@ Latest Tinker execution buildout, 2026-07-09:
   `tinker-proxy-recipient-keygen` writes a `0600` X25519 private-key file and
   emits only the public key; `decrypt-tinker-proxy-token` decrypts an issuance
   envelope into a `0600` JWT file and emits only hashes/status. Production user
-  approval, spend caps, revocation, audit replay, deployment, attestation, and
-  compose/contract binding remain open.
+  approval, spend caps, and production governance remain open; live
+  funding-validation deployment, attestation, audit replay, and compose/contract
+  binding are now proven for the operator-validation slice below.
 - First proxy-token authorization wiring is source/test-real:
   `GET /tinker/proxy/status`, `POST /tinker/smoke`,
   `GET /billing/payment-method-status`, and `POST /billing/add-balance` accept
@@ -124,8 +125,48 @@ Latest Tinker execution buildout, 2026-07-09:
   bounded operation receipts without plaintext JWTs, checking record schema,
   counts, chronology, supported scopes, expiry, revocation timing, receipt
   boundedness, and `proxy_auth_context` binding when present or required.
-  Production identity/spend policy binding and live Phala deployment of this
-  latest proxy verifier/context build remain open.
+  Production identity/spend policy binding remains open.
+- The proxy-token verifier/context build is now live on the Phala
+  funding-validation CVM. Source
+  `7cce6a2bc7897afba7a1599f9b51a381ac09a7dd` was built by GitHub Actions run
+  `29039324890` into delegate image
+  `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3ed351ed41540d7e47970b9b4d6a288d600b3856bc64c6f01996f4507d15b1eb`;
+  local `verify-ghcr-image-attestation` verified provenance and SPDX SBOM
+  attestations for that digest. The funding-validation compose pins that digest
+  and enables only the temporary proxy-token validation surfaces behind runtime
+  bearer auth. Direct Phala state and `verify-cvm-attestation` proved live
+  app-compose hash
+  `5bea582098b3767eec52d05a4f5a6773c59c44b606776421888479f58324956c`,
+  raw/image-policy compose hash
+  `049c89d04c8e3b5452c12568a4f2c550bd123e7a3fe4489cd1a7c39e854b8489`,
+  rendered compose SHA-256
+  `e2728a0bf803aff975034db4314d525c2d7092bb5f2c772219e1768a21da4423`,
+  app ID `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, OS image hash
+  `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`,
+  and report data
+  `09934d56f646c25d54876f4d9a360c0b8c93d90b096509bcb6b6db8adde897d2`.
+  The owner approved that compose hash in `TinkerAccountEncumbrance` tx
+  `0x5af4fd76e922afc821c1db847aa3b65cbd44bc328a48786d6f7cca4a0e41d2cb`
+  at block `43926723`; `$10` add-balance preflight for that compose returns
+  `allowed=true`.
+- Live packet `/tmp/dnai-proxy-audit-live-20260709T182943Z` proves the bounded
+  proxy-token path without exposing token material: the CVM issued an encrypted
+  recipient-bound JWT for subject hash
+  `979fb71132214bf62a7f332696061f0be32b1e60f00d02256d589df198393af8`,
+  scopes `billing:payment-method-status` and `proxy:status`, and JWT-id hash
+  `a9e3ef84944849a117f4f962a4d86f89991a7676a2e6c5709cb54db503a445be`; the
+  recipient decrypted it locally to a `0600` temp file, used it against
+  bounded `GET /billing/payment-method-status`, and got
+  `card_on_file=true` / `payment_method_count_band=one_or_more` with
+  `raw_secret_egress=false`. `verify-tinker-proxy-token-audit
+  --require-operation-binding` replayed the exported audit plus operation
+  receipt and returned `ok=true`, `bound_operation_receipt_count=1`,
+  `missing_operation_binding_count=0`, audit hash
+  `e7ece7f2381b57c8560ee8cc4fc60bc2853027b016c57a94b02d27fc86aa1f64`, and
+  verification hash
+  `9d345d4d8e2b399d1279e1835729a12a10ac0b40d15750a9c7c23e7cdf91420c`.
+  The temp packet contains a plaintext proxy JWT and recipient private key on
+  local disk; those are not committed and are evidence-local only.
 - Source now has a bounded real-SDK smoke surface for the funded Tinker account.
   `tinker_delegate.tinker_smoke.run_tinker_sdk_smoke()` uses the sealed API-key
   resolver, checks `TinkerAccountEncumbrance` with `SPEND_TINKER_COMPUTE`,

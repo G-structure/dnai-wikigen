@@ -81,7 +81,7 @@ services:
       start_period: 180s
 
   delegate:
-    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:83e58d165cc30374feb70f475dc6bf30da07d63895f6d871feb4f7828926758b
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3ed351ed41540d7e47970b9b4d6a288d600b3856bc64c6f01996f4507d15b1eb
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -113,6 +113,12 @@ services:
       TINKER_FUNDING_RECEIPT_KEY_PATH: ${TINKER_FUNDING_RECEIPT_KEY_PATH:-tinker/funding_receipts}
       TINKER_RUN_METADATA_STORE_PATH: /data/run_metadata.enc
       TINKER_RUN_METADATA_KEY_PATH: ${TINKER_RUN_METADATA_KEY_PATH:-tinker/run_metadata}
+      TINKER_PROXY_TOKEN_STORE_PATH: /data/proxy_tokens.enc
+      TINKER_PROXY_TOKEN_KEY_PATH: ${TINKER_PROXY_TOKEN_KEY_PATH:-tinker/proxy_tokens}
+      TINKER_PROXY_JWT_KEY_PATH: ${TINKER_PROXY_JWT_KEY_PATH:-tinker/proxy_jwt}
+      TINKER_PROXY_APPROVED_SUBJECTS: ${TINKER_PROXY_APPROVED_SUBJECTS:-operator-proxy-validation}
+      TINKER_PROXY_JWT_DEFAULT_TTL_SECONDS: ${TINKER_PROXY_JWT_DEFAULT_TTL_SECONDS:-900}
+      TINKER_PROXY_JWT_MAX_TTL_SECONDS: ${TINKER_PROXY_JWT_MAX_TTL_SECONDS:-3600}
       TINKER_FUNDING_MODE: "operator_capped_validation"
       TINKER_MIN_ADD_BALANCE_USD: "10.0"
       TINKER_MAX_ADD_BALANCE_USD: "10.0"
@@ -126,6 +132,8 @@ services:
       TINKER_ENCUMBRANCE_RPC_URL: ${BASE_SEPOLIA_RPC_URL:-}
       TINKER_ENCUMBRANCE_POLICY_UNITS_PER_USD_WEI: "1000000000000000000"
       TINKER_ALLOW_AUTH_AUTOMATION_ENDPOINT: "true"
+      TINKER_ALLOW_TINKER_PROXY_ENDPOINT: "true"
+      TINKER_ALLOW_TINKER_PROXY_TOKEN_ISSUANCE: "true"
       TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "true"
       TINKER_ALLOW_TINKER_SMOKE_ENDPOINT: "true"
       TINKER_ALLOW_PLAINTEXT_CARD_ENDPOINT: "false"

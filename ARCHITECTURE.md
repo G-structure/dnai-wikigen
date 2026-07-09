@@ -350,9 +350,10 @@ run IDs, checkpoint paths, samples, or private reward data.
             additionally requires configured runtime bearer auth.
             Recipient-side CLI tooling can generate an X25519 delivery keypair
             and decrypt an issuance envelope into a local `0600` JWT file
-            without printing the private key or token. The implementation is
-            source/test-real only until built, deployed, attested, approved,
-            and bound to a production user/scope policy.
+            without printing the private key or token. This implementation is
+            now deployed in the temporary funding-validation Phala profile for
+            operator validation, but it is not yet bound to a production
+            user/scope/spend approval policy.
 [real]      The first bounded operation endpoints now accept scoped proxy JWTs:
             `proxy:status` for proxy status, `tinker:smoke` for the paid smoke
             surface, `billing:payment-method-status` for card-on-file status,
@@ -380,9 +381,25 @@ run IDs, checkpoint paths, samples, or private reward data.
             checks record schema, summary counts, issue/revoke chronology,
             supported scopes, expiry windows, revocation timing, receipt
             boundedness, and `proxy_auth_context` binding when present or
-            required. This is still not a production identity/spend approval
-            policy, and the proxy has not yet been redeployed and attested with
-            this verifier surface as a live production path.
+            required.
+[real]      The proxy-token verifier/context build is live in the temporary
+            Phala funding-validation profile. Source
+            `7cce6a2bc7897afba7a1599f9b51a381ac09a7dd` built into
+            GitHub-attested delegate image
+            `tinker-delegate@sha256:3ed351ed41540d7e47970b9b4d6a288d600b3856bc64c6f01996f4507d15b1eb`,
+            the compose pins that digest and proxy-token env, and the live CVM
+            attests app-compose hash
+            `5bea582098b3767eec52d05a4f5a6773c59c44b606776421888479f58324956c`
+            with raw/image-policy compose hash
+            `049c89d04c8e3b5452c12568a4f2c550bd123e7a3fe4489cd1a7c39e854b8489`.
+            `TinkerAccountEncumbrance` approved the live compose in tx
+            `0x5af4fd76e922afc821c1db847aa3b65cbd44bc328a48786d6f7cca4a0e41d2cb`.
+            Live packet `/tmp/dnai-proxy-audit-live-20260709T182943Z`
+            issued an encrypted recipient-bound proxy JWT, used it against the
+            bounded `billing:payment-method-status` operation, exported the
+            bounded token audit log, and replay-verified the operation receipt
+            with one bound receipt and `raw_secret_egress=false`. This still is
+            not a production identity/spend approval policy.
 
 ### Bounded Output
 

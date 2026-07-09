@@ -122,9 +122,27 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             binding when present or explicitly required. Tests cover happy
             path, revoked-before-operation, missing binding, unsupported scope,
             secret-key rejection, and CLI output.
-      - [ ] Deploy and attest the proxy-token verifier/context build on Phala,
+      - [x] Deploy and attest the proxy-token verifier/context build on Phala,
             then record live bounded audit and operation-receipt replay
             evidence in `STATUS.md`.
+            Done 2026-07-09: source
+            `7cce6a2bc7897afba7a1599f9b51a381ac09a7dd` built into
+            GitHub-attested delegate image
+            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:3ed351ed41540d7e47970b9b4d6a288d600b3856bc64c6f01996f4507d15b1eb`,
+            which is pinned in
+            `docker-compose.tinker-funding-validation.phala.yaml`. The live
+            Phala funding-validation CVM attests app-compose hash
+            `5bea582098b3767eec52d05a4f5a6773c59c44b606776421888479f58324956c`;
+            `verify-cvm-attestation` passed for the app ID, OS image hash, raw
+            compose hash, and digest-pinned images. The owner approved the
+            compose hash in `TinkerAccountEncumbrance` tx
+            `0x5af4fd76e922afc821c1db847aa3b65cbd44bc328a48786d6f7cca4a0e41d2cb`.
+            Live packet `/tmp/dnai-proxy-audit-live-20260709T182943Z`
+            issued an encrypted recipient-bound proxy JWT, used it against
+            bounded `GET /billing/payment-method-status`, exported the bounded
+            proxy audit log, and replay-verified the operation receipt with
+            `verify-tinker-proxy-token-audit --require-operation-binding`
+            (`ok=true`, one bound receipt, `raw_secret_egress=false`).
 - [ ] `P0` No human operator can access the TEE-owned email account or Tinker
       account once production custody is established.
 - [ ] `P0` Card/payment material is encrypted to a verified TEE before use and is
@@ -2753,8 +2771,9 @@ vision Wiki is reaching for.
 
 - [ ] `P0` Show contracts deployed and verified.
 - [ ] `P0` Show live Phala CVM health and quote.
-- [ ] `P0` Show email oracle receives OTPs, but do not claim Tinker funding is
-      solved.
+- [ ] `P0` Show email oracle receives OTPs and the one-off capped Tinker
+      funding validation, but do not claim production/repeated Tinker funding
+      is solved.
 - [ ] `P0` Show stub evaluator and bounded output only.
 - [ ] `P0` Show Base Sepolia fund -> result -> accept/reject/expire.
 

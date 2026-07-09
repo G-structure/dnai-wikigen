@@ -736,8 +736,12 @@ The current repo does not yet guarantee:
 
 - production quote verification for result submission
 - runtime enforcement of `EmailOracleAuth` on every OTP endpoint
-- safe Tinker account funding
-- Tinker signup through current bot-check/browser posture
+- production/repeated Tinker account funding; one-off capped operator
+  validation funding is real, but hardened custody, compliance approval, and a
+  production payment route remain open
+- production Tinker account custody through hardened bot-check/browser posture;
+  deployed login/API-key sealing and reauth are real in the current validation
+  profile, but the CVM still runs with temporary debug surfaces
 - real TTT/RL private reward environments
 - candidate sandboxing for generated computational-bio code
 - differential privacy for individual-level bio data
