@@ -157,6 +157,8 @@ def build_tinker_proxy_status(settings) -> dict[str, Any]:
             "issue_policy_configured": bool(getattr(settings, "proxy_issue_policy_path", "")),
             "deployment_policy_required": bool(getattr(settings, "proxy_require_deployment_policy", False)),
             "grant_lifecycle_required": bool(getattr(settings, "proxy_require_grant_lifecycle", False)),
+            "identity_registry_required": bool(getattr(settings, "proxy_require_identity_registry", False)),
+            "identity_registry_configured": bool(getattr(settings, "proxy_identity_registry_path", "")),
             "encumbrance_contract_configured": bool(getattr(settings, "encumbrance_contract_address", "")),
             "encumbrance_compose_hash_configured": bool(getattr(settings, "encumbrance_compose_hash", "")),
             "plaintext_token_returned": False,
@@ -596,6 +598,12 @@ def _validate_proxy_issue_policy(
         except ValueError as exc:
             lifecycle_fail = str(exc)
             continue
+        identity_binding = _validate_proxy_identity_registry(
+            settings,
+            subject_hash=subject_hash,
+            grant_lifecycle=grant_lifecycle,
+            now=now_int,
+        )
         return {
             "required": True,
             "configured": True,
@@ -607,6 +615,7 @@ def _validate_proxy_issue_policy(
             "granted_scopes": sorted(normalized_grant_scopes),
             "scope_limits": scope_limits,
             "grant_lifecycle": grant_lifecycle,
+            "identity_binding": identity_binding,
             "max_ttl_seconds": max_ttl,
             "ttl_seconds": ttl_seconds,
             "raw_secret_egress": False,
@@ -762,6 +771,130 @@ def _validate_proxy_grant_lifecycle(
         "checked": True,
         "raw_secret_egress": False,
     }
+
+
+def _validate_proxy_identity_registry(
+    settings,
+    *,
+    subject_hash: str,
+    grant_lifecycle: dict[str, Any],
+    now: int,
+) -> dict[str, Any]:
+    required = bool(getattr(settings, "proxy_require_identity_registry", False))
+    registry_path = str(getattr(settings, "proxy_identity_registry_path", "") or "").strip()
+    if not registry_path:
+        if required:
+            raise ValueError("proxy identity registry is required")
+        return {
+            "required": False,
+            "configured": False,
+            "raw_secret_egress": False,
+        }
+    registry = _load_proxy_identity_registry(registry_path)
+    subject = _find_active_proxy_identity(
+        registry,
+        subject_hash,
+        allowed_roles={"user", "agent", "operator_validation"},
+        label="subject",
+        now=now,
+    )
+    lifecycle = grant_lifecycle or {}
+    reviewer_hash = str(lifecycle.get("approved_by_hash", "") or "").strip().lower()
+    if not reviewer_hash:
+        raise ValueError("proxy identity registry requires grant lifecycle reviewer hash")
+    reviewer = _find_active_proxy_identity(
+        registry,
+        reviewer_hash,
+        allowed_roles={"reviewer", "admin"},
+        label="reviewer",
+        now=now,
+    )
+    return {
+        "required": required,
+        "configured": True,
+        "registry_hash": stable_hash(_canonical_json(registry), prefix="proxy_identity_registry"),
+        "subject": subject,
+        "reviewer": reviewer,
+        "raw_secret_egress": False,
+    }
+
+
+def _load_proxy_identity_registry(registry_path: str) -> dict[str, Any]:
+    path = Path(registry_path)
+    try:
+        registry = json.loads(path.read_text())
+    except OSError as exc:
+        raise ValueError("proxy identity registry is unavailable") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError("proxy identity registry is invalid JSON") from exc
+    return _normalize_proxy_identity_registry(registry)
+
+
+def _normalize_proxy_identity_registry(registry: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(registry, dict):
+        raise ValueError("proxy identity registry must be an object")
+    if registry.get("schema_version") != 1:
+        raise ValueError("proxy identity registry schema_version must be 1")
+    identities = registry.get("identities")
+    if not isinstance(identities, list):
+        raise ValueError("proxy identity registry identities must be a list")
+    normalized_identities = []
+    for identity in identities:
+        if not isinstance(identity, dict):
+            raise ValueError("proxy identity registry identity must be an object")
+        role = str(identity.get("role", "")).strip().lower()
+        if role not in {"user", "agent", "reviewer", "admin", "operator_validation"}:
+            raise ValueError("proxy identity registry identity role is invalid")
+        status = str(identity.get("status", "")).strip().lower()
+        if status not in {"active", "suspended", "revoked", "expired"}:
+            raise ValueError("proxy identity registry identity status is invalid")
+        expires_at = int(identity.get("expires_at", 0) or 0)
+        normalized_identities.append(
+            {
+                "identity_hash": _normalize_hex_hash(
+                    str(identity.get("identity_hash", "")),
+                    "identity_hash",
+                ),
+                "role": role,
+                "status": status,
+                "expires_at": expires_at,
+            }
+        )
+    return {
+        "schema_version": 1,
+        "identities": sorted(
+            normalized_identities,
+            key=lambda item: (item["identity_hash"], item["role"]),
+        ),
+    }
+
+
+def _find_active_proxy_identity(
+    registry: dict[str, Any],
+    identity_hash: str,
+    *,
+    allowed_roles: set[str],
+    label: str,
+    now: int,
+) -> dict[str, Any]:
+    for identity in registry.get("identities", []):
+        if identity.get("identity_hash") != identity_hash:
+            continue
+        if identity.get("role") not in allowed_roles:
+            continue
+        if identity.get("status") != "active":
+            raise ValueError(f"proxy identity registry {label} identity is not active")
+        expires_at = int(identity.get("expires_at", 0) or 0)
+        if expires_at <= now:
+            raise ValueError(f"proxy identity registry {label} identity expired")
+        return {
+            "identity_hash": identity["identity_hash"],
+            "role": identity["role"],
+            "status": identity["status"],
+            "expires_at": expires_at,
+            "raw_secret_egress": False,
+        }
+    raise ValueError(f"proxy identity registry {label} identity is not approved")
 
 
 def _load_proxy_issue_policy(policy_path: str) -> dict[str, Any]:

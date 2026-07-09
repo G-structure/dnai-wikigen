@@ -94,6 +94,38 @@ def _active_grant_lifecycle(*, approved_at: int = 900, expires_at: int = 2000) -
     }
 
 
+def _write_proxy_identity_registry(
+    path: str,
+    *,
+    subject: str = "buyer-agent-1",
+    reviewer: str = "reviewer-1",
+    subject_status: str = "active",
+    reviewer_status: str = "active",
+    subject_expires_at: int = 2000,
+    reviewer_expires_at: int = 2000,
+):
+    registry = {
+        "schema_version": 1,
+        "identities": [
+            {
+                "identity_hash": stable_hash(subject, prefix="proxy_subject"),
+                "role": "agent",
+                "status": subject_status,
+                "expires_at": subject_expires_at,
+            },
+            {
+                "identity_hash": stable_hash(reviewer, prefix="proxy_grant_reviewer"),
+                "role": "reviewer",
+                "status": reviewer_status,
+                "expires_at": reviewer_expires_at,
+            },
+        ],
+    }
+    with open(path, "w") as handle:
+        json.dump(registry, handle, sort_keys=True)
+    return registry
+
+
 class _EncumbranceResult:
     def __init__(self, *, allowed: bool = True, reason: str = "allowed"):
         self.allowed = allowed
@@ -418,6 +450,137 @@ class TinkerProxyTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "grant lifecycle is not active yet"):
                 issue_encrypted_proxy_token(
                     future_settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
+
+    def test_issue_policy_can_require_hash_only_identity_registry(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            private_key, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            registry_path = os.path.join(tmpdir, "identity-registry.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=_active_grant_lifecycle(),
+            )
+            registry = _write_proxy_identity_registry(registry_path)
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+                proxy_require_identity_registry=True,
+                proxy_identity_registry_path=registry_path,
+            )
+
+            issued = issue_encrypted_proxy_token(
+                settings,
+                subject="buyer-agent-1",
+                scopes=["proxy:status"],
+                recipient_public_key_hex=public_key_hex,
+                ttl_seconds=60,
+                now=1000,
+            )
+            token = _decrypt_token(private_key, issued)
+            verification = verify_proxy_token(settings, token, required_scope="proxy:status", now=1001)
+
+        binding = issued["policy_binding"]["identity_binding"]
+        rendered = repr(issued)
+        self.assertEqual(
+            binding["registry_hash"],
+            stable_hash(json.dumps(registry, separators=(",", ":"), sort_keys=True), prefix="proxy_identity_registry"),
+        )
+        self.assertEqual(binding["subject"]["role"], "agent")
+        self.assertEqual(binding["reviewer"]["role"], "reviewer")
+        self.assertFalse(binding["raw_secret_egress"])
+        self.assertEqual(verification["scopes"], ["proxy:status"])
+        self.assertNotIn("buyer-agent-1", rendered)
+        self.assertNotIn("reviewer-1", rendered)
+
+    def test_identity_registry_required_fails_closed_without_registry_path(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=_active_grant_lifecycle(),
+            )
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+                proxy_require_identity_registry=True,
+            )
+
+            with self.assertRaisesRegex(ValueError, "identity registry is required"):
+                issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
+
+    def test_identity_registry_rejects_inactive_subject_or_expired_reviewer(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=_active_grant_lifecycle(),
+            )
+            inactive_registry_path = os.path.join(tmpdir, "inactive-registry.json")
+            _write_proxy_identity_registry(inactive_registry_path, subject_status="suspended")
+            inactive_settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+                proxy_require_identity_registry=True,
+                proxy_identity_registry_path=inactive_registry_path,
+            )
+
+            with self.assertRaisesRegex(ValueError, "subject identity is not active"):
+                issue_encrypted_proxy_token(
+                    inactive_settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
+
+            expired_registry_path = os.path.join(tmpdir, "expired-registry.json")
+            _write_proxy_identity_registry(expired_registry_path, reviewer_expires_at=900)
+            expired_settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+                proxy_require_identity_registry=True,
+                proxy_identity_registry_path=expired_registry_path,
+            )
+
+            with self.assertRaisesRegex(ValueError, "reviewer identity expired"):
+                issue_encrypted_proxy_token(
+                    expired_settings,
                     subject="buyer-agent-1",
                     scopes=["proxy:status"],
                     recipient_public_key_hex=public_key_hex,

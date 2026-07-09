@@ -188,16 +188,32 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                         timestamps, and `raw_secret_egress=false`; tests prove
                         no raw reviewer identity is emitted. The
                         funding-validation compose now carries the disabled
-                        `TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE` env knob; local
+                        `TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE` env knob.
+                  - [x] Add a hash-only proxy identity-registry gate for
+                        requester and lifecycle approver hashes. Done
+                        2026-07-09:
+                        `TINKER_PROXY_REQUIRE_IDENTITY_REGISTRY=true` makes
+                        issuance fail closed unless the requester's
+                        `subject_hash` is an active user/agent identity and
+                        the lifecycle `approved_by_hash` is an active
+                        reviewer/admin identity in a schema-v1 hash-only
+                        registry. Suspended, revoked, expired, missing, or
+                        wrong-role identities fail before JWT minting. Issuance
+                        emits only registry hash, identity hashes, roles,
+                        statuses, expiries, and `raw_secret_egress=false`.
+                        Focused tests cover success, missing registry,
+                        suspended requester, and expired reviewer. The
+                        funding-validation compose now carries disabled
+                        lifecycle and identity-registry env knobs; local
                         `verify-compose-hash --phala-raw-compose` computes
                         raw/image-policy hash
-                        `1d5f971478416b9966bedeefafaf0f591a3bf8f2860a8b245e1176f14a1f0b86`
+                        `d4144c01872da1501d193f3b0b9936d06ebb04912740fd9b6ef90db420fc373d`
                         and rendered compose SHA-256
-                        `5ccfcc1a9639f48662c53e59fc4dd713fa1efc43b202d81ed9f81762e1d10097`.
-                  - [ ] Bind lifecycle approver/reviewer hashes to a
-                        production identity registry or verifier-controlled
-                        approval workflow, instead of accepting any operator
-                        supplied hash-only lifecycle file.
+                        `a8451734acffd87426d28cdd1d8ba9aa2c2fa8cb2928da1cbb78a649ddfb8ccb`.
+                  - [ ] Bind the hash-only identity registry to a production
+                        verifier-controlled approval workflow, instead of
+                        accepting any operator supplied registry and lifecycle
+                        file.
                   - [ ] Redeploy the lifecycle-required proxy issue policy
                         source slice to Phala, approve the resulting compose
                         hash, install an active lifecycle-bound issue policy,

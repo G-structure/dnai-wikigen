@@ -227,6 +227,8 @@ class ComposeHardeningTest(unittest.TestCase):
         self.assertIn('TINKER_MIN_ADD_BALANCE_USD: "10.0"', delegate)
         self.assertIn('TINKER_MAX_ADD_BALANCE_USD: "10.0"', delegate)
         self.assertIn("TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE: ${TINKER_PROXY_REQUIRE_GRANT_LIFECYCLE:-false}", delegate)
+        self.assertIn("TINKER_PROXY_REQUIRE_IDENTITY_REGISTRY: ${TINKER_PROXY_REQUIRE_IDENTITY_REGISTRY:-false}", delegate)
+        self.assertIn("TINKER_PROXY_IDENTITY_REGISTRY_PATH: ${TINKER_PROXY_IDENTITY_REGISTRY_PATH:-/data/proxy_identity_registry.json}", delegate)
         self.assertIn('TINKER_ENCUMBRANCE_REQUIRED: "true"', delegate)
         self.assertIn("TINKER_ENCUMBRANCE_COMPOSE_HASH: ${TINKER_ENCUMBRANCE_COMPOSE_HASH:-}", delegate)
         self.assertIn('TINKER_ALLOW_AUTH_AUTOMATION_ENDPOINT: "true"', delegate)

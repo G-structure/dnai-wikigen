@@ -104,6 +104,8 @@ class Settings(BaseSettings):
     proxy_issue_policy_path: str = ""
     proxy_require_deployment_policy: bool = False
     proxy_require_grant_lifecycle: bool = False
+    proxy_require_identity_registry: bool = False
+    proxy_identity_registry_path: str = ""
     proxy_token_store_path: str = "./data/proxy_tokens.enc"
     proxy_token_store_key: str = ""
     proxy_token_key_path: str = "tinker/proxy_tokens"

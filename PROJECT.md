@@ -121,10 +121,13 @@ For the current implementation this means:
   runtime-authenticated bounded API/CLI, not by exposing raw upstream Tinker
   credentials or plaintext proxy JWTs. Policy grants can also carry hash-only
   lifecycle metadata, so pending, revoked, expired, missing, or future-approved
-  grants fail closed without exposing raw reviewer identities. A
+  grants fail closed without exposing raw reviewer identities. A hash-only
+  identity registry can additionally require requesters to be active user/agent
+  identities and lifecycle approvers to be active reviewer/admin identities,
+  while still exposing only hashes, roles, statuses, and expiries. A
   deployment-policy gate can also require public `TinkerAccountEncumbrance`
-  compose/cap approval before minting spend-bearing proxy JWTs; production user
-  identity and reviewer governance remain separate work.
+  compose/cap approval before minting spend-bearing proxy JWTs; production
+  verifier/reviewer governance remains separate work.
 - JWT delivery should use an attestation-verified encrypted channel to the
   recipient, not plaintext logs, shell history, or documentation.
 - JWT issuance and revocation should leave bounded sealed audit records so a

@@ -377,12 +377,23 @@ run IDs, checkpoint paths, samples, or private reward data.
             `raw_secret_egress=false`; they do not expose raw reviewer,
             operator, user, or agent identities. This is source/test-real and
             wired into the funding-validation compose as a disabled-by-default
-            env knob; the local raw/image-policy compose hash for that source
-            shape is
-            `1d5f971478416b9966bedeefafaf0f591a3bf8f2860a8b245e1176f14a1f0b86`.
+            env knob.
+[real]      Proxy issuance can now require a hash-only identity registry before
+            minting. When `TINKER_PROXY_REQUIRE_IDENTITY_REGISTRY=true`, the
+            requester's `subject_hash` must be an active user/agent identity,
+            and the lifecycle `approved_by_hash` must be an active
+            reviewer/admin identity in a schema-v1 registry. Suspended, revoked,
+            expired, missing, or wrong-role identities fail closed before JWT
+            creation. Issuance bindings expose only registry hash, identity
+            hashes, roles, statuses, expiries, and `raw_secret_egress=false`.
+            The current source compose carries disabled lifecycle and
+            identity-registry env knobs; local raw/image-policy compose hash is
+            `d4144c01872da1501d193f3b0b9936d06ebb04912740fd9b6ef90db420fc373d`
+            and rendered compose SHA-256 is
+            `a8451734acffd87426d28cdd1d8ba9aa2c2fa8cb2928da1cbb78a649ddfb8ccb`.
             It is not yet deployed as a lifecycle-required Phala policy, and
-            the approver hashes are not yet bound to a production identity
-            registry or reviewer-controlled workflow.
+            the registry file is not yet bound to a production verifier- or
+            reviewer-controlled approval workflow.
 [real]      Policy-issued proxy JWTs can now carry bounded per-scope spend
             limits. A policy grant may define `scope_limits`, and
             spend-bearing scopes such as `billing:add-balance` require
