@@ -4,6 +4,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from eth_account import Account
+from eth_account.messages import encode_defunct
 from cryptography.hazmat.primitives.asymmetric.x25519 import (
     X25519PrivateKey,
     X25519PublicKey,
@@ -126,6 +128,38 @@ def _write_proxy_identity_registry(
     return registry
 
 
+def _identity_registry_hash(registry: dict) -> str:
+    unsigned = {
+        "schema_version": 1,
+        "identities": sorted(
+            [
+                {
+                    "identity_hash": identity["identity_hash"].lower(),
+                    "role": identity["role"].lower(),
+                    "status": identity["status"].lower(),
+                    "expires_at": int(identity["expires_at"]),
+                }
+                for identity in registry["identities"]
+            ],
+            key=lambda item: (item["identity_hash"], item["role"]),
+        ),
+    }
+    return stable_hash(json.dumps(unsigned, separators=(",", ":"), sort_keys=True), prefix="proxy_identity_registry")
+
+
+def _sign_proxy_identity_registry(registry: dict, account) -> dict:
+    registry_hash = _identity_registry_hash(registry)
+    signed = account.sign_message(encode_defunct(hexstr="0x" + registry_hash))
+    signed_registry = dict(registry)
+    signed_registry["signature"] = {
+        "kind": "ethereum_signed_message",
+        "signer": account.address,
+        "registry_hash": "0x" + registry_hash,
+        "signature": "0x" + bytes(signed.signature).hex(),
+    }
+    return signed_registry
+
+
 class _EncumbranceResult:
     def __init__(self, *, allowed: bool = True, reason: str = "allowed"):
         self.allowed = allowed
@@ -166,6 +200,8 @@ class TinkerProxyTest(unittest.TestCase):
             proxy_jwt_key=SIGNING_KEY_HEX,
             proxy_require_issue_policy=True,
             proxy_issue_policy_path="/sealed/policy.json",
+            proxy_require_identity_registry_signature=True,
+            proxy_identity_registry_signer=Account.create("status signer").address,
         )
 
         with patch.dict(os.environ, {"TINKER_API_KEY": UPSTREAM_KEY}, clear=False):
@@ -178,10 +214,13 @@ class TinkerProxyTest(unittest.TestCase):
         self.assertEqual(status["sealed_client_config"]["base_url_host_family"], "thinkingmachines")
         self.assertTrue(status["token_issuer"]["issue_policy_required"])
         self.assertTrue(status["token_issuer"]["issue_policy_configured"])
+        self.assertTrue(status["token_issuer"]["identity_registry_signature_required"])
+        self.assertTrue(status["token_issuer"]["identity_registry_signer_configured"])
         self.assertFalse(status["raw_secret_egress"])
         self.assertNotIn(UPSTREAM_KEY, rendered)
         self.assertNotIn(PROJECT_ID, rendered)
         self.assertNotIn(BASE_URL, rendered)
+        self.assertNotIn(settings.proxy_identity_registry_signer, rendered)
 
     def test_issue_encrypted_proxy_token_and_verify_decrypted_jwt(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -503,6 +542,160 @@ class TinkerProxyTest(unittest.TestCase):
         self.assertEqual(verification["scopes"], ["proxy:status"])
         self.assertNotIn("buyer-agent-1", rendered)
         self.assertNotIn("reviewer-1", rendered)
+
+    def test_identity_registry_can_require_verifier_signature(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            private_key, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            registry_path = os.path.join(tmpdir, "identity-registry.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=_active_grant_lifecycle(),
+            )
+            registry = _write_proxy_identity_registry(registry_path)
+            signer_account = Account.create("proxy identity registry signer")
+            signed_registry = _sign_proxy_identity_registry(registry, signer_account)
+            with open(registry_path, "w") as handle:
+                json.dump(signed_registry, handle, sort_keys=True)
+            signer = signer_account.address
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+                proxy_require_identity_registry=True,
+                proxy_identity_registry_path=registry_path,
+                proxy_require_identity_registry_signature=True,
+                proxy_identity_registry_signer=signer,
+            )
+
+            issued = issue_encrypted_proxy_token(
+                settings,
+                subject="buyer-agent-1",
+                scopes=["proxy:status"],
+                recipient_public_key_hex=public_key_hex,
+                ttl_seconds=60,
+                now=1000,
+            )
+            token = _decrypt_token(private_key, issued)
+            verification = verify_proxy_token(settings, token, required_scope="proxy:status", now=1001)
+
+        binding = issued["policy_binding"]["identity_binding"]
+        signature_binding = binding["signature_binding"]
+        rendered = repr(issued)
+        self.assertTrue(signature_binding["required"])
+        self.assertTrue(signature_binding["verified"])
+        self.assertEqual(signature_binding["registry_hash"], _identity_registry_hash(registry))
+        self.assertEqual(binding["registry_hash"], _identity_registry_hash(registry))
+        self.assertEqual(signature_binding["signer_hash"], stable_hash(signer.lower(), prefix="proxy_identity_registry_signer"))
+        self.assertEqual(verification["scopes"], ["proxy:status"])
+        self.assertFalse(signature_binding["raw_secret_egress"])
+        self.assertNotIn(signer, rendered)
+        self.assertNotIn(signed_registry["signature"]["signature"], rendered)
+
+    def test_identity_registry_signature_required_fails_closed_when_missing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            registry_path = os.path.join(tmpdir, "identity-registry.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=_active_grant_lifecycle(),
+            )
+            _write_proxy_identity_registry(registry_path)
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+                proxy_require_identity_registry=True,
+                proxy_identity_registry_path=registry_path,
+                proxy_require_identity_registry_signature=True,
+                proxy_identity_registry_signer=Account.create("proxy identity registry signer").address,
+            )
+
+            with self.assertRaisesRegex(ValueError, "identity registry signature is required"):
+                issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
+
+    def test_identity_registry_signature_rejects_tamper_or_wrong_signer(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            policy_path = os.path.join(tmpdir, "proxy-policy.json")
+            registry_path = os.path.join(tmpdir, "identity-registry.json")
+            _write_proxy_issue_policy(
+                policy_path,
+                subject="buyer-agent-1",
+                recipient_public_key_hex=public_key_hex,
+                scopes=["proxy:status"],
+                ttl=60,
+                lifecycle=_active_grant_lifecycle(),
+            )
+            registry = _write_proxy_identity_registry(registry_path)
+            signer_account = Account.create("proxy identity registry signer")
+            signed_registry = _sign_proxy_identity_registry(registry, signer_account)
+            signed_registry["identities"][0]["status"] = "revoked"
+            with open(registry_path, "w") as handle:
+                json.dump(signed_registry, handle, sort_keys=True)
+            signer = signer_account.address
+            settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+                proxy_require_identity_registry=True,
+                proxy_identity_registry_path=registry_path,
+                proxy_require_identity_registry_signature=True,
+                proxy_identity_registry_signer=signer,
+            )
+
+            with self.assertRaisesRegex(ValueError, "signature hash mismatch"):
+                issue_encrypted_proxy_token(
+                    settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
+
+            signed_registry = _sign_proxy_identity_registry(registry, signer_account)
+            with open(registry_path, "w") as handle:
+                json.dump(signed_registry, handle, sort_keys=True)
+            wrong_signer_settings = self._settings(
+                tmpdir,
+                proxy_require_issue_policy=True,
+                proxy_issue_policy_path=policy_path,
+                proxy_require_grant_lifecycle=True,
+                proxy_require_identity_registry=True,
+                proxy_identity_registry_path=registry_path,
+                proxy_require_identity_registry_signature=True,
+                proxy_identity_registry_signer=Account.create("wrong-proxy-registry-signer").address,
+            )
+
+            with self.assertRaisesRegex(ValueError, "identity registry signer mismatch"):
+                issue_encrypted_proxy_token(
+                    wrong_signer_settings,
+                    subject="buyer-agent-1",
+                    scopes=["proxy:status"],
+                    recipient_public_key_hex=public_key_hex,
+                    ttl_seconds=60,
+                    now=1000,
+                )
 
     def test_identity_registry_required_fails_closed_without_registry_path(self):
         with tempfile.TemporaryDirectory() as tmpdir:

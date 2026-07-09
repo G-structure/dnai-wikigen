@@ -335,10 +335,12 @@ run IDs, checkpoint paths, samples, or private reward data.
 
 [planned]   Production proxy credential issuance still needs production user
             and agent identity approval, reviewer/governance workflow,
-            expiration and revocation operations, and settlement policy. The
-            hash-only issue policy and optional deployment-policy gate are real
-            approval primitives, but they are not yet a production
-            user-management or end-to-end spend-governance system.
+            secure recipient approval/delivery operations, expiration and
+            revocation operations, and settlement policy. The hash-only issue
+            policy, optional verifier-signed identity registry, and optional
+            deployment-policy gate are real approval primitives, but they are
+            not yet a production user-management or end-to-end
+            spend-governance system.
 [real]      Source now includes the first Tinker proxy credential slice:
             `tinker_delegate.tinker_proxy` creates scoped HS256 delegate JWTs
             from explicit local test key material or dstack-derived CVM-only
@@ -386,14 +388,23 @@ run IDs, checkpoint paths, samples, or private reward data.
             expired, missing, or wrong-role identities fail closed before JWT
             creation. Issuance bindings expose only registry hash, identity
             hashes, roles, statuses, expiries, and `raw_secret_egress=false`.
-            The current source compose carries disabled lifecycle and
+            When `TINKER_PROXY_REQUIRE_IDENTITY_REGISTRY_SIGNATURE=true`, the
+            registry must also carry an Ethereum signed-message signature over
+            its canonical hash-only registry hash from
+            `TINKER_PROXY_IDENTITY_REGISTRY_SIGNER`. Missing signatures,
+            tampered registries, wrong signers, and malformed signatures fail
+            closed before JWT creation. Successful bindings expose only
+            registry hash, signer hash, signature hash, verification status,
+            and `raw_secret_egress=false`, not signer private material,
+            plaintext user identities, or plaintext JWTs.
+            The current source compose carries disabled lifecycle and signed
             identity-registry env knobs; local raw/image-policy compose hash is
-            `d4144c01872da1501d193f3b0b9936d06ebb04912740fd9b6ef90db420fc373d`
+            `cea8860b87944f990e2afe30e0ef1e78d3aa91bccacee0aa76727fcc58381e2d`
             and rendered compose SHA-256 is
-            `a8451734acffd87426d28cdd1d8ba9aa2c2fa8cb2928da1cbb78a649ddfb8ccb`.
-            It is not yet deployed as a lifecycle-required Phala policy, and
-            the registry file is not yet bound to a production verifier- or
-            reviewer-controlled approval workflow.
+            `3f2e41c87e7a415e622a9b6d70b01dd47895bf0c28582cb20686d7f4bbd12d82`.
+            It is not yet deployed as a lifecycle/signature-required Phala
+            policy, and the signer address is not yet bound to a production
+            verifier/reviewer identity source or governance contract.
 [real]      Policy-issued proxy JWTs can now carry bounded per-scope spend
             limits. A policy grant may define `scope_limits`, and
             spend-bearing scopes such as `billing:add-balance` require
@@ -790,6 +801,7 @@ use tee-email-oracle OTP to create/sign into a Tinker account
 seal Tinker API key
 seal Tinker project/client configuration and proxy JWT signing key
 issue scoped delegate JWTs only to approved recipients through encrypted delivery
+verify signed hash-only identity registries before proxy JWT minting when required
 check TinkerAccountEncumbrance deployment policy before minting spend/billing scoped proxy JWTs when required
 drive Tinker billing through a browser session once auth/funding is unblocked
 add balance using card-on-file or encrypted card payload once Stripe flow works

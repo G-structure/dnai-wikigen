@@ -26,8 +26,11 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import (
     X25519PublicKey,
 )
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from eth_account import Account
+from eth_account.messages import encode_defunct
 
 from tinker_delegate.api_key_store import resolve_api_key
+from tinker_delegate.chain_submitter import normalize_address
 from tinker_delegate.crypto import _derive_aes_key, encrypt_for_tee
 from tinker_delegate.dstack_utils import derive_storage_key, is_dstack_enabled
 from tinker_delegate.run_metadata_store import stable_hash
@@ -159,6 +162,12 @@ def build_tinker_proxy_status(settings) -> dict[str, Any]:
             "grant_lifecycle_required": bool(getattr(settings, "proxy_require_grant_lifecycle", False)),
             "identity_registry_required": bool(getattr(settings, "proxy_require_identity_registry", False)),
             "identity_registry_configured": bool(getattr(settings, "proxy_identity_registry_path", "")),
+            "identity_registry_signature_required": bool(
+                getattr(settings, "proxy_require_identity_registry_signature", False)
+            ),
+            "identity_registry_signer_configured": bool(
+                getattr(settings, "proxy_identity_registry_signer", "")
+            ),
             "encumbrance_contract_configured": bool(getattr(settings, "encumbrance_contract_address", "")),
             "encumbrance_compose_hash_configured": bool(getattr(settings, "encumbrance_compose_hash", "")),
             "plaintext_token_returned": False,
@@ -791,6 +800,7 @@ def _validate_proxy_identity_registry(
             "raw_secret_egress": False,
         }
     registry = _load_proxy_identity_registry(registry_path)
+    signature_binding = _validate_proxy_identity_registry_signature(settings, registry)
     subject = _find_active_proxy_identity(
         registry,
         subject_hash,
@@ -812,7 +822,8 @@ def _validate_proxy_identity_registry(
     return {
         "required": required,
         "configured": True,
-        "registry_hash": stable_hash(_canonical_json(registry), prefix="proxy_identity_registry"),
+        "registry_hash": _proxy_identity_registry_hash(registry),
+        "signature_binding": signature_binding,
         "subject": subject,
         "reviewer": reviewer,
         "raw_secret_egress": False,
@@ -860,12 +871,114 @@ def _normalize_proxy_identity_registry(registry: dict[str, Any]) -> dict[str, An
                 "expires_at": expires_at,
             }
         )
-    return {
+    normalized: dict[str, Any] = {
         "schema_version": 1,
         "identities": sorted(
             normalized_identities,
             key=lambda item: (item["identity_hash"], item["role"]),
         ),
+    }
+    if "signature" in registry:
+        normalized["signature"] = _normalize_proxy_identity_registry_signature_block(
+            registry.get("signature")
+        )
+    return normalized
+
+
+def _proxy_identity_registry_unsigned(registry: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "identities": list(registry.get("identities", [])),
+    }
+
+
+def _proxy_identity_registry_hash(registry: dict[str, Any]) -> str:
+    return stable_hash(
+        _canonical_json(_proxy_identity_registry_unsigned(registry)),
+        prefix="proxy_identity_registry",
+    )
+
+
+def _normalize_proxy_identity_registry_signature_block(raw_signature: Any) -> dict[str, str]:
+    if not isinstance(raw_signature, dict):
+        raise ValueError("proxy identity registry signature must be an object")
+    kind = str(raw_signature.get("kind", "")).strip().lower()
+    if kind not in {"ethereum_signed_message", "ethereum_personal_sign"}:
+        raise ValueError("proxy identity registry signature kind is invalid")
+    signer = normalize_address(str(raw_signature.get("signer", "")))
+    signature = str(raw_signature.get("signature", "")).strip().lower()
+    if signature.startswith("0x"):
+        signature_hex = signature[2:]
+    else:
+        signature_hex = signature
+    if len(signature_hex) != 130:
+        raise ValueError("proxy identity registry signature must be 65 bytes")
+    try:
+        bytes.fromhex(signature_hex)
+    except ValueError as exc:
+        raise ValueError("proxy identity registry signature must be hex") from exc
+    signed_registry_hash = str(raw_signature.get("registry_hash", "") or "").strip().lower()
+    if signed_registry_hash:
+        signed_registry_hash = _normalize_hex_hash(
+            signed_registry_hash[2:] if signed_registry_hash.startswith("0x") else signed_registry_hash,
+            "registry_hash",
+        )
+    return {
+        "kind": "ethereum_signed_message",
+        "signer": signer,
+        "signature": "0x" + signature_hex,
+        "registry_hash": signed_registry_hash,
+    }
+
+
+def _validate_proxy_identity_registry_signature(settings, registry: dict[str, Any]) -> dict[str, Any]:
+    required = bool(getattr(settings, "proxy_require_identity_registry_signature", False))
+    signer_raw = str(getattr(settings, "proxy_identity_registry_signer", "") or "").strip()
+    if not signer_raw:
+        if required:
+            raise ValueError("proxy identity registry signer is required")
+        return {
+            "required": False,
+            "configured": False,
+            "raw_secret_egress": False,
+        }
+    expected_signer = normalize_address(signer_raw)
+    signature_block = registry.get("signature")
+    if not signature_block:
+        if required:
+            raise ValueError("proxy identity registry signature is required")
+        return {
+            "required": False,
+            "configured": True,
+            "signer_hash": stable_hash(expected_signer, prefix="proxy_identity_registry_signer"),
+            "raw_secret_egress": False,
+        }
+    registry_hash = _proxy_identity_registry_hash(registry)
+    signed_hash = str(signature_block.get("registry_hash", "") or "").strip().lower()
+    if signed_hash and signed_hash != registry_hash:
+        raise ValueError("proxy identity registry signature hash mismatch")
+    try:
+        recovered = Account.recover_message(
+            encode_defunct(hexstr="0x" + registry_hash),
+            signature=signature_block["signature"],
+        )
+        recovered_normalized = normalize_address(recovered)
+    except Exception as exc:
+        raise ValueError("proxy identity registry signature is invalid") from exc
+    declared_signer = normalize_address(str(signature_block.get("signer", "")))
+    if recovered_normalized != declared_signer:
+        raise ValueError("proxy identity registry signer mismatch")
+    if recovered_normalized != expected_signer:
+        raise ValueError("proxy identity registry signer mismatch")
+    return {
+        "required": required,
+        "configured": True,
+        "verified": True,
+        "kind": signature_block["kind"],
+        "registry_hash": registry_hash,
+        "signer_hash": stable_hash(recovered_normalized, prefix="proxy_identity_registry_signer"),
+        "signature_hash": stable_hash(signature_block["signature"], prefix="proxy_identity_registry_signature"),
+        "raw_secret_egress": False,
     }
 
 

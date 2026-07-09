@@ -214,6 +214,37 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                         verifier-controlled approval workflow, instead of
                         accepting any operator supplied registry and lifecycle
                         file.
+                        - [x] Add a source/test-real verifier-signed identity
+                              registry gate. Done 2026-07-09:
+                              `TINKER_PROXY_REQUIRE_IDENTITY_REGISTRY_SIGNATURE=true`
+                              makes proxy JWT issuance fail closed unless the
+                              schema-v1 hash-only registry carries an Ethereum
+                              signed-message signature over the canonical
+                              registry hash from
+                              `TINKER_PROXY_IDENTITY_REGISTRY_SIGNER`.
+                              Tampered registries, missing signatures, wrong
+                              signers, and malformed signatures fail before
+                              JWT minting. Issuance bindings expose only the
+                              registry hash, signer hash, signature hash,
+                              verification status, and
+                              `raw_secret_egress=false`; tests cover valid
+                              signed registry issuance, missing signature,
+                              tamper rejection, and wrong-signer rejection.
+                              The funding-validation compose now carries
+                              disabled
+                              `TINKER_PROXY_REQUIRE_IDENTITY_REGISTRY_SIGNATURE`
+                              and `TINKER_PROXY_IDENTITY_REGISTRY_SIGNER` env
+                              knobs; local `verify-compose-hash
+                              --phala-raw-compose` computes raw/image-policy
+                              hash
+                              `cea8860b87944f990e2afe30e0ef1e78d3aa91bccacee0aa76727fcc58381e2d`
+                              and rendered compose SHA-256
+                              `3f2e41c87e7a415e622a9b6d70b01dd47895bf0c28582cb20686d7f4bbd12d82`.
+                        - [ ] Bind `TINKER_PROXY_IDENTITY_REGISTRY_SIGNER` to a
+                              production verifier/reviewer identity source or
+                              governance contract, and define the secure
+                              recipient approval workflow that transmits
+                              encrypted proxy JWTs only to approved users.
                   - [ ] Redeploy the lifecycle-required proxy issue policy
                         source slice to Phala, approve the resulting compose
                         hash, install an active lifecycle-bound issue policy,
