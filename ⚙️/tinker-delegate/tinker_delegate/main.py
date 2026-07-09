@@ -930,6 +930,22 @@ def cli():
     )
     tinker_smoke_plan_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
 
+    log_safety_p = sub.add_parser(
+        "verify-deployed-log-safety",
+        help="Scan deployed logs/console output for card or credential-shaped leakage",
+    )
+    log_safety_p.add_argument(
+        "--logs-file",
+        default="-",
+        help="Path to logs to scan, or '-' for stdin",
+    )
+    log_safety_p.add_argument(
+        "--source-label",
+        default="",
+        help="Non-secret label for the scanned log source",
+    )
+    log_safety_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+
     funding_manifest_p = sub.add_parser(
         "funding-manifest",
         help="Build a bounded funding validation manifest from preflight and receipt JSON",
@@ -2203,6 +2219,17 @@ def cli():
         ).to_public_dict()
         _emit_bounded_json(result, output_path=args.output)
         sys.exit(0 if result["ready"] else 1)
+
+    elif args.command == "verify-deployed-log-safety":
+        from tinker_delegate.deployed_log_safety import scan_deployed_log_text
+
+        if args.logs_file == "-":
+            text = sys.stdin.read()
+        else:
+            text = Path(args.logs_file).read_text(encoding="utf-8", errors="replace")
+        result = scan_deployed_log_text(text, source_label=args.source_label).to_public_dict()
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result.get("success") else 1)
 
     elif args.command == "funding-manifest":
         from tinker_delegate.funding_manifest import build_funding_validation_manifest

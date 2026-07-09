@@ -1464,6 +1464,15 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
 - Payment-method token/reference handling and the sealed long-lived funding
   token/session state still need an official/tokenized route plus production
   retention and rotation policy.
+- `verify-deployed-log-safety` is source/test-real and scans deployed log text
+  for card-shaped values, unredacted card/CVC fields, Tinker API keys,
+  bearer/JWT tokens, OTP fields, and private-key-shaped values while returning
+  only counts/classes/line hashes. Live operator-validation scan of
+  `phala logs --cvm-id cvm_1w85mGjo --tail 1000` covered 236 lines /
+  10KB-100KB and returned `success=true`, `finding_count=0`,
+  `log_snippets_returned=false`, and `raw_secret_egress=false`. This is
+  evidence for the current debug/operator-validation posture, not a production
+  logging claim until public logs/dev OS are removed.
 
 [partial] TEE attestation:
 

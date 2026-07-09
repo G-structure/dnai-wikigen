@@ -1248,6 +1248,13 @@ Implementation status:
 [real]      Card submission attempts purge known secret-bearing browser debug
             artifacts (`trace*.zip`, HAR, video, card/Stripe screenshots) from
             an explicitly configured debug artifact directory.
+[real]      `verify-deployed-log-safety` scans deployed logs or Phala console
+            captures for card-shaped values, unredacted card/CVC fields, Tinker
+            API keys, bearer/JWT tokens, OTP fields, and private-key-shaped
+            fields. It returns only finding classes/counts and line hashes, not
+            log snippets. A live operator-validation scan of the current Phala
+            CVM tail found zero findings; this is not production-current until
+            the temporary public-log/dev-OS posture is removed.
 [real]      Tinker delegate Python entrypoints set `RLIMIT_CORE=0`, and local /
             Phala compose services for the delegate and browser path set
             `ulimits.core: 0` to prevent core dumps from persisting secrets.

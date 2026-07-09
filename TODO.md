@@ -1984,8 +1984,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             screenshots may be written.
       - [x] Add trace/HAR/video/card-screenshot deletion for configured browser
             debug artifact directories after card submission attempts.
-      - [ ] Add deployed log/Phala-console verification for the encrypted
-            card path once the CVM endpoint is available.
+      - [x] Add deployed log/Phala-console verification for the encrypted
+            card path once the CVM endpoint is available. Done 2026-07-09:
+            `verify-deployed-log-safety` scans stdin or saved deployed logs for
+            card-shaped values, unredacted card/CVC fields, Tinker API keys,
+            bearer/JWT tokens, OTP fields, and private-key-shaped fields while
+            returning only finding classes/counts and line hashes. Live
+            operator-validation scan of `phala logs --cvm-id cvm_1w85mGjo
+            --tail 1000` covered 236 lines / 10KB-100KB and found zero
+            findings with `log_snippets_returned=false` and
+            `raw_secret_egress=false`. Production still needs public-log/dev-OS
+            posture removed before this becomes production evidence.
       - [x] Add crash-dump/core-dump policy for browser and delegate processes:
             Python entrypoints set `RLIMIT_CORE=0`, and Tinker local/Phala
             compose services set `ulimits.core: 0`.
