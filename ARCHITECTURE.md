@@ -349,13 +349,16 @@ smoke receipt confirms bounded `client_config.project_id_argument=omitted` and
 `client_config.base_url_argument=sdk_default`, so the next required input is the
 correct Tinker project/client configuration rather than another model/rank
 retry. A bounded `tinker-smoke-command-plan` CLI now turns that next step into
-an explicit redeploy/attest/approve/preflight/smoke sequence using environment
-variable names and compose-hash placeholders only; it does not accept or emit
-raw project IDs, tokens, API keys, RPC URLs, run IDs, checkpoints, or samples.
-Source now also includes a sealed client-config store and runtime-authenticated
-installer so a running delegate can receive `TINKER_PROJECT_ID` and optional
-`TINKER_BASE_URL` without returning them. Live use of that installer and a
-successful post-install smoke run are still pending.
+an explicit no-secret operator sequence. If the live CVM already exposes the
+sealed client-config endpoint, the plan emits `client_config_install_shell` so
+an operator can seal `TINKER_PROJECT_ID` and optional `TINKER_BASE_URL` from
+local env into the CVM without printing them, then refresh bounded status and
+rerun smoke. Redeploy/attest/approve is required only when the live CVM does
+not include that source or when a new compose hash is intentionally selected.
+The plan uses environment variable names and compose-hash placeholders only; it
+does not accept or emit raw project IDs, tokens, API keys, RPC URLs, run IDs,
+checkpoints, or samples. Live use of that installer and a successful
+post-install smoke run are still pending.
 
 The intended external Tinker surface is now the Tinker proxy, not direct
 credential sharing. In the target shape, approved users and agents receive
@@ -1991,10 +1994,33 @@ Implementation status:
 [real]      `tinker-smoke-command-plan` provides a bounded operator control
             surface for the next live retry. It reads the deployment manifest,
             reports whether `TINKER_PROJECT_ID` is present locally and in the
-            live CVM evidence, and emits redeploy, attestation, compose-approval,
-            spend-preflight, and smoke command templates without including raw
+            live CVM evidence, emits `next_action`, and includes
+            `client_config_install_argv` / `client_config_install_shell` for
+            the sealed client-config path. When the operator has
+            `TINKER_PROJECT_ID` locally but live evidence still shows the
+            project id omitted, `next_action=seal_client_config`; smoke remains
+            `ready=false` until bounded live evidence confirms the project
+            config is sealed. The same plan also emits redeploy, attestation,
+            compose-approval, spend-preflight, and smoke command templates for
+            cases where a new CVM compose is needed, without including raw
             project IDs, bearer tokens, API keys, RPC URLs, run IDs, checkpoint
             paths, or samples.
+[partial]   A follow-up GitHub Actions build for commit
+            `3bb9ff4b986e95debbe0d13f9a02edb9c0d03f80` completed on run
+            `29058135707` and produced digest-pinned funding-validation images:
+            `tinker-delegate@sha256:a76c2efb9274d2669b98836fdc30450d79a1c96702150079e1ba13bf2d9b8ac6`,
+            `tee-email-oracle@sha256:e663c88eb87e880abbc012befe1948a4a45007ea267ae85ab79a953936de9e99`,
+            and
+            `neko-chrome@sha256:4b36022cc2d0c50a0080c9f460a7252659a9a201ee2b43d8dfcffd033685a88a`.
+            Local `verify-ghcr-image-attestation` checks passed for SLSA
+            provenance and SPDX SBOM predicates on all three images. The local
+            funding-validation Phala compose is pinned to those images and
+            hashes to raw compose candidate
+            `5d469e071e416305b032172683616d72efb12e99ca9b3ee5200cfd60d532f07a`
+            with rendered compose SHA-256
+            `62bd3f65bfd1eb48f3f2ea927800ff21d7d8a83ebcef371117ddb4ac6a0a7cf4`.
+            This is source/local evidence only until redeployed, attested by
+            Phala, and approved on-chain for the resulting live compose hash.
 [partial]   The client-configuration diagnostic source follow-up changes the
             local funding-validation compose to allow `TINKER_BASE_URL` through
             encrypted Phala env selection. GitHub Actions run `29023713771`

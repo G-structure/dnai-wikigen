@@ -45,13 +45,16 @@ class TinkerSmokeCommandPlan:
     verify_compose_argv: tuple[str, ...]
     approve_compose_argv: tuple[str, ...]
     encumbrance_preflight_argv: tuple[str, ...]
+    client_config_install_argv: tuple[str, ...]
     smoke_argv: tuple[str, ...]
     redeploy_shell: str
     verify_compose_shell: str
     approve_compose_shell: str
     encumbrance_preflight_shell: str
+    client_config_install_shell: str
     smoke_shell: str
     current_live_client_config: dict[str, Any]
+    next_action: str
 
     def to_public_dict(self) -> dict[str, Any]:
         return {
@@ -73,29 +76,34 @@ class TinkerSmokeCommandPlan:
             "max_usd": self.max_usd,
             "model": self.model,
             "rank": self.rank,
+            "next_action": self.next_action,
             "output_path_template": self.output_path_template,
             "env_prerequisites": [
-                f"{self.project_id_env} must be set in the Phala runtime env file; value is never printed",
+                f"{self.project_id_env} must be set in the operator shell for client-config install; value is never printed",
                 f"{self.runtime_auth_env} must be set in the operator shell; value is never printed",
                 f"{self.encumbrance_rpc_env} must be set in the operator shell; value is never printed",
                 "FOUNDRY_KEYSTORE_ACCOUNT must name an encrypted Foundry keystore account; never use a raw private key",
                 f"{self.base_url_env} should be set only if Tinker/provider gives a non-default endpoint",
+                "Live CVM must run source with GET/PUT /tinker/proxy/client-config before install can succeed",
             ],
             "current_live_client_config": self.current_live_client_config,
             "redeploy_argv": list(self.redeploy_argv),
             "verify_compose_argv": list(self.verify_compose_argv),
             "approve_compose_argv": list(self.approve_compose_argv),
             "encumbrance_preflight_argv": list(self.encumbrance_preflight_argv),
+            "client_config_install_argv": list(self.client_config_install_argv),
             "smoke_argv": list(self.smoke_argv),
             "redeploy_shell": self.redeploy_shell,
             "verify_compose_shell": self.verify_compose_shell,
             "approve_compose_shell": self.approve_compose_shell,
             "encumbrance_preflight_shell": self.encumbrance_preflight_shell,
+            "client_config_install_shell": self.client_config_install_shell,
             "smoke_shell": self.smoke_shell,
             "operator_note": (
-                "Run redeploy first after adding the project config to the runtime env file. "
-                "Use the newly attested compose hash from redeploy/attestation wherever the placeholder appears, "
-                "approve that hash with the Foundry keystore account, then run smoke. "
+                "If the live CVM already has the sealed client-config endpoint, run client_config_install_shell "
+                "with project config in local env and then refresh bounded status. Otherwise redeploy to source "
+                "that includes the endpoint, use the newly attested compose hash wherever the placeholder appears, "
+                "approve that hash with the Foundry keystore account, install client config, then run smoke. "
                 "Do not mark Tinker training real until the bounded receipt proves run/checkpoint/sample/cleanup."
             ),
             "raw_secret_egress": False,
@@ -260,6 +268,23 @@ def build_tinker_smoke_command_plan(
         f"${{{encumbrance_rpc_env}}}",
         "--required",
     )
+    client_config_install_argv = (
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "tinker_delegate.main",
+        "tinker-client-config",
+        "--api-url",
+        delegate_api_url or "<missing-delegate-api-url>",
+        "--auth-token-env",
+        runtime_auth_env,
+        "--project-id-env",
+        project_id_env,
+        "--base-url-env",
+        base_url_env,
+        "--install",
+    )
     smoke_argv = (
         "uv",
         "run",
@@ -282,6 +307,11 @@ def build_tinker_smoke_command_plan(
         "--require-encumbrance",
         "--output",
         output_path_template,
+    )
+    next_action = _next_action(
+        reasons=reasons,
+        project_id_present=project_id_present,
+        live_contains_project_id=live_contains_project_id,
     )
 
     return TinkerSmokeCommandPlan(
@@ -306,6 +336,7 @@ def build_tinker_smoke_command_plan(
         verify_compose_argv=verify_compose_argv,
         approve_compose_argv=approve_compose_argv,
         encumbrance_preflight_argv=encumbrance_preflight_argv,
+        client_config_install_argv=client_config_install_argv,
         smoke_argv=smoke_argv,
         redeploy_shell=_shell_command(redeploy_argv, env_placeholders={project_id_env}),
         verify_compose_shell=_join_argv(verify_compose_argv, env_placeholders=set()),
@@ -317,8 +348,13 @@ def build_tinker_smoke_command_plan(
             encumbrance_preflight_argv,
             env_placeholders={encumbrance_rpc_env},
         ),
+        client_config_install_shell=_shell_command(
+            client_config_install_argv,
+            env_placeholders={project_id_env, runtime_auth_env},
+        ),
         smoke_shell=_shell_command(smoke_argv, env_placeholders={runtime_auth_env}),
         current_live_client_config=current_live_client_config,
+        next_action=next_action,
     )
 
 
@@ -382,6 +418,27 @@ def _check_spend_cap(reasons: list[str], *, max_usd: float, encumbrance: dict[st
 
 def _format_amount(value: float) -> str:
     return ("%f" % float(value)).rstrip("0").rstrip(".")
+
+
+def _next_action(*, reasons: list[str], project_id_present: bool, live_contains_project_id: bool) -> str:
+    infra_reasons = {
+        "missing_delegate_api_url",
+        "missing_current_compose_hash",
+        "missing_phala_app_id",
+        "missing_phala_os_image_hash",
+        "missing_tinker_encumbrance_contract",
+    }
+    if any(reason in infra_reasons for reason in reasons):
+        return "repair_deployment_manifest"
+    if not project_id_present:
+        return "set_project_id_env"
+    if not live_contains_project_id:
+        return "seal_client_config"
+    if any(reason.startswith("missing_") for reason in reasons):
+        return "set_operator_env"
+    if any(reason.startswith("requested_") or reason.startswith("tinker_encumbrance_") for reason in reasons):
+        return "repair_encumbrance_policy"
+    return "run_smoke_sequence"
 
 
 def _shell_command(argv: tuple[str, ...], *, env_placeholders: set[str]) -> str:

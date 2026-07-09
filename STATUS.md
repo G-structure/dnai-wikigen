@@ -434,16 +434,27 @@ Latest Tinker execution buildout, 2026-07-09:
   `client_config.base_url_argument=sdk_default`, with `raw_secret_egress=false`.
   The blocker is now specifically missing Tinker project/client configuration.
   Follow-up source slice: `tinker-smoke-command-plan` now emits a bounded
-  no-secret redeploy/attest/approve/preflight/smoke command plan for the next
-  retry. It reports `ready=false` until `TINKER_PROJECT_ID` is present in both
-  the operator/runtime env and live CVM evidence, and it uses only environment
-  variable names plus a new-compose placeholder rather than project IDs, bearer
-  tokens, API keys, RPC URLs, run IDs, checkpoint paths, or sample text.
-  GitHub Actions run `29026626931` built source
-  `bd066de1b3b50b3d43284c4672b3bf1a057abc1e` into
-  `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:bb8ef23bb45d675e7344a7a4b7479124d239deb2742912728a096753ae6bf06f`,
-  and local attestation verification passed for both provenance and SBOM. This
-  planner image is not yet pinned into the Phala compose or deployed.
+  no-secret install/redeploy/attest/approve/preflight/smoke command plan for
+  the next retry. It reports `ready=false` until bounded live evidence shows
+  project config sealed, emits `next_action`, and includes
+  `client_config_install_shell` for the case where the live CVM already exposes
+  `/tinker/proxy/client-config`. The plan uses only environment variable names
+  plus a new-compose placeholder rather than project IDs, bearer tokens, API
+  keys, RPC URLs, run IDs, checkpoint paths, or sample text.
+  Follow-up image evidence: GitHub Actions run `29058135707` built source
+  `3bb9ff4b986e95debbe0d13f9a02edb9c0d03f80` into
+  `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:a76c2efb9274d2669b98836fdc30450d79a1c96702150079e1ba13bf2d9b8ac6`,
+  `ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:e663c88eb87e880abbc012befe1948a4a45007ea267ae85ab79a953936de9e99`,
+  and
+  `ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:4b36022cc2d0c50a0080c9f460a7252659a9a201ee2b43d8dfcffd033685a88a`.
+  Local attestation verification passed for provenance and SBOM on all three
+  images. The funding-validation compose is pinned to these digests and has
+  local raw compose candidate hash
+  `5d469e071e416305b032172683616d72efb12e99ca9b3ee5200cfd60d532f07a`
+  with rendered compose SHA-256
+  `62bd3f65bfd1eb48f3f2ea927800ff21d7d8a83ebcef371117ddb4ac6a0a7cf4`.
+  This candidate is not yet live until redeployed to Phala, attested, and
+  approved on-chain for the resulting live compose hash.
 
 Latest Phala evidence, 2026-07-09: GitHub Actions built source commit
 `6ff5531aabb952b3266210afa6c0b6bfb8860103` into GHCR digest-pinned

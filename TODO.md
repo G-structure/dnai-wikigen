@@ -2216,22 +2216,23 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `0xc597c8e2bbfcc58255c6d407ce615ec4befd992b4e4ef2c34854b99a4d4c52b2`
             at block `43919367`.
       - [x] Add a bounded project-config smoke command-plan CLI so the next
-            live retry has an explicit no-secret redeploy/approve/smoke path.
+            live retry has an explicit no-secret install/redeploy/smoke path.
             Done 2026-07-09: `tinker-smoke-command-plan` reads
             `deployments/base-sepolia.json`, reports whether
             `TINKER_PROJECT_ID` is present locally and in the latest live CVM
-            evidence, and emits command templates for Phala redeploy,
-            attestation verification, `TinkerAccountEncumbrance` approval,
-            spend preflight, and bounded smoke. The output uses environment
-            variable names and a new-compose placeholder only; it never prints
-            project IDs, bearer tokens, API keys, RPC URLs, run IDs,
-            checkpoint paths, or sample text. Follow-up build evidence:
-            GitHub Actions run `29026626931` built source
-            `bd066de1b3b50b3d43284c4672b3bf1a057abc1e` into
-            `ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:bb8ef23bb45d675e7344a7a4b7479124d239deb2742912728a096753ae6bf06f`,
-            and local attestation verification passed for GitHub provenance
-            and SBOM predicates. This image is not yet pinned or deployed;
-            pin/redeploy it only after `TINKER_PROJECT_ID` is available.
+            evidence, emits `next_action`, and includes
+            `client_config_install_argv` / `client_config_install_shell` for
+            sealing `TINKER_PROJECT_ID` and optional `TINKER_BASE_URL` into a
+            running delegate that already exposes `/tinker/proxy/client-config`.
+            It still emits Phala redeploy, attestation verification,
+            `TinkerAccountEncumbrance` approval, spend preflight, and bounded
+            smoke templates when a new compose is needed. The output uses
+            environment variable names and a new-compose placeholder only; it
+            never prints project IDs, bearer tokens, API keys, RPC URLs, run
+            IDs, checkpoint paths, or sample text. Follow-up 2026-07-09:
+            focused tests cover `next_action=set_project_id_env`,
+            `next_action=seal_client_config`, and
+            `next_action=run_smoke_sequence` without leaking env values.
       - [x] Add source-real sealed Tinker client-config install/status plumbing
             so the live CVM can receive project/client settings without
             returning them.
@@ -2245,6 +2246,22 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             absent. Focused tests prove the stored project id is passed to the
             mocked Tinker `ServiceClient` and never appears in receipts. Live
             deployment and a successful real Tinker training run remain open.
+      - [x] Pin the funding-validation Phala compose to the latest attested
+            image set that includes sealed client-config command-plan support.
+            Done 2026-07-09: GitHub Actions run `29058135707` built commit
+            `3bb9ff4b986e95debbe0d13f9a02edb9c0d03f80` into
+            `tinker-delegate@sha256:a76c2efb9274d2669b98836fdc30450d79a1c96702150079e1ba13bf2d9b8ac6`,
+            `tee-email-oracle@sha256:e663c88eb87e880abbc012befe1948a4a45007ea267ae85ab79a953936de9e99`,
+            and
+            `neko-chrome@sha256:4b36022cc2d0c50a0080c9f460a7252659a9a201ee2b43d8dfcffd033685a88a`.
+            Local `verify-ghcr-image-attestation` verified provenance and SPDX
+            SBOM attestations for all three images. Local raw compose candidate
+            hash is
+            `5d469e071e416305b032172683616d72efb12e99ca9b3ee5200cfd60d532f07a`
+            with rendered compose SHA-256
+            `62bd3f65bfd1eb48f3f2ea927800ff21d7d8a83ebcef371117ddb4ac6a0a7cf4`.
+            This is not live until redeployed, attested by Phala, and approved
+            on-chain for the resulting live compose hash.
       - [ ] Run `tinker-smoke --api-url ... --max-usd 0.05
             --require-encumbrance` successfully from the deployed CVM and record
             the bounded receipt plus attestation evidence.
