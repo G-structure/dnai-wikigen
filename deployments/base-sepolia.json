@@ -70,13 +70,13 @@
     }
   },
   "phala": {
-    "status": "running_tinker_funding_validation_profile_funded_operator_validation",
+    "status": "running_tinker_funding_validation_profile_smoke_diagnostics_blocked_before_training",
     "cvmId": "cvm_1w85mGjo",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "a15af6d8e7262d7d2799fa31968c568933f3468771b808720583a6dc6ed998c5",
-    "deployHelperComposeHash": "a15af6d8e7262d7d2799fa31968c568933f3468771b808720583a6dc6ed998c5",
-    "localRawComposeImagePolicyHash": "4c0bc5a7ae08e358ff2f026d2e6c7ae4326a64f4e686c2c530392b4bf03b3bab",
-    "renderedComposeSha256": "f28eb9ef304aa4634f1b3d765b539e33bde91a7b24b308d1146932ba02218855",
+    "composeHash": "c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da",
+    "deployHelperComposeHash": "c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da",
+    "localRawComposeImagePolicyHash": "bb887ba2e450d0267dc41ad420caec819cc82d977bc8e9412ab7ec6d5454c905",
+    "renderedComposeSha256": "1281d81e2b51988ee1484e70dbbe81612c4839a8603ce293d8571fc567957be8",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -87,15 +87,16 @@
     "deployCriticalImageRefsBoundInCompose": true,
     "allowedEnvKeys": [
       "ORACLE_RUNTIME_AUTH_KEY_PATH",
+      "BASE_SEPOLIA_RPC_URL",
+      "TINKER_BROWSER_SESSION_KEY_PATH",
       "TINKER_DSTACK_KEY_PATH",
       "TINKER_FUNDING_RECEIPT_KEY_PATH",
-      "TINKER_MAX_ADD_BALANCE_USD",
       "TINKER_ORACLE_AUTH_KEY_PATH",
       "TINKER_RUN_METADATA_KEY_PATH",
       "TINKER_RUNTIME_AUTH_KEY_PATH",
       "TINKER_RUNTIME_AUTH_TOKEN"
     ],
-    "allowedEnvKeysNote": "Current funding-validation profile has an eight-key runtime surface. Secrets remain in Phala/runtime env or dstack-sealed storage; deploy-critical image refs, capped funding policy, and disabled secret-bearing gates are hardcoded directly in compose.",
+    "allowedEnvKeysNote": "Current funding-validation profile has a nine-key runtime surface selected by compose refs. Secrets remain in Phala/runtime env or dstack-sealed storage; deploy-critical image refs, capped funding policy, encumbrance contract address, and disabled secret-bearing gates are hardcoded directly in compose.",
     "temporaryDebugException": {
       "active": true,
       "enabledAt": "2026-07-09T11:00:00Z",
@@ -121,10 +122,10 @@
         "TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT": "false"
       }
     },
-    "sourceDigest": "b9a962f64fe0ec4a10ce4fe4bc97787a22f82995",
+    "sourceDigest": "271a767021dbd5b0641f3d7e62f7c1e35be08d86",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 29012433267,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29012433267",
+    "githubActionsRunId": 29017269753,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29017269753",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -134,30 +135,32 @@
     "imageDigests": [
       {
         "service": "oracle",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ce0ea569280a796ce2a3d5517e22d03ad72a9d7a316a550d11bd1b155a85a5ce",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ee3d5b21597304e5c7e677b091ca01bc3b51703728e663056e6d690da16fe08f",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:1e3da3a88ef037b85678c7122a1a4a11a01ae687a36a57fd38deb1ed8984461e",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:5d26375fef7509e6b183a8f715c6c1203bc999f401fbe17083d4abd257583148",
+        "sourceDigest": "271a767021dbd5b0641f3d7e62f7c1e35be08d86",
+        "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "neko",
-        "image": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:7c0795e15e660d4501b6324c7f223fd65f22725a7752b683ae30a2874d373d01",
+        "image": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:422f2ba4f350f329a8a52a6502a91717da2dd39a2e22e8250bdcce65788bee81",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       }
     ],
     "quoteEvidence": {
-      "status": "previous_billing_envelope_stale_current_verify_cvm_attestation_passed_without_report_data_recorded_here",
+      "status": "current_smoke_diagnostics_envelope_verified",
       "mode": "tdx",
-      "context": "billing_previous",
+      "context": "artifact",
       "quoteSize": 5010,
-      "reportData": "51df5f2c0f61dd488a65f82d803fe29a6eb72903b9c1a510b00b1848aa0703fb",
-      "encryptionPublicKey": "d7ce6072bcdffbb82a998ce2c676cf47e8bc4122447fb183272ee0551bc5e474",
+      "reportData": "a23704adc054ce2fc775a3669140abef73d359836d380aa37bda8b260f44e988",
+      "encryptionPublicKey": "bc953b5bd539097c0f9a6df343649f351a5f073f655eb0d88aa64a0146412a1e",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -1281,6 +1284,73 @@
         "requiresCvmRedeploy": false,
         "requiresComposeApproval": true
       }
+    },
+    "tinkerSdkSmokeEvidence": {
+      "status": "blocked_before_training_creation_with_bounded_diagnostics",
+      "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
+      "sourceDigest": "271a767021dbd5b0641f3d7e62f7c1e35be08d86",
+      "githubActionsRunId": 29017269753,
+      "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:5d26375fef7509e6b183a8f715c6c1203bc999f401fbe17083d4abd257583148",
+      "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ee3d5b21597304e5c7e677b091ca01bc3b51703728e663056e6d690da16fe08f",
+      "nekoImage": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:422f2ba4f350f329a8a52a6502a91717da2dd39a2e22e8250bdcce65788bee81",
+      "deployHelperComposeHash": "c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da",
+      "attestedComposeHash": "c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da",
+      "localRawComposeImagePolicyHash": "bb887ba2e450d0267dc41ad420caec819cc82d977bc8e9412ab7ec6d5454c905",
+      "renderedComposeSha256": "1281d81e2b51988ee1484e70dbbe81612c4839a8603ce293d8571fc567957be8",
+      "deploymentBundleVerification": "verified_with_delegate_github_provenance_sbom_sidecar_digest_pins_and_live_tdx_envelope",
+      "quoteEvidence": {
+        "mode": "tdx",
+        "context": "artifact",
+        "reportData": "a23704adc054ce2fc775a3669140abef73d359836d380aa37bda8b260f44e988",
+        "encryptionPublicKey": "bc953b5bd539097c0f9a6df343649f351a5f073f655eb0d88aa64a0146412a1e",
+        "quoteSize": 5010,
+        "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
+      },
+      "runtimeEnv": {
+        "policy": "compose-refs",
+        "allowedEnvCount": 9,
+        "keysSha256": "720f4d6ebdde8e23cf66aa825e3ff0da957ac85bda6c841e2dc920d644485bba",
+        "containsRuntimeAuthToken": true
+      },
+      "composeApproval": {
+        "composeHash": "0xc6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da",
+        "approved": true,
+        "tx": "0xc7adf6b22668f3aa15d9d7e81dff444daac3f1f4b8339981f842042ddd7dbb67",
+        "block": 43915602
+      },
+      "encumbrancePreflight": {
+        "operation": "spend_tinker_compute",
+        "amount": 0.05,
+        "allowed": true,
+        "reason": "allowed",
+        "maxAmountWei": "10000000000000000000",
+        "rawSecretEgress": false
+      },
+      "health": {
+        "status": "ok",
+        "apiKeyConfigured": true,
+        "apiKeySource": "encrypted_store",
+        "bootstrapAttempted": false
+      },
+      "smokeReceipt": {
+        "path": "/tmp/dnai-tinker-smoke-diagnostics-20260709T121857Z.json",
+        "success": false,
+        "outcome": "smoke_failed",
+        "furthestStage": "api_key_loaded",
+        "errorKind": "BadRequestError",
+        "sdkErrorBucket": "invalid_request",
+        "httpStatusClass": "4xx",
+        "sdkVersion": "0.15.0",
+        "capabilitiesChecked": false,
+        "capabilityMethod": "ServiceClient.get_server_capabilities",
+        "modelFamily": "meta-llama",
+        "rankBand": "<=8",
+        "trainingRunCreated": false,
+        "checkpointCreated": false,
+        "sampleObserved": false,
+        "rawSecretEgress": false
+      },
+      "nextStep": "Resolve Tinker SDK BadRequest at create_lora_training_client by checking supported model/request shape or an official Tinker service-account route; do not mark real training complete until run/checkpoint/sample/cleanup evidence exists"
     },
     "selectorDiagnosticsEvidence20260709": {
       "status": "custom_neko_cdp_browser_ready_selector_probe_succeeded",

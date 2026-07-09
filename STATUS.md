@@ -107,13 +107,17 @@ Latest Tinker execution buildout, 2026-07-09:
   smoke-capable delegate image has now been built by GitHub Actions, pinned in
   the Phala funding-validation compose, redeployed, and approved on-chain for
   `SPEND_TINKER_COMPUTE` under compose hash
-  `f8d4c7b1e15dd81d100cac837cba1460c129bc6894ca1d443e2aabf16af065bf` in
+  `c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da` in
   `TinkerAccountEncumbrance`
   `0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`; approval tx
-  `0x0f0426d18b0f77b4b53efbb15a345011b91bd1c9a83cdc71c2868d56e68d59f2`.
+  `0xc7adf6b22668f3aa15d9d7e81dff444daac3f1f4b8339981f842042ddd7dbb67`.
   The live smoke attempt is still not complete: it passes policy and sealed
   API-key load, then fails closed with `BadRequestError` at `api_key_loaded`
-  before Tinker training creation.
+  before Tinker training creation. The bounded deployed receipt at
+  `/tmp/dnai-tinker-smoke-diagnostics-20260709T121857Z.json` reports Tinker SDK
+  `0.15.0`, `sdk_error.bucket=invalid_request`, HTTP class `4xx`, model family
+  `meta-llama`, rank band `<=8`, and no capability probe result from
+  `ServiceClient.get_server_capabilities`.
 - Source now adds bounded SDK failure diagnostics for the next deployed smoke
   attempt: receipts include an allowlisted `sdk_error.bucket`, normalized
   redacted `sdk_error.message_hash`, coarse `message_length_band`, and bounded
@@ -1811,8 +1815,10 @@ explicitly legacy.
   proven.
 - The deployed Tinker SDK smoke path is now past image/redeploy/compose-approval
   prerequisites, but the live run fails closed with `BadRequestError` at
-  `api_key_loaded` before training creation. No deployed Tinker run ID,
-  checkpoint, sample, cleanup receipt, or spend proof exists yet.
+  `api_key_loaded` before training creation. The current diagnostic receipt
+  classifies the failure as `invalid_request` / `4xx` from Tinker SDK `0.15.0`;
+  no deployed Tinker run ID, checkpoint, sample, cleanup receipt, or spend proof
+  exists yet.
 - Bio-validation must remain fail-closed until risk screening, reviewer queues,
   and bounded schemas exist.
 

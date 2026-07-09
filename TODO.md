@@ -1725,11 +1725,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `SPEND_TINKER_COMPUTE`.
             Done 2026-07-09: the live Phala funding-validation redeploy attests
             compose hash
-            `f8d4c7b1e15dd81d100cac837cba1460c129bc6894ca1d443e2aabf16af065bf`.
+            `c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da`.
             `TinkerAccountEncumbrance`
             `0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e` approved that compose
             hash in tx
-            `0x0f0426d18b0f77b4b53efbb15a345011b91bd1c9a83cdc71c2868d56e68d59f2`.
+            `0xc7adf6b22668f3aa15d9d7e81dff444daac3f1f4b8339981f842042ddd7dbb67`.
       - [x] Add bounded diagnostics for SDK smoke failures before redeploying
             another debug image. Done 2026-07-09: smoke receipts now include an
             allowlisted `sdk_error.bucket`, redacted normalized
@@ -1743,8 +1743,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             Current blocker 2026-07-09: the deployed smoke path passes
             `TinkerAccountEncumbrance`, loads the sealed Tinker API key, and
             then fails closed with `BadRequestError` at `api_key_loaded` before
-            Tinker training creation. No run ID, checkpoint, sample, cleanup
-            proof, or spend proof exists yet, so this parent P0 remains open.
+            Tinker training creation. The diagnostic receipt reports Tinker SDK
+            `0.15.0`, `sdk_error.bucket=invalid_request`, HTTP class `4xx`,
+            model family `meta-llama`, rank band `<=8`, and no capability probe
+            result from `ServiceClient.get_server_capabilities`. No run ID,
+            checkpoint, sample, cleanup proof, or spend proof exists yet, so
+            this parent P0 remains open.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
 - [x] `P0` Add real SDK integration tests gated by an env var and budget cap.
@@ -2548,10 +2552,11 @@ vision Wiki is reaching for.
       conservative because it did not observe explicit success copy.
 - [ ] `Deploy` Run a tiny funded Tinker job and record the attestation.
       Blocked 2026-07-09: smoke-capable Phala compose
-      `f8d4c7b1e15dd81d100cac837cba1460c129bc6894ca1d443e2aabf16af065bf`
+      `c6b446fe9b7ff656c6db799a7461a2a6dba045ae24de16d365c80a6cb83863da`
       is deployed and approved for `SPEND_TINKER_COMPUTE`, but the real smoke
       fails closed with `BadRequestError` at `api_key_loaded` before training
-      creation.
+      creation. The bounded diagnostic receipt reports `invalid_request` /
+      `4xx` from Tinker SDK `0.15.0`.
 - [ ] `Deploy` Create a synthetic test room on Base Sepolia.
 - [ ] `Deploy` Fund the synthetic test deal.
 - [ ] `Deploy` Upload encrypted synthetic artifact.
@@ -2709,7 +2714,8 @@ vision Wiki is reaching for.
        a bounded balance read returned `$10.00`.
 12. [ ] Run one real tiny Tinker training session through `IsolatedTinkerSession`.
        Current blocker: deployed smoke fails with `BadRequestError` at
-       `api_key_loaded` before Tinker training creation.
+       `api_key_loaded` before Tinker training creation; bounded diagnostics
+       classify it as `invalid_request` / `4xx` from Tinker SDK `0.15.0`.
 13. [ ] Merge the `gate-health-frontend` UI and wire it to real verifier/status
        APIs.
 
