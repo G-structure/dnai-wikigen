@@ -335,6 +335,25 @@ raw-compose hash is
 `1f16c4a93adb3b09f29f7e6f7c97870ea781c4cca9c2dbf7d72a982a83e5a4b7`. This pin
 still needs Phala redeploy and live health/preflight verification.
 
+Startup-deferred oracle live result, 2026-07-09: the existing debug-posture
+Phala CVM was redeployed with the startup-deferred oracle image. `phala ps`
+reported delegate, oracle, and Neko containers running and healthy. Public
+delegate `/attestation?context=billing` returned `200` in about 2.7 seconds,
+with app ID `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717`, OS image hash
+`de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`, and live
+compose hash
+`1fc656544b1583b83d65d769f369f3d1ad6d07d7e812073fbd3c1f7f2f84eb28`. Public
+oracle `/health` returned `200` in about 0.4 seconds with `status=degraded`,
+`oracle_ready=false`, `imap_connected=false`, and the bounded
+`oracle_email_hash`; delegate `/health` also returned `200` and surfaced that
+bounded oracle state. Oracle logs show `IMAP connection deferred until pin
+request` followed by successful `/health` responses, not a startup connection
+attempt to `mail.cock.li:993`. Endpoint-level `$10` funding preflight returned
+`ready=true` with billing attestation fetch verified. On-chain
+`TinkerAccountEncumbrance` preflight for the new live compose hash correctly
+fails closed with `compose_hash_not_approved`; approve that hash before any
+real add-balance packet.
+
 Encumbrance deployment follow-up, 2026-07-09: the
 `TinkerAccountEncumbrance` deploy helper was re-dry-run against Base Sepolia
 with the current funding-validation compose hash. Chain ID, balance, and nonce

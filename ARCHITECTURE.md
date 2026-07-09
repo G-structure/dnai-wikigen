@@ -1437,9 +1437,10 @@ Implementation status:
             reconnect storms. Source/tests also defer IMAP connection during
             FastAPI startup so a flaky mailbox provider cannot prevent
             `/health` or `/attestation` from serving. The startup-deferred
-            oracle image is GitHub-built and pinned in the funding-validation
-            Phala compose, but still needs to be redeployed before this
-            behavior is Phala-proven.
+            oracle image is GitHub-built, pinned, and redeployed in the
+            funding-validation Phala compose. Live health now serves in
+            degraded mode without IMAP connection, while `/pin` remains the
+            fail-closed path that must prove mailbox access before OTP use.
 [real]      Main-CVM mailbox genesis has been Phala-proven without enabling
             Tinker bootstrap or billing. A one-shot
             `docker-compose.mailbox-genesis.phala.yaml` deployment reached

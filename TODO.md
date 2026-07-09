@@ -2296,10 +2296,21 @@ vision Wiki is reaching for.
                   `1ce5d1422b6de881cbc9e2e80063b031d68b815551039c80f5ccc57ec608f587`,
                   and Phala raw-compose hash is
                   `1f16c4a93adb3b09f29f7e6f7c97870ea781c4cca9c2dbf7d72a982a83e5a4b7`.
-            - [ ] Redeploy the startup-deferred oracle image to Phala.
-            - [ ] Re-test live public `/health`, `/attestation?context=billing`,
+            - [x] Redeploy the startup-deferred oracle image to Phala.
+                  Live compose hash is
+                  `1fc656544b1583b83d65d769f369f3d1ad6d07d7e812073fbd3c1f7f2f84eb28`.
+            - [x] Re-test live public `/health`, `/attestation?context=billing`,
                   and `/billing/funding-preflight` before approving any new
-                  compose hash on-chain.
+                  compose hash on-chain. Public delegate attestation returned
+                  `200` with a TDX quote, public oracle health returned `200`
+                  with `status=degraded` / `imap_connected=false`, delegate
+                  health returned `200`, and endpoint-level `$10`
+                  funding-preflight returned `ready=true`.
+            - [ ] Approve live compose hash
+                  `0x1fc656544b1583b83d65d769f369f3d1ad6d07d7e812073fbd3c1f7f2f84eb28`
+                  in `TinkerAccountEncumbrance` before any add-balance packet.
+                  On-chain encumbrance preflight correctly fails closed now with
+                  `compose_hash_not_approved`.
       - [ ] `Deploy` Revert the 2026-07-09 public logs/public sysinfo/dev-SSH
             diagnostic exception after collecting enough evidence; record the
             reverted live compose hash and rerun `verify-cvm-attestation`.
