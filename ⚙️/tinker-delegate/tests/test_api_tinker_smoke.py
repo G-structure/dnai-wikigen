@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -69,48 +70,54 @@ class TinkerSmokeApiTest(unittest.TestCase):
         smoke.assert_called_once()
 
     def test_smoke_endpoint_accepts_scoped_proxy_jwt(self):
-        api.settings = Settings(
-            allow_tinker_smoke_endpoint=True,
-            proxy_jwt_key="33" * 32,
-        )
-        _, token = issue_proxy_token(
-            api.settings,
-            subject="buyer-agent-1",
-            scopes=["tinker:smoke"],
-            ttl_seconds=60,
-        )
-        client = TestClient(api.app)
-
-        with patch("tinker_delegate.tinker_smoke.run_tinker_sdk_smoke", return_value=BOUNDED_SMOKE_RESULT) as smoke:
-            response = client.post(
-                "/tinker/smoke",
-                json={"max_usd": 0.05},
-                headers={"Authorization": f"Bearer {token}"},
+        with tempfile.TemporaryDirectory() as tmpdir:
+            api.settings = Settings(
+                allow_tinker_smoke_endpoint=True,
+                proxy_jwt_key="33" * 32,
+                proxy_token_store_path=f"{tmpdir}/proxy_tokens.enc",
+                proxy_token_store_key="33" * 32,
             )
+            _, token = issue_proxy_token(
+                api.settings,
+                subject="buyer-agent-1",
+                scopes=["tinker:smoke"],
+                ttl_seconds=60,
+            )
+            client = TestClient(api.app)
+
+            with patch("tinker_delegate.tinker_smoke.run_tinker_sdk_smoke", return_value=BOUNDED_SMOKE_RESULT) as smoke:
+                response = client.post(
+                    "/tinker/smoke",
+                    json={"max_usd": 0.05},
+                    headers={"Authorization": f"Bearer {token}"},
+                )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), BOUNDED_SMOKE_RESULT)
         smoke.assert_called_once()
 
     def test_smoke_endpoint_rejects_proxy_jwt_without_scope(self):
-        api.settings = Settings(
-            allow_tinker_smoke_endpoint=True,
-            proxy_jwt_key="33" * 32,
-        )
-        _, token = issue_proxy_token(
-            api.settings,
-            subject="buyer-agent-1",
-            scopes=["proxy:status"],
-            ttl_seconds=60,
-        )
-        client = TestClient(api.app)
-
-        with patch("tinker_delegate.tinker_smoke.run_tinker_sdk_smoke", return_value=BOUNDED_SMOKE_RESULT) as smoke:
-            response = client.post(
-                "/tinker/smoke",
-                json={"max_usd": 0.05},
-                headers={"Authorization": f"Bearer {token}"},
+        with tempfile.TemporaryDirectory() as tmpdir:
+            api.settings = Settings(
+                allow_tinker_smoke_endpoint=True,
+                proxy_jwt_key="33" * 32,
+                proxy_token_store_path=f"{tmpdir}/proxy_tokens.enc",
+                proxy_token_store_key="33" * 32,
             )
+            _, token = issue_proxy_token(
+                api.settings,
+                subject="buyer-agent-1",
+                scopes=["proxy:status"],
+                ttl_seconds=60,
+            )
+            client = TestClient(api.app)
+
+            with patch("tinker_delegate.tinker_smoke.run_tinker_sdk_smoke", return_value=BOUNDED_SMOKE_RESULT) as smoke:
+                response = client.post(
+                    "/tinker/smoke",
+                    json={"max_usd": 0.05},
+                    headers={"Authorization": f"Bearer {token}"},
+                )
 
         self.assertEqual(response.status_code, 403)
         smoke.assert_not_called()

@@ -346,96 +346,107 @@ class BillingApiPolicyTest(unittest.TestCase):
         handle_add_balance.assert_awaited_once()
 
     def test_payment_method_status_accepts_scoped_proxy_jwt(self):
-        api.settings = Settings(proxy_jwt_key="44" * 32)
-        _, token = issue_proxy_token(
-            api.settings,
-            subject="buyer-agent-1",
-            scopes=["billing:payment-method-status"],
-            ttl_seconds=60,
-        )
-        client = TestClient(api.app)
-
-        with patch(
-            "tinker_delegate.api.handle_payment_method_status",
-            new=AsyncMock(
-                return_value={
-                    "success": True,
-                    "card_on_file": True,
-                    "payment_method_count_band": "one_or_more",
-                    "attempt_record": {
-                        "surface": "payment_method_status",
-                        "outcome": "success",
-                        "furthest_stage": "billing_page_loaded",
-                        "bounded_message": "payment_method_count:one_or_more",
-                        "evidence_hash": "a" * 64,
-                        "account_hash": "",
-                        "amount_band": "",
-                        "balance_band": "",
-                        "tdx_quote_hash": "",
-                        "card_payload_destroyed": False,
-                        "raw_secret_egress": False,
-                        "issued_at": 123,
-                    },
-                }
-            ),
-        ) as handle_status:
-            response = client.get(
-                "/billing/payment-method-status",
-                headers={"Authorization": f"Bearer {token}"},
+        with tempfile.TemporaryDirectory() as tmpdir:
+            api.settings = Settings(
+                proxy_jwt_key="44" * 32,
+                proxy_token_store_path=f"{tmpdir}/proxy_tokens.enc",
+                proxy_token_store_key="44" * 32,
             )
+            _, token = issue_proxy_token(
+                api.settings,
+                subject="buyer-agent-1",
+                scopes=["billing:payment-method-status"],
+                ttl_seconds=60,
+            )
+            client = TestClient(api.app)
+
+            with patch(
+                "tinker_delegate.api.handle_payment_method_status",
+                new=AsyncMock(
+                    return_value={
+                        "success": True,
+                        "card_on_file": True,
+                        "payment_method_count_band": "one_or_more",
+                        "attempt_record": {
+                            "surface": "payment_method_status",
+                            "outcome": "success",
+                            "furthest_stage": "billing_page_loaded",
+                            "bounded_message": "payment_method_count:one_or_more",
+                            "evidence_hash": "a" * 64,
+                            "account_hash": "",
+                            "amount_band": "",
+                            "balance_band": "",
+                            "tdx_quote_hash": "",
+                            "card_payload_destroyed": False,
+                            "raw_secret_egress": False,
+                            "issued_at": 123,
+                        },
+                    }
+                ),
+            ) as handle_status:
+                response = client.get(
+                    "/billing/payment-method-status",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["card_on_file"])
         handle_status.assert_awaited_once()
 
     def test_add_balance_endpoint_accepts_scoped_proxy_jwt(self):
-        api.settings = Settings(
-            allow_add_balance_endpoint=True,
-            funding_mode="operator_capped_validation",
-            proxy_jwt_key="44" * 32,
-        )
-        _, token = issue_proxy_token(
-            api.settings,
-            subject="buyer-agent-1",
-            scopes=["billing:add-balance"],
-            ttl_seconds=60,
-        )
-        client = TestClient(api.app)
-
-        with patch(
-            "tinker_delegate.api.handle_add_balance",
-            new=AsyncMock(return_value={"success": False, "error": "stubbed"}),
-        ) as handle_add_balance:
-            response = client.post(
-                "/billing/add-balance",
-                json={"amount_dollars": 10.0},
-                headers={"Authorization": f"Bearer {token}"},
+        with tempfile.TemporaryDirectory() as tmpdir:
+            api.settings = Settings(
+                allow_add_balance_endpoint=True,
+                funding_mode="operator_capped_validation",
+                proxy_jwt_key="44" * 32,
+                proxy_token_store_path=f"{tmpdir}/proxy_tokens.enc",
+                proxy_token_store_key="44" * 32,
             )
+            _, token = issue_proxy_token(
+                api.settings,
+                subject="buyer-agent-1",
+                scopes=["billing:add-balance"],
+                ttl_seconds=60,
+            )
+            client = TestClient(api.app)
+
+            with patch(
+                "tinker_delegate.api.handle_add_balance",
+                new=AsyncMock(return_value={"success": False, "error": "stubbed"}),
+            ) as handle_add_balance:
+                response = client.post(
+                    "/billing/add-balance",
+                    json={"amount_dollars": 10.0},
+                    headers={"Authorization": f"Bearer {token}"},
+                )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["error"], "stubbed")
         handle_add_balance.assert_awaited_once()
 
     def test_add_balance_endpoint_rejects_proxy_jwt_without_scope(self):
-        api.settings = Settings(
-            allow_add_balance_endpoint=True,
-            funding_mode="operator_capped_validation",
-            proxy_jwt_key="44" * 32,
-        )
-        _, token = issue_proxy_token(
-            api.settings,
-            subject="buyer-agent-1",
-            scopes=["billing:payment-method-status"],
-            ttl_seconds=60,
-        )
-        client = TestClient(api.app)
-
-        with patch("tinker_delegate.api.handle_add_balance", new=AsyncMock()) as handle_add_balance:
-            response = client.post(
-                "/billing/add-balance",
-                json={"amount_dollars": 10.0},
-                headers={"Authorization": f"Bearer {token}"},
+        with tempfile.TemporaryDirectory() as tmpdir:
+            api.settings = Settings(
+                allow_add_balance_endpoint=True,
+                funding_mode="operator_capped_validation",
+                proxy_jwt_key="44" * 32,
+                proxy_token_store_path=f"{tmpdir}/proxy_tokens.enc",
+                proxy_token_store_key="44" * 32,
             )
+            _, token = issue_proxy_token(
+                api.settings,
+                subject="buyer-agent-1",
+                scopes=["billing:payment-method-status"],
+                ttl_seconds=60,
+            )
+            client = TestClient(api.app)
+
+            with patch("tinker_delegate.api.handle_add_balance", new=AsyncMock()) as handle_add_balance:
+                response = client.post(
+                    "/billing/add-balance",
+                    json={"amount_dollars": 10.0},
+                    headers={"Authorization": f"Bearer {token}"},
+                )
 
         self.assertEqual(response.status_code, 403)
         handle_add_balance.assert_not_called()

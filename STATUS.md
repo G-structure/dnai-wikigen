@@ -111,6 +111,12 @@ Latest Tinker execution buildout, 2026-07-09:
   operator-only. The `add-balance` CLI now supports `--api-url`,
   `--auth-token-env`, `--output`, and `--receipt-output` for remote bounded
   add-balance attempts.
+- Proxy-token audit and revocation are source/test-real. `ProxyTokenStore`
+  persists bounded `issued` and `revoked` records in AES-GCM sealed storage;
+  issuance appends an audit record, operator-only API/CLI surfaces can list
+  bounded audit records and revoke by `jwt_id_hash`, and proxy-token
+  verification rejects revoked JWT IDs. External audit replay/verifier
+  artifacts and production identity/spend policy binding remain open.
 - Source now has a bounded real-SDK smoke surface for the funded Tinker account.
   `tinker_delegate.tinker_smoke.run_tinker_sdk_smoke()` uses the sealed API-key
   resolver, checks `TinkerAccountEncumbrance` with `SPEND_TINKER_COMPUTE`,

@@ -30,6 +30,10 @@ from tinker_delegate.api_key_store import resolve_api_key
 from tinker_delegate.crypto import _derive_aes_key, encrypt_for_tee
 from tinker_delegate.dstack_utils import derive_storage_key, is_dstack_enabled
 from tinker_delegate.run_metadata_store import stable_hash
+from tinker_delegate.tinker_proxy_store import (
+    build_proxy_token_store,
+    make_proxy_token_issue_record,
+)
 
 
 PROXY_TOKEN_HKDF_INFO = b"tinker-delegate-proxy-token"
@@ -139,6 +143,7 @@ def build_tinker_proxy_status(settings) -> dict[str, Any]:
             "enabled": bool(getattr(settings, "allow_tinker_proxy_token_issuance", False)),
             "format": "jwt_hs256",
             "delivery": "x25519_aes_256_gcm_envelope",
+            "audit_store": "sealed",
             "plaintext_token_returned": False,
             "supported_scopes": sorted(SUPPORTED_PROXY_SCOPES),
         },
@@ -197,6 +202,20 @@ def issue_encrypted_proxy_token(
         info=PROXY_TOKEN_HKDF_INFO,
         associated_data=associated_data,
     )
+    recipient_public_key_hash = stable_hash(
+        recipient_public_key_hex.lower(),
+        prefix="proxy_recipient_public_key",
+    )
+    audit_record = build_proxy_token_store(settings).append(
+        make_proxy_token_issue_record(
+            subject_hash=claims.to_public_dict()["subject_hash"],
+            jwt_id_hash=claims.to_public_dict()["jwt_id_hash"],
+            recipient_public_key_hash=recipient_public_key_hash,
+            scopes=list(claims.scopes),
+            issued_at=claims.issued_at,
+            expires_at=claims.expires_at,
+        )
+    )
     return {
         "surface": "tinker_proxy_token",
         "schema_version": 1,
@@ -205,14 +224,12 @@ def issue_encrypted_proxy_token(
         "encrypted_token": envelope.to_hex(),
         "associated_data": associated_data.hex(),
         "token": claims.to_public_dict(),
-        "recipient_public_key_hash": stable_hash(
-            recipient_public_key_hex.lower(),
-            prefix="proxy_recipient_public_key",
-        ),
+        "recipient_public_key_hash": recipient_public_key_hash,
         "associated_data_hash": stable_hash(
             associated_data.hex(),
             prefix="proxy_token_aad",
         ),
+        "audit_record": audit_record,
         "plaintext_token_returned": False,
         "raw_secret_egress": False,
     }
@@ -271,10 +288,13 @@ def verify_proxy_token(
         raise ValueError("proxy token missing required scope")
     subject = str(payload.get("sub", ""))
     jwt_id = str(payload.get("jti", ""))
+    jwt_id_hash = stable_hash(jwt_id, prefix="proxy_jti")
+    if jwt_id_hash in build_proxy_token_store(settings).revoked_token_hashes():
+        raise ValueError("proxy token revoked")
     return {
         "valid": True,
         "subject_hash": stable_hash(subject, prefix="proxy_subject"),
-        "jwt_id_hash": stable_hash(jwt_id, prefix="proxy_jti"),
+        "jwt_id_hash": jwt_id_hash,
         "scopes": list(scopes),
         "expires_at": int(payload["exp"]),
         "raw_secret_egress": False,

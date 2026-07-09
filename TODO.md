@@ -100,7 +100,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             issuance remain operator-runtime only.
       - [ ] Convert future approved-user Tinker operations to scoped proxy
             authorization rather than runtime-operator bearer tokens.
-      - [ ] Add proxy-token revocation and audit-log replay.
+      - [x] Add sealed proxy-token issue/revoke audit records and revocation
+            enforcement. Done 2026-07-09:
+            `tinker_delegate.tinker_proxy_store.ProxyTokenStore` persists
+            bounded `issued` and `revoked` records under local or
+            dstack-derived AES-GCM encryption; issuance appends a bounded audit
+            record; `verify_proxy_token()` rejects revoked `jwt_id_hash`
+            values; operator-only API/CLI surfaces can list bounded audit
+            records and revoke by hash without accepting or returning plaintext
+            JWTs.
+      - [ ] Add external proxy-token audit-log replay/verifier artifact that
+            checks issue/revoke chronology, expiration, scopes, and operation
+            receipts without access to plaintext tokens.
 - [ ] `P0` No human operator can access the TEE-owned email account or Tinker
       account once production custody is established.
 - [ ] `P0` Card/payment material is encrypted to a verified TEE before use and is

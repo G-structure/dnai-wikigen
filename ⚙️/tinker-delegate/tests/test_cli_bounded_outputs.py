@@ -18,6 +18,8 @@ def _env(tmpdir: str, *, funding_mode: str = "manual_prefund") -> dict[str, str]
             "TINKER_FUNDING_MODE": funding_mode,
             "TINKER_FUNDING_RECEIPT_STORE_PATH": str(Path(tmpdir) / "funding_receipts.enc"),
             "TINKER_FUNDING_RECEIPT_STORE_KEY": "77" * 32,
+            "TINKER_PROXY_TOKEN_STORE_PATH": str(Path(tmpdir) / "proxy_tokens.enc"),
+            "TINKER_PROXY_TOKEN_STORE_KEY": "78" * 32,
         }
     )
     return env
@@ -367,6 +369,8 @@ class CliBoundedOutputsTest(unittest.TestCase):
             keygen_path = Path(tmpdir) / "recipient-public.json"
             issue_path = Path(tmpdir) / "encrypted-token.json"
             decrypt_path = Path(tmpdir) / "decrypt-receipt.json"
+            audit_path = Path(tmpdir) / "proxy-audit.json"
+            revoke_path = Path(tmpdir) / "proxy-revoke.json"
             token_path = Path(tmpdir) / "proxy.jwt"
             env = _env(tmpdir)
             env["TINKER_PROXY_JWT_KEY"] = "55" * 32
@@ -431,25 +435,69 @@ class CliBoundedOutputsTest(unittest.TestCase):
                 text=True,
                 capture_output=True,
             )
+            jwt_id_hash = json.loads(issue_path.read_text(encoding="utf-8"))["token"]["jwt_id_hash"]
+            audit = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "tinker-proxy-token-audit",
+                    "--output",
+                    str(audit_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            revoked = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "revoke-tinker-proxy-token",
+                    "--jwt-id-hash",
+                    jwt_id_hash,
+                    "--reason",
+                    "operator_requested",
+                    "--output",
+                    str(revoke_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
 
             self.assertEqual(keygen.returncode, 0, keygen.stderr)
             self.assertEqual(issued.returncode, 0, issued.stderr)
             self.assertEqual(decrypted.returncode, 0, decrypted.stderr)
+            self.assertEqual(audit.returncode, 0, audit.stderr)
+            self.assertEqual(revoked.returncode, 0, revoked.stderr)
             self.assertEqual(keygen.stdout, "")
             self.assertEqual(issued.stdout, "")
             self.assertEqual(decrypted.stdout, "")
+            self.assertEqual(audit.stdout, "")
+            self.assertEqual(revoked.stdout, "")
             self.assertTrue(token_path.read_text(encoding="utf-8").strip().count(".") == 2)
             self.assertEqual(private_key_path.stat().st_mode & 0o777, 0o600)
             self.assertEqual(token_path.stat().st_mode & 0o777, 0o600)
             keygen_receipt = json.loads(keygen_path.read_text(encoding="utf-8"))
             issue_receipt = json.loads(issue_path.read_text(encoding="utf-8"))
             decrypt_receipt = json.loads(decrypt_path.read_text(encoding="utf-8"))
-            rendered = repr([keygen_receipt, issue_receipt, decrypt_receipt])
+            audit_receipt = json.loads(audit_path.read_text(encoding="utf-8"))
+            revoke_receipt = json.loads(revoke_path.read_text(encoding="utf-8"))
+            rendered = repr([keygen_receipt, issue_receipt, decrypt_receipt, audit_receipt, revoke_receipt])
             self.assertTrue(keygen_receipt["private_key_saved"])
             self.assertFalse(keygen_receipt["private_key_returned"])
             self.assertFalse(issue_receipt["plaintext_token_returned"])
+            self.assertEqual(issue_receipt["audit_record"]["event"], "issued")
             self.assertTrue(decrypt_receipt["plaintext_token_saved"])
             self.assertFalse(decrypt_receipt["plaintext_token_returned"])
+            self.assertEqual(audit_receipt["issued_count"], 1)
+            self.assertEqual(revoke_receipt["record"]["event"], "revoked")
             self.assertNotIn(token_path.read_text(encoding="utf-8").strip(), rendered)
             self.assertNotIn(private_key_path.read_text(encoding="utf-8").strip(), rendered)
 

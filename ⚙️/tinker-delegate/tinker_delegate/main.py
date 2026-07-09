@@ -520,6 +520,42 @@ def cli():
     )
     tinker_proxy_token_p.add_argument("--ttl-seconds", type=int, default=None)
     tinker_proxy_token_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    tinker_proxy_audit_p = sub.add_parser(
+        "tinker-proxy-token-audit",
+        help="Return bounded Tinker proxy token issue/revoke audit records",
+    )
+    tinker_proxy_audit_p.add_argument(
+        "--api-url",
+        default="",
+        help="Optional deployed Tinker delegate API base URL; omitted reads the local sealed store",
+    )
+    tinker_proxy_audit_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token for --api-url",
+    )
+    tinker_proxy_audit_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    tinker_proxy_revoke_p = sub.add_parser(
+        "revoke-tinker-proxy-token",
+        help="Revoke a Tinker proxy JWT by bounded jwt_id_hash",
+    )
+    tinker_proxy_revoke_p.add_argument(
+        "--api-url",
+        default="",
+        help="Optional deployed Tinker delegate API base URL; omitted writes the local sealed store",
+    )
+    tinker_proxy_revoke_p.add_argument(
+        "--auth-token-env",
+        default="TINKER_RUNTIME_AUTH_TOKEN",
+        help="Environment variable containing delegate runtime bearer token for --api-url",
+    )
+    tinker_proxy_revoke_p.add_argument("--jwt-id-hash", required=True)
+    tinker_proxy_revoke_p.add_argument(
+        "--reason",
+        default="operator_requested",
+        help="Bounded revocation reason enum",
+    )
+    tinker_proxy_revoke_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     tinker_proxy_keygen_p = sub.add_parser(
         "tinker-proxy-recipient-keygen",
         help="Generate an X25519 recipient keypair for encrypted proxy-token delivery",
@@ -1662,6 +1698,53 @@ def cli():
         )
         _emit_bounded_json(result, output_path=args.output)
         sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "tinker-proxy-token-audit":
+        if args.api_url:
+            import httpx
+
+            headers = _runtime_auth_headers(args.auth_token_env)
+            with httpx.Client(timeout=120.0) as client:
+                response = client.get(_api_endpoint(args.api_url, "/tinker/proxy/tokens"), headers=headers)
+            body = response.json()
+            _emit_bounded_json(body, output_path=args.output)
+            sys.exit(0 if response.status_code < 400 else 1)
+
+        from tinker_delegate.tinker_proxy_store import (
+            build_proxy_token_store,
+            summarize_proxy_token_records,
+        )
+
+        result = summarize_proxy_token_records(build_proxy_token_store(settings).load())
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0)
+
+    elif args.command == "revoke-tinker-proxy-token":
+        if args.api_url:
+            import httpx
+
+            headers = _runtime_auth_headers(args.auth_token_env)
+            with httpx.Client(timeout=120.0) as client:
+                response = client.post(
+                    _api_endpoint(args.api_url, "/tinker/proxy/token/revoke"),
+                    headers=headers,
+                    json={"jwt_id_hash": args.jwt_id_hash, "reason": args.reason},
+                )
+            body = response.json()
+            _emit_bounded_json(body, output_path=args.output)
+            sys.exit(0 if response.status_code < 400 and body.get("success") else 1)
+
+        from tinker_delegate.tinker_proxy_store import build_proxy_token_store
+
+        record = build_proxy_token_store(settings).revoke(args.jwt_id_hash, reason=args.reason)
+        result = {
+            "surface": "tinker_proxy_token_revoke",
+            "success": True,
+            "record": record,
+            "raw_secret_egress": False,
+        }
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0)
 
     elif args.command == "tinker-proxy-recipient-keygen":
         from tinker_delegate.tinker_proxy import generate_proxy_recipient_keypair

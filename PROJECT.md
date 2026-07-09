@@ -115,6 +115,9 @@ For the current implementation this means:
   bind approved users/agents to policy records.
 - JWT delivery should use an attestation-verified encrypted channel to the
   recipient, not plaintext logs, shell history, or documentation.
+- JWT issuance and revocation should leave bounded sealed audit records so a
+  reviewer can verify the delegated access history without seeing plaintext
+  tokens or upstream Tinker credentials.
 - Proxy operations return bounded receipts: configured booleans, hashes,
   capability names, score/spend bands, attestation metadata, and audit events.
 - Raw samples, run IDs, checkpoint paths, provider messages, card details,

@@ -17,6 +17,8 @@ Endpoints:
   POST /billing/add-balance       — add credit balance
   GET  /tinker/proxy/status       — bounded sealed Tinker proxy configuration
   POST /tinker/proxy/token        — encrypted scoped proxy JWT issuance
+  GET  /tinker/proxy/tokens       — bounded proxy token audit records
+  POST /tinker/proxy/token/revoke — revoke proxy token by JWT-id hash
   POST /tinker/smoke              — opt-in bounded real SDK smoke test
   POST /deal/chain-event       — bounded chain event audit marker (internal)
   POST /deal/{deal_id}/artifact/encrypted — upload seller's encrypted artifact
@@ -262,6 +264,13 @@ class TinkerProxyTokenIssueRequestBody(BaseModel):
     ttl_seconds: Optional[int] = None
 
 
+class TinkerProxyTokenRevokeRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    jwt_id_hash: str
+    reason: str = ""
+
+
 @app.get("/tinker/proxy/status")
 def tinker_proxy_status(authorization: str = Header(default="")):
     """Return bounded evidence that Tinker credentials stay inside the delegate."""
@@ -302,6 +311,39 @@ def tinker_proxy_token(payload: TinkerProxyTokenIssueRequestBody, authorization:
         )
     except ValueError as exc:
         raise HTTPException(400, redact_text(exc)) from exc
+
+
+@app.get("/tinker/proxy/tokens")
+def tinker_proxy_tokens(authorization: str = Header(default="")):
+    """Return bounded proxy-token issue/revoke audit records."""
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_proxy_store import (
+        build_proxy_token_store,
+        summarize_proxy_token_records,
+    )
+
+    return summarize_proxy_token_records(build_proxy_token_store(settings).load())
+
+
+@app.post("/tinker/proxy/token/revoke")
+def tinker_proxy_token_revoke(payload: TinkerProxyTokenRevokeRequestBody, authorization: str = Header(default="")):
+    """Revoke a proxy token by bounded JWT-id hash."""
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_proxy_store import build_proxy_token_store
+
+    try:
+        record = build_proxy_token_store(settings).revoke(
+            payload.jwt_id_hash,
+            reason=payload.reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, redact_text(exc)) from exc
+    return {
+        "surface": "tinker_proxy_token_revoke",
+        "success": True,
+        "record": record,
+        "raw_secret_egress": False,
+    }
 
 
 @app.get("/health")

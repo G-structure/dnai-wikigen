@@ -362,6 +362,14 @@ run IDs, checkpoint paths, samples, or private reward data.
             not delegated to user proxy JWTs in this slice. The `add-balance`
             CLI can now call a deployed delegate with `--api-url` and a scoped
             bearer token, writing bounded JSON and optional receipt files.
+[real]      Proxy-token issue/revoke audit is now source/test-real:
+            `ProxyTokenStore` stores bounded `issued` and `revoked` records
+            under AES-GCM using local test key material or dstack-derived key
+            material. Issuance appends an `issued` record; operator-only
+            `/tinker/proxy/tokens` and `/tinker/proxy/token/revoke` expose
+            bounded audit listing and hash-only revocation; token verification
+            rejects revoked `jwt_id_hash` values. This is still not a complete
+            external audit replay artifact or production identity policy.
 
 ### Bounded Output
 
