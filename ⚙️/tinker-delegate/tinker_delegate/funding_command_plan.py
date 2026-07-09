@@ -108,7 +108,8 @@ def build_funding_command_plan(
     encumbrance = _dict(contracts.get("tinkerAccountEncumbrance"))
 
     delegate_api_url = _str(_dict(phala.get("endpoints")).get("delegate"))
-    compose_hash = _str(phala.get("composeHash") or _dict(phala.get("fundingValidationEvidence")).get("attestedComposeHash"))
+    funding_evidence = _dict(phala.get("fundingValidationEvidence"))
+    compose_hash = _str(funding_evidence.get("attestedComposeHash") or phala.get("composeHash"))
     app_id = _str(phala.get("appId"))
     os_image_hash = _str(phala.get("osImageHash"))
     encumbrance_address = _str(encumbrance.get("address"))

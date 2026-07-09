@@ -93,6 +93,22 @@ class FundingCommandPlanTest(unittest.TestCase):
             self.assertIn("Foundry --account", plan["encumbrance_deploy_note"])
             self.assertNotIn("--private-key", json.dumps(plan))
 
+    def test_prefers_funding_validation_attested_hash_over_general_phala_hash(self):
+        funding_hash = "0x" + "44" * 32
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manifest = _manifest()
+            manifest["phala"]["fundingValidationEvidence"] = {
+                "attestedComposeHash": funding_hash,
+            }
+            manifest_path = Path(tmpdir) / "deployment.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            plan = build_funding_command_plan(manifest_path=manifest_path).to_public_dict()
+
+            self.assertEqual(plan["compose_hash"], funding_hash)
+            self.assertIn(funding_hash, plan["packet_argv"])
+            self.assertNotIn(COMPOSE_HASH, plan["packet_argv"])
+
     def test_amount_above_manifest_cap_is_not_ready(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             manifest_path = Path(tmpdir) / "deployment.json"
