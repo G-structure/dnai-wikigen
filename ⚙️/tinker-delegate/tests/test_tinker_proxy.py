@@ -1195,6 +1195,33 @@ class TinkerProxyTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 verify_proxy_token(settings, token, required_scope="proxy:status", now=1002)
 
+    def test_revoke_rejects_unknown_token_hash_and_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, public_key_hex = _recipient_keypair()
+            settings = self._settings(tmpdir)
+            store = build_proxy_token_store(settings)
+
+            with self.assertRaisesRegex(ValueError, "revoke target was not issued"):
+                store.revoke("ab" * 32, reason="operator_requested", revoked_at=1001)
+
+            issued = issue_encrypted_proxy_token(
+                settings,
+                subject="buyer-agent-1",
+                scopes=["proxy:status"],
+                recipient_public_key_hex=public_key_hex,
+                ttl_seconds=60,
+                now=1000,
+            )
+            jwt_id_hash = issued["token"]["jwt_id_hash"]
+            first = store.revoke(jwt_id_hash, reason="operator_requested", revoked_at=1001)
+            second = store.revoke(jwt_id_hash, reason="suspected_compromise", revoked_at=1002)
+            audit = store.load()
+
+        self.assertEqual(first, second)
+        self.assertEqual([record["event"] for record in audit], ["issued", "revoked"])
+        self.assertEqual(first["revocation_reason"], "operator_requested")
+        self.assertFalse(first["raw_secret_egress"])
+
 
 if __name__ == "__main__":
     unittest.main()

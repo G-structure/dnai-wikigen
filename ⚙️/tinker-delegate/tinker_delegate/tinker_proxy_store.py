@@ -101,6 +101,21 @@ class ProxyTokenStore:
 
     def revoke(self, jwt_id_hash: str, *, reason: str = "", revoked_at: int | None = None) -> dict[str, Any]:
         normalized = _normalize_hash(jwt_id_hash, "jwt_id_hash")
+        records = self.load()
+        issued = [
+            record
+            for record in records
+            if record.get("event") == "issued" and record.get("jwt_id_hash") == normalized
+        ]
+        if not issued:
+            raise ValueError("proxy token revoke target was not issued")
+        existing_revocations = [
+            record
+            for record in records
+            if record.get("event") == "revoked" and record.get("jwt_id_hash") == normalized
+        ]
+        if existing_revocations:
+            return existing_revocations[-1]
         record = {
             "event": "revoked",
             "jwt_id_hash": normalized,
@@ -108,7 +123,10 @@ class ProxyTokenStore:
             "revocation_reason": _bounded_reason(reason),
             "raw_secret_egress": False,
         }
-        return self.append(record)
+        bounded = self._sanitize_record(record)
+        records.append(bounded)
+        self.save(records)
+        return bounded
 
     @staticmethod
     def _sanitize_record(record: dict[str, Any]) -> dict[str, Any]:

@@ -423,6 +423,11 @@ class TinkerProxyApiTest(unittest.TestCase):
                 headers={"Authorization": "Bearer operator-secret"},
                 json={"jwt_id_hash": jwt_id_hash, "reason": "operator_requested"},
             )
+            unknown_revoke = client.post(
+                "/tinker/proxy/token/revoke",
+                headers={"Authorization": "Bearer operator-secret"},
+                json={"jwt_id_hash": "ab" * 32, "reason": "operator_requested"},
+            )
 
         self.assertEqual(missing.status_code, 401)
         self.assertEqual(audit.status_code, 200)
@@ -430,6 +435,8 @@ class TinkerProxyApiTest(unittest.TestCase):
         self.assertEqual(revoked.status_code, 200)
         self.assertEqual(revoked.json()["record"]["event"], "revoked")
         self.assertFalse(revoked.json()["raw_secret_egress"])
+        self.assertEqual(unknown_revoke.status_code, 400)
+        self.assertIn("revoke target was not issued", unknown_revoke.json()["detail"])
 
 
 if __name__ == "__main__":

@@ -565,7 +565,10 @@ run IDs, checkpoint paths, samples, or private reward data.
             material. Issuance appends an `issued` record; operator-only
             `/tinker/proxy/tokens` and `/tinker/proxy/token/revoke` expose
             bounded audit listing and hash-only revocation; token verification
-            rejects revoked `jwt_id_hash` values.
+            rejects revoked `jwt_id_hash` values. Revocation fails closed for
+            unknown/non-issued token hashes, and duplicate revocation attempts
+            for the same issued token return the existing bounded revocation
+            record rather than appending dangling or duplicate audit entries.
 [real]      External proxy-token audit replay is source/test-real:
             `verify-tinker-proxy-token-audit` verifies exported bounded audit
             JSON and optional operation receipts without plaintext JWTs. It

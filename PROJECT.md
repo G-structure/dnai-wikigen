@@ -148,7 +148,10 @@ For the current implementation this means:
   recipient, not plaintext logs, shell history, or documentation.
 - JWT issuance and revocation should leave bounded sealed audit records so a
   reviewer can verify the delegated access history without seeing plaintext
-  tokens or upstream Tinker credentials.
+  tokens or upstream Tinker credentials. Revocation must fail closed for
+  token hashes that were never issued, and retrying revocation for an already
+  revoked issued token should be idempotent rather than creating dangling or
+  duplicate audit entries.
 - Proxy operations return bounded receipts: configured booleans, hashes,
   capability names, score/spend bands, attestation metadata, and audit events.
 - Proxy-authorized operation responses should carry only a bounded

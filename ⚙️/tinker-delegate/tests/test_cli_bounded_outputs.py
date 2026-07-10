@@ -978,6 +978,44 @@ class CliBoundedOutputsTest(unittest.TestCase):
             self.assertNotIn(token_path.read_text(encoding="utf-8").strip(), rendered)
             self.assertNotIn(private_key_path.read_text(encoding="utf-8").strip(), rendered)
 
+    def test_proxy_token_revoke_unknown_hash_fails_bounded(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            revoke_path = Path(tmpdir) / "proxy-revoke-missing.json"
+            env = _env(tmpdir)
+            env["TINKER_PROXY_JWT_KEY"] = "55" * 32
+
+            revoked = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tinker_delegate.main",
+                    "revoke-tinker-proxy-token",
+                    "--jwt-id-hash",
+                    "ab" * 32,
+                    "--reason",
+                    "operator_requested",
+                    "--output",
+                    str(revoke_path),
+                ],
+                check=False,
+                cwd=Path(__file__).resolve().parents[1],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(revoked.returncode, 1)
+            self.assertEqual(revoked.stdout, "")
+            body = json.loads(revoke_path.read_text(encoding="utf-8"))
+            rendered = json.dumps(body, sort_keys=True)
+            self.assertEqual(body["surface"], "tinker_proxy_token_revoke")
+            self.assertFalse(body["success"])
+            self.assertEqual(body["outcome"], "revoke_rejected")
+            self.assertIn("revoke target was not issued", body["bounded_message"])
+            self.assertFalse(body["raw_secret_egress"])
+            self.assertNotIn("tml-", rendered)
+            self.assertNotIn(env["TINKER_PROXY_JWT_KEY"], rendered)
+
     def test_proxy_token_decrypt_failed_issue_receipt_is_bounded(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)

@@ -418,7 +418,12 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             record; `verify_proxy_token()` rejects revoked `jwt_id_hash`
             values; operator-only API/CLI surfaces can list bounded audit
             records and revoke by hash without accepting or returning plaintext
-            JWTs.
+            JWTs. Follow-up 2026-07-09: revocation now fails closed for
+            unknown/non-issued `jwt_id_hash` values before writing a record,
+            and repeated revocation of an already-revoked issued token returns
+            the existing bounded revocation record instead of creating duplicate
+            audit entries. Store, API, and CLI tests cover the no-dangling
+            revocation behavior.
       - [x] Add external proxy-token audit-log replay/verifier artifact that
             checks issue/revoke chronology, expiration, scopes, and operation
             receipts without access to plaintext tokens.

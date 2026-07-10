@@ -525,17 +525,14 @@ contracts/
 - **Model**: Prepaid balance (add credit, spend on API usage)
 - **Local test-card result**: Stripe test card reaches submission and returns `Your card was declined.`
 - **No-card funding result**: add-balance fails closed with `Payment method required before adding balance`
-- **First deployed real-card validation**: live balance remained `$0.00`; the
-  payment-method receipt reached `payment_submitted` with bounded card-management
-  copy, while add-balance reached the modal and failed closed with
-  `Add-balance amount input not found`. The source fix is now digest-pinned and
-  deployed to the temporary Phala funding-validation profile, where bounded
-  card-on-file status currently reports `card_on_file=false` / count band
-  `zero`. The refreshed compose hash is approved on-chain and `$10` preflight
-  is ready, but the latest real-card packet still did not prove funding: the
-  payment-method attempt hit an open-modal scrim before tab fallback, and
-  add-balance was not confirmed. Funding is still not real until a bounded `$10`
-  add-card plus add-balance receipt succeeds and balance read-back changes.
+- **Deployed real-card validation**: the first approved real-card validation
+  did not top up the account, but the later same-context reauth/add-balance
+  packet reached `add_balance_submitted` with `raw_secret_egress=false`, replay
+  verification passed with deployed attestation, and bounded balance read-back
+  now reports `$10.00` without card details. The add-balance receipt remains
+  conservative because explicit success copy was not observed; the balance read
+  is the current funding evidence. This is still a one-off operator-owned
+  validation path, not production/repeated funding.
 - **Attempt records**: payment-method and add-balance responses expose bounded
   `surface`, `outcome`, `furthest_stage`, `issued_at`, `evidence_hash`,
   amount/balance bands, TDX quote hash when present, and card-payload

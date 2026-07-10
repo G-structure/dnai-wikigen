@@ -2304,15 +2304,25 @@ def cli():
 
         from tinker_delegate.tinker_proxy_store import build_proxy_token_store
 
-        record = build_proxy_token_store(settings).revoke(args.jwt_id_hash, reason=args.reason)
-        result = {
-            "surface": "tinker_proxy_token_revoke",
-            "success": True,
-            "record": record,
-            "raw_secret_egress": False,
-        }
+        try:
+            record = build_proxy_token_store(settings).revoke(args.jwt_id_hash, reason=args.reason)
+            result = {
+                "surface": "tinker_proxy_token_revoke",
+                "success": True,
+                "record": record,
+                "raw_secret_egress": False,
+            }
+        except ValueError as exc:
+            result = {
+                "surface": "tinker_proxy_token_revoke",
+                "success": False,
+                "outcome": "revoke_rejected",
+                "error_kind": type(exc).__name__,
+                "bounded_message": redact_text(exc),
+                "raw_secret_egress": False,
+            }
         _emit_bounded_json(result, output_path=args.output)
-        sys.exit(0)
+        sys.exit(0 if result.get("success") else 1)
 
     elif args.command == "tinker-proxy-recipient-keygen":
         from tinker_delegate.run_metadata_store import stable_hash

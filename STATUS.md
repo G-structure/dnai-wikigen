@@ -318,7 +318,11 @@ Latest Tinker execution buildout, 2026-07-09:
   persists bounded `issued` and `revoked` records in AES-GCM sealed storage;
   issuance appends an audit record, operator-only API/CLI surfaces can list
   bounded audit records and revoke by `jwt_id_hash`, and proxy-token
-  verification rejects revoked JWT IDs. `verify-tinker-proxy-token-audit` is
+  verification rejects revoked JWT IDs. Revocation now fails closed for
+  unknown/non-issued JWT-id hashes before writing a record, and retrying
+  revocation for an already-revoked issued token returns the existing bounded
+  revocation record instead of duplicating audit entries.
+  `verify-tinker-proxy-token-audit` is
   now source/test-real: it verifies exported bounded audit JSON and optional
   bounded operation receipts without plaintext JWTs, checking record schema,
   counts, chronology, supported scopes, expiry, revocation timing, receipt
