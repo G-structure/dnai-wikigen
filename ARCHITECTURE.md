@@ -328,27 +328,45 @@ and admin/operator card-removal path: callers can learn only whether a payment
 method appears present and a zero/one-or-more/unknown count band, never card
 brand, last4, expiry, billing address, or browser page text.
 
-The next boundary is Tinker compute. The project-aware delegate image has been
-built through GitHub Actions with provenance/SBOM attestations, pinned in the
-funding-validation compose, redeployed to Phala, attested with live app-compose
-hash `314cd60b093194dcac0480f3586c8979a9734a56c7a521cd8ef043dee9417816`,
-and approved on-chain in `TinkerAccountEncumbrance` for
-`SPEND_TINKER_COMPUTE`. That proves the image/compose/contract policy chain for
-a bounded Tinker spend attempt, but not real training. The deployed smoke
-passes the policy check and sealed API-key load, then fails closed before
-Tinker training creation at `sdk_error.failure_site=service_client_create` with
+The next boundary is Tinker compute. Earlier project-aware and client-config
+diagnostic delegate images were built through GitHub Actions with
+provenance/SBOM attestations, pinned in the funding-validation compose,
+redeployed to Phala, attested, and approved on-chain in
+`TinkerAccountEncumbrance` for `SPEND_TINKER_COMPUTE`. Those attempts proved
+the image/compose/contract policy chain for bounded Tinker spend attempts, but
+not real training. The deployed smoke passes the policy check and sealed
+API-key load, then fails closed before Tinker training creation at
+`sdk_error.failure_site=service_client_create` with
 `sdk_error.operator_action=check_sdk_client_configuration`, correct
 Qwen/rank-32 request shape, and `project.configured=false`. Receipts include
 bounded SDK-error diagnostics and still do not return raw provider text, API
 keys, card fields, emails, request IDs, run IDs, samples, or checkpoint paths.
 The current hypothesis is missing Tinker project/client configuration or
-service-side account entitlement. A newer client-config diagnostic image is now
-also live, attested, and approved at app-compose hash
-`cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180`; its live
-smoke receipt confirms bounded `client_config.project_id_argument=omitted` and
-`client_config.base_url_argument=sdk_default`, so the next required input is the
-correct Tinker project/client configuration rather than another model/rank
-retry. A bounded `tinker-smoke-command-plan` CLI now turns that next step into
+service-side account entitlement.
+
+[partial] The latest pinned client-config install image set is now live and
+attested on Phala CVM `cvm_1w85mGjo` / app
+`f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717` at app-compose hash
+`1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085`.
+Local verification binds the live TDX envelope to raw compose/image-policy hash
+`1db1ee033f333509726d03c325788e0fc5c0803351d6d1496ee42ff14fa83700`,
+rendered compose SHA-256
+`62bd3f65bfd1eb48f3f2ea927800ff21d7d8a83ebcef371117ddb4ac6a0a7cf4`,
+the three pinned GHCR image digests, app ID, and OS image hash. This is not
+yet an authorized compute-spend lane: read-only chain state reports
+`approvedComposeHashes(0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085)=false`.
+The latest approved compute compose is still
+`0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7`.
+
+[real] The Phala redeploy helper can now bind a runtime env variable to the
+provisioned app-compose hash before encrypted env commit. The
+`--self-compose-hash-env TINKER_ENCUMBRANCE_COMPOSE_HASH` path fails closed if
+that key is not selected, rejects malformed hashes, and preserves the selected
+env key set while replacing the stale value with Phala's provisioned compose
+hash. This keeps the Tinker proxy/deployment-policy check from minting tokens
+against an older compose hash after a redeploy.
+
+A bounded `tinker-smoke-command-plan` CLI turns the remaining smoke path into
 an explicit no-secret operator sequence. If the live CVM already exposes the
 sealed client-config endpoint, the plan emits `client_config_install_shell` so
 an operator can seal `TINKER_PROJECT_ID` and optional `TINKER_BASE_URL` from
@@ -357,7 +375,9 @@ rerun smoke. Redeploy/attest/approve is required only when the live CVM does
 not include that source or when a new compose hash is intentionally selected.
 The plan uses environment variable names and compose-hash placeholders only; it
 does not accept or emit raw project IDs, tokens, API keys, RPC URLs, run IDs,
-checkpoints, or samples. Live use of that installer and a successful
+checkpoints, or samples. Live client-config status on the newest compose still
+reports `project_id_configured=false`, encrypted store missing, and
+`raw_secret_egress=false`; live use of that installer and a successful
 post-install smoke run are still pending.
 
 The intended external Tinker surface is now the Tinker proxy, not direct

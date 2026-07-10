@@ -2260,8 +2260,31 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `5d469e071e416305b032172683616d72efb12e99ca9b3ee5200cfd60d532f07a`
             with rendered compose SHA-256
             `62bd3f65bfd1eb48f3f2ea927800ff21d7d8a83ebcef371117ddb4ac6a0a7cf4`.
-            This is not live until redeployed, attested by Phala, and approved
-            on-chain for the resulting live compose hash.
+            Follow-up 2026-07-09: this image set is now live on Phala CVM
+            `cvm_1w85mGjo` / app
+            `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717` at app-compose hash
+            `1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085`.
+            `verify-cvm-attestation` passed against app ID, OS image hash,
+            the three pinned image digests, local raw compose/image-policy hash
+            `1db1ee033f333509726d03c325788e0fc5c0803351d6d1496ee42ff14fa83700`,
+            and rendered compose SHA-256
+            `62bd3f65bfd1eb48f3f2ea927800ff21d7d8a83ebcef371117ddb4ac6a0a7cf4`.
+            The runtime env surface has 12 selected keys, key hash
+            `a694364185438f7508fe696ccf2fd971fc6060f8fa0c3aad633185c3d8fb7b30`,
+            policy flags enabled, and `TINKER_ENCUMBRANCE_COMPOSE_HASH`
+            self-bound by the redeploy helper to the provisioned app-compose
+            hash before env encryption. Current blocker: read-only chain state
+            reports this live compose is not yet approved on-chain.
+      - [x] Bind generated Tinker smoke redeploy commands to the newly
+            provisioned Phala compose hash.
+            Done 2026-07-09: `scripts/redeploy-phala-cvm.mjs` accepts
+            `--self-compose-hash-env TINKER_ENCUMBRANCE_COMPOSE_HASH`, fails
+            closed if that env key is not selected, and overwrites the selected
+            env value with Phala's provisioned app-compose hash before
+            encrypted env commit. `tinker-smoke-command-plan` now emits that
+            flag and includes the self-bound compose hash plus issue/deployment
+            policy flags in the verifier env allowlist. Focused JS and Python
+            tests cover the helper and plan output.
       - [ ] Run `tinker-smoke --api-url ... --max-usd 0.05
             --require-encumbrance` successfully from the deployed CVM and record
             the bounded receipt plus attestation evidence.
@@ -2300,7 +2323,18 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             `client_config.base_url_argument=sdk_default`; `raw_secret_egress`
             remained false. The next blocker is therefore concrete missing
             Tinker project/client configuration, not the Phala/contract/image
-            verification chain.
+            verification chain. Follow-up 2026-07-09: the latest pinned
+            client-config install image is live and attested at app-compose
+            hash
+            `1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085`,
+            but `TinkerAccountEncumbrance.approvedComposeHashes(...)` returns
+            `false`; `e682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7`
+            remains the latest approved compute compose. Bounded client-config
+            status on the live `1d6db...` CVM reports `project_id_configured=false`,
+            encrypted store missing, and `raw_secret_egress=false`. Next step:
+            approve `0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085`,
+            then seal `TINKER_PROJECT_ID` with `tinker-client-config --install`
+            and rerun smoke.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
 - [x] `P0` Add real SDK integration tests gated by an env var and budget cap.
@@ -3266,7 +3300,14 @@ vision Wiki is reaching for.
       CVM with `tinker-client-config --api-url ... --install`, verify bounded
       proxy status reports `project_id_configured=true`, then rerun smoke. A
       redeploy/compose approval is required only if the running CVM does not yet
-      include the sealed client-config store source.
+      include the sealed client-config store source. Follow-up 2026-07-09: a
+      newer pinned client-config install compose is now running and attested at
+      `1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085`,
+      but that live hash is not yet approved on-chain. The account remains
+      funded enough for the tiny smoke path: bounded balance read returns
+      `$10.00` without card details. Next required actions are approval of
+      `0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085`
+      and sealing `TINKER_PROJECT_ID`.
 - [ ] `Deploy` Create a synthetic test room on Base Sepolia.
 - [ ] `Deploy` Fund the synthetic test deal.
 - [ ] `Deploy` Upload encrypted synthetic artifact.

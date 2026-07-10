@@ -18,6 +18,7 @@ function usage() {
       "    [--runtime-env-policy compose-refs|explicit|all] \\",
       "    [--runtime-env-allow KEY] \\",
       "    [--runtime-env-allow-file <key-file>] \\",
+      "    [--self-compose-hash-env KEY] \\",
       "    [--print-runtime-env-keys] \\",
       "    [--wait-seconds 300]",
     ].join("\n"),
@@ -30,6 +31,7 @@ export function parseArgs(argv) {
     runtimeEnvPolicy: "compose-refs",
     runtimeEnvAllow: [],
     runtimeEnvAllowFiles: [],
+    selfComposeHashEnv: "",
     printRuntimeEnvKeys: false,
     waitSeconds: 300,
   };
@@ -74,6 +76,9 @@ export function parseArgs(argv) {
         break;
       case "runtime-env-allow-file":
         args.runtimeEnvAllowFiles.push(value);
+        break;
+      case "self-compose-hash-env":
+        args.selfComposeHashEnv = requireEnvKey(value);
         break;
       case "api-env":
         args.apiEnv = value;
@@ -251,6 +256,25 @@ export function runtimeEnvKeyHash(envEntries) {
   return createHash("sha256").update(keys.join("\n")).digest("hex");
 }
 
+export function bindSelfComposeHashEnv(envEntries, key, composeHash) {
+  const normalizedKey = requireEnvKey(key);
+  if (!/^[0-9a-f]{64}$/i.test(composeHash)) {
+    throw new Error("self compose hash must be a 32-byte hex string without 0x prefix");
+  }
+  let found = false;
+  const updated = envEntries.map((entry) => {
+    if (entry.key !== normalizedKey) {
+      return entry;
+    }
+    found = true;
+    return { key: entry.key, value: composeHash.toLowerCase() };
+  });
+  if (!found) {
+    throw new Error(`self compose hash env key not selected: ${normalizedKey}`);
+  }
+  return updated;
+}
+
 async function loadCloudSdk() {
   const npmRoot = execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim();
   const sdkPath = path.join(
@@ -297,7 +321,7 @@ export async function main() {
 
   const composeText = await readFile(args.compose, "utf8");
   const selectedRuntimeEnv = await selectRuntimeEnv(runtimeEnv, composeText, args);
-  const envEntries = selectedRuntimeEnv.entries;
+  let envEntries = selectedRuntimeEnv.entries;
   const { createClient, encryptEnvVars } = await loadCloudSdk();
   const client = createClient({
     apiKey,
@@ -329,6 +353,14 @@ export async function main() {
     update_env_vars: true,
   });
 
+  if (args.selfComposeHashEnv) {
+    envEntries = bindSelfComposeHashEnv(
+      envEntries,
+      args.selfComposeHashEnv,
+      provisioned.compose_hash,
+    );
+  }
+
   const encryptedEnv = await encryptEnvVars(envEntries, envPubkey);
   await client.commitCvmComposeFileUpdate({
     app_id: args.appId,
@@ -344,6 +376,9 @@ export async function main() {
   console.log(`runtime_env_policy=${selectedRuntimeEnv.policy}`);
   console.log(`runtime_env_key_count=${envEntries.length}`);
   console.log(`runtime_env_keys_sha256=${runtimeEnvKeyHash(envEntries)}`);
+  if (args.selfComposeHashEnv) {
+    console.log(`self_compose_hash_env=${args.selfComposeHashEnv}`);
+  }
   if (args.printRuntimeEnvKeys) {
     console.log(`runtime_env_keys=${envEntries.map((entry) => entry.key).join(",")}`);
   }

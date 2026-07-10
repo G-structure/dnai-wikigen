@@ -28,15 +28,59 @@ encrypted artifact upload -> TEE-bound attestation report_data -> hash-checked i
 Production deployment is now partially real on Phala: the combined
 email-oracle + tinker-delegate CVM is running from digest-pinned registry
 images and has live TDX envelope verification. Low-value operator validation
-funding has now produced a bounded `$10.00` Tinker balance read, and the
-smoke-capable Phala compose has been deployed and approved for bounded compute
-spend, and the live proxy issue/deployment-policy gate is now deployed,
-attested, approved on-chain, and proven with encrypted token delivery. The
-deployed SDK smoke still fails before training creation. Production or repeated
+funding has now produced a bounded `$10.00` Tinker balance read. The live proxy
+issue/deployment-policy gate has been deployed, attested, approved on-chain,
+and proven with encrypted token delivery for earlier compose hashes. The newest
+pinned client-config install compose is live and attested, but it is not yet
+approved on-chain for compute spend and still lacks sealed `TINKER_PROJECT_ID`.
+The deployed SDK smoke still fails before training creation. Production or repeated
 funding, production identity/reviewer governance, full quote-internal TDX
 verification, live CVM-originated TEE-to-chain signing, and RLVR/bio-validation
 remain incomplete. Phala auth is configured for profile `wikigen` in workspace
 `wiki`.
+
+Latest pinned client-config install deployment, 2026-07-09:
+
+- GitHub Actions run `29058135707` built source
+  `3bb9ff4b986e95debbe0d13f9a02edb9c0d03f80` into digest-pinned images
+  `tinker-delegate@sha256:a76c2efb9274d2669b98836fdc30450d79a1c96702150079e1ba13bf2d9b8ac6`,
+  `tee-email-oracle@sha256:e663c88eb87e880abbc012befe1948a4a45007ea267ae85ab79a953936de9e99`,
+  and
+  `neko-chrome@sha256:4b36022cc2d0c50a0080c9f460a7252659a9a201ee2b43d8dfcffd033685a88a`;
+  GitHub provenance and SPDX SBOM attestations were verified for all three.
+- Phala CVM `cvm_1w85mGjo` / app
+  `f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717` is running app-compose hash
+  `1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085`.
+  `verify-cvm-attestation` passed against app ID, OS image hash
+  `de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9`,
+  pinned image digests, local raw compose/image-policy hash
+  `1db1ee033f333509726d03c325788e0fc5c0803351d6d1496ee42ff14fa83700`,
+  rendered compose SHA-256
+  `62bd3f65bfd1eb48f3f2ea927800ff21d7d8a83ebcef371117ddb4ac6a0a7cf4`,
+  report data
+  `8e32280159699041438f7ea35350d4e6b573c4dc2494dbd89a384f3f1c1287f1`,
+  and encryption public key
+  `1c1b7435172cf3453ed248a8c633f3945999e1e1104c890f00e22da171c95850`.
+- The redeploy helper now has a source/tested `--self-compose-hash-env`
+  path. For this deployment it self-bound `TINKER_ENCUMBRANCE_COMPOSE_HASH`
+  to the provisioned app-compose hash before encrypted env commit, with a
+  twelve-key env surface and key hash
+  `a694364185438f7508fe696ccf2fd971fc6060f8fa0c3aad633185c3d8fb7b30`.
+- Read-only chain state reports
+  `approvedComposeHashes(0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085)=false`;
+  the latest approved compute compose remains
+  `0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7`
+  from tx
+  `0x3bc992cc2979aa8198923bcaf856d2c82d387646e49e750dada1f5cb203b3d17`.
+- Live bounded client-config status reports `project_id_configured=false`,
+  encrypted dstack-derived store missing, and `raw_secret_egress=false`.
+  Bounded balance read reports `balance="$10.00"` without card details.
+  Next required actions are to approve the live compose hash, seal
+  `TINKER_PROJECT_ID` through `tinker-client-config --install`, and rerun the
+  tiny `tinker-smoke`.
+- The CVM still reports `dstack-dev-0.5.9`, `os.is_dev=true`, and
+  `public_logs=true`; this remains a temporary debugging exception, not a
+  production posture.
 
 Latest signature-required proxy registry deployment, 2026-07-09:
 

@@ -6,8 +6,8 @@
     "rpcEnv": "BASE_SEPOLIA_RPC_URL",
     "explorerBaseUrl": "https://sepolia.basescan.org"
   },
-  "status": "current_operator_contracts_deployed_tinker_proxy_issue_deployment_policy_validation",
-  "lastReviewedAt": "2026-07-09T19:38:09Z",
+  "status": "current_operator_contracts_deployed_tinker_latest_phala_compose_pending_approval",
+  "lastReviewedAt": "2026-07-09T23:59:00Z",
   "currentOperatorDeployer": {
     "address": "0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD",
     "keystoreAccount": "dev",
@@ -59,24 +59,24 @@
       "emergencyHalted": false,
       "measurementsFrozen": false,
       "currentOperatorControlled": true,
-      "latestApprovedComposeHash": "0x40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
+      "latestApprovedComposeHash": "0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7",
       "latestApprovedComposeHashApproved": true,
-      "latestComposeApprovalTx": "0x5eea5735154e18cb94e198c1d7fc7867f1f2f095de4db2b85d7eb051a9dd73d6",
-      "latestComposeApprovalBlock": 43928500,
-      "currentFundingComposeHash": "0x40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
-      "lastReviewedAt": "2026-07-09T19:38:09Z",
-      "pendingComposeHashApproval": null,
+      "latestComposeApprovalTx": "0x3bc992cc2979aa8198923bcaf856d2c82d387646e49e750dada1f5cb203b3d17",
+      "latestComposeApprovalBlock": 43931393,
+      "currentFundingComposeHash": "0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085",
+      "lastReviewedAt": "2026-07-09T23:59:00Z",
+      "pendingComposeHashApproval": "0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085",
       "pendingComposeHashApproved": false
     }
   },
   "phala": {
-    "status": "running_proxy_issue_deployment_policy_validation_tinker_smoke_still_open",
+    "status": "running_pinned_client_config_install_compose_pending_approval_tinker_smoke_still_open",
     "cvmId": "cvm_1w85mGjo",
     "appId": "f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717",
-    "composeHash": "40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
-    "deployHelperComposeHash": "40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace",
-    "localRawComposeImagePolicyHash": "a860ba168b0334d8317fc56f0d2a971b79ad13bc206f5b43f3d04833d32f8eb7",
-    "renderedComposeSha256": "b718208409a73f0bff4f2ab0efdead239111b7ff8fccc688ff889d103aad69d4",
+    "composeHash": "1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085",
+    "deployHelperComposeHash": "1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085",
+    "localRawComposeImagePolicyHash": "1db1ee033f333509726d03c325788e0fc5c0803351d6d1496ee42ff14fa83700",
+    "renderedComposeSha256": "62bd3f65bfd1eb48f3f2ea927800ff21d7d8a83ebcef371117ddb4ac6a0a7cf4",
     "osName": "dstack-dev-0.5.9",
     "osIsDev": true,
     "osImageHash": "de9c74f0c85d0820ce075cb4a99f8e39f7b681be632907c5bf8bdc95ea72feb9",
@@ -99,7 +99,7 @@
       "TINKER_RUNTIME_AUTH_TOKEN",
       "TINKER_RUN_METADATA_KEY_PATH"
     ],
-    "allowedEnvKeysNote": "Current funding-validation profile has a twelve-key runtime surface selected by compose refs. It includes the proxy issue/deployment policy flags and TINKER_ENCUMBRANCE_COMPOSE_HASH so token issuance is bound to the live attested compose hash without exposing raw secrets. TINKER_PROJECT_ID and TINKER_BASE_URL remain absent, so Tinker SDK smoke/training is still open.",
+    "allowedEnvKeysNote": "Current funding-validation profile has a twelve-key runtime surface selected by compose refs. The redeploy helper self-bound TINKER_ENCUMBRANCE_COMPOSE_HASH to the provisioned live compose hash before encrypting runtime env, so token issuance can bind to the exact attested compose hash without exposing raw secrets. TINKER_PROJECT_ID and TINKER_BASE_URL remain absent, so Tinker SDK smoke/training is still open.",
     "temporaryDebugException": {
       "active": true,
       "enabledAt": "2026-07-09T11:00:00Z",
@@ -127,13 +127,13 @@
         "TINKER_ALLOW_TINKER_PROXY_TOKEN_ISSUANCE": "true",
         "TINKER_PROXY_REQUIRE_ISSUE_POLICY": "true",
         "TINKER_PROXY_REQUIRE_DEPLOYMENT_POLICY": "true",
-        "TINKER_ENCUMBRANCE_COMPOSE_HASH": "40f0ca1a366a106a202f655c8dc74f4a14aadf40b7d86f7923a8f96515325ace"
+        "TINKER_ENCUMBRANCE_COMPOSE_HASH": "1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085"
       }
     },
-    "sourceDigest": "d9807a028702ff2b0ee1c077cc0970cafc334475",
+    "sourceDigest": "3bb9ff4b986e95debbe0d13f9a02edb9c0d03f80",
     "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
-    "githubActionsRunId": 29043212028,
-    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29043212028",
+    "githubActionsRunId": 29058135707,
+    "githubActionsRunUrl": "https://github.com/G-structure/dnai-wikigen/actions/runs/29058135707",
     "endpoints": {
       "oracle": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8000.dstack-pha-prod9.phala.network",
       "delegate": "https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network",
@@ -143,32 +143,32 @@
     "imageDigests": [
       {
         "service": "oracle",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:ee3d5b21597304e5c7e677b091ca01bc3b51703728e663056e6d690da16fe08f",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:e663c88eb87e880abbc012befe1948a4a45007ea267ae85ab79a953936de9e99",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "delegate",
-        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:b0e7c63d276469d586a574a94bf0fc91feb0a223fa2cdb0dd3d49cd64c41a5ee",
-        "sourceDigest": "d9807a028702ff2b0ee1c077cc0970cafc334475",
+        "image": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:a76c2efb9274d2669b98836fdc30450d79a1c96702150079e1ba13bf2d9b8ac6",
+        "sourceDigest": "3bb9ff4b986e95debbe0d13f9a02edb9c0d03f80",
         "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       },
       {
         "service": "neko",
-        "image": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:422f2ba4f350f329a8a52a6502a91717da2dd39a2e22e8250bdcce65788bee81",
+        "image": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:4b36022cc2d0c50a0080c9f460a7252659a9a201ee2b43d8dfcffd033685a88a",
         "githubProvenanceAttestation": "verified",
         "githubSbomAttestation": "verified"
       }
     ],
     "quoteEvidence": {
-      "status": "current_proxy_issue_deployment_policy_verified",
+      "status": "current_pinned_client_config_install_compose_verified_pending_onchain_approval",
       "mode": "tdx",
       "context": "billing",
       "quoteSize": 5010,
-      "reportData": "e9f1bff6d81b11d8d88c7b87635e4473b9da37a8e6fba4b6625e662ca7485cf1",
-      "encryptionPublicKey": "a61ea59bf0c9b7713a5c868da993eb8fde2fad9245c90e5209a4525462394a3b",
+      "reportData": "8e32280159699041438f7ea35350d4e6b573c4dc2494dbd89a384f3f1c1287f1",
+      "encryptionPublicKey": "1c1b7435172cf3453ed248a8c633f3945999e1e1104c890f00e22da171c95850",
       "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
     },
     "mainMailboxGenesisEvidence": {
@@ -1294,7 +1294,7 @@
       }
     },
     "tinkerSdkSmokeEvidence": {
-      "status": "blocked_at_service_client_create_with_live_client_config_diagnostics",
+      "status": "blocked_pending_latest_compose_approval_and_tinker_project_config",
       "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
       "sourceDigest": "76609fbe6617a8c7162c4dbfbbbc060e9b01322e",
       "githubActionsRunId": 29023713771,
@@ -1433,6 +1433,64 @@
         "composeApprovedOnChain": true,
         "liveComposeHash": "cdd1b3b37a96595bd0859c5970a7e8938db9a67a161640caeab46c4ccebdb180",
         "rawSecretEgress": false
+      },
+      "latestPinnedClientConfigInstallDeploy": {
+        "status": "deployed_attested_pending_onchain_approval_and_project_config",
+        "sourceDigest": "3bb9ff4b986e95debbe0d13f9a02edb9c0d03f80",
+        "sourceRef": "refs/heads/codex/wikigen-private-reward-pitch",
+        "githubActionsRunId": 29058135707,
+        "delegateImage": "ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:a76c2efb9274d2669b98836fdc30450d79a1c96702150079e1ba13bf2d9b8ac6",
+        "oracleImage": "ghcr.io/g-structure/dnai-wikigen/tee-email-oracle@sha256:e663c88eb87e880abbc012befe1948a4a45007ea267ae85ab79a953936de9e99",
+        "nekoImage": "ghcr.io/g-structure/dnai-wikigen/neko-chrome@sha256:4b36022cc2d0c50a0080c9f460a7252659a9a201ee2b43d8dfcffd033685a88a",
+        "githubProvenanceAttestation": "verified",
+        "githubSbomAttestation": "verified",
+        "compose": "⚙️/tinker-delegate/docker-compose.tinker-funding-validation.phala.yaml",
+        "localRawComposeHash": "1db1ee033f333509726d03c325788e0fc5c0803351d6d1496ee42ff14fa83700",
+        "renderedComposeSha256": "62bd3f65bfd1eb48f3f2ea927800ff21d7d8a83ebcef371117ddb4ac6a0a7cf4",
+        "liveComposeHash": "1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085",
+        "phalaRedeployed": true,
+        "phalaCvmStatus": "running",
+        "deployHelperFinalWaitSkipped": true,
+        "selfComposeHashEnv": "TINKER_ENCUMBRANCE_COMPOSE_HASH",
+        "runtimeEnv": {
+          "policy": "compose-refs",
+          "allowedEnvCount": 12,
+          "keysSha256": "a694364185438f7508fe696ccf2fd971fc6060f8fa0c3aad633185c3d8fb7b30",
+          "containsRuntimeAuthToken": true,
+          "containsTinkerProjectId": false,
+          "containsTinkerBaseUrl": false,
+          "containsProxyIssuePolicyFlag": true,
+          "containsProxyDeploymentPolicyFlag": true
+        },
+        "quoteEvidence": {
+          "mode": "tdx",
+          "context": "artifact",
+          "reportData": "8e32280159699041438f7ea35350d4e6b573c4dc2494dbd89a384f3f1c1287f1",
+          "encryptionPublicKey": "1c1b7435172cf3453ed248a8c633f3945999e1e1104c890f00e22da171c95850",
+          "quoteSize": 5010,
+          "quoteVerification": "public-envelope-only; Intel TDX quote internals not parsed"
+        },
+        "composeApprovedOnChain": false,
+        "nextOnchainApprovalRequired": true,
+        "clientConfigStatus": {
+          "success": true,
+          "projectIdConfigured": false,
+          "projectIdReturned": false,
+          "baseUrlConfigured": false,
+          "baseUrlHostFamily": "sdk_default",
+          "baseUrlReturned": false,
+          "storeEncrypted": true,
+          "storeExists": false,
+          "keySource": "dstack_derived"
+        },
+        "boundedBalanceRead": {
+          "success": true,
+          "balance": "$10.00",
+          "cardOnFile": null,
+          "paymentMethodCountBand": null
+        },
+        "rawSecretEgress": false,
+        "nextStep": "Approve live compose hash 0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085 in TinkerAccountEncumbrance, seal TINKER_PROJECT_ID through tinker-client-config, then rerun bounded tinker-smoke."
       }
     },
     "tinkerProxyAuditEvidence20260709": {

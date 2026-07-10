@@ -5,6 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 
 import {
+  bindSelfComposeHashEnv,
   extractComposeEnvNames,
   parseArgs,
   runtimeEnvKeyHash,
@@ -136,5 +137,46 @@ test("all policy remains explicit legacy broad-env mode", async () => {
   assert.deepEqual(
     selected.entries.map((entry) => entry.key),
     ["PHALA_CLOUD_API_KEY", "TINKER_DSTACK_KEY_PATH"],
+  );
+});
+
+test("self-compose hash env binds selected key after provision", () => {
+  const entries = [
+    { key: "BASE_SEPOLIA_RPC_URL", value: "https://rpc.example" },
+    { key: "TINKER_ENCUMBRANCE_COMPOSE_HASH", value: "stale" },
+  ];
+  const keysHashBefore = runtimeEnvKeyHash(entries);
+  const composeHash = "A".repeat(64);
+
+  const updated = bindSelfComposeHashEnv(
+    entries,
+    "TINKER_ENCUMBRANCE_COMPOSE_HASH",
+    composeHash,
+  );
+
+  assert.equal(updated[1].value, composeHash.toLowerCase());
+  assert.equal(runtimeEnvKeyHash(updated), keysHashBefore);
+  assert.equal(entries[1].value, "stale");
+});
+
+test("self-compose hash env fails closed for missing selected key", () => {
+  assert.throws(
+    () => bindSelfComposeHashEnv(
+      [{ key: "BASE_SEPOLIA_RPC_URL", value: "https://rpc.example" }],
+      "TINKER_ENCUMBRANCE_COMPOSE_HASH",
+      "b".repeat(64),
+    ),
+    /self compose hash env key not selected/,
+  );
+});
+
+test("self-compose hash env rejects malformed hashes", () => {
+  assert.throws(
+    () => bindSelfComposeHashEnv(
+      [{ key: "TINKER_ENCUMBRANCE_COMPOSE_HASH", value: "stale" }],
+      "TINKER_ENCUMBRANCE_COMPOSE_HASH",
+      "0x" + "c".repeat(64),
+    ),
+    /self compose hash must be a 32-byte hex string/,
   );
 });
