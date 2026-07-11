@@ -2371,6 +2371,67 @@ Implementation status:
             report schema.
 ```
 
+### Third-Party Reward Evaluability (Mechanism Audit)
+
+`[planned]` — the buyer/sponsor/optimizer must be able to *evaluate the RL
+environment* (trust the reward is real, honestly computed, un-gamed, and useful)
+while never seeing the sealed data. In the threat model they **read the env
+code** and may **query the black box** within agreed boundaries. The resolution
+is that they audit the **mechanism, not the data**. Formal treatment is in
+`PROJECT.md` "Third-Party Reward Evaluability"; backlog is `TODO.md`
+"Third-Party Reward Evaluability (Mechanism Audit)"; grounding papers are
+`📄/attestable-audits/paper.md` and `📄/ladder/paper.md`.
+
+The trust problem splits into three axes that must not be conflated:
+
+```
+trust        honest oracle running the read code over the committed data
+leakage      queries + code knowledge reconstructing sealed records
+overfitting  grinding a fixed holdout to a meaningless number, no record leaked
+```
+
+`leakage` and `overfitting` are bounded by the existing output-reduction / query
+budget / DP machinery. `trust` is answered by attestation + commitment +
+calibration. The reward-mechanism attestation extends the verification chain:
+
+```
+git SHA -> docker digest -> compose hash -> TDX quote
+                                              +-> HASH(reward_code)
+                                              +-> dataset_commitment (sealed manifest root)
+                                              +-> params  -> bounded_result
+```
+
+This is the Attestable Audits `A[AC + AD -> R]` shape: bind the reward-code
+hash and the committed-dataset hash to the aggregated bounded result, so a party
+who read the open env code can verify *that code* ran over *that data*.
+
+Overfitting defense reuses the same noise the leakage bound needs — a
+Ladder-gated (significant-improvement-only) or Thresholdout (DP noisy-threshold)
+release path over `HiddenHoldoutSet`, giving a fixed-size holdout effectively
+unlimited honest attempts.
+
+```
+[real]      Verification chain git SHA -> docker digest -> compose hash ->
+            TDX quote; HiddenHoldoutSet split/commitment/query accounting;
+            sealed-dataset manifest hashes usable as a commitment root.
+[planned]   Reward-mechanism attestation binding HASH(reward_code) ||
+            dataset_commitment || params -> bounded_result.
+[planned]   Public canary / calibration slice per environment (releasable
+            known-ground-truth scores anchoring the private scale).
+[planned]   Attested dataset provenance signed at seal time (source pipeline,
+            upstream id, license, distribution claim vs. named public benchmark).
+[planned]   Neutral sealing witness / M-of-N notary co-signing the commitment.
+[planned]   Ladder-gated release path in `private_reward_holdout.py`.
+[planned]   Thresholdout / DP-noised reward option with composed leakage budget.
+[planned]   `verify-reward-mechanism` third-party verification CLI (bounded
+            pass/fail + hashes only).
+```
+
+Residual gaps stated to counterparties: TEE hardware root (mitigate multi-vendor
+attestation, optional ZK dispute backstop), commitment != quality (canary +
+provenance + seller stake), and candidate-as-exfiltrator (sandbox +
+aggregate-only + quantized/noised band).
+
 ### Coordination, Consent, And Review
 
 The coordination layer sits above single-corpus gates. It never merges policies

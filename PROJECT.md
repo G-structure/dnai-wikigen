@@ -654,6 +654,105 @@ than individual-level privacy. For real PHI or sensitive bio data, the project
 should either implement DP accounting or explicitly mark the environment as not
 PHI-safe.
 
+## Third-Party Reward Evaluability
+
+Status: `[P3, scoped]` — see `TODO.md` "Third-Party Reward Evaluability
+(Mechanism Audit)" and `ARCHITECTURE.md`. Deferred until the P0–P2 private
+reward core lands; recorded here so the route is not lost.
+
+The hardest question a counterparty asks: *how can I evaluate this RL
+environment — trust the reward is real, honestly computed, un-gamed, and useful
+— without ever seeing the sealed data?* In this project's threat model the third
+party **reads the environment code** and may **query the black box** within
+agreed boundaries, but the data stays sealed. The answer is that they evaluate
+the **mechanism, not the data**.
+
+The question decomposes into three axes that are routinely — and wrongly —
+treated as one:
+
+```text
+trust       Is the oracle honestly running the reward the code says,
+            over the data that was actually committed?
+leakage     Can repeated queries plus knowledge of the code reconstruct
+            the sealed data?
+overfitting Can an optimizer grind a fixed holdout into a meaningless
+            settlement number WITHOUT ever leaking a record?
+```
+
+`leakage` and `overfitting` are both governed by the same output-reduction /
+noise / query-budget machinery already in the formal model above (query budget,
+reward precision budget, hidden final holdout, DP option). `trust` is the axis
+this section adds, and it is answered by attestation + data commitment +
+calibration, not by disclosure.
+
+### Trust: audit the machine that produced the reward
+
+Four layers, extending the existing verification chain
+(`git SHA -> docker digest -> compose hash -> TDX quote`):
+
+```text
+attested code identity  The third party read code C; the attestation says C ran.
+data commitment         Attestation binds HASH(reward_code) || dataset_commitment
+                        || params -> bounded_result (Attestable Audits A[AC+AD->R]).
+                        Reuses the sealed-dataset manifest hash as the root.
+public canary slice     A small public slice with known ground truth, committed
+                        alongside the sealed data. Known-good / known-bad
+                        candidates test that the oracle ranks sensibly and anchor
+                        the private scale to a public reference.
+sealing witness         A neutral notary or M-of-N quorum witnesses the dataset
+                        entering the TEE and co-signs the commitment, defeating
+                        the "seller crafts data to favor one bidder" collusion.
+attested provenance     Source pipeline, upstream id, license, distribution claim
+                        vs. a named public benchmark, signed at seal time.
+```
+
+Data commitment stops the operator swapping in easier data or fabricating
+scores; the canary and provenance address "committed does not mean *good*"; the
+witness handles adversarial buyer/seller pairs.
+
+### Overfitting: bound adaptive-query holdout reuse
+
+Even with an honest oracle and zero raw leakage, an optimizer querying a fixed
+private holdout thousands of times overfits *to it*. Two classical mechanisms,
+both reusing the same noise the leakage bound already needs:
+
+```text
+Ladder      Release a reward only when a candidate beats the running best by a
+            statistically significant margin. Leaderboard error ~ log(k)^{1/3}/
+            n^{1/3} (logarithmic in query count k), so a fixed-size holdout
+            supports effectively unlimited attempts and the number stays honest.
+Thresholdout / reusable holdout
+            Access the holdout only through a DP mechanism (noisy threshold).
+            DP composition guarantees generalization for ~n^2 adaptive queries,
+            and gives total leakage <= eps * queries as a single stated bound.
+```
+
+The elegant part: **the noise that stops reconstruction is the same noise that
+stops overfitting.** One mechanism, two guarantees. See
+`📄/ladder/paper.md` and `📄/attestable-audits/paper.md`.
+
+### The frontier is the contract
+
+Every knob — output granularity, DP-eps, query budget, Ladder threshold, holdout
+rotation — is simultaneously a *utility* dial (how well the third party can
+optimize) and a *safety* dial (leakage + overfitting). Choosing the contract
+**is** choosing a point on that frontier, and it maps directly onto the
+reserve-price / budget-cap / bounded-disclosure economics: the seller is selling
+**feedback bandwidth** about a sealed reward, priced by how much the buyer wants.
+
+Residual gaps to state plainly to any counterparty:
+
+```text
+TEE hardware root        Trust in the TDX vendor + side channels; mitigate with
+                         multi-vendor attestation, optional ZK dispute backstop.
+commitment != quality    A hash proves WHICH data, not that it is representative
+                         or honestly labeled; canary + provenance + seller stake.
+candidate-as-exfiltrator A submitted candidate can smuggle data through the
+                         reward value or timing; closed by sandbox + aggregate-
+                         only + quantized/noised band (the residual gap named in
+                         Attestable Audits' interaction step).
+```
+
 ## Why This Is Strong Despite Interaction
 
 A naive view says: "If the agent can run code on the data, the data is exposed."
