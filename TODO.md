@@ -514,8 +514,11 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [x] `P0` Add a `STATUS.md` or status block in `README.md` with:
       built, partial, modeled, planned, deployed addresses, current blockers,
       and test commands.
-- [ ] `P0` Sync `.claude/skills/`, `.codex/skills/`, and `.agents/skills/` if any
+- [x] `P0` Sync `.claude/skills/`, `.codex/skills/`, and `.agents/skills/` if any
       skill instructions changed.
+      Done 2026-07-10: `diff -rq` shows all thirteen skill directories are
+      byte-identical across the three mirrors; the `test-all-skills.sh`
+      helper was copied into `.agents/skills/` so the mirrors match exactly.
 - [ ] `P1` Add a `docs/DECISIONS.md` log for irreversible architecture choices:
       one CVM vs split CVMs, quote verification model, funding rails, data
       locality policy, and frontend deployment target.
