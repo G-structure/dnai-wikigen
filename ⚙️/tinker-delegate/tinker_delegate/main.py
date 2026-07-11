@@ -1561,6 +1561,45 @@ def cli():
         help="Allow mutable tag images; development only",
     )
 
+    encrypt_dataset_p = sub.add_parser(
+        "encrypt-dataset",
+        help="Envelope-encrypt a dataset file to attested CVM recipient(s); bounded receipt",
+    )
+    encrypt_dataset_p.add_argument("--in", dest="input_path", required=True, help="Plaintext dataset file")
+    encrypt_dataset_p.add_argument("--dataset-id", required=True, help="Stable public dataset id")
+    encrypt_dataset_p.add_argument("--task", required=True, help="Public task label")
+    encrypt_dataset_p.add_argument(
+        "--sensitivity",
+        required=True,
+        choices=["public_benchmark", "private", "phi"],
+        help="Data sensitivity label; drives downstream release policy",
+    )
+    encrypt_dataset_p.add_argument(
+        "--recipient-pubkey",
+        action="append",
+        default=[],
+        help="Recipient CVM attestation-bound X25519 public key (hex); repeatable",
+    )
+    encrypt_dataset_p.add_argument(
+        "--recipient-pubkey-file",
+        action="append",
+        default=[],
+        help="File containing a recipient X25519 public key hex; repeatable",
+    )
+    encrypt_dataset_p.add_argument("--storage-ref", default="", help="Where the blob will be published, e.g. hf://...")
+    encrypt_dataset_p.add_argument("--out-blob", required=True, help="Output path for the ciphertext blob")
+    encrypt_dataset_p.add_argument("--out-manifest", required=True, help="Output path for the bounded manifest JSON")
+    encrypt_dataset_p.add_argument("--chunk-size", type=int, default=0, help="Chunk size in bytes; 0 uses default")
+    encrypt_dataset_p.add_argument("--output", default="", help="Optional path for the bounded receipt JSON")
+
+    verify_dataset_manifest_p = sub.add_parser(
+        "verify-dataset-manifest",
+        help="Verify a sealed-dataset manifest (schema, sensitivity, recipients, ciphertext hash)",
+    )
+    verify_dataset_manifest_p.add_argument("--manifest", required=True, help="Manifest JSON path")
+    verify_dataset_manifest_p.add_argument("--blob", default="", help="Optional ciphertext blob to hash-bind")
+    verify_dataset_manifest_p.add_argument("--output", default="", help="Optional path for the bounded receipt JSON")
+
     watch_chain_p = sub.add_parser(
         "watch-chain",
         help="Watch DiligenceRoom events and notify the TEE control-plane API",
@@ -2989,6 +3028,48 @@ def cli():
             sys.exit(1)
 
         print(json.dumps(result.to_public_dict(), indent=2))
+
+    elif args.command == "encrypt-dataset":
+        from tinker_delegate.sealed_dataset import (
+            DEFAULT_CHUNK_SIZE,
+            SealedDatasetError,
+            seal_dataset,
+        )
+
+        recipient_keys = list(args.recipient_pubkey)
+        for pk_file in args.recipient_pubkey_file:
+            recipient_keys.append(Path(pk_file).read_text(encoding="utf-8").strip())
+        recipient_keys = [pk.strip() for pk in recipient_keys if pk.strip()]
+        if not recipient_keys:
+            print("[encrypt-dataset] rejected: at least one --recipient-pubkey is required")
+            sys.exit(1)
+        try:
+            plaintext = Path(args.input_path).read_bytes()
+            blob, manifest, receipt = seal_dataset(
+                plaintext,
+                dataset_id=args.dataset_id,
+                task=args.task,
+                data_sensitivity=args.sensitivity,
+                recipient_public_keys=recipient_keys,
+                storage_ref=args.storage_ref or None,
+                chunk_size=args.chunk_size or DEFAULT_CHUNK_SIZE,
+            )
+        except (SealedDatasetError, ValueError) as exc:
+            print(f"[encrypt-dataset] rejected: {redact_text(exc)}")
+            sys.exit(1)
+        Path(args.out_blob).write_bytes(blob)
+        Path(args.out_manifest).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        _emit_bounded_json(receipt, output_path=args.output)
+        sys.exit(0)
+
+    elif args.command == "verify-dataset-manifest":
+        from tinker_delegate.sealed_dataset import verify_manifest
+
+        manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+        blob = Path(args.blob).read_bytes() if args.blob else None
+        result = verify_manifest(manifest, blob=blob)
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result["ok"] else 1)
 
     elif args.command == "watch-chain":
         from tinker_delegate.chain_watcher import (

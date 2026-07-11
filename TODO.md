@@ -48,6 +48,8 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - `P0` means the project is not real without it.
 - `P1` means the project can demo without it, but cannot be trusted or scaled.
 - `P2` means it makes the system product-grade, useful, or defensible.
+- `P3` means it hardens trust or opens a market once the core is real; deferred
+      until P0–P2 land, but scoped so the route is not lost.
 - `Research` means first prove the route, then split into implementation tasks.
 - `Deploy` means a concrete deployment, account, or operational action.
 
@@ -2506,6 +2508,91 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
         submitted candidate strings.
   - [ ] `P0` Wire hidden-holdout checks into concrete private-reward
         environments and add domain-specific anti-overfitting rules.
+
+### Third-Party Reward Evaluability (Mechanism Audit)
+
+The central pitch problem: a buyer, sponsor, or optimizer must be able to
+*evaluate the RL environment* — trust that the reward is real, honestly
+computed, un-gamed, and useful for optimization — while never seeing the sealed
+data. They see the env **code** and may **query the black box** within agreed
+boundaries. The resolution is that they audit the **mechanism, not the data**.
+
+This decomposes the trust problem into three axes that must not be conflated:
+`trust` (is the oracle honestly computing the reward the code says, over the
+data that was committed?), `leakage` (can queries reconstruct the sealed data?),
+and `overfitting` (can an optimizer grind a fixed holdout into a meaningless
+number *without* leaking a record?). The leakage and overfitting axes are
+governed by the same noise/budget machinery; the trust axis by attestation +
+commitment + calibration.
+
+Grounding papers now in-repo: `📄/attestable-audits/paper.md` (attest the
+binding `reward-code-hash + dataset-commitment → bounded result`) and
+`📄/ladder/paper.md` (bound adaptive-query overfitting on a reused holdout).
+The reusable-holdout / Thresholdout DP line (Dwork et al., Science 2015) is the
+general form. See `PROJECT.md` "Third-Party Reward Evaluability" and
+`ARCHITECTURE.md` for the design.
+
+- [ ] `P3` Attest the reward-mechanism binding, not just the environment.
+      Publish an attestation binding `HASH(reward_code) ∥ dataset_commitment ∥
+      params → bounded_result` (Attestable Audits `A[AC+AD→R]` shape), so a third
+      party who has read the open env code can verify *that exact code* ran over
+      *that exact committed dataset*. Extends the existing
+      `git SHA → docker digest → compose hash → TDX quote` chain with a
+      dataset-commitment link. Reuse `sealed_dataset` manifest hashes as the
+      commitment root; emit only hashes/attestation.
+- [ ] `P3` Add a public canary / calibration slice per environment.
+      A small **public** portion with known ground truth, committed alongside
+      the sealed data, so the third party can submit known-good and known-bad
+      candidates and confirm the oracle ranks them sensibly and that the private
+      reward scale is anchored to a public reference. Converts "trust the data
+      is representative" into something testable without exposing private rows.
+      Canary scores are releasable; the private/public correlation over a batch
+      is itself a bounded, releasable statistic.
+- [ ] `P3` Sign dataset provenance at seal time.
+      Extend the `sealed-dataset-manifest` with attested provenance (source
+      pipeline, upstream dataset id, license, `data_sensitivity`, distribution
+      claim vs. a named public benchmark), signed inside the boundary at seal
+      time so the distribution claim is bound to the commitment, not asserted
+      after the fact. Builds on the existing owner-signature hooks.
+- [ ] `P3` Add a neutral sealing witness (notary / quorum).
+      For adversarial buyer/seller pairs, let a mutually-trusted notary (or an
+      M-of-N quorum) witness the dataset entering the TEE and co-sign the
+      dataset commitment, so neither side can later dispute what was sealed and
+      the "seller crafts data to favor one bidder" collusion path is closed.
+      Bounded receipt only; the witness never sees plaintext.
+- [ ] `P3` Upgrade `private_reward_holdout.py` to a Ladder-gated release path.
+      Replace the plain train/reward/final split with the Ladder mechanism:
+      release a new reward only when a candidate beats the running best by a
+      statistically significant margin (parameter-free paired-t variant), giving
+      the `O(log^{1/3}(kn)/n^{1/3})` leaderboard-error bound so a fixed-size
+      sealed holdout supports effectively unlimited attempts while the settlement
+      number stays honest. Ties into the existing reward-query budget and
+      anti-overfitting guards.
+- [ ] `P3` Add a Thresholdout / DP-noised reward option.
+      Access the holdout only through a DP mechanism (noisy-threshold release);
+      compose the per-record leakage budget with the query budget so
+      `total leakage ≤ ε × queries` is a single stated bound. Unifies the leakage
+      cap and the overfitting cap under one parameter, and makes the reward
+      precision budget provable rather than heuristic.
+- [ ] `P3` Ship a third-party verification CLI (`verify-reward-mechanism`).
+      Given the published attestation, the read env source, and the dataset
+      commitment, verify: (1) `HASH(reward_code)` matches the source the third
+      party read; (2) the dataset commitment matches the manifest and (if
+      present) the notary co-signature; (3) canary calibration passes; (4) the
+      declared query/DP/Ladder parameters match what the boundary enforced.
+      Bounded pass/fail + hashes only; no raw data, no exact rewards.
+- [ ] `P3` Document the utility/safety frontier as the negotiated contract.
+      The design knobs (output granularity, DP-ε, query budget, Ladder
+      threshold, holdout rotation) are simultaneously utility dials (optimizer
+      signal) and safety dials (leakage + overfitting). Record that choosing the
+      contract *is* choosing a point on this frontier, and map it onto the
+      reserve-price / budget-cap / bounded-disclosure economics: the seller is
+      selling **feedback bandwidth** about a sealed reward, priced by how much
+      the buyer wants. State the residual gaps plainly: TEE hardware root
+      (mitigate multi-vendor), commitment ≠ quality (canary + provenance +
+      stake), and candidate-as-exfiltrator (sandbox + aggregate-only + noised
+      band).
+
 ### Sealed Data At Rest (Portable Encrypted Datasets)
 
 Reward datasets must be storable in untrusted public hosts (Hugging Face Hub,
@@ -2537,9 +2624,17 @@ reusing existing primitives (`crypto.encrypt_for_tee`,
       wrong-key/tamper/wrong-AAD authentication failure, multi-recipient
       unwrap, and an egress-safe manifest that never contains the DEK or
       plaintext. CLI surface and CVM-side fetch/decrypt wiring remain open.
-- [ ] `P1` Add an `encrypt-dataset` CLI (and `dataset-recipient-pubkey` to
+- [x] `P1` Add an `encrypt-dataset` CLI (and `dataset-recipient-pubkey` to
       fetch/verify a CVM's attestation-bound X25519 key) that produces the
       ciphertext blob plus signed manifest with a bounded receipt.
+      Done 2026-07-10 for `encrypt-dataset`: the CLI reads a plaintext file,
+      envelope-encrypts to one or more `--recipient-pubkey`/`--recipient-pubkey-file`
+      keys, writes the ciphertext blob + bounded manifest, and emits a bounded
+      receipt (`raw_secret_egress=false`, hashes/counts only, no DEK/plaintext).
+      A subprocess CLI test proves the full round-trip: encrypt → the recipient
+      CVM key unwraps the DEK and decrypts back to the exact plaintext.
+      `dataset-recipient-pubkey` (live attestation fetch + verify) and owner
+      manifest signing remain open sub-steps.
 - [ ] `P1` Add pluggable storage backends (local, Hugging Face Hub, S3, https)
       behind a publish/fetch adapter interface so adding a backend does not
       touch the crypto path. HF/S3 tokens come from env only, never committed.
@@ -2548,9 +2643,18 @@ reusing existing primitives (`crypto.encrypt_for_tee`,
       wrapped-DEK envelope matching the CVM measurement, unwrap with the
       dstack-derived key, decrypt to the sealed data volume, verify the
       plaintext hash, and zero buffers after use. Only bounded bands egress.
-- [ ] `P1` Add `verify-dataset-manifest` for external verification of schema,
+      Note: the crypto path (`unwrap_dek`/`decrypt_dataset` with plaintext-hash
+      verification) is real and tested; the remaining work is the CVM fetch +
+      sealed-volume write + buffer zeroing wiring.
+- [x] `P1` Add `verify-dataset-manifest` for external verification of schema,
       hashes, signature, recipient measurements, and sensitivity label without
       any plaintext access.
+      Done 2026-07-10: `verify-dataset-manifest --manifest [--blob]` checks
+      schema version, sensitivity label, recipient-envelope shape, chunk
+      metadata, and (when the blob is supplied) the ciphertext sha256 binding,
+      returning a bounded receipt and exit code. Tests cover happy path and
+      tampered-ciphertext rejection. Owner-signature verification lands with the
+      signing sub-step above.
 - [ ] `P1` Wire the OpenProblems denoising env (`environments/`) to load its
       dataset through the sealed-dataset path so the mechanism is exercised
       end-to-end; keep the `public_benchmark` label so it is not misread as a

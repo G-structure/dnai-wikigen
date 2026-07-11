@@ -225,6 +225,55 @@ def build_manifest(
     }
 
 
+def seal_receipt(encrypted: EncryptedBlob, manifest: dict[str, Any]) -> dict[str, Any]:
+    """Bounded, egress-safe receipt for a seal operation. No DEK/plaintext."""
+
+    return {
+        "dataset_id": encrypted.dataset_id,
+        "task": manifest.get("task"),
+        "data_sensitivity": manifest.get("data_sensitivity"),
+        "ciphertext_sha256": encrypted.ciphertext_sha256,
+        "plaintext_size": encrypted.plaintext_size,
+        "chunk_count": encrypted.chunk_count,
+        "recipient_count": len(manifest.get("recipients", [])),
+        "recipient_key_hashes": [r["recipient_key_hash"] for r in manifest.get("recipients", [])],
+        "manifest_hash": manifest_hash(manifest),
+        "storage_ref": manifest.get("storage_ref"),
+        "raw_secret_egress": False,
+    }
+
+
+def seal_dataset(
+    plaintext: bytes,
+    *,
+    dataset_id: str,
+    task: str,
+    data_sensitivity: DataSensitivity | str,
+    recipient_public_keys: list[str],
+    storage_ref: str | None = None,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+) -> tuple[bytes, dict[str, Any], dict[str, Any]]:
+    """Envelope-encrypt a dataset for one or more attested CVM recipients.
+
+    Returns `(ciphertext_blob, manifest, bounded_receipt)`. The DEK is generated,
+    used, and dropped here; it never appears in the manifest or receipt.
+    """
+
+    if not recipient_public_keys:
+        raise SealedDatasetError("at least one recipient public key is required")
+    dek = generate_dek()
+    encrypted = encrypt_dataset(plaintext, dek, dataset_id=dataset_id, chunk_size=chunk_size)
+    recipients = [wrap_dek(dek, pk, dataset_id=dataset_id) for pk in recipient_public_keys]
+    manifest = build_manifest(
+        encrypted,
+        task=task,
+        data_sensitivity=DataSensitivity(data_sensitivity),
+        recipients=recipients,
+        storage_ref=storage_ref,
+    )
+    return encrypted.blob, manifest, seal_receipt(encrypted, manifest)
+
+
 def _canonical(manifest: dict[str, Any]) -> str:
     egress_safe = {k: v for k, v in manifest.items() if k not in {"owner_signature", "signer_hash"}}
     return json.dumps(egress_safe, sort_keys=True, separators=(",", ":"))

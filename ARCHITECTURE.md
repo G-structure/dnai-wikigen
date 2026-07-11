@@ -115,8 +115,16 @@ Important current status:
             `build_manifest`/`verify_manifest` produce and check a bounded
             `sealed-dataset-manifest-v1`. Tests prove round-trip, wrong-key /
             tamper / wrong-AAD authentication failure, multi-recipient unwrap,
-            and a manifest that never carries the DEK or plaintext. Still
-            `[planned]`: the CLI surface, pluggable storage backends, CVM-side
+            and a manifest that never carries the DEK or plaintext. Operator
+            CLIs `encrypt-dataset` and `verify-dataset-manifest` are now
+            source/test-real: `encrypt-dataset` envelope-encrypts a file to one
+            or more recipient CVM keys and writes the blob + bounded manifest +
+            receipt; `verify-dataset-manifest` externally checks schema,
+            sensitivity, recipient shape, chunk metadata, and ciphertext hash
+            with no plaintext access; a subprocess round-trip test proves
+            encrypt -> recipient-key unwrap -> decrypt back to the exact
+            plaintext. Still `[planned]`: `dataset-recipient-pubkey` live
+            attestation fetch, pluggable storage backends (HF/S3/https), CVM-side
             fetch/decrypt-to-sealed-volume wiring, and owner/reviewer signing.
             The chosen construction reuses existing primitives, not a new
             scheme:
