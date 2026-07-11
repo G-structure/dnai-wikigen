@@ -82,10 +82,52 @@ Important current status:
 [real]      SyntheticHiddenKeywordEnvironment toy private-reward environment.
             It wires HiddenHoldoutSet into bounded reward feedback and
             one-shot final validation over sealed synthetic records.
+[real]      Standard-format RL env packaging under `environments/`. The first
+            env, `openproblems_denoising/`, is the TTT-Discover biology task
+            (OpenProblems v1 single-cell denoising) packaged to the verifiers
+            v0 contract (`load_environment(**env_args) -> vf.Environment`),
+            which is prime-rl-native and reachable from OpenEnv via
+            `vf.OpenEnvEnv`. A framework-free numpy core computes the real
+            log-normalized MSE gated by a Poisson constraint and returns only a
+            coarse `RewardBand`/quantized scalar banded by improvement over the
+            depth-matched baseline; exact metrics and raw expression values stay
+            inside the boundary. The real datasets used by TTT-Discover
+            (pancreas train, held-out `tenx_1k_pbmc`) are fetched reproducibly
+            with md5 verification (`datasets.json` + `fetch_datasets.py`) and
+            never committed. `verifiers`/`anndata` are optional extras imported
+            lazily so the core is offline-testable. `environments/README.md`
+            documents the extensible layout. Real candidate-program execution
+            through the sandbox, hidden-holdout wiring, sealed-dataset loading,
+            and an actual prime-rl/`vf-eval` run remain open.
 [partial]   Candidate/evaluator sandboxing for arbitrary third-party code. The
             local Python candidate sandbox and process-bound evaluator planner
             are not OS/container isolation and are not sufficient for untrusted
             production execution inside a CVM.
+[planned]   Sealed data at rest / portable encrypted datasets. Reward datasets
+            (`D`) for private environments must be storable in untrusted public
+            hosts — Hugging Face Hub, S3, IPFS — while plaintext exists only
+            inside the attested boundary. The chosen construction is envelope
+            encryption reusing existing primitives, not a new scheme:
+            `crypto.encrypt_for_tee()` (X25519 ECDH + HKDF-SHA256 +
+            AES-256-GCM to an attestation-bound CVM public key) wraps a fresh
+            random data-encryption key (DEK); the DEK does chunked AES-256-GCM
+            over the dataset bytes; `dstack_utils.derive_storage_key()` reseals
+            DEK/plaintext under the CVM data volume; `artifacts.zero_buffer()`
+            zeroes plaintext after use. A bounded, owner-signable manifest binds
+            dataset id, ciphertext hash/size/chunking, plaintext hash,
+            per-measurement wrapped-DEK envelopes, a `data_sensitivity` label
+            (`public_benchmark` / `private` / `phi`), and the storage backend
+            reference. Storage backend is orthogonal to encryption (pluggable
+            local / HF / S3 / https adapters). Planned CLIs mirror existing
+            tooling: `dataset-recipient-pubkey`, `encrypt-dataset`,
+            `publish-dataset`, `fetch-decrypt-dataset`, `verify-dataset-manifest`
+            — all emitting only hashes/status with `raw_secret_egress=false`.
+            Security reduces to the existing attestation + on-chain
+            compose-approval chain: the dataset is only as sealed as the
+            measurement binding of the CVM key derivation, so this inherits the
+            same `[partial]` quote-parsing gap. Encrypting public benchmark data
+            (the OpenProblems denoising sets) exercises the mechanism and is not
+            a privacy claim; only `private`/`phi`-labeled datasets carry one.
 [partial]   Deployment manifest. `deployments/base-sepolia.json` now records
             current operator-controlled Base Sepolia `DiligenceRoom` and
             `EmailOracleAuth` deployments plus historical Phala records. BaseScan

@@ -382,6 +382,45 @@ over sealed synthetic records. Real RLVR, TTT, bio-validation, domain-specific
 anti-overfitting rules, and hardened production candidate-sandbox environments
 are still separate implementation work.
 
+## Sealed Data At Rest (Portable Encrypted Datasets)
+
+The reward data `D` that defines a private environment must be able to live in
+untrusted, public storage — Hugging Face Hub, S3, IPFS, a git LFS remote —
+without becoming public. The invariant is unchanged: raw data is only ever
+plaintext *inside the attested boundary*. Storage location is not a trust
+boundary; the ciphertext can sit on a fully public host.
+
+The chosen construction is **envelope encryption bound to an attested
+measurement**, reusing the two key tiers the repo already has:
+
+```text
+DEK  = fresh random AES-256 key (per dataset)
+blob = AES-256-GCM(D, DEK)                 # large, chunked, storage-agnostic
+wrap = X25519-to-attested-CVM(DEK)         # one per approved recipient measurement
+manifest = { dataset_id, task, blob hash+size, plaintext hash,
+             wrapped-DEK per measurement, data_sensitivity, owner signature }
+```
+
+- The **data-encryption key (DEK)** encrypts the dataset once. The large
+  ciphertext blob is content-addressed and can be published anywhere.
+- The DEK is **wrapped to each approved CVM's attestation-bound public key**, so
+  only a CVM whose measurement matches an approved recipient can unwrap it.
+  Adding a new environment/CVM re-wraps the small DEK, never the whole dataset.
+- Inside the boundary the CVM unwraps the DEK with its measurement-derived key,
+  decrypts to the sealed data volume, verifies the plaintext hash, uses `D`
+  for reward computation, and zeroes the buffers. Only bounded reward bands,
+  hashes, and attestations leave.
+
+Security reduces exactly to the existing attestation + on-chain
+compose-approval chain: the dataset is only as sealed as the measurement
+binding of the CVM key derivation. It is therefore labeled `[partial]` until
+cryptographic TDX quote parsing binds the unwrap key to an approved
+measurement. A `data_sensitivity` label (`public_benchmark` / `private` / `phi`)
+keeps claims honest — encrypting public benchmark data such as the OpenProblems
+denoising sets exercises the *mechanism* and is not itself a privacy claim.
+Any optional owner recovery key weakens the "no human access" invariant and is
+explicit and off by default.
+
 ## Security Goal
 
 The informal goal:

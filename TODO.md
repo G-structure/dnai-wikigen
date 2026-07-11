@@ -498,6 +498,14 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       gradients inside the attested boundary.
 - [ ] `P0` Bio/dual-use outputs must fail closed until the risk screen,
       reviewer queue, and bounded schema are real.
+      - [x] Add the fail-closed bounded bio release gate. Done 2026-07-10:
+            `tinker_delegate.bio_validation.evaluate_bio_release()` holds for
+            human review unless every `BioReadiness` capability is real,
+            denies on any forbidden-output match, holds non-DP
+            individual-level data, and emits only bounded bands, hashes, and a
+            screen verdict (`raw_secret_egress=false`). This is the enforcement
+            mechanism; wiring real risk screens, the reviewer queue, and other
+            bio egress paths into it keeps this invariant open.
 
 ## Milestone 0: Repo Truth, Baseline, And Documentation
 
@@ -2498,16 +2506,86 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
         submitted candidate strings.
   - [ ] `P0` Wire hidden-holdout checks into concrete private-reward
         environments and add domain-specific anti-overfitting rules.
+### Sealed Data At Rest (Portable Encrypted Datasets)
+
+Reward datasets must be storable in untrusted public hosts (Hugging Face Hub,
+S3, IPFS) while plaintext exists only inside the attested boundary. Design and
+trust-boundary reasoning are recorded in `PROJECT.md` "Sealed Data At Rest" and
+`ARCHITECTURE.md` (`[planned]` entry). The construction is envelope encryption
+reusing existing primitives (`crypto.encrypt_for_tee`,
+`dstack_utils.derive_storage_key`, `artifacts.zero_buffer`), not a new scheme.
+
+- [ ] `P1` Add a bounded, owner-signable dataset manifest schema:
+      dataset id, task metadata, ciphertext hash/size/chunking, plaintext hash,
+      per-measurement wrapped-DEK envelopes, `data_sensitivity`
+      (`public_benchmark`/`private`/`phi`), storage backend reference, and
+      optional owner signature. Emit only hashes/status.
+- [ ] `P1` Implement envelope encryption for datasets: fresh random DEK,
+      chunked AES-256-GCM over the dataset bytes with per-chunk nonce and AAD
+      binding `dataset_id|chunk|total`, and DEK wrapping to one or more
+      attestation-bound CVM public keys via `crypto.encrypt_for_tee`. Never
+      print the DEK or plaintext.
+- [ ] `P1` Add an `encrypt-dataset` CLI (and `dataset-recipient-pubkey` to
+      fetch/verify a CVM's attestation-bound X25519 key) that produces the
+      ciphertext blob plus signed manifest with a bounded receipt.
+- [ ] `P1` Add pluggable storage backends (local, Hugging Face Hub, S3, https)
+      behind a publish/fetch adapter interface so adding a backend does not
+      touch the crypto path. HF/S3 tokens come from env only, never committed.
+      Add `publish-dataset` and `fetch-decrypt-dataset` CLIs.
+- [ ] `P1` Implement CVM-side unwrap/decrypt inside the boundary: select the
+      wrapped-DEK envelope matching the CVM measurement, unwrap with the
+      dstack-derived key, decrypt to the sealed data volume, verify the
+      plaintext hash, and zero buffers after use. Only bounded bands egress.
+- [ ] `P1` Add `verify-dataset-manifest` for external verification of schema,
+      hashes, signature, recipient measurements, and sensitivity label without
+      any plaintext access.
+- [ ] `P1` Wire the OpenProblems denoising env (`environments/`) to load its
+      dataset through the sealed-dataset path so the mechanism is exercised
+      end-to-end; keep the `public_benchmark` label so it is not misread as a
+      privacy claim.
+- [ ] `P0` Do not treat the sealed dataset store as production-private until
+      cryptographic TDX quote parsing binds the unwrap key to an approved
+      measurement (shared blocker with the quote-verifier work). Until then it
+      stays `[partial]` and inherits the attestation + compose-approval chain.
+
 - [ ] `P1` Implement a toy `private_reward_envs/` package with:
       environment base class, reward evaluator base class, bounded reducer,
       transcript logger, sandbox runner, and tests.
 - [ ] `P1` Implement a TTT-Discover-style environment adapter.
       Candidate code is evaluated against private data in the TEE; optimization
       method can be RL, TTT, evolutionary search, or an LLM loop.
-- [ ] `P1` Implement a single-cell denoising environment inspired by
+      - [x] Package the first env in the standard prime-rl/verifiers v0 format
+            so it is trainer-agnostic and easy to extend. Done 2026-07-10:
+            `environments/openproblems_denoising/` exposes
+            `load_environment(**env_args) -> vf.Environment` (verifiers v0,
+            prime-rl-native, reachable from OpenEnv via `vf.OpenEnvEnv`) with a
+            framework-free numpy core, optional `data`/`rl` extras,
+            installable `pyproject.toml`, and `environments/README.md`
+            documenting the extensible layout for adding more envs. `verifiers`
+            is imported lazily so the core stays offline-testable.
+      - [ ] Wire real candidate-program execution through the existing
+            candidate sandbox (`private_reward_sandbox`) so a generated
+            denoising program, not just a precomputed matrix, is scored inside
+            the boundary. Optimizer swap (RL/TTT/evolution/LLM) rides on top.
+      - [ ] Run the env end-to-end under prime-rl or `vf-eval` and record a
+            bounded rollout receipt.
+- [x] `P1` Implement a single-cell denoising environment inspired by
       TTT-Discover's biology task.
       Start with public/synthetic OpenProblems-like data, MSE/Poisson-style
       rewards, hidden holdout, and bounded final score bands.
+      Done 2026-07-10: `environments/openproblems_denoising` grabs the REAL
+      OpenProblems v1 denoising datasets used by TTT-Discover (pancreas train,
+      held-out `tenx_1k_pbmc`) via a reproducible md5-verified fetch
+      (`datasets.json` + `fetch_datasets.py`, data gitignored, not committed),
+      computes the real log-normalized MSE gated by the Poisson constraint
+      inside the boundary, and returns only a coarse `RewardBand` /
+      quantized scalar banded by improvement over the depth-matched baseline.
+      Proven on the real PBMC h5ad (1087 cells x 15098 genes) via an ephemeral
+      anndata install: identity and per-gene-mean denoisers correctly band
+      `negligible` (trivial methods do not earn credit), and the
+      verifiers-style reward func records only the band on state. Offline
+      core tests pass with numpy only. Hidden-holdout wiring, candidate-program
+      execution, and a real trainer run remain open (above).
 - [ ] `P1` Add reward-oracle proof tests:
       no direct data reads, no exact reward egress in public mode, query budget
       enforced, sandbox egress capped, transcript hash stable.
@@ -2528,29 +2606,53 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 
 ### Define The Bio Validation Target
 
-- [ ] `P0` Treat `TTT` as method-agnostic in product docs.
+The seven `P0` definitions below are recorded in `docs/BIO_VALIDATION.md` and,
+where enforceable, made real in
+`⚙️/tinker-delegate/tinker_delegate/bio_validation.py` (fail-closed release
+gate, bounded result schema, forbidden-output screen) with
+`tests/test_bio_validation.py`. Done 2026-07-10.
+
+- [x] `P0` Treat `TTT` as method-agnostic in product docs.
       The central primitive is private verified reward. Optimization can be
       reinforcement learning, test-time training, evolutionary search, or an LLM
       loop.
-- [ ] `P0` Define the first safe bio-validation use case.
+      Done: `docs/BIO_VALIDATION.md` "Method Is Not The Claim" states the
+      optimizer is swappable and the reward oracle is the claim; nothing in the
+      code gate depends on the optimizer.
+- [x] `P0` Define the first safe bio-validation use case.
       Candidates:
       synthetic assay QC, de-identified expression classifier, method validation,
       benchmark reproducibility, private reward for computational bio code, or
       non-dual-use model utility scoring.
-- [ ] `P0` Define what data is allowed in the first demo.
+      Done: first use case is synthetic assay QC scoring over synthetic/public
+      toy data, with the listed same-safety-class alternatives.
+- [x] `P0` Define what data is allowed in the first demo.
       Prefer synthetic or public toy data until the policy and reviewer path are
       real.
-- [ ] `P0` Define forbidden outputs for bio:
+      Done: synthetic/public toy data only; the gate holds fail-closed on
+      `individual_level_data` without a DP marking.
+- [x] `P0` Define forbidden outputs for bio:
       wetlab protocol details, pathogen enhancement guidance, de novo harmful
       design, identifiable patient-level outputs, raw records, model weights,
       raw samples, and reconstruction-prone statistics.
-- [ ] `P0` Define the bounded result schema:
+      Done and enforced: `_FORBIDDEN_PATTERNS` screens every free-text field;
+      any match denies with `safety_band=blocked` and routes to
+      biosecurity review; free-text is hashed, never returned.
+- [x] `P0` Define the bounded result schema:
       score band, confidence band, safety band, utility band, methodology class,
       compute cost, data-quality flags, and result hash.
-- [ ] `P0` Define benchmark tasks:
+      Done: `BioReleaseReceipt.result_schema` carries exactly these bounded
+      fields plus a per-field screen summary; bands are `withheld` on any
+      non-release decision.
+- [x] `P0` Define benchmark tasks:
       baseline model, adapted model, held-out evaluation, statistical confidence,
       and failure modes.
-- [ ] `P0` Define when results must hold for human review instead of releasing.
+      Done as a definition in `docs/BIO_VALIDATION.md`; a real evaluator that
+      populates these bands remains a `[planned]` P1 below.
+- [x] `P0` Define when results must hold for human review instead of releasing.
+      Done and enforced: release is the exception. The gate holds on any missing
+      readiness capability or non-DP individual-level data, and denies on
+      forbidden output; most-protective check wins.
 - [ ] `P1` Add a `bio_validation/` module or package with:
       data loaders, validators, risk screens, evaluator registry, and result
       schema.
