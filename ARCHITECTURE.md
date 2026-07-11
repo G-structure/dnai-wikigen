@@ -558,7 +558,13 @@ run IDs, checkpoint paths, samples, or private reward data.
             includes a top-level bounded `proxy_auth_context` with auth kind,
             required scope, subject hash, JWT-id hash, granted scopes, expiry,
             and `raw_secret_egress=false`. Runtime-operator bearer responses do
-            not get this context.
+            not get this context. Proxy-authorized `POST /tinker/smoke` is
+            spend-capped fail-closed: the proxy JWT must carry a finite
+            positive `scope_limits["tinker:smoke"].max_amount_usd`, and the
+            effective smoke budget (request `max_usd` or the
+            `real_sdk_max_usd` default) is rejected with 403 before the smoke
+            runner executes when the limit is missing, malformed, or exceeded.
+            Runtime-operator bearer smoke requests are unchanged.
 [real]      Proxy-token issue/revoke audit is now source/test-real:
             `ProxyTokenStore` stores bounded `issued` and `revoked` records
             under AES-GCM using local test key material or dstack-derived key
@@ -1938,7 +1944,15 @@ Implementation status:
             `sdk_diagnostics` for request shape plus capability probing, enum
             `sdk_error.failure_site`, enum `sdk_error.operator_action`, and
             optional `TINKER_PROJECT_ID` configured/hash evidence without
-            returning the raw project id.
+            returning the raw project id. Receipts also carry an enum
+            `sdk_error.provider_error_category`
+            (invalid/inactive API key, invalid-or-inaccessible project,
+            account entitlement, funding/quota, unsupported SDK version,
+            endpoint mismatch, or unclassified) plus exact `http_status`;
+            the category is classified internally from short allowlisted
+            scalar provider-body fields that are never included in the
+            receipt, and `service_client_create` failures map each category
+            to a concrete `operator_action`.
             Unknown `POST /tinker/smoke` payload fields are rejected so callers
             cannot accidentally send `base_model`/`model_name` and silently use
             defaults. Tests prove API-key-shaped, email-shaped, card-shaped,
@@ -2016,18 +2030,25 @@ Implementation status:
             still partial.
 [real]      `tinker-smoke-command-plan` provides a bounded operator control
             surface for the next live retry. It reads the deployment manifest,
-            reports whether `TINKER_PROJECT_ID` is present locally and in the
-            live CVM evidence, emits `next_action`, and includes
-            `client_config_install_argv` / `client_config_install_shell` for
-            the sealed client-config path. When the operator has
-            `TINKER_PROJECT_ID` locally but live evidence still shows the
-            project id omitted, `next_action=seal_client_config`; smoke remains
-            `ready=false` until bounded live evidence confirms the project
-            config is sealed. The same plan also emits redeploy, attestation,
-            compose-approval, spend-preflight, and smoke command templates for
-            cases where a new CVM compose is needed, without including raw
-            project IDs, bearer tokens, API keys, RPC URLs, run IDs, checkpoint
-            paths, or samples.
+            treats `TINKER_PROJECT_ID` as optional SDK metadata (a
+            `tinker_project_id_not_configured_optional` warning, never a
+            readiness blocker), and gates readiness on the currently attested
+            compose hash being approved on-chain: when manifest
+            compose-approval evidence shows the live compose is unapproved,
+            `ready=false` with reason `current_compose_not_approved` and
+            `next_action=approve_current_compose`, and the
+            `approveComposeHash(bytes32)`, spend-preflight, and smoke templates
+            are bound to the current attested compose hash rather than a
+            new-compose placeholder. When the operator has `TINKER_PROJECT_ID`
+            locally but live evidence shows it unsealed,
+            `next_action=seal_client_config` via
+            `client_config_install_argv` / `client_config_install_shell`. The
+            plan prefers the latest live client-config install/runtime-env
+            evidence over stale smoke-receipt evidence, still emits redeploy,
+            attestation, compose-approval, spend-preflight, and smoke command
+            templates for cases where a new CVM compose is intentionally
+            selected, and never includes raw project IDs, bearer tokens, API
+            keys, RPC URLs, run IDs, checkpoint paths, or samples.
 [partial]   A follow-up GitHub Actions build for commit
             `3bb9ff4b986e95debbe0d13f9a02edb9c0d03f80` completed on run
             `29058135707` and produced digest-pinned funding-validation images:

@@ -37,6 +37,7 @@ Endpoints:
 """
 import hashlib
 import hmac
+import math
 import os
 from typing import Any, Optional
 
@@ -207,14 +208,22 @@ def _require_runtime_or_proxy_auth(required_scope: str, authorization: str = Hea
     }
 
 
-def _enforce_proxy_amount_limit(auth_context: dict[str, Any], scope: str, amount_dollars: float) -> None:
+def _enforce_proxy_amount_limit(
+    auth_context: dict[str, Any],
+    scope: str,
+    amount_dollars: float,
+    *,
+    require_limit: bool = False,
+) -> None:
     if auth_context.get("auth_kind") != "proxy":
         return
     limits = auth_context.get("scope_limits", {})
     if not isinstance(limits, dict):
         raise HTTPException(status_code=403, detail="Proxy token limits are invalid")
     scope_limit = limits.get(scope)
-    if not scope_limit:
+    if scope_limit is None:
+        if require_limit:
+            raise HTTPException(status_code=403, detail="Proxy token scope limit is required")
         return
     if not isinstance(scope_limit, dict):
         raise HTTPException(status_code=403, detail="Proxy token scope limit is invalid")
@@ -223,6 +232,8 @@ def _enforce_proxy_amount_limit(auth_context: dict[str, Any], scope: str, amount
         max_amount_float = float(max_amount)
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=403, detail="Proxy token amount limit is invalid") from exc
+    if not math.isfinite(max_amount_float) or max_amount_float <= 0:
+        raise HTTPException(status_code=403, detail="Proxy token amount limit is invalid")
     if amount_dollars > max_amount_float:
         raise HTTPException(status_code=403, detail="Proxy token amount exceeds policy limit")
 
@@ -821,6 +832,8 @@ def tinker_smoke(payload: TinkerSmokeRequestBody, authorization: str = Header(de
             detail="Tinker smoke endpoint is disabled",
         )
     auth_context = _require_runtime_or_proxy_auth("tinker:smoke", authorization)
+    effective_max_usd = payload.max_usd if payload.max_usd is not None else settings.real_sdk_max_usd
+    _enforce_proxy_amount_limit(auth_context, "tinker:smoke", effective_max_usd, require_limit=True)
     from tinker_delegate.tinker_smoke import TinkerSmokeRequest, run_tinker_sdk_smoke
 
     try:

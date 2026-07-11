@@ -16,7 +16,7 @@ OS_IMAGE_HASH = "0x" + "22" * 32
 ENCUMBRANCE_ADDRESS = "0x" + "33" * 20
 
 
-def _manifest(*, live_has_project: bool = False) -> dict:
+def _manifest(*, live_has_project: bool = False, compose_approved: bool = True) -> dict:
     return {
         "phala": {
             "endpoints": {
@@ -28,6 +28,10 @@ def _manifest(*, live_has_project: bool = False) -> dict:
             "osIsDev": True,
             "tinkerSdkSmokeEvidence": {
                 "attestedComposeHash": COMPOSE_HASH,
+                "composeApproval": {
+                    "composeHash": COMPOSE_HASH,
+                    "approved": compose_approved,
+                },
                 "runtimeEnv": {
                     "containsTinkerProjectId": live_has_project,
                     "containsTinkerBaseUrl": False,
@@ -54,7 +58,7 @@ def _manifest(*, live_has_project: bool = False) -> dict:
 
 
 class TinkerSmokeCommandPlanTest(unittest.TestCase):
-    def test_missing_project_config_is_not_ready_and_outputs_bounded_templates(self):
+    def test_missing_optional_project_config_is_ready_and_outputs_bounded_templates(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             manifest_path = Path(tmpdir) / "deployment.json"
             manifest_path.write_text(json.dumps(_manifest(live_has_project=False)), encoding="utf-8")
@@ -67,12 +71,12 @@ class TinkerSmokeCommandPlanTest(unittest.TestCase):
                 },
             ).to_public_dict()
 
-            self.assertFalse(plan["ready"])
-            self.assertIn("missing_tinker_project_id_env", plan["reasons"])
-            self.assertIn("live_cvm_missing_tinker_project_id", plan["reasons"])
-            self.assertEqual(plan["next_action"], "set_project_id_env")
+            self.assertTrue(plan["ready"])
+            self.assertEqual(plan["reasons"], [])
+            self.assertIn("tinker_project_id_not_configured_optional", plan["warnings"])
+            self.assertEqual(plan["next_action"], "run_smoke_sequence")
             self.assertEqual(plan["current_live_client_config"]["project_id_argument"], "omitted")
-            self.assertIn('test -n "${TINKER_PROJECT_ID:-}"', plan["redeploy_shell"])
+            self.assertNotIn('test -n "${TINKER_PROJECT_ID:-}"', plan["redeploy_shell"])
             self.assertIn("tinker-client-config", plan["client_config_install_argv"])
             self.assertIn("--install", plan["client_config_install_argv"])
             self.assertIn("--self-compose-hash-env", plan["redeploy_argv"])
@@ -82,7 +86,7 @@ class TinkerSmokeCommandPlanTest(unittest.TestCase):
             self.assertIn("TINKER_PROXY_REQUIRE_ISSUE_POLICY", plan["verify_compose_argv"])
             self.assertIn('test -n "${TINKER_PROJECT_ID:-}"', plan["client_config_install_shell"])
             self.assertIn('test -n "${TINKER_RUNTIME_AUTH_TOKEN:-}"', plan["client_config_install_shell"])
-            self.assertIn(NEW_COMPOSE_HASH_PLACEHOLDER, plan["smoke_argv"])
+            self.assertIn(COMPOSE_HASH, plan["smoke_argv"])
             rendered = json.dumps(plan)
             self.assertNotIn("runtime-secret", rendered)
             self.assertNotIn("rpc.example/secret", rendered)
@@ -103,9 +107,8 @@ class TinkerSmokeCommandPlanTest(unittest.TestCase):
                 },
             ).to_public_dict()
 
-            self.assertFalse(plan["ready"])
-            self.assertNotIn("missing_tinker_project_id_env", plan["reasons"])
-            self.assertIn("live_cvm_missing_tinker_project_id", plan["reasons"])
+            self.assertTrue(plan["ready"])
+            self.assertEqual(plan["reasons"], [])
             self.assertEqual(plan["next_action"], "seal_client_config")
             self.assertIn("--project-id-env", plan["client_config_install_argv"])
             self.assertIn("TINKER_PROJECT_ID", plan["client_config_install_argv"])
@@ -113,6 +116,30 @@ class TinkerSmokeCommandPlanTest(unittest.TestCase):
             self.assertNotIn("secret-project-id", rendered)
             self.assertNotIn("runtime-secret", rendered)
             self.assertNotIn("rpc.example/secret", rendered)
+
+    def test_unapproved_current_compose_points_to_onchain_approval(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manifest_path = Path(tmpdir) / "deployment.json"
+            manifest_path.write_text(
+                json.dumps(_manifest(live_has_project=False, compose_approved=False)),
+                encoding="utf-8",
+            )
+
+            plan = build_tinker_smoke_command_plan(
+                manifest_path=manifest_path,
+                env={
+                    "TINKER_RUNTIME_AUTH_TOKEN": "runtime-secret",
+                    "BASE_SEPOLIA_RPC_URL": "https://rpc.example/secret",
+                },
+            ).to_public_dict()
+
+            self.assertFalse(plan["ready"])
+            self.assertEqual(plan["reasons"], ["current_compose_not_approved"])
+            self.assertFalse(plan["current_compose_approved"])
+            self.assertEqual(plan["next_action"], "approve_current_compose")
+            self.assertIn(COMPOSE_HASH, plan["approve_compose_argv"])
+            self.assertIn(COMPOSE_HASH, plan["encumbrance_preflight_argv"])
+            self.assertIn(COMPOSE_HASH, plan["smoke_argv"])
 
     def test_ready_manifest_builds_smoke_sequence_without_secret_values(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -168,7 +195,8 @@ class TinkerSmokeCommandPlanTest(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             plan = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(plan["ready"])
-            self.assertIn("missing_tinker_project_id_env", plan["reasons"])
+            self.assertIn("missing_runtime_auth_env", plan["reasons"])
+            self.assertIn("missing_encumbrance_rpc_env", plan["reasons"])
 
 
 if __name__ == "__main__":

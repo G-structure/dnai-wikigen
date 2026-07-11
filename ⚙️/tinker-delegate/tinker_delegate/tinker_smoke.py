@@ -403,8 +403,10 @@ def _usd_band(value: float) -> str:
 def _empty_sdk_error() -> dict[str, Any]:
     return {
         "bucket": "",
+        "provider_error_category": "",
         "message_hash": "",
         "message_length_band": "zero",
+        "http_status": 0,
         "http_status_class": "",
         "failure_site": "",
         "operator_action": "",
@@ -416,13 +418,17 @@ def _bounded_sdk_error(exc: Exception, *, failure_site: str) -> dict[str, Any]:
 
     normalized = _normalize_exception_message(exc)
     bucket = _classify_sdk_error(exc, normalized)
+    provider_error_category = _provider_error_category(exc, normalized)
+    status = _extract_http_status(exc)
     return {
         "bucket": bucket,
+        "provider_error_category": provider_error_category,
         "message_hash": stable_hash(normalized or exc.__class__.__name__, prefix="tinker_sdk_error"),
         "message_length_band": _message_length_band(normalized),
+        "http_status": status if status is not None and 100 <= status < 600 else 0,
         "http_status_class": _http_status_class(exc),
         "failure_site": failure_site,
-        "operator_action": _operator_action(bucket, failure_site),
+        "operator_action": _operator_action(bucket, failure_site, provider_error_category),
     }
 
 
@@ -739,8 +745,62 @@ def _classify_sdk_error(exc: Exception, normalized_message: str) -> str:
     return "unknown"
 
 
-def _operator_action(bucket: str, failure_site: str) -> str:
+def _provider_error_category(exc: Exception, normalized_message: str) -> str:
+    """Map provider details to a fixed troubleshooting enum without returning them."""
+
+    body_text = _bounded_provider_body_text(getattr(exc, "body", None))
+    text = f"{normalized_message} {body_text}".lower()
+    if any(term in text for term in ("invalid api key", "api key invalid", "unknown api key")):
+        return "invalid_api_key"
+    if "api key" in text and any(term in text for term in ("expired", "revoked", "disabled")):
+        return "inactive_api_key"
+    if "project" in text and any(
+        term in text for term in ("not found", "invalid", "unknown", "does not exist", "not accessible")
+    ):
+        return "invalid_or_inaccessible_project"
+    if any(term in text for term in ("not authorized", "not permitted", "entitlement", "access denied")):
+        return "account_not_entitled"
+    if any(term in text for term in ("insufficient credit", "insufficient balance", "quota", "billing")):
+        return "funding_or_quota"
+    if any(term in text for term in ("unsupported sdk", "sdk version", "upgrade the sdk")):
+        return "sdk_version_unsupported"
+    if any(term in text for term in ("route not found", "endpoint not found", "unknown endpoint")):
+        return "endpoint_mismatch"
+    return "unclassified"
+
+
+def _bounded_provider_body_text(value: Any, *, depth: int = 0) -> str:
+    """Flatten only short scalar provider fields for internal classification."""
+
+    if depth > 4:
+        return ""
+    if isinstance(value, dict):
+        return " ".join(
+            _bounded_provider_body_text(item, depth=depth + 1)
+            for key, item in value.items()
+            if str(key).lower() in {"code", "type", "error", "message", "detail", "reason"}
+        )[:2048]
+    if isinstance(value, (list, tuple)):
+        return " ".join(_bounded_provider_body_text(item, depth=depth + 1) for item in value)[:2048]
+    if isinstance(value, (str, int, float, bool)):
+        return str(value)[:512]
+    return ""
+
+
+def _operator_action(bucket: str, failure_site: str, provider_error_category: str = "") -> str:
     if failure_site == "service_client_create":
+        if provider_error_category in {"invalid_api_key", "inactive_api_key"}:
+            return "refresh_or_reseal_api_key"
+        if provider_error_category == "invalid_or_inaccessible_project":
+            return "remove_or_correct_optional_project_id"
+        if provider_error_category == "account_not_entitled":
+            return "request_tinker_training_entitlement"
+        if provider_error_category == "funding_or_quota":
+            return "check_tinker_balance_or_quota"
+        if provider_error_category == "sdk_version_unsupported":
+            return "upgrade_tinker_sdk"
+        if provider_error_category == "endpoint_mismatch":
+            return "check_tinker_base_url"
         if bucket == "auth_or_entitlement":
             return "refresh_or_reseal_api_key"
         return "check_sdk_client_configuration"

@@ -410,6 +410,17 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             operator-runtime only.
       - [ ] Convert future approved-user Tinker operations to scoped proxy
             authorization rather than runtime-operator bearer tokens.
+            - [x] Require and enforce per-scope spend caps for proxy-authorized
+                  paid smoke. Done 2026-07-10: `POST /tinker/smoke` under a
+                  proxy JWT now fails closed with 403 unless the token carries
+                  a finite positive `scope_limits["tinker:smoke"].max_amount_usd`,
+                  and rejects the request before any SDK/browser work when the
+                  effective `max_usd` (payload or `real_sdk_max_usd` default)
+                  exceeds that cap. Missing, malformed, non-finite, and
+                  over-cap limits are all denied without invoking the smoke
+                  runner; runtime-operator bearer auth is unchanged. API tests
+                  cover within-cap pass, over-cap, missing-limit,
+                  malformed-limit, and settings-default enforcement.
       - [x] Add sealed proxy-token issue/revoke audit records and revocation
             enforcement. Done 2026-07-09:
             `tinker_delegate.tinker_proxy_store.ProxyTokenStore` persists
@@ -2340,6 +2351,24 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             approve `0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085`,
             then seal `TINKER_PROJECT_ID` with `tinker-client-config --install`
             and rerun smoke.
+            Follow-up 2026-07-10: `TINKER_PROJECT_ID` is optional in the
+            official Tinker SDK, so `tinker-smoke-command-plan` no longer
+            blocks readiness on it; it is now a
+            `tinker_project_id_not_configured_optional` warning. The plan
+            instead gates on `current_compose_approved` (from manifest
+            compose-approval evidence), emits
+            `next_action=approve_current_compose` with a concrete
+            `approveComposeHash(bytes32)` template bound to the currently
+            attested compose hash instead of a placeholder, and prefers the
+            latest live compose/runtime-env evidence over stale smoke-receipt
+            evidence. Smoke `sdk_error` receipts now also carry a bounded
+            `provider_error_category` enum (invalid/inactive API key, project
+            inaccessible, entitlement, funding/quota, SDK version, endpoint
+            mismatch, unclassified) plus exact `http_status`, derived from
+            short allowlisted provider body fields that are never returned, so
+            the next live failure maps to a concrete `operator_action` without
+            raw provider egress. Live rerun with these tools remains the open
+            step.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
 - [x] `P0` Add real SDK integration tests gated by an env var and budget cap.

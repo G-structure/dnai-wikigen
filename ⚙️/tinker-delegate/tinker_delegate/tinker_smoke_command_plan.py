@@ -30,6 +30,7 @@ class TinkerSmokeCommandPlan:
     manifest_path: str
     delegate_api_url: str
     current_compose_hash: str
+    current_compose_approved: bool | None
     app_id: str
     os_image_hash: str
     encumbrance_contract_address: str
@@ -65,6 +66,7 @@ class TinkerSmokeCommandPlan:
             "manifest_path": self.manifest_path,
             "delegate_api_url": self.delegate_api_url,
             "current_compose_hash": self.current_compose_hash,
+            "current_compose_approved": self.current_compose_approved,
             "next_compose_hash_placeholder": NEW_COMPOSE_HASH_PLACEHOLDER,
             "app_id": self.app_id,
             "os_image_hash": self.os_image_hash,
@@ -79,7 +81,7 @@ class TinkerSmokeCommandPlan:
             "next_action": self.next_action,
             "output_path_template": self.output_path_template,
             "env_prerequisites": [
-                f"{self.project_id_env} must be set in the operator shell for client-config install; value is never printed",
+                f"{self.project_id_env} is optional SDK project metadata; set it only when Tinker supplies a project id",
                 f"{self.runtime_auth_env} must be set in the operator shell; value is never printed",
                 f"{self.encumbrance_rpc_env} must be set in the operator shell; value is never printed",
                 "FOUNDRY_KEYSTORE_ACCOUNT must name an encrypted Foundry keystore account; never use a raw private key",
@@ -100,10 +102,9 @@ class TinkerSmokeCommandPlan:
             "client_config_install_shell": self.client_config_install_shell,
             "smoke_shell": self.smoke_shell,
             "operator_note": (
-                "If the live CVM already has the sealed client-config endpoint, run client_config_install_shell "
-                "with project config in local env and then refresh bounded status. Otherwise redeploy to source "
-                "that includes the endpoint, use the newly attested compose hash wherever the placeholder appears, "
-                "approve that hash with the Foundry keystore account, install client config, then run smoke. "
+                "Approve the currently attested compose hash before a governed smoke. TINKER_PROJECT_ID is optional "
+                "in the official SDK; install it only if Tinker supplies one. Redeploy only when selecting new source, "
+                "then attest and approve the new hash before smoke. "
                 "Do not mark Tinker training real until the bounded receipt proves run/checkpoint/sample/cleanup."
             ),
             "raw_secret_egress": False,
@@ -132,12 +133,14 @@ def build_tinker_smoke_command_plan(
     contracts = _dict(manifest.get("contracts"))
     encumbrance = _dict(contracts.get("tinkerAccountEncumbrance"))
     smoke_evidence = _dict(phala.get("tinkerSdkSmokeEvidence"))
+    latest_client_config_deploy = _dict(smoke_evidence.get("latestPinnedClientConfigInstallDeploy"))
 
     delegate_api_url = _str(_dict(phala.get("endpoints")).get("delegate"))
     current_compose_hash = _str(
-        smoke_evidence.get("attestedComposeHash")
+        phala.get("composeHash")
+        or phala.get("deployHelperComposeHash")
+        or smoke_evidence.get("attestedComposeHash")
         or smoke_evidence.get("deployHelperComposeHash")
-        or phala.get("composeHash")
     )
     app_id = _str(phala.get("appId"))
     os_image_hash = _str(phala.get("osImageHash"))
@@ -149,10 +152,21 @@ def build_tinker_smoke_command_plan(
     runtime_auth_present = bool(_str(env_map.get(runtime_auth_env)))
     rpc_present = bool(_str(env_map.get(encumbrance_rpc_env)))
 
-    runtime_env = _dict(smoke_evidence.get("runtimeEnv"))
+    current_compose_approved = _current_compose_approval(
+        current_compose_hash=current_compose_hash,
+        encumbrance=encumbrance,
+        smoke_evidence=smoke_evidence,
+        latest_client_config_deploy=latest_client_config_deploy,
+    )
+    runtime_env = _dict(latest_client_config_deploy.get("runtimeEnv")) or _dict(
+        smoke_evidence.get("runtimeEnv")
+    )
     live_contains_project_id = runtime_env.get("containsTinkerProjectId") is True
     live_contains_base_url = runtime_env.get("containsTinkerBaseUrl") is True
-    current_live_client_config = _bounded_client_config(smoke_evidence)
+    current_live_client_config = _bounded_client_config(
+        smoke_evidence,
+        latest_client_config_deploy=latest_client_config_deploy,
+    )
 
     reasons: list[str] = []
     warnings: list[str] = []
@@ -161,18 +175,18 @@ def build_tinker_smoke_command_plan(
     _require(reasons, app_id, "missing_phala_app_id")
     _require(reasons, os_image_hash, "missing_phala_os_image_hash")
     _require(reasons, encumbrance_address, "missing_tinker_encumbrance_contract")
-    if not project_id_present:
-        reasons.append("missing_tinker_project_id_env")
     if not runtime_auth_present:
         reasons.append("missing_runtime_auth_env")
     if not rpc_present:
         reasons.append("missing_encumbrance_rpc_env")
-    if not live_contains_project_id:
-        reasons.append("live_cvm_missing_tinker_project_id")
+    if current_compose_approved is False:
+        reasons.append("current_compose_not_approved")
     if base_url_present and not live_contains_base_url:
         reasons.append("live_cvm_missing_tinker_base_url")
     if phala.get("osIsDev") is True:
         warnings.append("phala_cvm_still_reports_dev_os")
+    if not live_contains_project_id:
+        warnings.append("tinker_project_id_not_configured_optional")
     if live_contains_base_url:
         warnings.append("live_cvm_uses_custom_tinker_base_url")
     _check_spend_cap(reasons, max_usd=max_usd, encumbrance=encumbrance)
@@ -219,9 +233,9 @@ def build_tinker_smoke_command_plan(
         "TINKER_RUNTIME_AUTH_TOKEN",
         "--allowed-env",
         "TINKER_RUN_METADATA_KEY_PATH",
-        "--allowed-env",
-        project_id_env,
     )
+    if project_id_present:
+        allowed_env_args += ("--allowed-env", project_id_env)
     if base_url_present:
         allowed_env_args += ("--allowed-env", base_url_env)
 
@@ -246,12 +260,13 @@ def build_tinker_smoke_command_plan(
         "--os-image-hash",
         os_image_hash or "<missing-os-image-hash>",
     )
+    governed_compose_hash = _bytes32_arg(current_compose_hash)
     approve_compose_argv = (
         "cast",
         "send",
         encumbrance_address or "<missing-encumbrance-contract>",
         "approveComposeHash(bytes32)",
-        NEW_COMPOSE_HASH_PLACEHOLDER,
+        governed_compose_hash,
         "--rpc-url",
         f"${{{encumbrance_rpc_env}}}",
         "--account",
@@ -269,7 +284,7 @@ def build_tinker_smoke_command_plan(
         "--amount",
         _format_amount(max_usd),
         "--compose-hash",
-        NEW_COMPOSE_HASH_PLACEHOLDER,
+        governed_compose_hash,
         "--contract-address",
         encumbrance_address or "<missing-encumbrance-contract>",
         "--rpc-url",
@@ -311,7 +326,7 @@ def build_tinker_smoke_command_plan(
         "--rank",
         str(rank),
         "--compose-hash",
-        NEW_COMPOSE_HASH_PLACEHOLDER,
+        governed_compose_hash,
         "--require-encumbrance",
         "--output",
         output_path_template,
@@ -329,6 +344,7 @@ def build_tinker_smoke_command_plan(
         manifest_path=str(manifest_file),
         delegate_api_url=delegate_api_url,
         current_compose_hash=current_compose_hash,
+        current_compose_approved=current_compose_approved,
         app_id=app_id,
         os_image_hash=os_image_hash,
         encumbrance_contract_address=encumbrance_address,
@@ -346,7 +362,10 @@ def build_tinker_smoke_command_plan(
         encumbrance_preflight_argv=encumbrance_preflight_argv,
         client_config_install_argv=client_config_install_argv,
         smoke_argv=smoke_argv,
-        redeploy_shell=_shell_command(redeploy_argv, env_placeholders={project_id_env}),
+        redeploy_shell=_shell_command(
+            redeploy_argv,
+            env_placeholders={project_id_env} if project_id_present else set(),
+        ),
         verify_compose_shell=_join_argv(verify_compose_argv, env_placeholders=set()),
         approve_compose_shell=_shell_command(
             approve_compose_argv,
@@ -388,10 +407,18 @@ def _require(reasons: list[str], value: str, reason: str) -> None:
         reasons.append(reason)
 
 
-def _bounded_client_config(smoke_evidence: dict[str, Any]) -> dict[str, Any]:
+def _bounded_client_config(
+    smoke_evidence: dict[str, Any],
+    *,
+    latest_client_config_deploy: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    latest_client_config_deploy = latest_client_config_deploy or {}
     receipt = _dict(smoke_evidence.get("smokeReceipt"))
     config = _dict(receipt.get("clientConfig"))
-    runtime_env = _dict(smoke_evidence.get("runtimeEnv"))
+    installed = _dict(latest_client_config_deploy.get("clientConfigStatus"))
+    runtime_env = _dict(latest_client_config_deploy.get("runtimeEnv")) or _dict(
+        smoke_evidence.get("runtimeEnv")
+    )
     return {
         "api_key_argument": _str(config.get("apiKeyArgument") or config.get("api_key_argument")),
         "project_id_argument": _str(config.get("projectIdArgument") or config.get("project_id_argument")),
@@ -399,7 +426,47 @@ def _bounded_client_config(smoke_evidence: dict[str, Any]) -> dict[str, Any]:
         "base_url_host_family": _str(config.get("baseUrlHostFamily") or config.get("base_url_host_family")),
         "contains_tinker_project_id": runtime_env.get("containsTinkerProjectId") is True,
         "contains_tinker_base_url": runtime_env.get("containsTinkerBaseUrl") is True,
+        "sealed_project_id_configured": installed.get("projectIdConfigured") is True,
+        "sealed_base_url_configured": installed.get("baseUrlConfigured") is True,
+        "sealed_store_exists": installed.get("storeExists") is True,
     }
+
+
+def _current_compose_approval(
+    *,
+    current_compose_hash: str,
+    encumbrance: dict[str, Any],
+    smoke_evidence: dict[str, Any],
+    latest_client_config_deploy: dict[str, Any],
+) -> bool | None:
+    current = _normalize_hash(current_compose_hash)
+    candidates = (
+        (
+            latest_client_config_deploy.get("liveComposeHash"),
+            latest_client_config_deploy.get("composeApprovedOnChain"),
+        ),
+        (encumbrance.get("currentFundingComposeHash"), encumbrance.get("pendingComposeHashApproved")),
+        (
+            _dict(smoke_evidence.get("composeApproval")).get("composeHash"),
+            _dict(smoke_evidence.get("composeApproval")).get("approved"),
+        ),
+    )
+    for candidate_hash, approved in candidates:
+        if current and _normalize_hash(candidate_hash) == current and isinstance(approved, bool):
+            return approved
+    return None
+
+
+def _normalize_hash(value: Any) -> str:
+    text = _str(value).lower()
+    return text[2:] if text.startswith("0x") else text
+
+
+def _bytes32_arg(value: str) -> str:
+    normalized = _normalize_hash(value)
+    if len(normalized) == 64 and all(ch in "0123456789abcdef" for ch in normalized):
+        return f"0x{normalized}"
+    return NEW_COMPOSE_HASH_PLACEHOLDER
 
 
 def _check_spend_cap(reasons: list[str], *, max_usd: float, encumbrance: dict[str, Any]) -> None:
@@ -438,9 +505,9 @@ def _next_action(*, reasons: list[str], project_id_present: bool, live_contains_
     }
     if any(reason in infra_reasons for reason in reasons):
         return "repair_deployment_manifest"
-    if not project_id_present:
-        return "set_project_id_env"
-    if not live_contains_project_id:
+    if "current_compose_not_approved" in reasons:
+        return "approve_current_compose"
+    if project_id_present and not live_contains_project_id:
         return "seal_client_config"
     if any(reason.startswith("missing_") for reason in reasons):
         return "set_operator_env"

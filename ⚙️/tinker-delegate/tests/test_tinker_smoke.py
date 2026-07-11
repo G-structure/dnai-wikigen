@@ -145,6 +145,13 @@ class BadRequestError(Exception):
     pass
 
 
+class ProviderBadRequestError(BadRequestError):
+    def __init__(self, message, *, body, status_code=400):
+        super().__init__(message)
+        self.body = body
+        self.status_code = status_code
+
+
 FAKE_PROVIDER_KEY = "tml-" + ("A" * 24)
 FAKE_PROVIDER_EMAIL = "luc@example.com"
 FAKE_PROVIDER_CARD = "4242 4242 4242 4242"
@@ -193,6 +200,20 @@ class ServiceClientCreateFailingServiceClient(FakeServiceClient):
         raise BadRequestError(
             "Bad request creating session "
             f"with key {FAKE_PROVIDER_KEY}, project {project_id}, base {base_url}"
+        )
+
+
+class ProviderClassifiedServiceClient(FakeServiceClient):
+    def __init__(self, api_key, project_id=None, base_url=None):
+        raise ProviderBadRequestError(
+            f"provider request failed for {api_key}",
+            body={
+                "error": {
+                    "code": "api_key_revoked",
+                    "message": f"API key revoked for {FAKE_PROVIDER_EMAIL}",
+                    "request_id": "123e4567-e89b-12d3-a456-426614174000",
+                }
+            },
         )
 
 
@@ -473,6 +494,31 @@ class TinkerSmokeTest(unittest.TestCase):
         self.assertNotIn("proj-secret", rendered)
         self.assertNotIn("custom.thinkingmachines.dev", rendered)
         self.assertNotIn(FAKE_PROVIDER_KEY, rendered)
+
+    def test_smoke_provider_error_is_allowlisted_without_raw_body(self):
+        with (
+            patch.object(FAKE_TINKER, "ServiceClient", ProviderClassifiedServiceClient),
+            patch.object(session_module, "tinker", FAKE_TINKER),
+            patch("tinker_delegate.tinker_smoke.resolve_api_key", return_value=FAKE_PROVIDER_KEY),
+            patch("tinker_delegate.tinker_smoke.preflight_tinker_operation", return_value=_allowed_policy()),
+        ):
+            result = run_tinker_sdk_smoke(
+                Settings(real_sdk_max_usd=0.05),
+                TinkerSmokeRequest(deal_id="deal-secret", max_usd=0.05),
+            )
+
+        rendered = json.dumps(result)
+        self.assertFalse(result["success"])
+        self.assertEqual(result["sdk_error"]["provider_error_category"], "inactive_api_key")
+        self.assertEqual(result["sdk_error"]["http_status"], 400)
+        self.assertEqual(result["sdk_error"]["http_status_class"], "4xx")
+        self.assertEqual(result["sdk_error"]["operator_action"], "refresh_or_reseal_api_key")
+        self.assertNotIn("api_key_revoked", rendered)
+        self.assertNotIn("API key revoked", rendered)
+        self.assertNotIn(FAKE_PROVIDER_EMAIL, rendered)
+        self.assertNotIn(FAKE_PROVIDER_KEY, rendered)
+        self.assertNotIn("123e4567", rendered)
+        self.assertFalse(result["raw_secret_egress"])
 
     def test_smoke_capabilities_probe_success_does_not_leak_model_list(self):
         with (
