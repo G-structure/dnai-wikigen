@@ -2515,16 +2515,28 @@ trust-boundary reasoning are recorded in `PROJECT.md` "Sealed Data At Rest" and
 reusing existing primitives (`crypto.encrypt_for_tee`,
 `dstack_utils.derive_storage_key`, `artifacts.zero_buffer`), not a new scheme.
 
-- [ ] `P1` Add a bounded, owner-signable dataset manifest schema:
+- [x] `P1` Add a bounded, owner-signable dataset manifest schema:
       dataset id, task metadata, ciphertext hash/size/chunking, plaintext hash,
       per-measurement wrapped-DEK envelopes, `data_sensitivity`
       (`public_benchmark`/`private`/`phi`), storage backend reference, and
       optional owner signature. Emit only hashes/status.
-- [ ] `P1` Implement envelope encryption for datasets: fresh random DEK,
+      Done 2026-07-10: `tinker_delegate.sealed_dataset.build_manifest` /
+      `verify_manifest` produce and check a bounded `sealed-dataset-manifest-v1`
+      with exactly these fields and `raw_secret_egress=false`. Owner-signature
+      binding hooks (`manifest_hash`, signature exclusion from the canonical
+      payload) exist; wiring a reviewer/owner signer is the remaining step.
+- [x] `P1` Implement envelope encryption for datasets: fresh random DEK,
       chunked AES-256-GCM over the dataset bytes with per-chunk nonce and AAD
       binding `dataset_id|chunk|total`, and DEK wrapping to one or more
       attestation-bound CVM public keys via `crypto.encrypt_for_tee`. Never
       print the DEK or plaintext.
+      Done 2026-07-10: `sealed_dataset.encrypt_dataset` / `decrypt_dataset`
+      chunk AES-256-GCM with per-chunk nonce + dataset/index/total AAD;
+      `wrap_dek` / `unwrap_dek` wrap the DEK to attestation-bound CVM keys via
+      `crypto.encrypt_for_tee` / `TEEKeyPair`. Tests prove full round-trip,
+      wrong-key/tamper/wrong-AAD authentication failure, multi-recipient
+      unwrap, and an egress-safe manifest that never contains the DEK or
+      plaintext. CLI surface and CVM-side fetch/decrypt wiring remain open.
 - [ ] `P1` Add an `encrypt-dataset` CLI (and `dataset-recipient-pubkey` to
       fetch/verify a CVM's attestation-bound X25519 key) that produces the
       ciphertext blob plus signed manifest with a bounded receipt.

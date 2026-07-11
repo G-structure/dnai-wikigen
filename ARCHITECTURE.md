@@ -103,11 +103,23 @@ Important current status:
             local Python candidate sandbox and process-bound evaluator planner
             are not OS/container isolation and are not sufficient for untrusted
             production execution inside a CVM.
-[planned]   Sealed data at rest / portable encrypted datasets. Reward datasets
+[partial]   Sealed data at rest / portable encrypted datasets. Reward datasets
             (`D`) for private environments must be storable in untrusted public
             hosts — Hugging Face Hub, S3, IPFS — while plaintext exists only
-            inside the attested boundary. The chosen construction is envelope
-            encryption reusing existing primitives, not a new scheme:
+            inside the attested boundary. The envelope-encryption core is now
+            source/test-real in `tinker_delegate.sealed_dataset`:
+            `encrypt_dataset`/`decrypt_dataset` do chunked AES-256-GCM under a
+            fresh random DEK with per-chunk nonce and `dataset_id|index|total`
+            AAD; `wrap_dek`/`unwrap_dek` wrap the DEK to attestation-bound CVM
+            keys via `crypto.encrypt_for_tee`/`TEEKeyPair`;
+            `build_manifest`/`verify_manifest` produce and check a bounded
+            `sealed-dataset-manifest-v1`. Tests prove round-trip, wrong-key /
+            tamper / wrong-AAD authentication failure, multi-recipient unwrap,
+            and a manifest that never carries the DEK or plaintext. Still
+            `[planned]`: the CLI surface, pluggable storage backends, CVM-side
+            fetch/decrypt-to-sealed-volume wiring, and owner/reviewer signing.
+            The chosen construction reuses existing primitives, not a new
+            scheme:
             `crypto.encrypt_for_tee()` (X25519 ECDH + HKDF-SHA256 +
             AES-256-GCM to an attestation-bound CVM public key) wraps a fresh
             random data-encryption key (DEK); the DEK does chunked AES-256-GCM
