@@ -501,8 +501,12 @@ async def delete_api_key(page: Page, settings: Settings, ref: str) -> dict[str, 
             ref, AutomationOutcome.SELECTOR_MISSING, AutomationStage.API_KEY_LIST_READ,
             debug_controls=controls,
         )
-    await asyncio.sleep(1)
+    await asyncio.sleep(1.5)
     stage = AutomationStage.API_KEY_DELETE_CLICKED
+
+    # Capture the dialog state NOW (before any re-navigation) so a failure shows
+    # the real confirm UI, not the keys page we re-list afterwards.
+    dialog_controls = await _dump_row_controls(page)
 
     # A destructive-confirm dialog often requires typing the key's name (or id)
     # to enable the confirm button. Fill any dialog text input before confirming.
@@ -528,11 +532,8 @@ async def delete_api_key(page: Page, settings: Settings, ref: str) -> dict[str, 
     after = await list_api_keys(page, settings)
     still_present = find_key_by_ref(after.keys, ref) is not None
     if still_present:
-        # Dump the current page's controls + inputs so the real confirm UI is
-        # visible on the next run (bounded: labels/titles/short-text only).
-        controls = await _dump_row_controls(page)
         return _delete_receipt(
-            ref, AutomationOutcome.UNKNOWN_FAILURE, stage, debug_controls=controls
+            ref, AutomationOutcome.UNKNOWN_FAILURE, stage, debug_controls=dialog_controls
         )
     print("[apikey] deleted key")
     return _delete_receipt(ref, AutomationOutcome.SUCCESS, AutomationStage.API_KEY_DELETED)
