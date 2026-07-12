@@ -504,15 +504,36 @@ async def delete_api_key(page: Page, settings: Settings, ref: str) -> dict[str, 
     await asyncio.sleep(1)
     stage = AutomationStage.API_KEY_DELETE_CLICKED
 
+    # A destructive-confirm dialog often requires typing the key's name (or id)
+    # to enable the confirm button. Fill any dialog text input before confirming.
+    confirm_value = target.name or target.key_id
+    for input_sel in (
+        'input[name*="confirm" i]', 'input[placeholder*="name" i]',
+        'input[placeholder*="delete" i]', 'input[type="text"]', 'input:not([type])',
+    ):
+        ci = page.locator(input_sel)
+        try:
+            if await ci.count() > 0 and confirm_value:
+                await ci.first.fill(confirm_value)
+                await asyncio.sleep(0.3)
+                break
+        except Exception:
+            continue
+
     if await _click_first_available(page, API_KEY_DELETE_CONFIRM_SELECTORS):
         stage = AutomationStage.API_KEY_DELETE_CONFIRMED
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
 
     # Verify by re-listing: the target should be gone.
     after = await list_api_keys(page, settings)
     still_present = find_key_by_ref(after.keys, ref) is not None
     if still_present:
-        return _delete_receipt(ref, AutomationOutcome.UNKNOWN_FAILURE, stage)
+        # Dump the current page's controls + inputs so the real confirm UI is
+        # visible on the next run (bounded: labels/titles/short-text only).
+        controls = await _dump_row_controls(page)
+        return _delete_receipt(
+            ref, AutomationOutcome.UNKNOWN_FAILURE, stage, debug_controls=controls
+        )
     print("[apikey] deleted key")
     return _delete_receipt(ref, AutomationOutcome.SUCCESS, AutomationStage.API_KEY_DELETED)
 
@@ -658,15 +679,16 @@ async def _dump_row_controls(row_locator) -> list[dict[str, str]]:
     """
     controls: list[dict[str, str]] = []
     try:
-        els = row_locator.locator("button, a, [role='button'], [role='menuitem']")
-        count = min(await els.count(), 25)
+        els = row_locator.locator("button, a, [role='button'], [role='menuitem'], input")
+        count = min(await els.count(), 30)
         for i in range(count):
             el = els.nth(i)
             try:
                 info = await el.evaluate(
-                    "e => ({tag: e.tagName, label: e.getAttribute('aria-label')||'',"
-                    " title: e.getAttribute('title')||'', testid: e.getAttribute('data-testid')||'',"
-                    " haspopup: e.getAttribute('aria-haspopup')||'', text: (e.textContent||'').trim().slice(0,24)})"
+                    "e => ({tag: e.tagName, type: e.getAttribute('type')||'',"
+                    " label: e.getAttribute('aria-label')||'', title: e.getAttribute('title')||'',"
+                    " placeholder: e.getAttribute('placeholder')||'', testid: e.getAttribute('data-testid')||'',"
+                    " disabled: e.disabled ? 'true' : '', text: (e.textContent||'').trim().slice(0,24)})"
                 )
                 controls.append({k: str(v) for k, v in info.items()})
             except Exception:
