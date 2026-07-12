@@ -45,6 +45,28 @@ class PythonCandidateSandboxTest(unittest.TestCase):
                 self.assertFalse(result.accepted)
                 self.assertEqual(result.stdout, "")
 
+    def test_runtime_layer_blocks_ast_passing_escapes(self):
+        # These escapes pass the AST preflight (getattr/type are Name calls, not
+        # banned; a class def has no banned node) but must fail closed at the
+        # restricted-builtins runtime — no stdout, not accepted. Guards against a
+        # future refactor re-adding getattr/type/__build_class__ to safe_builtins.
+        sandbox = PythonCandidateSandbox()
+        escapes = [
+            b'print(getattr((), chr(95)*2 + "class" + chr(95)*2))',  # dynamic dunder via getattr
+            b"print(type(()))",                                       # type() -> class object
+            b"print(vars())",                                         # vars() namespace access
+            b"class X:\n    pass\nprint(X)",                          # needs __build_class__
+        ]
+        for payload in escapes:
+            with self.subTest(payload=payload):
+                result = sandbox.run(Candidate(payload))
+                self.assertFalse(result.accepted, payload)
+                self.assertEqual(result.stdout, "")
+                self.assertIn(
+                    result.failure_code,
+                    (SandboxFailureCode.RUNTIME_ERROR, SandboxFailureCode.POLICY_REJECTED),
+                )
+
     def test_policy_rejections_are_bucketed_not_detailed(self):
         sandbox = PythonCandidateSandbox()
 
@@ -86,6 +108,22 @@ class PythonCandidateSandboxTest(unittest.TestCase):
         self.assertTrue(result.timed_out)
         self.assertIsNone(result.exit_code)
         self.assertEqual(result.stderr, "sandbox failure: timeout")
+
+    def test_memory_bomb_fails_closed_bounded(self):
+        # A candidate that attempts a huge allocation must fail closed to a
+        # bounded runtime_error (RLIMIT_AS / allocation failure), never OOM the
+        # host, hang, or leak a raw MemoryError traceback. This pins the memory-
+        # DoS defense for the untrusted-code boundary (previously only the
+        # wall-clock timeout was tested).
+        sandbox = PythonCandidateSandbox(SandboxPolicy(timeout_seconds=3.0, memory_megabytes=64))
+
+        result = sandbox.run(Candidate(b"x = bytearray(10**11)\nprint(len(x))"))
+
+        self.assertEqual(result.outcome, SandboxOutcome.RUNTIME_ERROR)
+        self.assertEqual(result.failure_code, SandboxFailureCode.RUNTIME_ERROR)
+        self.assertFalse(result.timed_out)
+        # Bucketed stderr: no raw MemoryError traceback / candidate internals.
+        self.assertEqual(result.stderr, "sandbox failure: runtime_error")
 
     def test_random_seed_is_deterministic(self):
         sandbox = PythonCandidateSandbox(SandboxPolicy(deterministic_seed=42))

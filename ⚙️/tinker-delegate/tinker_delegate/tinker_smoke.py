@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import math
 import re
+import threading
 import time
 import uuid
 from dataclasses import dataclass
 from importlib import metadata
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 from tinker_delegate.api_key_store import resolve_api_key
@@ -24,6 +25,43 @@ from tinker_delegate.tinker_encumbrance import (
 
 HARD_SMOKE_MAX_USD = 0.50
 DEFAULT_SMOKE_MAX_USD = 0.05
+# A blocked/unactivated Tinker account makes the first authenticated SDK calls
+# (ServiceClient connect, create_training) hang on internal retry/backoff for
+# minutes. Cap them so the smoke returns a bounded ``transient_timeout`` verdict
+# in seconds instead of hanging — the operator gets a definitive answer fast.
+DEFAULT_SMOKE_CONNECT_TIMEOUT = 45.0
+
+
+class SmokeTimeoutError(TimeoutError):
+    """Raised when a Tinker SDK call exceeds the smoke connect deadline.
+
+    The name carries ``timeout`` so ``_classify_sdk_error`` buckets it as
+    ``transient_timeout``.
+    """
+
+
+def _call_with_deadline(fn: Callable[[], Any], seconds: float, *, label: str) -> Any:
+    """Run ``fn`` on a daemon thread; raise SmokeTimeoutError past the deadline.
+
+    The worker is a daemon so a genuinely-stuck SDK call cannot block process
+    exit; it is abandoned (not cancellable) but the smoke returns promptly.
+    """
+    box: dict[str, Any] = {}
+
+    def _runner() -> None:
+        try:
+            box["value"] = fn()
+        except BaseException as exc:  # noqa: BLE001 - propagate SDK errors intact
+            box["error"] = exc
+
+    worker = threading.Thread(target=_runner, name=f"tinker-smoke-{label}", daemon=True)
+    worker.start()
+    worker.join(timeout=max(1.0, float(seconds)))
+    if worker.is_alive():
+        raise SmokeTimeoutError(f"tinker smoke {label} exceeded {int(seconds)}s deadline")
+    if "error" in box:
+        raise box["error"]
+    return box.get("value")
 
 
 @dataclass(frozen=True)
@@ -126,10 +164,17 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
         project_id=project_id,
         base_url=base_url,
     )
+    connect_timeout = float(
+        getattr(settings, "smoke_connect_timeout", DEFAULT_SMOKE_CONNECT_TIMEOUT)
+    )
     try:
         import tinker
 
-        service_client = _create_service_client(tinker, api_key, project_id, base_url)
+        service_client = _call_with_deadline(
+            lambda: _create_service_client(tinker, api_key, project_id, base_url),
+            connect_timeout,
+            label="service_client_create",
+        )
         sdk_diagnostics = _bounded_sdk_diagnostics(
             service_client=service_client,
             model=model,
@@ -141,7 +186,11 @@ def run_tinker_sdk_smoke(settings, request: TinkerSmokeRequest | None = None) ->
         session = IsolatedTinkerSession(service_client, deal_id)
 
         failure_site = "create_training_client"
-        session.create_training(base_model=model, rank=rank)
+        _call_with_deadline(
+            lambda: session.create_training(base_model=model, rank=rank),
+            connect_timeout,
+            label="create_training",
+        )
         furthest_stage = "training_created"
         failure_site = "tokenizer"
         tokenizer = session.get_tokenizer()
@@ -803,6 +852,8 @@ def _operator_action(bucket: str, failure_site: str, provider_error_category: st
             return "check_tinker_base_url"
         if bucket == "auth_or_entitlement":
             return "refresh_or_reseal_api_key"
+        if bucket in {"transient_timeout", "transient_network", "rate_limited"}:
+            return "retry_or_check_tinker_account_activation"
         return "check_sdk_client_configuration"
     if failure_site == "create_training_client":
         if bucket in {"invalid_request", "model_or_rank", "auth_or_entitlement"}:

@@ -8,6 +8,14 @@ Endpoints:
   GET  /browser/selector-probe    — bounded read-only selector/frame probe, disabled unless explicitly enabled
   GET  /billing/balance           — current Tinker balance
   GET  /billing/payment-method-status — bounded card-on-file status
+  GET  /billing/account-access-status — bounded account access/billing-gate state
+  POST /retention/sweep              — destroy expired retained artifacts (bounded)
+  GET  /source/grants                — bounded source-controller grant manifest
+  POST /verify/reward-run            — verify a private-reward run packet (bounded verdict)
+  POST /verify/reward-mechanism      — aggregate mechanism audit: run + dataset + canary (bounded)
+  GET  /review/queue                 — bounded human-review queue (optional ?routed_role=)
+  POST /review/decide                — record a reviewer decision (fail-closed, persisted)
+  POST /review/expire                — expire stale pending tickets (persisted sweep)
   GET  /billing/funding-policy    — bounded active funding mode
   GET  /billing/funding-preflight — bounded operator validation readiness
   GET  /billing/funding-receipts  — bounded funding attempt audit records
@@ -83,6 +91,7 @@ from tinker_delegate.card_channel import (
     handle_card_update,
     handle_encrypted_card_update,
     handle_add_balance,
+    handle_account_access_status,
     handle_get_balance,
     handle_payment_method_status,
     handle_remove_payment_method,
@@ -267,12 +276,24 @@ def _get_control_plane():
                 ) from exc
             raise
         client_config = resolve_tinker_client_config(settings)
+        from tinker_delegate.retention_policy import build_retention_policy
+        from tinker_delegate.sealed_retention import build_retention_store
+        from tinker_delegate.source_controller import build_source_registry
         _control_plane = ControlPlane(
             api_key,
             run_metadata_store=build_run_metadata_store(settings),
             project_id=client_config["project_id"],
             base_url=client_config["base_url"],
+            retention_policy=build_retention_policy(settings),
+            retention_store=build_retention_store(settings),
+            source_registry=build_source_registry(settings),
         )
+        # On-boot sweep: destroy any retained artifacts whose window expired while
+        # the service was down, so nothing lingers past its retention deadline.
+        try:
+            _control_plane.sweep_retention()
+        except Exception:  # pragma: no cover - defensive; never block startup
+            pass
     return _control_plane
 
 
@@ -374,6 +395,44 @@ class CoordinationConsentDecisionRequestBody(BaseModel):
     now: int = 0
     require_signature: bool = False
     expected_signer: str = ""
+
+
+class RewardRunVerifyRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # A private-reward run packet (a demo output): certificate + transcript
+    # commitment. Only its bounded public bytes are needed to verify.
+    packet: dict[str, Any]
+
+
+class RewardMechanismVerifyRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # The run packet plus the data-safe external inputs a third party posts: the
+    # published sealed-dataset manifest (point 2) and canary calibration report
+    # (point 3), both as JSON data. Code-source binding (point 1) is deliberately
+    # NOT accepted here — it would require the server to read a caller-supplied
+    # file path (a local-file-inclusion risk); that check stays CLI-local, run by
+    # the reader against the source they hold.
+    packet: dict[str, Any]
+    manifest: dict[str, Any] | None = None
+    canary_report: dict[str, Any] | None = None
+    expected_signer: str | None = None
+    # Anti-collusion + provenance layers (all data-safe): the witness quorum is
+    # {"authorized_witnesses": [addr...], "threshold": M}; provenance runs when
+    # require_provenance or expected_benchmark is set.
+    witness_quorum: dict[str, Any] | None = None
+    expected_benchmark: str | None = None
+    require_provenance: bool = False
+
+
+class ReviewDecideRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ticket_id: str
+    decision: str  # "release" | "deny"
+    reviewer_ref: str
+    blocked_reviewer_refs: list[str] = []
 
 
 @app.get("/tinker/proxy/status")
@@ -672,6 +731,183 @@ async def billing_payment_method_status(authorization: str = Header(default=""))
     auth_context = _require_runtime_or_proxy_auth("billing:payment-method-status", authorization)
     result = await handle_payment_method_status(settings)
     return _attach_proxy_auth_context(result, auth_context)
+
+
+@app.get("/billing/account-access-status")
+async def billing_account_access_status(authorization: str = Header(default="")):
+    """Return the bounded account access/billing-gate state (operator-only)."""
+    _require_runtime_auth(authorization)
+    return await handle_account_access_status(settings)
+
+
+@app.get("/source/grants")
+def source_grants_manifest(authorization: str = Header(default="")):
+    """Return the bounded source-controller grant manifest (operator-only)."""
+    _require_runtime_auth(authorization)
+    import time as _time
+
+    from tinker_delegate.source_controller import build_source_registry
+
+    registry = build_source_registry(settings)
+    if registry is None:
+        return {"kind": "source_controller_manifest", "grant_count": 0, "grants": [], "raw_secret_egress": False}
+    return registry.public_manifest(now=int(_time.time()))
+
+
+@app.post("/retention/sweep")
+def retention_sweep(authorization: str = Header(default="")):
+    """Destroy expired retained artifacts; return bounded destruction records."""
+    _require_runtime_auth(authorization)
+    try:
+        cp = _get_control_plane()
+    except HTTPException:
+        # Retention sweep does not need the Tinker agent stack; degrade gracefully.
+        return {"swept_count": 0, "destruction_records": [], "raw_secret_egress": False}
+    records = cp.sweep_retention()
+    return {
+        "swept_count": len(records),
+        "destruction_records": records,
+        "raw_secret_egress": False,
+    }
+
+
+@app.post("/verify/reward-run")
+def verify_reward_run_endpoint(
+    payload: RewardRunVerifyRequestBody, authorization: str = Header(default="")
+):
+    """Verify a posted private-reward run packet; return the bounded verdict.
+
+    Auditor/operator surface for the run-verification chain (certificate +
+    proof-carrying transcript + binding). Verification uses only the packet's
+    bounded public bytes; nothing sealed is read and only a bounded verdict
+    leaves.
+    """
+    _require_runtime_auth(authorization)
+    from tinker_delegate.run_verification import verify_reward_run
+
+    return verify_reward_run(payload.packet)
+
+
+@app.post("/verify/reward-mechanism")
+def verify_reward_mechanism_endpoint(
+    payload: RewardMechanismVerifyRequestBody, authorization: str = Header(default="")
+):
+    """Aggregate third-party mechanism audit over posted data; bounded verdict.
+
+    Composes the run-packet check with the data-safe external checks — sealed
+    dataset binding (posted manifest) and canary calibration (posted report). The
+    code-source binding (point 1) is intentionally excluded from the HTTP surface
+    because it needs the reader's local source; run it via the
+    `verify-reward-mechanism --source` CLI instead. Only bounded public bytes are
+    read; nothing sealed leaves.
+    """
+    _require_runtime_auth(authorization)
+    from tinker_delegate.run_verification import verify_reward_mechanism
+
+    return verify_reward_mechanism(
+        payload.packet,
+        source_targets=None,
+        manifest=payload.manifest,
+        canary_report=payload.canary_report,
+        expected_signer=payload.expected_signer or None,
+        witness_quorum=payload.witness_quorum,
+        expected_benchmark=payload.expected_benchmark or None,
+        require_provenance=bool(payload.require_provenance),
+    )
+
+
+def _load_review_queue_state():
+    """Load the persisted review queue, or an empty state if unconfigured."""
+    from pathlib import Path
+
+    from tinker_delegate.review_queue import ReviewQueueState, load_review_queue
+
+    path = settings.review_queue_path
+    if not path or not Path(path).exists():
+        return ReviewQueueState.empty()
+    return load_review_queue(path)
+
+
+@app.get("/review/queue")
+def review_queue_status(routed_role: str = "", authorization: str = Header(default="")):
+    """Return the bounded human-review queue (operator-only).
+
+    Optional ``routed_role`` filters to pending tickets for that review role.
+    Bounded: ticket/reason/reviewer hashes and counts only — no raw hold reasons
+    or reviewer identities.
+    """
+    _require_runtime_auth(authorization)
+    import time as _time
+
+    from tinker_delegate.review_queue import pending_tickets_for_role
+
+    state = _load_review_queue_state()
+    if routed_role:
+        pending = pending_tickets_for_role(state, routed_role, now=int(_time.time()))
+        return {
+            "kind": "review_queue_pending",
+            "routed_role": routed_role,
+            "pending_count": len(pending),
+            "tickets": [ticket.to_public_dict() for ticket in pending],
+            "raw_secret_egress": False,
+        }
+    return state.to_public_dict()
+
+
+@app.post("/review/decide")
+def review_decide(payload: ReviewDecideRequestBody, authorization: str = Header(default="")):
+    """Record a reviewer decision on a queued ticket; persist and return the queue.
+
+    Fail-closed by construction (via `review_queue`): the submitter cannot
+    self-approve, M-of-N thresholds are honored, and a single deny denies. The
+    decision timestamp is server-side. Requires a configured `review_queue_path`.
+    """
+    _require_runtime_auth(authorization)
+    import time as _time
+
+    from tinker_delegate.review_queue import (
+        ReviewQueueError,
+        decide_review_ticket,
+        save_review_queue,
+    )
+
+    if not settings.review_queue_path:
+        raise HTTPException(503, "review queue is not configured")
+    state = _load_review_queue_state()
+    try:
+        state = decide_review_ticket(
+            state,
+            payload.ticket_id,
+            decision=payload.decision,
+            reviewer_ref=payload.reviewer_ref,
+            decided_at=int(_time.time()),
+            blocked_reviewer_refs=tuple(payload.blocked_reviewer_refs),
+        )
+    except ReviewQueueError as e:
+        raise HTTPException(409, redact_text(str(e))) from e
+    save_review_queue(settings.review_queue_path, state)
+    return state.to_public_dict()
+
+
+@app.post("/review/expire")
+def review_expire(authorization: str = Header(default="")):
+    """Expire stale pending tickets at server time, persist, and return the queue.
+
+    On-demand expiry sweep (a deployed cron/worker can poll this): a pending
+    ticket past its TTL transitions to EXPIRED with an audit event and can no
+    longer be released — fail-closed. Requires a configured `review_queue_path`.
+    """
+    _require_runtime_auth(authorization)
+    import time as _time
+
+    from tinker_delegate.review_queue import expire_review_tickets, save_review_queue
+
+    if not settings.review_queue_path:
+        raise HTTPException(503, "review queue is not configured")
+    state = _load_review_queue_state()
+    state = expire_review_tickets(state, now=int(_time.time()))
+    save_review_queue(settings.review_queue_path, state)
+    return state.to_public_dict()
 
 
 @app.get("/billing/funding-policy")

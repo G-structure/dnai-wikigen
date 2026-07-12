@@ -18,6 +18,7 @@ from tinker_delegate.dstack_utils import derive_storage_key, is_dstack_enabled
 ALLOWED_RUN_METADATA_FIELDS = frozenset(
     {
         "artifact_hash",
+        "artifact_sealed_retained",
         "artifact_size_band",
         "budget_cap_band",
         "buyer_hash",
@@ -34,6 +35,8 @@ ALLOWED_RUN_METADATA_FIELDS = frozenset(
         "deal_hash",
         "deleted_checkpoint_count",
         "delete_attempts",
+        "destruction_complete",
+        "destruction_record_hash",
         "event",
         "expiry_band",
         "failed_checkpoint_count",
@@ -43,9 +46,12 @@ ALLOWED_RUN_METADATA_FIELDS = frozenset(
         "listed_checkpoint_count",
         "offer_price_band",
         "raw_secret_egress",
+        "reconciliation_status",
         "recommendation",
         "reserve_price_band",
         "result_hash",
+        "retention_action",
+        "settlement_safe",
         "score_band",
         "seller_hash",
         "seller_payment_band",
@@ -64,6 +70,7 @@ ALLOWED_RUN_METADATA_EVENTS = frozenset(
         "evaluation_failed",
         "chain_event",
         "deal_resolved",
+        "retention_swept",
     }
 )
 

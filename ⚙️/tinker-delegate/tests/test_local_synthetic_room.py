@@ -143,5 +143,57 @@ class LocalSyntheticRoomTest(unittest.TestCase):
             self.assertNotIn(forbidden, rendered_metadata)
 
 
+    def test_over_budget_compute_cost_fails_closed_to_reject(self):
+        # A deal whose metered developer charge (compute + fee) cannot fit under
+        # the budget after the seller offer must be refused in the TEE — the
+        # cost reconciler flips the recommendation to reject and records the
+        # bounded settlement-unsafe verdict, instead of pushing a charge that
+        # would revert on chain.
+        private_artifact = b"private synthetic artifact for the over-budget path"
+        artifact_hash = artifact_keccak256(private_artifact)
+        deal_id = "deal-over-budget"
+        budget_cap = 1_000  # far below the metered compute cost (~1e10 wei)
+        reserve_price = 1
+        metadata_store = InMemoryRunMetadataStore()
+        fake_tinker = FakeTinkerServiceClient(api_key="sealed-fake-key")
+        cp = ControlPlane(
+            "sealed-fake-key",
+            run_metadata_store=metadata_store,
+            project_id="sealed-project-id",
+            service_client_factory=lambda **_kwargs: fake_tinker,
+        )
+        cp.on_deal_funded(
+            deal_id,
+            buyer="0x00000000000000000000000000000000000000b0",
+            seller="0x000000000000000000000000000000000000005e",
+            budget_cap=budget_cap,
+            reserve_price=reserve_price,
+        )
+
+        encrypted = encrypt_artifact_payload(
+            private_artifact,
+            api.get_tee_keypair().public_key_bytes.hex(),
+            deal_id=deal_id,
+            artifact_hash=artifact_hash,
+        )
+        client = TestClient(api.app)
+        with patch("tinker_delegate.api._get_control_plane", return_value=cp):
+            response = client.post(f"/deal/{deal_id}/artifact/encrypted", json=encrypted)
+        self.assertEqual(response.status_code, 200)
+
+        result = asyncio.run(cp.evaluate(deal_id, synthetic_room_evaluator))
+
+        # Band still reflects the quality signal, but settlement is refused.
+        self.assertEqual(result.score_band, ScoreBand.MEDIUM)
+        self.assertFalse(result.settlement_safe)
+        self.assertEqual(result.reconciliation_status, "over_budget")
+        self.assertEqual(result.recommendation, "reject")
+
+        completed = [r for r in metadata_store.records if r["event"] == "evaluation_completed"]
+        self.assertEqual(len(completed), 1)
+        self.assertFalse(completed[0]["settlement_safe"])
+        self.assertEqual(completed[0]["reconciliation_status"], "over_budget")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 # dnai-wikigen Status
 
-Last updated: 2026-07-09
+Last updated: 2026-07-12
 
 Scope: current repository evidence only. This file is a status ledger, not a
 production deployment manifest.
@@ -38,6 +38,72 @@ funding, production identity/reviewer governance, full quote-internal TDX
 verification, live CVM-originated TEE-to-chain signing, and RLVR/bio-validation
 remain incomplete. Phala auth is configured for profile `wikigen` in workspace
 `wiki`.
+
+Live re-verification, 2026-07-11 (checked against the running system, not just
+recorded evidence):
+
+- Contracts on Base Sepolia respond and match this manifest via public-RPC
+  reads: `TinkerAccountEncumbrance` (`0x9f2616f3f7b0dc363bba19f7d72b9061f791a06e`)
+  `owner=0xEd1Ade0bC26BD63A6e509Da3F5cDf6617369F4dD`, `emergencyHalted=false`,
+  `measurementsFrozen=false`; `approvedComposeHashes(0xe682…)=true` (latest
+  approved) and `approvedComposeHashes(0x1d6d…)=false` (current funding compose
+  still unapproved). `DiligenceRoom` (`0x5d8a…f423`) `developer` and
+  `EmailOracleAuth` (`0xf52c…72ff`) `owner` both the operator address.
+- CVM `cvm_1w85mGjo` / app `f6a3219…` reports `running` (dstack-dev-0.5.9). The
+  delegate is reachable at
+  `https://f6a3219ce4b3c13e1c8bbbb56ce2217f9ebd7717-8080.dstack-pha-prod9.phala.network`.
+  `GET /health` returns `status:ok`, `dstack_enabled:true`,
+  `api_key_configured:true` (`api_key_source:encrypted_store`),
+  `agent_stack_available:true`, oracle `degraded` (no email creds). Authenticated
+  bounded `tinker-proxy-status` returns `mode:tee_cvm_delegate`,
+  `jwt_signing_key_source:dstack_derived`, `issue_policy_required:true`,
+  `deployment_policy_required:true`, `encumbrance_contract_configured:true`,
+  `raw_secret_egress:false`.
+- Confirmed still-open end-to-end blocker: the live proxy status reports
+  `project_id_configured:false` (sealed `TINKER_PROJECT_ID` not installed) and
+  the current compose `0x1d6d…` is unapproved on-chain, so a real Tinker SDK
+  training/smoke cannot succeed. The current live compose also has the stricter
+  governance gates OFF (`grant_lifecycle_required:false`,
+  `identity_registry_signature_required:false`) — weaker than the earlier
+  signature-required deployment — and remains `dstack-dev` / `public_logs=true`
+  (dev posture). Net: infrastructure + policy gates are live and working; a real
+  delegated training run is not yet proven.
+- 2026-07-11 update: the current live compose
+  `0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085` was
+  approved on-chain in `TinkerAccountEncumbrance` tx
+  `0x13e0f37af37fb79c9bf365c8fd0a82c1299c9f85f7b6ec01057d2915768ab6e7`
+  (block 44001620). A real capped smoke (`tinker-smoke --require-encumbrance`,
+  cap $0.05) against the live CVM then passed the spend policy
+  (`compose_approved=true`, `allowed=true`, `metered_cost_band=zero`) but FAILED
+  at `ServiceClient` creation with a 4xx. The initial guess (missing
+  `project_id`) was WRONG. Root cause, found 2026-07-11 by decrypting the local
+  sealed API-key store (`data/tinker_api_key.enc` + `.key`) and driving the
+  Tinker SDK directly with the real key: the 400 body is "Your Tinker SDK
+  version is no longer supported. Please upgrade to the latest version." The
+  deployed CVM image ships `tinker==0.15.0`; the Tinker server now rejects it.
+  Fix: pinned `tinker>=0.22` in `pyproject.toml` (local upgrade to 0.22.7 clears
+  the version 400). After the upgrade the SDK connects with the real key but the
+  account returns 402 "Access ... is blocked due to billing status. Please add
+  payment." A capped $10 add-balance on the live CVM succeeded (browser balance
+  $10 -> $20, real card), but the 402 PERSISTS at $20 — so it is an account-level
+  Tinker billing/activation block, not a balance amount. Remaining blocker for a
+  real delegated training run: resolve the Tinker account's billing status on
+  the Tinker side (dashboard / account approval); it is not fixable by code,
+  project_id, or more credit. The CVM also needs an image rebuild to pick up the
+  supported SDK once the account is unblocked.
+- 2026-07-11 re-confirmation: a read-only `get_server_capabilities` probe from
+  the dev box (real sealed key loads, local SDK `0.22.7`, general internet works
+  — GitHub 200) STALLED for 40s+ against the Tinker API, consistent with the
+  blocked/unactivated account (a healthy account returns in ~1-2s). This is the
+  authoritative remaining blocker and it is external to our stack: the operator
+  must activate/enable API access on the Tinker account (or raise it with
+  Thinking Machines support). Everything on our side — encumbrance approval,
+  spend preflight, sealed key custody, bounded outputs, supported SDK pin — is
+  proven up to that call. To stop retries from hanging, the smoke path now
+  fail-fast caps the first authenticated SDK calls with a wall-clock deadline
+  (`smoke_connect_timeout`, default 45s) and returns a bounded
+  `transient_timeout` verdict with
+  `operator_action=retry_or_check_tinker_account_activation`.
 
 Latest pinned client-config install deployment, 2026-07-09:
 
@@ -966,7 +1032,13 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   state machine for created, funded, evaluated, accepted, rejected, and expired
   deals.
 - `⚙️/tinker-delegate/contracts/src/EmailOracleAuth.sol` models on-chain
-  app-auth policy for email-oracle consumers.
+  app-auth policy for email-oracle consumers: oracle-compose approval with
+  upgrade delay, consumer compose-hash registry with non-escalating manager
+  delegation, freeze-oracle-code and freeze-consumer-registry switches, an
+  immediate emergency consumer kill switch that survives the freeze
+  (`emergencyRevokeConsumer` / owner-only `restoreConsumer`), and a hashed
+  OTP-delivery audit event (`recordOtpDelivery`, per-consumer ordered sequence,
+  never the raw OTP) for dispute resolution.
 - `⚙️/tinker-delegate/contracts/src/TinkerAccountEncumbrance.sol` models
   on-chain policy/audit controls for the TEE-owned Tinker account: hashed
   account commitment, approved compose hashes, managers, add-balance/spend caps,
@@ -1355,6 +1427,38 @@ the post-email-submit Tinker auth posture, not browser launch or email typing.
   replayable synthetic hidden-dataset reward demo and emits only optimizer view,
   bounded feedback, final bounded result, transcript/leakage hashes, and
   attestation metadata.
+
+[real] Private verified-reward substrate (local + tested; not RLVR-proven on a
+real Tinker trainer, which stays blocked — see Current Blockers):
+
+- Swappable optimizer loop (`private_reward_loop.run_private_reward_loop`) with
+  `RandomSearchOptimizer`, `HillClimbOptimizer`, `LLMRepairOptimizer`, and a real
+  population-based `EvolutionaryOptimizer` (dedup + fail-closed halt), all driven
+  by the public band signal only. `LoopOutcome.certified_public_export()` gates
+  publication through the fail-closed egress guard.
+- Proof-carrying transcripts: `reward_transcript.RewardTranscript` commits the
+  per-round records into a domain-separated Merkle tree with inclusion proofs;
+  `transcript_log.TranscriptLogger` is an append-only hash chain driven live from
+  `PrivateRewardEnvironment.evaluate` and published as `transcript_chain_head` in
+  the attestation. `reproducibility.certify_loop_run` binds the transcript
+  commitment into the certificate hash; `run_verification.verify_reward_run`
+  (the `verify-reward-run` CLI and the auth-gated `POST /verify/reward-run`
+  endpoint) re-checks the whole chain from public bytes.
+  All three private-reward demos emit a bound certificate + commitment.
+- Bounded security/economics gates, each fail-closed and egress-checked:
+  `cost_metering` (settlement-safe reconciliation, wired into
+  `ControlPlane.evaluate`), `canary` (leaderboard-overfitting kill probes +
+  surprising-score review), `disclosure_policy` (BLOCKED/HASH_ONLY/ESCROW/PUBLIC
+  ladder, wired into the diligence flow, with `solution_escrow` physically
+  sealing the ESCROW mode under per-escrow HKDF keys released only on
+  authorization), `dp_accounting` (epsilon/delta budget,
+  wired into the bio release gate and into the reward loop via
+  `PrivateRewardEnvironment.set_dp_budget` — reward queries spend privacy budget
+  and fail closed when exhausted), and `session_state` (stale-session vs
+  login-loop OTP-refresh decision).
+- Sealed retention now uses an HKDF per-corpus/per-deal key hierarchy
+  (`sealed_retention`), not one static key; `otp_delivery` computes the bounded
+  on-chain OTP-delivery commitment without exposing the raw code.
 
 ## Partial
 

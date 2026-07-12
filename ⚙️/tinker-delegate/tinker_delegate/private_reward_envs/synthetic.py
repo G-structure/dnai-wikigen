@@ -19,6 +19,7 @@ from tinker_delegate.private_reward import (
     PublicProblem,
     RewardBand,
     SecurityTier,
+    assert_bounded_egress,
 )
 from tinker_delegate.private_reward_holdout import (
     HiddenHoldoutSet,
@@ -26,6 +27,7 @@ from tinker_delegate.private_reward_holdout import (
     HoldoutRecord,
     HoldoutSplitPolicy,
 )
+from tinker_delegate.ladder_release import LadderLeaderboard, LadderPolicy
 
 
 class SyntheticHiddenKeywordEnvironment(PrivateRewardEnvironment):
@@ -37,6 +39,7 @@ class SyntheticHiddenKeywordEnvironment(PrivateRewardEnvironment):
         holdout_policy: HoldoutSplitPolicy | None = None,
         query_budget: LeakageBudget | None = None,
         max_candidate_bytes: int = 64,
+        ladder_policy: LadderPolicy | None = None,
     ) -> None:
         super().__init__()
         self.holdout = HiddenHoldoutSet(records, holdout_policy)
@@ -49,6 +52,10 @@ class SyntheticHiddenKeywordEnvironment(PrivateRewardEnvironment):
         self._max_candidate_bytes = max_candidate_bytes
         self._accepted_candidates: list[Candidate] = []
         self._final_result: BoundedResult | None = None
+        # Opt-in Ladder gate over the adaptive reward-query stream (see
+        # ladder_release.py). When set, the released band is the running-best
+        # leaderboard, so repeated weak probing cannot move the settled number.
+        self._ladder = LadderLeaderboard(ladder_policy) if ladder_policy is not None else None
 
     def problem(self) -> PublicProblem:
         return PublicProblem(
@@ -57,6 +64,7 @@ class SyntheticHiddenKeywordEnvironment(PrivateRewardEnvironment):
             public_metadata={
                 "environment": "synthetic_hidden_keyword",
                 "holdout": self._holdout_setup_public(),
+                "ladder": self._ladder_public(),
             },
         )
 
@@ -90,6 +98,7 @@ class SyntheticHiddenKeywordEnvironment(PrivateRewardEnvironment):
             "security_tier": self.security_tier.value,
             "optimizer_policy": self.optimizer_policy.to_public_dict(),
             "holdout": self._holdout_setup_public(),
+            "ladder": self._ladder_public(),
         })
 
     @property
@@ -100,6 +109,7 @@ class SyntheticHiddenKeywordEnvironment(PrivateRewardEnvironment):
             "query_budget": self.query_budget.to_public_dict(),
             "optimizer_policy": self.optimizer_policy.to_public_dict(),
             "holdout": self.holdout.public_manifest().to_public_dict(),
+            "ladder": self._ladder_public(),
             "records": [record.to_public_dict() for record in self.leakage_records()],
         }
         return _sha256_json(leakage)
@@ -118,22 +128,39 @@ class SyntheticHiddenKeywordEnvironment(PrivateRewardEnvironment):
     def reward(self, candidate: Candidate) -> InternalReward:
         self.holdout.record_reward_query(candidate.candidate_hash)
         score, matches, total = self._score_partition(candidate, HoldoutPartition.REWARD)
-        return InternalReward(
-            value=score,
-            metrics={
-                "partition": HoldoutPartition.REWARD.value,
-                "matches": matches,
-                "total": total,
-            },
-        )
+        metrics: dict[str, Any] = {
+            "partition": HoldoutPartition.REWARD.value,
+            "matches": matches,
+            "total": total,
+        }
+        if self._ladder is not None:
+            # `score` is already a normalized match fraction in [0,1] (higher
+            # better), so it feeds the leaderboard directly.
+            release = self._ladder.submit(score)
+            metrics["ladder_step_index"] = release.leaderboard_step_index
+            metrics["ladder_denominator"] = release.step_denominator
+            metrics["ladder_accepted"] = release.accepted
+        return InternalReward(value=score, metrics=metrics)
 
     def output_reducer(self, reward: InternalReward) -> BoundedFeedback:
+        if "ladder_step_index" in reward.metrics:
+            # Ladder-gated: release the running-best leaderboard band (monotonic,
+            # honest under unlimited adaptive querying) instead of this
+            # candidate's raw band.
+            band = _ladder_band(
+                reward.metrics["ladder_step_index"],
+                reward.metrics["ladder_denominator"],
+            )
+            message = "bounded synthetic ladder-gated leaderboard band"
+        else:
+            band = _score_band(reward.value)
+            message = "bounded synthetic holdout score"
         return BoundedFeedback(
             candidate_hash="",
             decision=Decision.PASS,
             feedback_mode=FeedbackMode.BAND,
-            reward_band=_score_band(reward.value),
-            public_message="bounded synthetic holdout score",
+            reward_band=band,
+            public_message=message,
         )
 
     def evaluate(self, candidate: Candidate) -> BoundedFeedback:
@@ -156,6 +183,8 @@ class SyntheticHiddenKeywordEnvironment(PrivateRewardEnvironment):
         decision = Decision.PASS if final_score > 0 else Decision.DENY
         attestation = self.attest().to_public_dict()
         attestation["holdout"] = self.holdout.public_manifest().to_public_dict()
+        if self._ladder is not None:
+            attestation["ladder"] = self._ladder.public_manifest()
         self._final_result = BoundedResult(
             decision=decision,
             result_band=final_band,
@@ -165,6 +194,9 @@ class SyntheticHiddenKeywordEnvironment(PrivateRewardEnvironment):
             leakage_hash=self.leakage_hash,
             attestation=attestation,
             public_message="bounded synthetic final validation result",
+        )
+        assert_bounded_egress(
+            self._final_result.to_public_dict(), structural_ignore_keys=("attestation",)
         )
         return self._final_result
 
@@ -194,6 +226,12 @@ class SyntheticHiddenKeywordEnvironment(PrivateRewardEnvironment):
             "partition_counts": manifest["partition_counts"],
         }
 
+    def _ladder_public(self) -> dict[str, Any] | None:
+        """Bounded Ladder-policy descriptor for the audited mechanism, or None."""
+        if self._ladder is None:
+            return None
+        return self._ladder.policy.to_public_dict()
+
 
 def _candidate_keyword(candidate: Candidate) -> str | None:
     try:
@@ -218,6 +256,18 @@ def _score_band(score: float) -> RewardBand:
     if score > 0:
         return RewardBand.LOW
     return RewardBand.NEGLIGIBLE
+
+
+def _ladder_band(step_index: int, denominator: int) -> RewardBand:
+    """Map a Ladder leaderboard best (step index over denominator) to a band.
+
+    Reuses this env's own ``_score_band`` thresholds because the Ladder score fed
+    in is the match fraction, on the same [0,1] scale. ``step_index < 0`` means no
+    candidate has cleared the floor yet -> negligible.
+    """
+    if step_index < 0 or denominator <= 0:
+        return RewardBand.NEGLIGIBLE
+    return _score_band(step_index / denominator)
 
 
 def _sha256_hex(value: bytes) -> str:

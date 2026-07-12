@@ -10,6 +10,7 @@ from urllib.parse import urlencode, urljoin
 import httpx
 
 from tinker_delegate.card_channel import attestation_report_data
+from tinker_delegate.tdx_quote import TdxQuoteError, parse_tdx_quote
 
 
 class AttestationVerificationError(RuntimeError):
@@ -73,13 +74,21 @@ def verify_attestation_envelope(
     *,
     fetched_at: float | None = None,
     now: float | None = None,
+    enforce_quote_binding: bool = False,
 ) -> AttestationVerificationResult:
     """Verify the attestation fields exposed by `/attestation`.
 
     This verifies dstack mode, quote presence, expected compose/app/image
     identity, operation context, public-key shape, report-data key binding,
-    exposed quote report-data binding, and optional client fetch freshness. It
-    does not cryptographically parse Intel TDX quote internals.
+    exposed quote report-data binding, and optional client fetch freshness.
+
+    When `enforce_quote_binding` is true, the raw `quote` blob is additionally
+    parsed structurally (Intel TDX DCAP v4) and the report_data embedded *in the
+    quote bytes* must match the claimed `report_data` — closing the gap where a
+    submitter could pair a real quote with an independently-claimed report_data.
+    This is a fail-closed structural check only; the Intel signature/cert chain
+    trust root stays delegated to the QVL / dstack SDK. Default false preserves
+    behaviour for simulator/opaque quotes that are not real TDX v4 quotes.
     """
     checked_at = time.time() if now is None else now
     evidence_time = checked_at if fetched_at is None else fetched_at
@@ -88,13 +97,15 @@ def verify_attestation_envelope(
 
     mode = attestation.get("mode")
     quote_size = 0
+    quote_bytes = b""
     if mode == "local":
         if not policy.allow_local:
             raise AttestationVerificationError("local attestation is not allowed")
     elif mode == "tdx":
         if attestation.get("verified") is False:
             raise AttestationVerificationError("attestation endpoint reported verification failure")
-        quote_size = len(_hex_bytes(attestation.get("quote"), "quote"))
+        quote_bytes = _hex_bytes(attestation.get("quote"), "quote")
+        quote_size = len(quote_bytes)
         if not policy.expected_compose_hash:
             raise AttestationVerificationError("expected compose hash is required for tdx mode")
         if attestation.get("compose_hash") != policy.expected_compose_hash:
@@ -132,6 +143,20 @@ def verify_attestation_envelope(
             raise AttestationVerificationError("quote_report_data must be 32 or 64 bytes")
         elif quote_report_data != report_data:
             raise AttestationVerificationError("quote report data mismatch")
+
+    if enforce_quote_binding and mode == "tdx":
+        try:
+            parsed = parse_tdx_quote(quote_bytes)
+        except TdxQuoteError as exc:
+            raise AttestationVerificationError(
+                f"quote does not parse as a TDX v4 quote: {exc}"
+            ) from exc
+        # The TD report's 64-byte report_data is the 32-byte key binding followed
+        # by 32 zero bytes (same convention checked for the claimed field above).
+        if parsed.report_data[:32] != report_data or parsed.report_data[32:] != b"\x00" * 32:
+            raise AttestationVerificationError(
+                "report data embedded in the quote does not match the claimed report data"
+            )
 
     return AttestationVerificationResult(
         mode=str(mode),

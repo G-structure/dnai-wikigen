@@ -36,6 +36,10 @@ SUBMIT_RESULT_SELECTOR = keccak(
     b"submitResult(uint256,uint8,uint256,bytes32,bytes32,uint256,bytes)"
 )[:4]
 DEALS_SELECTOR = keccak(b"deals(uint256)")[:4]
+COMPOSE_APPROVAL_REQUIRED_SELECTOR = keccak(b"composeApprovalRequired()")[:4]
+APPROVED_COMPOSE_HASHES_SELECTOR = keccak(b"approvedComposeHashes(bytes32)")[:4]
+FEE_BPS_SELECTOR = keccak(b"feeBps()")[:4]
+DEFAULT_FEE_BPS = 100
 RESULT_AUTHORIZATION_TYPEHASH = keccak(
     b"DiligenceRoomResultAuthorization(uint256 chainId,address contractAddress,uint256 dealId,address teeIdentity,bytes32 composeHash,uint8 scoreBand,uint256 computeCost,bytes32 resultHash,uint256 authorizationExpiry)"
 )
@@ -114,9 +118,10 @@ class SubmitResultReceipt:
     signer_attestation_report_data: str
     signer_attestation_quote_size: int
     raw_secret_egress: bool = False
+    reward_transcript_commitment: str = ""
 
     def to_public_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "submitted": self.submitted,
             "tx_hash": self.tx_hash,
             "deal_id": self.deal_id,
@@ -140,6 +145,9 @@ class SubmitResultReceipt:
             "signer_attestation_quote_size": self.signer_attestation_quote_size,
             "raw_secret_egress": self.raw_secret_egress,
         }
+        if self.reward_transcript_commitment:
+            payload["reward_transcript_commitment"] = self.reward_transcript_commitment
+        return payload
 
 
 class DstackEthereumSigner:
@@ -280,6 +288,9 @@ def _normalize_quote_report_data(value: str, *, expected_report_data: str) -> st
 def encode_uint256(value: int) -> bytes:
     if value < 0:
         raise ChainSubmitterError("uint256 value cannot be negative")
+    if value >= 2**256:
+        # Fail with the module's error, not a raw OverflowError from to_bytes.
+        raise ChainSubmitterError("uint256 value exceeds 2**256-1")
     return value.to_bytes(32, "big")
 
 
@@ -479,26 +490,37 @@ class ResultCommitment:
     score_band_value: int
     compute_cost_wei: int
     expiry: int
+    reward_transcript_commitment: str = ""
 
     def digest(self) -> str:
-        payload = b"".join(
-            [
-                keccak(b"dnai-wikigen:DiligenceRoomResult:v1"),
-                encode_uint256(self.chain_id),
-                bytes.fromhex(normalize_address(self.contract_address)[2:]).rjust(32, b"\x00"),
-                encode_uint256(self.deal_id),
-                encode_uint256(self.nonce),
-                bytes.fromhex(normalize_bytes32(self.compose_hash)[2:]),
-                bytes.fromhex(normalize_bytes32(self.payload_result_hash)[2:]),
-                encode_uint256(self.score_band_value),
-                encode_uint256(self.compute_cost_wei),
-                encode_uint256(self.expiry),
-            ]
+        base = [
+            encode_uint256(self.chain_id),
+            bytes.fromhex(normalize_address(self.contract_address)[2:]).rjust(32, b"\x00"),
+            encode_uint256(self.deal_id),
+            encode_uint256(self.nonce),
+            bytes.fromhex(normalize_bytes32(self.compose_hash)[2:]),
+            bytes.fromhex(normalize_bytes32(self.payload_result_hash)[2:]),
+            encode_uint256(self.score_band_value),
+            encode_uint256(self.compute_cost_wei),
+            encode_uint256(self.expiry),
+        ]
+        if not self.reward_transcript_commitment:
+            # v1: no RLVR transcript bound. Byte-identical to the original
+            # commitment so existing on-chain submissions/proofs are unchanged.
+            payload = keccak(b"dnai-wikigen:DiligenceRoomResult:v1") + b"".join(base)
+            return "0x" + keccak(payload).hex()
+        # v2: bind the proof-carrying reward-transcript commitment into the same
+        # on-chain resultHash, so the settled record cryptographically commits to
+        # the RLVR run transcript. Distinct domain tag prevents v1/v2 collision.
+        payload = (
+            keccak(b"dnai-wikigen:DiligenceRoomResult:v2")
+            + b"".join(base)
+            + bytes.fromhex(normalize_bytes32(self.reward_transcript_commitment)[2:])
         )
         return "0x" + keccak(payload).hex()
 
     def public_fields(self) -> dict[str, Any]:
-        return {
+        fields: dict[str, Any] = {
             "chain_id": self.chain_id,
             "contract_address": normalize_address(self.contract_address),
             "deal_id": self.deal_id,
@@ -509,10 +531,46 @@ class ResultCommitment:
             "compute_cost_band": value_band(self.compute_cost_wei),
             "expiry": self.expiry,
         }
+        if self.reward_transcript_commitment:
+            fields["reward_transcript_commitment"] = normalize_bytes32(
+                self.reward_transcript_commitment
+            )
+        return fields
 
 
 def encode_deals_calldata(deal_id: int) -> str:
     return "0x" + (DEALS_SELECTOR + encode_uint256(deal_id)).hex()
+
+
+def encode_fee_bps_calldata() -> str:
+    return "0x" + FEE_BPS_SELECTOR.hex()
+
+
+def decode_uint256_call_result(raw: str) -> int:
+    if not isinstance(raw, str) or not raw.startswith("0x"):
+        raise ChainSubmitterError("invalid uint256 response")
+    body = raw[2:]
+    if len(body) < 64:
+        raise ChainSubmitterError("short uint256 response")
+    return int(body[:64], 16)
+
+
+def encode_compose_approval_required_calldata() -> str:
+    return "0x" + COMPOSE_APPROVAL_REQUIRED_SELECTOR.hex()
+
+
+def encode_approved_compose_hashes_calldata(compose_hash: str) -> str:
+    word = bytes.fromhex(normalize_optional_bytes32(compose_hash)[2:])
+    return "0x" + (APPROVED_COMPOSE_HASHES_SELECTOR + word).hex()
+
+
+def decode_bool_call_result(raw: str) -> bool:
+    if not isinstance(raw, str) or not raw.startswith("0x"):
+        raise ChainSubmitterError("invalid bool response")
+    body = raw[2:]
+    if len(body) < 64:
+        raise ChainSubmitterError("short bool response")
+    return int(body[:64], 16) != 0
 
 
 def _quantity(value: int) -> str:
@@ -627,6 +685,40 @@ class DiligenceRoomSubmitter:
         )
         return decode_deal_call_result(raw)
 
+    def read_fee_bps(self) -> int:
+        """Read the on-chain protocol fee (bps). Falls back to the 1% default for
+        older deployments that predate the governable-fee getter."""
+        try:
+            raw = self.rpc.eth_call(
+                {
+                    "to": self.contract_address,
+                    "data": encode_fee_bps_calldata(),
+                }
+            )
+            value = decode_uint256_call_result(raw)
+        except ChainSubmitterError:
+            return DEFAULT_FEE_BPS
+        # A missing function may return empty/zero data; treat 0 as "not present".
+        return value if value > 0 else DEFAULT_FEE_BPS
+
+    def read_compose_approval_required(self) -> bool:
+        raw = self.rpc.eth_call(
+            {
+                "to": self.contract_address,
+                "data": encode_compose_approval_required_calldata(),
+            }
+        )
+        return decode_bool_call_result(raw)
+
+    def read_compose_hash_approved(self, compose_hash: str) -> bool:
+        raw = self.rpc.eth_call(
+            {
+                "to": self.contract_address,
+                "data": encode_approved_compose_hashes_calldata(compose_hash),
+            }
+        )
+        return decode_bool_call_result(raw)
+
     def submit_result(
         self,
         *,
@@ -638,6 +730,7 @@ class DiligenceRoomSubmitter:
         verifier_signature: str,
         compose_hash: str = "",
         signer_attestation: SignerAttestationEvidence | None = None,
+        reward_transcript_commitment: str = "",
     ) -> SubmitResultReceipt:
         if deal_id < 0:
             raise ChainSubmitterError("deal ID cannot be negative")
@@ -655,7 +748,8 @@ class DiligenceRoomSubmitter:
             raise ChainSubmitterError("deal is not in Funded state")
         if normalize_address(deal.tee_identity) != signer_address:
             raise ChainSubmitterError("TEE signer does not match deal teeIdentity")
-        fee = (compute_cost_wei * 100) // 10000
+        fee_bps = self.read_fee_bps()
+        fee = (compute_cost_wei * fee_bps) // 10000
         if compute_cost_wei + fee > deal.budget_cap:
             raise ChainSubmitterError("compute cost exceeds deal budget cap")
 
@@ -674,6 +768,19 @@ class DiligenceRoomSubmitter:
             normalized_compose_hash = normalize_optional_bytes32(compose_hash)
         else:
             raise ChainSubmitterError("signer attestation or compose hash is required")
+        # Fail closed against the on-chain compose-approval gate before signing or
+        # broadcasting: if DiligenceRoom requires approved measurements and this
+        # compose hash is not developer-approved on-chain, the transaction would
+        # revert ComposeHashNotApproved — refuse locally instead of spending gas
+        # and to keep the bounded receipt honest.
+        if self.read_compose_approval_required():
+            if not self.read_compose_hash_approved(normalized_compose_hash):
+                raise ChainSubmitterError("compose hash is not approved on-chain")
+        normalized_reward_commitment = (
+            normalize_bytes32(reward_transcript_commitment)
+            if reward_transcript_commitment
+            else ""
+        )
         commitment = ResultCommitment(
             chain_id=chain_id,
             contract_address=self.contract_address,
@@ -684,6 +791,7 @@ class DiligenceRoomSubmitter:
             score_band_value=band_value,
             compute_cost_wei=compute_cost_wei,
             expiry=deal.expiry,
+            reward_transcript_commitment=normalized_reward_commitment,
         )
         submission_result_hash = commitment.digest()
         calldata = encode_submit_result_calldata(
@@ -749,6 +857,7 @@ class DiligenceRoomSubmitter:
             signer_attestation_quote_size=(
                 signer_attestation.quote_size if signer_attestation is not None else 0
             ),
+            reward_transcript_commitment=normalized_reward_commitment,
         )
 
 

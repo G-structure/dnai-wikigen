@@ -24,6 +24,7 @@ from tinker_delegate.automation_receipts import (
     classify_automation_error,
     make_receipt,
 )
+from tinker_delegate.account_access import account_access_receipt
 from tinker_delegate.browser_ready import connect_chromium, get_browser_context
 from tinker_delegate.config import Settings
 from tinker_delegate.debug_artifacts import purge_secret_debug_artifacts
@@ -774,6 +775,48 @@ async def get_payment_method_status(settings: Settings | None = None) -> dict:
         if status["payment_method_count_band"] == "unknown":
             return _payment_method_status_result(False, "Payment method status unknown", furthest_stage, text, **status)
         return _payment_method_status_result(True, None, furthest_stage, status, **status)
+
+
+async def get_account_access_status(settings: Settings | None = None) -> dict:
+    """Capture the account's access/billing gate as a bounded receipt.
+
+    Navigates the billing page (reusing the TEE-owned authenticated session) and
+    classifies the visible access/billing state — active, access_blocked_billing,
+    payment_required, waitlist_or_gated, or unknown — plus whether the automation
+    can resolve it and a page-text hash to detect gate changes across runs. It
+    egresses only the bounded receipt, never raw page text, card, or secrets.
+    """
+    if settings is None:
+        settings = Settings()
+
+    furthest_stage = AutomationStage.NOT_STARTED
+    async with async_playwright() as p:
+        browser = await connect_chromium(p, settings)
+        context = await get_browser_context(browser, settings, prefer_saved_state=True)
+        page = context.pages[0] if context.pages else await context.new_page()
+
+        await page.goto(BILLING_BALANCE_URL, wait_until="domcontentloaded", timeout=15000)
+        await asyncio.sleep(3)
+        furthest_stage = AutomationStage.BILLING_PAGE_LOADED
+        auth_blocker = await _ensure_billing_authenticated(page, context, settings)
+        if auth_blocker:
+            return {
+                "success": False,
+                "furthest_stage": furthest_stage.value if hasattr(furthest_stage, "value") else str(furthest_stage),
+                "state": "unknown",
+                "actionable_by_automation": False,
+                "operator_action": "resolve_billing_auth",
+                "bounded_message": redact_text(auth_blocker),
+                "raw_secret_egress": False,
+            }
+
+        text = await page.evaluate("() => document.body?.innerText || ''")
+        receipt = account_access_receipt(text)
+        receipt["success"] = True
+        receipt["furthest_stage"] = (
+            furthest_stage.value if hasattr(furthest_stage, "value") else str(furthest_stage)
+        )
+        return receipt
 
 
 async def remove_payment_method(settings: Settings | None = None) -> dict:

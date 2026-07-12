@@ -36,6 +36,7 @@ contract TinkerAccountEncumbrance {
     error UnknownOperation();
     error AlreadySettled();
     error NonZeroAmountForPaymentMethod();
+    error SelfApprovalNotAllowed();
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event ManagerSet(address indexed manager, bool allowed);
@@ -165,6 +166,11 @@ contract TinkerAccountEncumbrance {
         if (emergencyHalted) revert EmergencyHalted();
         if (operationId == bytes32(0)) revert ZeroHash();
         if (requester == address(0)) revert ZeroAddress();
+        // Non-self-approval: the authorizer (owner/manager) cannot also be the
+        // requester of the funding operation it authorizes. Agents may request;
+        // they must not self-approve. Correct deployment already separates the
+        // roles; this enforces it structurally on-chain.
+        if (requester == msg.sender) revert SelfApprovalNotAllowed();
         if (!approvedComposeHashes[composeHash]) revert ComposeHashNotApproved();
         if (_operations[operationId].requester != address(0)) revert DuplicateOperation();
         _enforceAmount(kind, amountWei);

@@ -70,9 +70,18 @@ class BioValidationError(ValueError):
 # any operator-supplied free-text so that raw, dual-use, or reconstruction-prone
 # material never rides out through the "methodology" or "notes" channel. The
 # patterns are intentionally broad: on any match the gate denies or blocks.
+# Separator between tokens of a compound dangerous term. A safety screen must
+# not be evadable by swapping the word separator: `gain-of-function`,
+# `gain_of_function` (ubiquitous in code-derived identifiers), `gain.of.function`,
+# `gain of function`, and even the concatenated `gainoffunction` are all the same
+# term and must all be caught. `*` (zero-or-more) covers the concatenated form as
+# defense-in-depth; false positives are near-impossible because the ordered token
+# sequence is itself the dangerous term.
+_SEP = r"[-_.\s]*"
+
 _FORBIDDEN_PATTERNS: dict[str, tuple[str, ...]] = {
     "wetlab_protocol": (
-        r"\bwet\s*lab\b",
+        rf"\bwet{_SEP}lab\b",
         r"\bprotocol\s+step",
         r"\breagent",
         r"\bpcr\s+cycle",
@@ -80,13 +89,13 @@ _FORBIDDEN_PATTERNS: dict[str, tuple[str, ...]] = {
         r"\bsynthesi[sz]e\b",
     ),
     "pathogen_enhancement": (
-        r"\bgain[- ]of[- ]function\b",
+        rf"\bgain{_SEP}of{_SEP}function\b",
         r"\benhance\w*\s+(?:virulence|transmissib|pathogen)",
         r"\bincrease\w*\s+(?:lethality|transmissib)",
         r"\bpathogen\s+enhanc",
     ),
     "de_novo_harmful_design": (
-        r"\bde\s*novo\b",
+        rf"\bde{_SEP}novo\b",
         r"\bdesign\w*\s+(?:toxin|pathogen|virus|bioweapon)",
         r"\bnovel\s+(?:toxin|pathogen|agent)",
     ),
@@ -226,12 +235,17 @@ class BioReleaseReceipt:
     result_hash: str
 
     def to_public_dict(self) -> dict[str, Any]:
+        from tinker_delegate.decision_explainer import explain_decision
+
         return {
             "schema_version": SCHEMA_VERSION,
             "decision": self.decision.value,
             "safety_band": self.safety_band.value,
             "review_route": self.review_route.value if self.review_route else None,
             "reason_code": self.reason_code,
+            # Self-explaining receipt: a bounded, leak-free policy explanation of
+            # the reason code (its ":suffix" is stripped, so no detail leaks).
+            "explanation": explain_decision(self.reason_code).to_public_dict(),
             "readiness_missing": list(self.readiness_missing),
             "forbidden_categories": list(self.forbidden_categories),
             "result_schema": self.result_schema,
@@ -283,14 +297,38 @@ def _result_hash(candidate: BioResultCandidate, safety_band: BioSafetyBand) -> s
 def evaluate_bio_release(
     candidate: BioResultCandidate,
     readiness: BioReadiness,
+    *,
+    dual_use: "DualUseAssessment | None" = None,
+    reid: "ReidAssessment | None" = None,
+    data_quality: "DataQualityReport | None" = None,
+    dp_charge: "DpChargeResult | None" = None,
+    require_dual_use_screen: bool = False,
 ) -> BioReleaseReceipt:
     """Fail-closed release gate for a bounded bio-validation result.
 
     Order of checks (most protective first):
       1. Forbidden output content -> DENY / BLOCKED (never releasable).
-      2. Individual-level data without DP marking -> HOLD / BIOSECURITY_REVIEW.
-      3. Any missing readiness capability -> HOLD / EXPERT_IN_THE_LOOP.
-      4. All clear -> RELEASE / CLEARED with bounded bands.
+      2. Dual-use tier PROHIBITED -> DENY; REVIEW -> HOLD / BIOSECURITY_REVIEW.
+      3. Re-identification risk that blocks -> HOLD / BIOSECURITY_REVIEW.
+      4. Individual-level data without a satisfied DP budget -> HOLD /
+         BIOSECURITY_REVIEW.
+      5. Data-quality validity failure that blocks -> HOLD / EXPERT_IN_THE_LOOP.
+      6. Any missing readiness capability -> HOLD / EXPERT_IN_THE_LOOP.
+      7. All clear -> RELEASE / CLEARED with bounded bands.
+
+    `dual_use`, `reid`, and `data_quality` are optional bounded assessments (see
+    `bio_dual_use.classify_dual_use`, `bio_reid.assess_reidentification`, and
+    `bio_data_quality.assess_data_quality`); when any blocks, release is held (or
+    denied for a prohibited dual-use tier) even if every readiness capability is
+    enabled.
+
+    The forbidden-output *text* screen always runs. The *structured* dual-use
+    classifier is caller-supplied because the danger signals (pathogen, toxin,
+    gain-of-function) are declared metadata the candidate does not carry. A
+    caller handling a potentially dual-use domain should set
+    `require_dual_use_screen=True`: then a missing `dual_use` assessment fails
+    closed to HOLD (a structurally-dangerous task, e.g. gain-of-function, whose
+    text fields look benign cannot silently RELEASE by omitting the screen).
     """
 
     forbidden_categories, field_summaries = _screen_candidate(candidate)
@@ -311,7 +349,10 @@ def evaluate_bio_release(
             result_hash=_result_hash(candidate, safety_band),
         )
 
-    if candidate.individual_level_data and not candidate.differential_privacy_marked:
+    if require_dual_use_screen and dual_use is None:
+        # A caller in a dual-use domain required the structured screen, but none
+        # was supplied: fail closed to human review rather than silently clearing
+        # the structured axis (the text screen alone can't see declared danger).
         safety_band = BioSafetyBand.REVIEW
         schema = _bounded_result_schema(
             candidate, safety_band=safety_band, field_summaries=field_summaries, released=False
@@ -320,7 +361,87 @@ def evaluate_bio_release(
             decision=BioReleaseDecision.HOLD,
             safety_band=safety_band,
             review_route=BioReviewRoute.BIOSECURITY_REVIEW,
-            reason_code="individual_level_data_not_dp_marked",
+            reason_code="dual_use_screen_required",
+            readiness_missing=readiness.missing(),
+            forbidden_categories=(),
+            result_schema=schema,
+            result_hash=_result_hash(candidate, safety_band),
+        )
+
+    if dual_use is not None and dual_use.blocks_release:
+        deny = dual_use.denies_release
+        safety_band = BioSafetyBand.BLOCKED if deny else BioSafetyBand.REVIEW
+        schema = _bounded_result_schema(
+            candidate, safety_band=safety_band, field_summaries=field_summaries, released=False
+        )
+        schema["dual_use"] = dual_use.to_public_dict()
+        return BioReleaseReceipt(
+            decision=BioReleaseDecision.DENY if deny else BioReleaseDecision.HOLD,
+            safety_band=safety_band,
+            review_route=BioReviewRoute.BIOSECURITY_REVIEW,
+            reason_code=f"dual_use_{dual_use.tier.value}:{','.join(dual_use.reasons)}",
+            readiness_missing=readiness.missing(),
+            forbidden_categories=(),
+            result_schema=schema,
+            result_hash=_result_hash(candidate, safety_band),
+        )
+
+    if reid is not None and reid.blocks_release:
+        safety_band = BioSafetyBand.REVIEW
+        schema = _bounded_result_schema(
+            candidate, safety_band=safety_band, field_summaries=field_summaries, released=False
+        )
+        schema["reid_assessment"] = reid.to_public_dict()
+        return BioReleaseReceipt(
+            decision=BioReleaseDecision.HOLD,
+            safety_band=safety_band,
+            review_route=BioReviewRoute.BIOSECURITY_REVIEW,
+            reason_code=f"reidentification_risk:{reid.reason_code}",
+            readiness_missing=readiness.missing(),
+            forbidden_categories=(),
+            result_schema=schema,
+            result_hash=_result_hash(candidate, safety_band),
+        )
+
+    if candidate.individual_level_data:
+        # A live DP charge, when supplied, takes precedence over the asserted
+        # boolean: it must be an admitted, PHI-safe (DP-mode) release. Otherwise
+        # fall back to the legacy caller-asserted `differential_privacy_marked`.
+        if dp_charge is not None:
+            dp_satisfied = bool(dp_charge.allowed and dp_charge.phi_safe)
+            dp_reason = f"individual_level_data_dp_{dp_charge.reason_code}"
+        else:
+            dp_satisfied = candidate.differential_privacy_marked
+            dp_reason = "individual_level_data_not_dp_marked"
+        if not dp_satisfied:
+            safety_band = BioSafetyBand.REVIEW
+            schema = _bounded_result_schema(
+                candidate, safety_band=safety_band, field_summaries=field_summaries, released=False
+            )
+            if dp_charge is not None:
+                schema["dp_accounting"] = dp_charge.to_public_dict()
+            return BioReleaseReceipt(
+                decision=BioReleaseDecision.HOLD,
+                safety_band=safety_band,
+                review_route=BioReviewRoute.BIOSECURITY_REVIEW,
+                reason_code=dp_reason,
+                readiness_missing=readiness.missing(),
+                forbidden_categories=(),
+                result_schema=schema,
+                result_hash=_result_hash(candidate, safety_band),
+            )
+
+    if data_quality is not None and data_quality.blocks_release:
+        safety_band = BioSafetyBand.REVIEW
+        schema = _bounded_result_schema(
+            candidate, safety_band=safety_band, field_summaries=field_summaries, released=False
+        )
+        schema["data_quality"] = data_quality.to_public_dict()
+        return BioReleaseReceipt(
+            decision=BioReleaseDecision.HOLD,
+            safety_band=safety_band,
+            review_route=BioReviewRoute.EXPERT_IN_THE_LOOP,
+            reason_code=f"data_quality_invalid:{','.join(data_quality.flags)}",
             readiness_missing=readiness.missing(),
             forbidden_categories=(),
             result_schema=schema,
@@ -348,6 +469,8 @@ def evaluate_bio_release(
     schema = _bounded_result_schema(
         candidate, safety_band=safety_band, field_summaries=field_summaries, released=True
     )
+    if dp_charge is not None and candidate.individual_level_data:
+        schema["dp_accounting"] = dp_charge.to_public_dict()
     return BioReleaseReceipt(
         decision=BioReleaseDecision.RELEASE,
         safety_band=safety_band,

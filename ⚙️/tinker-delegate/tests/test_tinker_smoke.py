@@ -217,6 +217,25 @@ class ProviderClassifiedServiceClient(FakeServiceClient):
         )
 
 
+import time as _time  # noqa: E402
+
+
+class HangingConnectServiceClient(FakeServiceClient):
+    """Mimics a blocked account whose ServiceClient connect never returns."""
+
+    def __init__(self, api_key, project_id=None, base_url=None):
+        _time.sleep(30)  # abandoned by the smoke deadline; test stays fast
+        super().__init__(api_key, project_id, base_url)
+
+
+class HangingTrainingServiceClient(FakeServiceClient):
+    """Connects fine, then hangs on the first training-creation call."""
+
+    def create_lora_training_client(self, **kwargs):
+        _time.sleep(30)
+        return super().create_lora_training_client(**kwargs)
+
+
 FAKE_TINKER = types.SimpleNamespace(
     ServiceClient=FakeServiceClient,
     TrainingClient=object,
@@ -228,6 +247,12 @@ FAKE_TINKER = types.SimpleNamespace(
     SamplingParams=SamplingParams,
 )
 sys.modules["tinker"] = FAKE_TINKER
+
+
+def _hanging_tinker(service_client_cls):
+    ns = types.SimpleNamespace(**vars(FAKE_TINKER))
+    ns.ServiceClient = service_client_cls
+    return ns
 
 from tinker_delegate.config import Settings  # noqa: E402
 from tinker_delegate import session as session_module  # noqa: E402
@@ -323,6 +348,54 @@ class TinkerSmokeTest(unittest.TestCase):
         self.assertRegex(client_config["base_url_hash"], r"^[0-9a-f]{64}$")
         self.assertNotIn("proj-secret", rendered)
         self.assertNotIn("custom.thinkingmachines.dev", rendered)
+
+    def test_blocked_account_connect_fails_fast_with_timeout_verdict(self):
+        hanging = _hanging_tinker(HangingConnectServiceClient)
+        started = _time.monotonic()
+        with (
+            patch.dict(sys.modules, {"tinker": hanging}),
+            patch.object(session_module, "tinker", hanging),
+            patch("tinker_delegate.tinker_smoke.resolve_api_key", return_value="tml-secret-value"),
+            patch("tinker_delegate.tinker_smoke.preflight_tinker_operation", return_value=_allowed_policy()),
+        ):
+            result = run_tinker_sdk_smoke(
+                Settings(real_sdk_max_usd=0.05, smoke_connect_timeout=1.0),
+                TinkerSmokeRequest(deal_id="deal-secret", max_usd=0.05),
+            )
+        elapsed = _time.monotonic() - started
+        # Fast fail: returns within a few seconds, not the 30s hang.
+        self.assertLess(elapsed, 10.0)
+        self.assertFalse(result["success"])
+        self.assertEqual(result["outcome"], "smoke_failed")
+        self.assertEqual(result["furthest_stage"], "api_key_loaded")
+        self.assertEqual(result["sdk_error"]["bucket"], "transient_timeout")
+        self.assertEqual(result["sdk_error"]["failure_site"], "service_client_create")
+        self.assertEqual(
+            result["sdk_error"]["operator_action"],
+            "retry_or_check_tinker_account_activation",
+        )
+        self.assertFalse(result["raw_secret_egress"])
+        self.assertNotIn("tml-secret-value", json.dumps(result))
+
+    def test_blocked_account_training_creation_fails_fast_with_timeout_verdict(self):
+        hanging = _hanging_tinker(HangingTrainingServiceClient)
+        started = _time.monotonic()
+        with (
+            patch.dict(sys.modules, {"tinker": hanging}),
+            patch.object(session_module, "tinker", hanging),
+            patch("tinker_delegate.tinker_smoke.resolve_api_key", return_value="tml-secret-value"),
+            patch("tinker_delegate.tinker_smoke.preflight_tinker_operation", return_value=_allowed_policy()),
+        ):
+            result = run_tinker_sdk_smoke(
+                Settings(real_sdk_max_usd=0.05, smoke_connect_timeout=1.0),
+                TinkerSmokeRequest(deal_id="deal-secret", max_usd=0.05),
+            )
+        elapsed = _time.monotonic() - started
+        self.assertLess(elapsed, 10.0)
+        self.assertFalse(result["success"])
+        self.assertEqual(result["sdk_error"]["bucket"], "transient_timeout")
+        self.assertEqual(result["sdk_error"]["failure_site"], "create_training_client")
+        self.assertEqual(result["sdk_error"]["operator_action"], "retry_later")
 
     def test_smoke_uses_stored_project_id_without_leaking_it(self):
         with tempfile.TemporaryDirectory() as tmpdir:

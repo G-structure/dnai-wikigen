@@ -105,6 +105,20 @@ class PolicyKernelTest(unittest.TestCase):
         self.assertEqual(result.decision, PolicyDecision.DENY)
         self.assertEqual(result.reason_code, "unknown_or_unallowed_purpose")
 
+    def test_deny_list_overrides_allow_list_for_same_purpose(self):
+        # Load-bearing conflict resolution: a purpose in BOTH allowed_purposes and
+        # denied_purposes must DENY — the deny check runs first, so deny wins. This
+        # guards against a future reorder that would let a denied-but-also-allowed
+        # purpose (an authoring mistake or an adversarial policy) slip through.
+        result = gate_access_request_payload(
+            _request(purpose="rank-candidates"),
+            _policy(denied_purposes=["publish-raw-records", "rank-candidates"]),
+        )
+
+        self.assertEqual(result.decision, PolicyDecision.DENY)
+        self.assertEqual(result.reason_code, "denied_purpose")
+        self.assertEqual(result.stage, 1)
+
     def test_unsupported_pipeline_and_output_fail_closed(self):
         pipeline = gate_access_request_payload(
             _request(pipeline="raw-export"),

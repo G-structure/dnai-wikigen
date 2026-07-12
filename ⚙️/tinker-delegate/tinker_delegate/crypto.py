@@ -79,6 +79,19 @@ class TEEKeyPair:
         self._private = X25519PrivateKey.generate()
         self.public_key_bytes = self._private.public_key().public_bytes_raw()
 
+    @classmethod
+    def from_private_key_hex(cls, private_key_hex: str) -> "TEEKeyPair":
+        """Reconstruct a keypair from a persisted raw X25519 private key (hex).
+
+        Used for local/dev recipient key custody (a 0600 key file), and to let
+        an in-boundary key source drive the same decrypt path as the boot-time
+        generated key. Production CVM custody derives this from dstack.
+        """
+        self = cls.__new__(cls)
+        self._private = X25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
+        self.public_key_bytes = self._private.public_key().public_bytes_raw()
+        return self
+
     def decrypt(
         self,
         payload: EncryptedPayload,

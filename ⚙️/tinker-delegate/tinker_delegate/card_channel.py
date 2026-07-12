@@ -53,6 +53,7 @@ from tinker_delegate.billing import (
     CardDetails,
     add_payment_method,
     add_balance,
+    get_account_access_status,
     get_balance,
     get_payment_method_status,
     remove_payment_method,
@@ -494,6 +495,22 @@ async def handle_payment_method_status(settings: Settings) -> BillingResponse:
             error=error,
             attempt_record=_exception_receipt(AutomationSurface.PAYMENT_METHOD_STATUS, redact_text(e)),
         )
+
+
+async def handle_account_access_status(settings: Settings) -> dict:
+    """Return the bounded account access/billing-gate receipt (no card/secret)."""
+    try:
+        return await get_account_access_status(settings)
+    except Exception as e:
+        return {
+            "kind": "account_access_status",
+            "success": False,
+            "state": "unknown",
+            "actionable_by_automation": False,
+            "operator_action": "inspect_gate_manually",
+            "bounded_message": _bounded_error_label(e),
+            "raw_secret_egress": False,
+        }
 
 
 async def handle_remove_payment_method(settings: Settings) -> BillingResponse:

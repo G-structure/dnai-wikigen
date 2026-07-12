@@ -1,4 +1,6 @@
 import json
+import os
+import subprocess
 import sys
 import types
 import unittest
@@ -13,6 +15,8 @@ from tinker_delegate.evaluator_sandbox import (  # noqa: E402
     EvaluatorSandboxOutcome,
     EvaluatorSandboxPolicy,
     SandboxedEvaluatorRunner,
+    _rlimit_preexec,
+    _rlimit_specs,
 )
 from tinker_delegate.fake_tinker_backend import FakeTinkerServiceClient  # noqa: E402
 from tinker_delegate.private_reward_sandbox import SandboxFailureCode  # noqa: E402
@@ -158,6 +162,80 @@ emit(
         self.assertEqual(result.failure_code, SandboxFailureCode.TIMEOUT)
         self.assertTrue(result.timed_out)
         self.assertEqual(result.to_public_dict()["metrics"], {})
+
+
+@unittest.skipUnless(os.name == "posix", "resource limits are POSIX-only")
+class EvaluatorSandboxResourceLimitTest(unittest.TestCase):
+    def test_rlimit_specs_reflect_policy(self):
+        import resource
+
+        policy = EvaluatorSandboxPolicy(
+            cpu_seconds=3, max_file_bytes=0, max_open_files=32, disable_core_dumps=True
+        )
+        specs = dict(_rlimit_specs(policy))
+        self.assertEqual(specs[resource.RLIMIT_CPU], (3, 3))
+        self.assertEqual(specs[resource.RLIMIT_FSIZE], (0, 0))
+        self.assertEqual(specs[resource.RLIMIT_NOFILE], (32, 32))
+        self.assertEqual(specs[resource.RLIMIT_CORE], (0, 0))
+        # AS is left unset by default (0) because a low cap breaks CPython start.
+        self.assertNotIn(resource.RLIMIT_AS, specs)
+
+    def test_address_space_limit_included_when_requested(self):
+        import resource
+
+        specs = dict(_rlimit_specs(EvaluatorSandboxPolicy(max_address_space_bytes=2**30)))
+        self.assertEqual(specs[resource.RLIMIT_AS], (2**30, 2**30))
+
+    def test_preexec_actually_applies_limits_in_a_child(self):
+        # Prove the limits take effect in a real child on this host, not just in
+        # the intended-spec table: spawn a subprocess under the same preexec_fn
+        # and have it report its own soft limits.
+        import resource
+
+        policy = EvaluatorSandboxPolicy(cpu_seconds=5, max_file_bytes=4096, max_open_files=48)
+        probe = (
+            "import json, resource;"
+            "print(json.dumps([resource.getrlimit(resource.RLIMIT_CPU)[0],"
+            "resource.getrlimit(resource.RLIMIT_FSIZE)[0],"
+            "resource.getrlimit(resource.RLIMIT_NOFILE)[0]]))"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-S", "-c", probe],
+            capture_output=True,
+            text=True,
+            preexec_fn=_rlimit_preexec(policy),
+            timeout=5,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        cpu, fsize, nofile = json.loads(proc.stdout)
+        self.assertEqual(cpu, 5)
+        self.assertEqual(fsize, 4096)
+        self.assertEqual(nofile, 48)
+
+    def test_preexec_never_raises_an_existing_hard_cap(self):
+        # If the policy nominally allows more open files than the host's hard
+        # cap, the applied soft limit must stay within the hard cap.
+        import resource
+
+        _soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if hard == resource.RLIM_INFINITY:
+            self.skipTest("host has no finite NOFILE hard cap to test against")
+        policy = EvaluatorSandboxPolicy(max_open_files=hard + 10_000)
+        probe = (
+            "import json, resource;"
+            "print(json.dumps(list(resource.getrlimit(resource.RLIMIT_NOFILE))))"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-S", "-c", probe],
+            capture_output=True,
+            text=True,
+            preexec_fn=_rlimit_preexec(policy),
+            timeout=5,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        soft_applied, hard_applied = json.loads(proc.stdout)
+        self.assertLessEqual(soft_applied, hard)
+        self.assertLessEqual(hard_applied, hard)
 
 
 if __name__ == "__main__":

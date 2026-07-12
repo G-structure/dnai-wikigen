@@ -59,14 +59,17 @@
       "emergencyHalted": false,
       "measurementsFrozen": false,
       "currentOperatorControlled": true,
-      "latestApprovedComposeHash": "0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7",
+      "latestApprovedComposeHash": "0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085",
       "latestApprovedComposeHashApproved": true,
-      "latestComposeApprovalTx": "0x3bc992cc2979aa8198923bcaf856d2c82d387646e49e750dada1f5cb203b3d17",
-      "latestComposeApprovalBlock": 43931393,
+      "latestComposeApprovalTx": "0x13e0f37af37fb79c9bf365c8fd0a82c1299c9f85f7b6ec01057d2915768ab6e7",
+      "latestComposeApprovalBlock": 44001620,
+      "priorApprovedComposeHash": "0xe682ddac9de80188c7e68cab84cffe8f461478d87d506159f10cba3e65a342a7",
+      "priorComposeApprovalTx": "0x3bc992cc2979aa8198923bcaf856d2c82d387646e49e750dada1f5cb203b3d17",
       "currentFundingComposeHash": "0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085",
-      "lastReviewedAt": "2026-07-09T23:59:00Z",
-      "pendingComposeHashApproval": "0x1d6db25672bba906c7bfad7ffd4f4413dabb1f6f824190ab9e72259677018085",
-      "pendingComposeHashApproved": false
+      "lastReviewedAt": "2026-07-11T11:00:00Z",
+      "pendingComposeHashApproval": null,
+      "pendingComposeHashApproved": true,
+      "tinkerSmokeStatus": "sdk_version_400_fixed_by_tinker>=0.22_pin; account_now_402_billing_status_blocked_needs_tinker_side_resolution; balance_funded_to_$20"
     }
   },
   "phala": {

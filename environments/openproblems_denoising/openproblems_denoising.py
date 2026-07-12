@@ -41,11 +41,20 @@ def bounded_denoising_reward(
     stay internal; only `band_to_scalar(band)` leaves.
     """
 
-    denoised = _resolve_denoised(completion, state)
+    # Load the split first (infra): a genuinely unavailable dataset is an
+    # infrastructure error and must propagate, not be masked as a bad candidate.
     split_name = _resolve_split(answer, state)
     train, test = load_split_pair(split_name)
-    metrics = compute_denoising_metrics(denoised, train, test)
-    band = reward_band(metrics)
+    try:
+        denoised = _resolve_denoised(completion, state)
+        metrics = compute_denoising_metrics(denoised, train, test)
+        band = reward_band(metrics)
+    except (ValueError, TypeError):
+        # A malformed / adversarial completion (bad shape, non-numeric, garbage
+        # JSON) fails closed to NEGLIGIBLE — matching the private-reward contract
+        # so a bad candidate earns no credit and never crashes a rollout or leaks
+        # an error body carrying raw content.
+        band = RewardBand.NEGLIGIBLE
     if state is not None:
         # Record only the bounded band, never the exact metrics, on the state.
         state.setdefault("metrics", {})["denoising_band"] = band.value

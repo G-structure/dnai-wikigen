@@ -107,6 +107,65 @@ class BillingApiPolicyTest(unittest.TestCase):
         self.assertNotIn("tinker-console.thinkingmachines.ai", rendered)
         self.assertNotIn("Page.goto", rendered)
 
+    def test_account_access_status_returns_bounded_receipt(self):
+        api.settings = Settings(
+            runtime_auth_required=True,
+            runtime_auth_token="operator-secret",
+        )
+        client = TestClient(api.app)
+        receipt = {
+            "kind": "account_access_status",
+            "state": "access_blocked_billing",
+            "actionable_by_automation": False,
+            "operator_action": "contact_provider_for_account_activation",
+            "bounded_message": "account_access:access_blocked_billing",
+            "page_text_hash": "0x" + "ab" * 32,
+            "raw_secret_egress": False,
+            "success": True,
+        }
+        with patch(
+            "tinker_delegate.card_channel.get_account_access_status",
+            new=AsyncMock(return_value=receipt),
+        ):
+            response = client.get(
+                "/billing/account-access-status",
+                headers={"Authorization": "Bearer operator-secret"},
+            )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["state"], "access_blocked_billing")
+        self.assertEqual(body["operator_action"], "contact_provider_for_account_activation")
+        self.assertFalse(body["raw_secret_egress"])
+
+    def test_account_access_status_requires_auth(self):
+        api.settings = Settings(
+            runtime_auth_required=True,
+            runtime_auth_token="operator-secret",
+        )
+        client = TestClient(api.app)
+        response = client.get("/billing/account-access-status")
+        self.assertEqual(response.status_code, 401)
+
+    def test_account_access_status_exception_is_bounded(self):
+        api.settings = Settings()
+        client = TestClient(api.app)
+        raw_error = (
+            "Page.goto: net::ERR_ABORTED at "
+            "https://tinker-console.thinkingmachines.ai/billing/balance"
+        )
+        with patch(
+            "tinker_delegate.card_channel.get_account_access_status",
+            new=AsyncMock(side_effect=RuntimeError(raw_error)),
+        ):
+            response = client.get("/billing/account-access-status")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        rendered = str(body)
+        self.assertFalse(body["success"])
+        self.assertEqual(body["state"], "unknown")
+        self.assertNotIn("tinker-console.thinkingmachines.ai", rendered)
+        self.assertNotIn("Page.goto", rendered)
+
     def test_balance_exception_is_bounded(self):
         api.settings = Settings()
         client = TestClient(api.app)

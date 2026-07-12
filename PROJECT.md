@@ -656,9 +656,24 @@ PHI-safe.
 
 ## Third-Party Reward Evaluability
 
-Status: `[P3, scoped]` — see `TODO.md` "Third-Party Reward Evaluability
-(Mechanism Audit)" and `ARCHITECTURE.md`. Deferred until the P0–P2 private
-reward core lands; recorded here so the route is not lost.
+Status: substantially `[real]` as of 2026-07-12 — the mechanism-audit verifiers
+are built, tested, and shipped as `verify_reward_mechanism` (surfaced as the
+`verify-reward-mechanism` CLI and the `POST /verify/reward-mechanism` endpoint).
+Real today: attested code-identity binding (`verify_reward_code_binding`),
+data-commitment binding to the sealed-dataset manifest + owner/notary signature
+(`verify_reward_dataset_binding`), canary calibration
+(`verify_canary_calibration`), declared-vs-enforced query/DP/Ladder policy
+accounting (inside `verify_reward_run`), and the Ladder overfitting bound (fixed-η
+wired into the denoising + synthetic envs, plus the parameter-free paired-t
+variant), and the neutral sealing-witness M-of-N quorum (`add_witness_signature` /
+`verify_witness_quorum`, enforceable through `verify_reward_dataset_binding`), and
+seal-time attested provenance signing (`build_provenance` /
+`verify_dataset_provenance`), and the Thresholdout / DP-noised reusable-holdout
+gate (`thresholdout.py`, composing with the shared `DpAccountant`). The trust and
+overfitting layers of the mechanism-audit story are now all `[real]`; what remains
+is env-wiring of the Ladder/Thresholdout gates and the externally-blocked live
+frontier. See `TODO.md` "Third-Party Reward Evaluability (Mechanism Audit)" and
+`ARCHITECTURE.md`.
 
 The hardest question a counterparty asks: *how can I evaluate this RL
 environment — trust the reward is real, honestly computed, un-gamed, and useful
@@ -691,19 +706,28 @@ Four layers, extending the existing verification chain
 (`git SHA -> docker digest -> compose hash -> TDX quote`):
 
 ```text
-attested code identity  The third party read code C; the attestation says C ran.
-data commitment         Attestation binds HASH(reward_code) || dataset_commitment
-                        || params -> bounded_result (Attestable Audits A[AC+AD->R]).
-                        Reuses the sealed-dataset manifest hash as the root.
-public canary slice     A small public slice with known ground truth, committed
-                        alongside the sealed data. Known-good / known-bad
-                        candidates test that the oracle ranks sensibly and anchor
-                        the private scale to a public reference.
-sealing witness         A neutral notary or M-of-N quorum witnesses the dataset
-                        entering the TEE and co-signs the commitment, defeating
-                        the "seller crafts data to favor one bidder" collusion.
-attested provenance     Source pipeline, upstream id, license, distribution claim
-                        vs. a named public benchmark, signed at seal time.
+attested code identity  [real] The third party read code C; the attestation says
+                        C ran. Verified by `verify_reward_code_binding`.
+data commitment         [real] Attestation binds HASH(reward_code) ||
+                        dataset_commitment || params -> bounded_result (Attestable
+                        Audits A[AC+AD->R]). Reuses the sealed-dataset manifest
+                        hash as the root; verified by
+                        `verify_reward_dataset_binding` (+ owner/notary signature).
+public canary slice     [real] Known-good / known-bad candidates test that the
+                        oracle ranks sensibly (`canary.py`); a published report is
+                        checked by `verify_canary_calibration`. [planned] a
+                        committed public slice per env anchoring the private scale.
+sealing witness         [real] A neutral notary or M-of-N quorum witnesses the
+                        dataset entering the TEE and co-signs the commitment,
+                        defeating the "seller crafts data to favor one bidder"
+                        collusion. Built as `add_witness_signature` /
+                        `verify_witness_quorum`; enforceable via
+                        `verify_reward_dataset_binding(..., witness_quorum=...)`.
+attested provenance     [real] Source pipeline, upstream id, license, distribution
+                        claim vs. a named public benchmark, committed into the
+                        manifest at seal time (`build_provenance`) so a signature
+                        binds the claim; checked by `verify_dataset_provenance`
+                        (tampering the claim breaks the signature).
 ```
 
 Data commitment stops the operator swapping in easier data or fabricating
@@ -717,14 +741,22 @@ private holdout thousands of times overfits *to it*. Two classical mechanisms,
 both reusing the same noise the leakage bound already needs:
 
 ```text
-Ladder      Release a reward only when a candidate beats the running best by a
-            statistically significant margin. Leaderboard error ~ log(k)^{1/3}/
-            n^{1/3} (logarithmic in query count k), so a fixed-size holdout
-            supports effectively unlimited attempts and the number stays honest.
+Ladder      [real] Release a reward only when a candidate beats the running best
+            by a statistically significant margin. Leaderboard error ~
+            log(k)^{1/3}/n^{1/3} (logarithmic in query count k), so a fixed-size
+            holdout supports effectively unlimited attempts and the number stays
+            honest. Built as `ladder_release.py` (fixed-η + paired-t variants);
+            fixed-η wired into the denoising + synthetic envs, and paired-t
+            (per-cell vector) wired into the denoising env.
 Thresholdout / reusable holdout
-            Access the holdout only through a DP mechanism (noisy threshold).
-            DP composition guarantees generalization for ~n^2 adaptive queries,
-            and gives total leakage <= eps * queries as a single stated bound.
+            [real] Access the holdout only through a DP mechanism (noisy
+            threshold): budget is spent only when a candidate diverges from the
+            reward-partition statistic the optimizer already knows, giving total
+            leakage <= eps * holdout-accesses as a single stated bound. Built as
+            `thresholdout.py` (`ThresholdoutGate`), composing with the shared
+            `DpAccountant`; the DP noise gates which partition's band to release, so
+            only a coarse band index egresses (no un-noised real leaves). Standalone
+            mechanism; env-wiring is a follow-up.
 ```
 
 The elegant part: **the noise that stops reconstruction is the same noise that

@@ -485,6 +485,46 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             the grantor's corpus/purpose/pipeline scope at submit time and
             turns attempted self-approval of holds into a bounded terminal
             `self_approval_denied` state.
+      - [x] Enforce non-self-approval structurally in the review queue too.
+            Done 2026-07-12: a coordination `HandoffTicket` now carries
+            `submitter_ref` (the held turn's `by`); `review_queue` hashes it onto
+            the ticket as `submitter_ref_hash`, and `decide_review_ticket` rejects
+            any reviewer whose ref hashes to the submitter's — so the submitting
+            agent can never resolve its own held ticket even if the caller omits
+            `blocked_reviewer_refs` (previously the only guard). Bounded (only
+            hashes stored/emitted), backward compatible (no submitter_ref -> no
+            change). `tests/test_review_queue.py` (+2) prove submitter-self-
+            approve fail-closed and independent-reviewer still resolves.
+      - [x] Add M-of-N approval for high-risk review roles. Done 2026-07-12:
+            `enqueue_handoff_tickets(required_approvals_by_role={...})` sets a
+            per-role approval threshold (default 1); a release accumulates
+            DISTINCT reviewer approvals (`vote_recorded` audit events, ticket
+            stays PENDING) until N is met -> RELEASED, a duplicate approver is
+            rejected, and any single `deny` denies immediately (fail-closed).
+            Bounded + persisted; `tests/test_review_queue.py` (+3) prove
+            two-of-two release, duplicate-approver rejection, and single-deny
+            blocks a 3-of-N ticket.
+      - [x] Surface the review queue over the operator API. Done 2026-07-12:
+            auth-gated `GET /review/queue` (optional `?routed_role=`) returns the
+            bounded queue/pending tickets, and `POST /review/decide` records a
+            reviewer decision at server time and persists it to a configured
+            `review_queue_path` (409 on fail-closed rejection e.g. self-approval /
+            expired / duplicate, 503 if unconfigured). `tests/test_api_review_queue.py`
+            (8) prove auth, bounded GET, role filter, release-persists,
+            submitter-self-approval-409, unconfigured-503, on-demand expiry sweep
+            (`POST /review/expire` transitions stale tickets to EXPIRED and
+            persists, so they can no longer be released), and expire auth/config.
+      - [x] Enforce non-self-approval ON-CHAIN for funding operations. Done
+            2026-07-12: `TinkerAccountEncumbrance.authorizeOperation` now reverts
+            `SelfApprovalNotAllowed` when `requester == msg.sender` — the
+            owner/manager authorizer cannot also be the requester of the funding op
+            it authorizes, so the invariant holds structurally on-chain, not just
+            by correct role assignment (a compromised delegate-manager can't
+            self-authorize funding). `test/TinkerAccountEncumbrance.t.sol`
+            +1 (`test_AuthorizerCannotSelfApprove`, owner and manager both
+            rejected); full Foundry suite 135 green.
+            Remaining (partial): distinct per-reviewer auth, email-oracle
+            notification, reviewer UI, a scheduled worker to poll `/review/expire`.
 - [ ] `P0` Coordination composes policies by intersection, never union.
       - [x] Add a pure coordination reducer that combines per-corpus gate
             results by strict intersection. Done 2026-07-09: any deny denies,
@@ -495,9 +535,101 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       attestations.
 - [ ] `P0` Private reward values derived from sealed data do not leave the TEE
       unless they are explicitly released through the bounded-output reducer.
+      - [x] Close the dict-key leakage bypass in the egress guard. Done
+            2026-07-12 (self-review): `assert_bounded_egress`'s textual scan
+            recursed dict *values* but not *keys* (and the structural float-ban
+            uses keys only for path labels), so an exact reward smuggled as a key
+            (`{"0.9731": "high"}`) leaked through both checks. Fixed across both
+            layers: `_iter_strings` now scans keys (stringifying non-string keys,
+            since JSON serializes a float/long-int key via its `str()`), and the
+            structural `optimizer_export_guard._walk` now walks keys too (a float /
+            numeric-array / blob key is caught structurally). Covers float-string,
+            long-int-string, float, and long-int keys; regression tests added
+            (`tests/test_private_reward.py`). Full suite stays green (no legitimate
+            bounded output has a numeric-looking key).
+      - [x] Fail closed (not RecursionError) on a hostile deeply-nested payload.
+            Done 2026-07-12 (self-review): the egress guard's recursive walk had
+            no depth bound, so an adversarial reducer returning a 5000-deep dict
+            raised an uncontrolled `RecursionError` instead of a clean fail-closed
+            rejection. Added a `_MAX_EXPORT_DEPTH=64` bound to
+            `audit_optimizer_export._walk` (real bounded outputs nest only a few
+            levels); over-deep structures now return `structure_too_deep` (highest
+            priority) so `assert_bounded_egress` raises `RewardLeakageError` before
+            reaching the unbounded textual scan. The textual scan `_iter_strings`
+            is now depth-bounded too (`_MAX_EGRESS_DEPTH=64`), closing the one path
+            that skipped the structural check — a deep subtree under the
+            structurally-ignored `attestation` key. Regression tests in
+            `tests/test_optimizer_export_guard.py` and `tests/test_private_reward.py`.
+      - [x] Enforce it at the egress choke points. Done 2026-07-11:
+            `private_reward.assert_bounded_egress` runs on every `BoundedFeedback`
+            returned by `evaluate()` and every `BoundedResult` from `finalize()`
+            (base + `synthetic`/`denoising` overrides). It fails closed with
+            `RewardLeakageError` if the bounded dict contains any float / numeric
+            array / oversized blob (via the shared `optimizer_export_guard`) or if
+            any string field renders a float or long precise integer — closing the
+            gap where a misbehaving `output_reducer` could smuggle the exact
+            reward value into `public_message`. The `attestation` subtree is
+            excluded from the structural float-ban only (it is public, separately
+            governed env config such as holdout split fractions); the textual scan
+            still covers it. `tests/test_private_reward.py` adds a leaky-reducer
+            fail-closed test plus direct egress-assertion tests (16 in that file).
 - [ ] `P0` If optimization updates leave the TEE, prove they do not encode
       private reward/data; otherwise keep optimizer state and reward-derived
       gradients inside the attested boundary.
+      - [x] Add a fail-closed export guard that audits any proposed optimizer
+            export. Done 2026-07-11:
+            `tinker_delegate.optimizer_export_guard.audit_optimizer_export`
+            recursively rejects the realistic leakage vectors — any `float`
+            (exact reward values / reward-derived gradients are floats; bounded
+            egress is bands/decisions/hashes/int-counts), numeric arrays over a
+            small cap (gradient vectors / weight tensors / embeddings, even
+            integer-encoded), oversized hex/byte blobs (could carry raw sealed
+            data vs a hash), secret-shaped material (via shared `redact_text`),
+            and a truthy `raw_secret_egress` self-declaration. Returns a bounded
+            `ExportAuditResult` (allowed flag, reason code, offending field
+            *paths* — never values, count, deterministic leakage hash);
+            `certify_optimizer_export` is the fail-closed variant. A real bounded
+            `LoopOutcome.to_public_dict()` passes; floats/gradients/blobs fail
+            closed. `tests/test_optimizer_export_guard.py` (17). Self-review fix
+            2026-07-12: also bound single-int magnitude to 256 bits
+            (`oversized_int`) — one unbounded scalar int can carry a whole sealed
+            blob via `int.from_bytes(...)` without tripping the per-array numeric
+            cap, and as a dict VALUE it was invisible to the sibling textual
+            reward scan (which only yields strings/keys), so this closed a real
+            leak on the mandatory `assert_bounded_egress` publication path too
+            (`tests/test_private_reward.py` +1). Legit uint256/counts/expiries
+            still pass. Follow-up 2026-07-12: also bound the AGGREGATE integer
+            payload to 512 bytes (`aggregate_int_payload`) — many separately-small
+            in-bounds int fields (or many under-cap arrays) could still sum to a
+            bulk exfil; a real LoopOutcome export is ~23 int-bytes so 512 gives
+            >20x headroom while making KB-MB tensor/dataset exfil via aggregated
+            ints infeasible. Bounds (does not eliminate) the channel; full suite
+            confirms no legit-export false positives (`test_optimizer_export_guard`
+            now 20). Self-review fix 2026-07-12: the sibling *textual* reward scan
+            in `assert_bounded_egress` matched decimal floats (`\d*\.\d+`) but not
+            scientific-notation floats without a decimal point — Python's `repr()`
+            renders a very small/large reward as `1e-05` / `2e+16`, which has no
+            decimal and no 6-digit run, so it evaded both textual patterns and
+            could ride out inside a string. Added `_SCI_FLOAT_TEXT_PATTERN`
+            (`\d[eE][+-]\d`); the *signed* exponent that `repr()` always emits is
+            the discriminator — a bare `1e5` inside a hex hash has no sign, so the
+            pattern adds no false positives (full suite green,
+            `tests/test_private_reward.py` +1).
+      - [x] Wire the guard as a mandatory gate on the loop's publication path.
+            Done 2026-07-12: `LoopOutcome.certified_public_export()` is the
+            mandatory choke point for publishing a run (checkpoint / on-chain
+            packet / cross-boundary handoff). Instead of *trusting* that
+            `to_public_dict()` is bounded by construction, it runs the shared
+            fail-closed `assert_bounded_egress` gate over the exact bytes that
+            would leave the boundary and raises `RewardLeakageError` if a reducer
+            regression smuggled an exact reward (float), a reward-derived
+            gradient (numeric array), or raw sealed data (oversized blob). The
+            public, separately-governed `result.attestation` subtree (holdout
+            split fractions), already egress-checked at `finalize()`, is excluded
+            from the structural float-ban exactly as the `BoundedResult` egress
+            check does; the returned dict is byte-identical to `to_public_dict()`.
+            `tests/test_private_reward_loop.py` adds admit-real-outcome and
+            fail-closed-on-smuggled-float tests (14 in that file).
 - [ ] `P0` Bio/dual-use outputs must fail closed until the risk screen,
       reviewer queue, and bounded schema are real.
       - [x] Add the fail-closed bounded bio release gate. Done 2026-07-10:
@@ -508,6 +640,42 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             screen verdict (`raw_secret_egress=false`). This is the enforcement
             mechanism; wiring real risk screens, the reviewer queue, and other
             bio egress paths into it keeps this invariant open.
+      - [x] Wire the bio HOLD to the human-review queue end-to-end. Done
+            2026-07-12: `tinker_delegate.bio_review_bridge` turns a HELD
+            `BioReleaseReceipt` into a bounded review ticket (`enqueue_bio_hold`)
+            — routed to the receipt's review role, keyed by the result hash, the
+            evaluating agent recorded as submitter so it cannot self-approve, with
+            optional per-role M-of-N — and `resolve_bio_release` maps the ticket
+            state back to a final decision: only a queue RELEASED promotes the
+            hold to RELEASE, DENIED becomes DENY, pending/expired/missing stays
+            HOLD (fail closed). Bounded throughout (hashes only), and reachable
+            over the `/review/*` API. `tests/test_bio_review_bridge.py` (8) prove
+            hold-without-ticket, pending-holds, released-promotes, denied-denies,
+            submitter-cannot-self-release, M-of-N biosecurity release, and the
+            bounded status record. End-to-end integration test added 2026-07-12
+            (`tests/test_bio_pipeline_integration.py`): a held bio result flows
+            evaluate(HOLD) -> enqueue -> M-of-N release by two distinct officers
+            (self-approval rejected, one officer insufficient, single deny vetoes)
+            -> resolve(RELEASE) -> disclosure(ESCROW) -> solution_escrow seal +
+            authorization-gated release, proving the modules compose with all
+            fail-closed properties intact. Live auto-route added 2026-07-12:
+            `evaluate_and_route` evaluates a candidate and auto-enqueues the
+            receipt iff it HOLDs (idempotent per result hash; RELEASE/DENY leave
+            the queue untouched), so a held result is never left un-queued
+            (`tests/test_bio_review_bridge.py`, 11).
+      - [x] Harden the always-on forbidden-output text screen against separator
+            evasion. Done 2026-07-12: `screen_forbidden_output`'s compound
+            dangerous-term patterns used `[- ]`/`\s*` classes that matched only
+            hyphen/space, so `gain_of_function` (the underscore form ubiquitous in
+            code-derived identifiers), `gain.of.function`, `de-novo`, and `de_novo`
+            evaded the screen entirely (verified empirically: each returned `()`).
+            Introduced a shared separator class `_SEP = [-_.\s]*` and applied it to
+            the gain-of-function, de-novo, and wet-lab terms, so every separator
+            form (including the concatenated `gainoffunction`) now matches. The
+            ordered token sequence is itself the dangerous term, so the broadened
+            class adds no false positives (benign "the function gain was high" /
+            "novofunction" untouched; full suite green,
+            `tests/test_bio_validation.py` +1).
 
 ## Milestone 0: Repo Truth, Baseline, And Documentation
 
@@ -529,12 +697,16 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       Done 2026-07-10: `diff -rq` shows all thirteen skill directories are
       byte-identical across the three mirrors; the `test-all-skills.sh`
       helper was copied into `.agents/skills/` so the mirrors match exactly.
-- [ ] `P1` Add a `docs/DECISIONS.md` log for irreversible architecture choices:
+- [x] `P1` Add a `docs/DECISIONS.md` log for irreversible architecture choices:
       one CVM vs split CVMs, quote verification model, funding rails, data
       locality policy, and frontend deployment target.
-      Started with the result-submission quote-verification decision. Remaining
-      entries still need to record CVM topology, funding rails, data locality,
-      and frontend deployment target before this P1 is complete.
+      Done 2026-07-11: all five decisions are now recorded in
+      `docs/DECISIONS.md` with honest status labels — result-submission quote
+      verification (`[partial]`), single-combined-CVM topology (`[partial]`,
+      grounded in the live 2026-07-11 topology verification), encumbrance-gated
+      browser-mediated funding rails (`[partial]`), sealed-at-rest data locality
+      (`[partial]`), and frontend deployment target (`[planned]`). Each entry
+      carries a decision, rationale, and open follow-ups.
 - [x] `P1` Add a machine-readable manifest of deployed resources:
       contract addresses, Phala CVM IDs, app IDs, compose hashes, image digests,
       BaseScan links, and gateway endpoints.
@@ -627,6 +799,93 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       bare trusted address.
       Done when result submission proves the signer is controlled by a verified
       measurement.
+      - [x] Add an on-chain compose-hash approval gate to `DiligenceRoom`.
+            Done 2026-07-11: `DiligenceRoom.sol` gains
+            `approvedComposeHashes[bytes32]` plus developer-only
+            `approveComposeHash` / `revokeComposeHash` /
+            `setComposeApprovalRequired`, and `submitResult` reverts
+            `ComposeHashNotApproved` when the gate is on and the authorized
+            compose hash is not developer-approved on-chain. This binds a settled
+            result to a governance-admitted measurement at the contract level —
+            defense in depth beyond trusting the off-chain `resultVerifier`
+            signature — mirroring `TinkerAccountEncumbrance.approvedComposeHashes`.
+            Default `composeApprovalRequired=false` preserves the existing
+            verifier-signature-only path; production deployments enable it.
+            Contract tests (`test/DiligenceRoom.t.sol`, now 49 total) prove
+            developer-only governance, zero-hash rejection, gate-off backward
+            compatibility, unapproved-compose revert when required,
+            approved-compose success, and revoke-blocks-submit.
+      - [x] Wire the submitter preflight to the on-chain gate. Done 2026-07-11:
+            `DiligenceRoomSubmitter` now reads `composeApprovalRequired()` and
+            `approvedComposeHashes(composeHash)` before signing/broadcasting and
+            fails closed with `compose hash is not approved on-chain` when the gate
+            is enabled and the compose is unapproved — so it never spends gas on a
+            transaction that would revert `ComposeHashNotApproved`, and the bounded
+            receipt stays honest. New selectors/encoders
+            (`encode_compose_approval_required_calldata`,
+            `encode_approved_compose_hashes_calldata`, `decode_bool_call_result`)
+            and reader methods (`read_compose_approval_required`,
+            `read_compose_hash_approved`). `tests/test_chain_submitter.py` (+3, now
+            15) prove fail-closed-before-broadcast (no tx sent), success when
+            approved, and gate-off backward compatibility; the test `FakeRpc` now
+            routes eth_call by selector.
+      - [x] Prove the gate end-to-end on ephemeral Anvil. Done 2026-07-11:
+            `scripts/prove-compose-approval-gate-anvil.py` deploys `DiligenceRoom`
+            on a fresh Anvil chain (Anvil unlocked default accounts; no raw keys,
+            no dstack), enables `composeApprovalRequired`, funds a deal, and drives
+            `submitResult` isolating the gate by revert-reason change: unapproved
+            compose reverts `ComposeHashNotApproved`; after `approveComposeHash` the
+            same call passes the gate and reverts later on the dummy verifier sig
+            (`InvalidResultAuthorization`); after `revokeComposeHash` it reverts
+            `ComposeHashNotApproved` again — proving the gate admits exactly
+            governance-approved measurements. Emits a bounded JSON summary
+            (`raw_secret_egress=false`). Guarded test
+            `tests/test_compose_approval_gate_proof.py` runs it when
+            `DNAI_RUN_ANVIL_PROOFS=1` and foundry is on PATH (skipped by default;
+            verified passing live this cycle).
+      - [x] Bind the bare `teeIdentity` address to an attested measurement at
+            deal creation. Done 2026-07-11: `DiligenceRoom.sol` gains
+            `teeIdentityComposeHash[address]` (nonzero = approved, records the
+            bound compose hash) plus developer-only
+            `approveTeeIdentity(address,bytes32)` / `revokeTeeIdentity` /
+            `setTeeIdentityApprovalRequired`. When enabled, `createDeal` reverts
+            `TeeIdentityNotApproved` unless the seller-supplied `teeIdentity` is
+            developer-approved, and `submitResult` reverts
+            `ComposeHashIdentityMismatch` unless the submitted compose hash equals
+            the identity's registered measurement — so a deal can only be created
+            for, and settled by, a TEE whose identity governance has bound to a
+            specific measurement. Default OFF (bare-address behavior preserved).
+            Contract tests (`test/DiligenceRoom.t.sol`, now 58 total) prove
+            developer-only governance, zero-address/zero-hash rejection, gate-off
+            backward compatibility, create-revert-when-unapproved,
+            create-success-when-approved, submit-success on identity/compose match,
+            submit-revert on mismatch, and revoke-blocks-create.
+      - [x] Drive the on-chain approvals from `result_verifier` attestation checks
+            rather than hand-written developer calls. Done 2026-07-11:
+            `tinker_delegate.governance_plan.build_governance_plan_from_authorization`
+            takes a *verified* `ResultAuthorization` (attestation already passed the
+            verifier policy — allowed compose hash, allowed app ID, matching quote
+            report data, not revoked) and emits a bounded plan of the exact calls
+            that admit that identity/measurement pair on-chain:
+            `approveComposeHash(composeHash)` and
+            `approveTeeIdentity(teeIdentity, composeHash)`. It fails closed on an
+            unauthorized/zero-compose input. Per the no-self-approval invariant it
+            does NOT execute — the plan carries `cast` command templates using
+            `--account dev` (keystore, never a raw key) for the developer to
+            broadcast. Operator surface: `governance-approval-plan
+            <authorization.json>` reads an `authorize-result` output and prints the
+            bounded plan (`raw_secret_egress=false`, no signatures/digests).
+            `tests/test_governance_plan.py` (8) cover both calls, calldata/selector
+            correctness, keystore-not-raw-key, unauthorized/zero rejection,
+            bounded output, and the CLI path.
+      Remaining (operational, not mechanism): (1) enable both gates by default for
+      production; (2) redeploy — the current Base Sepolia `DiligenceRoom` predates
+      both gates and does not expose them. Redeploy is NOT done autonomously: a
+      `dev` keystore and `.env` deploy keys exist, but a live testnet deploy is an
+      outward-facing, hard-to-reverse action that also needs an interactive
+      keystore password — it requires explicit user confirmation (run
+      `/forge-deploy` with `--account dev`). Blocked on that confirmation, not on
+      code.
 - [x] `P0` Add anti-replay material to submitted results:
       `chainId`, contract address, deal ID, nonce, compose hash, result hash,
       score band, compute cost, and expiry.
@@ -690,21 +949,193 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
                   `eth_sign`.
             - [ ] Add cryptographic Intel TDX quote parsing/freshness once the
                   production quote evidence format is available.
+                  - [x] Add STRUCTURAL TDX quote parsing (report_data binding).
+                        Done 2026-07-12 in `tinker_delegate.tdx_quote`: a DCAP v4
+                        parser extracts report_data + MRTD/RTMRs from raw quote
+                        bytes at spec offsets (report_data [568:632], stable for
+                        TD10/TD15), failing closed on unsupported version, non-TDX
+                        tee_type, truncated buffers, or non-bytes. Wired into
+                        `verify_attestation_envelope(..., enforce_quote_binding=True)`
+                        so the report_data embedded IN the quote must equal the
+                        claimed report_data — closing the "trust the parallel
+                        claimed field" gap. Fail-closed by construction: a wrong
+                        offset/unknown format can only reject, never accept.
+                        Tests place fields at literal offsets independent of the
+                        parser constants (`tests/test_tdx_quote.py`, 9). Default
+                        off preserves opaque/simulator-quote behaviour.
+                  - [ ] Remaining (blocked on real quote evidence): verify the
+                        Intel signature/cert chain + freshness/revocation via
+                        QVL/dstack, and cross-check the structural parser against a
+                        captured production quote (version 5 layout still fails
+                        closed until a sample is available).
       - [ ] Repeat the verifier-authorized submitter proof from a deployed Phala
             CVM against Base Sepolia or an Anvil fork.
-- [ ] `P1` Add ERC20/USDC support in addition to native ETH.
+- [x] `P1` Add ERC20/USDC support in addition to native ETH.
       Done when buyer deposits and pull payments work with a stablecoin.
-- [ ] `P1` Add protocol-fee configuration with timelock/freeze semantics.
-- [ ] `P1` Add staged rental states:
+      Done 2026-07-11 in `DiligenceRoom.sol`: each `Deal` carries a
+      `paymentToken` (`address(0)` = native ETH, else ERC20). `createDeal` has a
+      5-arg overload taking `paymentToken` (4-arg overload stays native);
+      `fundDealERC20(dealId, amount)` pulls tokens via `transferFrom`
+      (checks-effects-interactions: state set before the external call);
+      `fundDeal` and `fundDealERC20` cross-guard with `TokenMismatch`.
+      `pendingWithdrawals` is now `token => recipient => amount`; `withdraw()`
+      keeps native, `withdraw(address token)` pays a token via a bool-checked
+      `_safeTransfer`. Settlement math (accept/reject/expire, 1% fee) is
+      identical for both. The `Deal` struct appends `paymentToken` LAST so the
+      off-chain submitter's positional `deals()` decode of the leading fields is
+      unchanged (Python suite still green). `via_ir=true` was enabled to resolve
+      the 14-field getter's stack-too-deep. `DiligenceRoom.t.sol` gains a
+      `MockERC20` + 8 ERC20 tests (accept/reject/expire lifecycles, conservation,
+      token-mismatch both directions, missing approval, nothing-to-withdraw);
+      42 contract tests pass. ABI changed → the deployed room needs a redeploy to
+      expose the token path.
+- [x] `P1` Add protocol-fee configuration with timelock/freeze semantics.
+      Done 2026-07-11 in `DiligenceRoom.sol`: `FEE_BPS` became a governable
+      `feeBps` state variable (default `DEFAULT_FEE_BPS`=100/1%). Developer-only
+      `proposeFeeBps(newBps)` stages a change behind a `FEE_TIMELOCK_DELAY`
+      (2 days) and caps it at `MAX_FEE_BPS` (1000/10%); `activateFeeBps()` applies
+      it after the timelock; `cancelFeeBpsProposal()` drops a pending proposal;
+      `freezeFeeBps()` permanently locks the fee and blocks further proposals.
+      The fee is read at `submitResult` time and stored on the `Deal`, so a change
+      never retroacts on already-evaluated deals (proven by
+      `test_FeeChangeDoesNotRetroactOnEvaluatedDeal`). 9 new tests
+      (`DiligenceRoom.t.sol`, 73 total): propose/activate, too-early, too-high,
+      only-developer, proposal-exists, cancel, freeze-blocks, default, and
+      non-retroaction. Full contract suite: 110 tests, 0 failed.
+      Coupling closed 2026-07-11: `DiligenceRoomSubmitter` now reads `feeBps()`
+      on-chain (`read_fee_bps`, `encode_fee_bps_calldata`,
+      `decode_uint256_call_result`) for the over-budget preflight instead of a
+      hardcoded 1%, and falls back to the 1% default for older deployments whose
+      contract lacks the getter (empty/zero return). `tests/test_chain_submitter.py`
+      (+3, now 18): a raised on-chain fee tightens the budget check, the default
+      getter path submits, and the fallback returns 100. Deployed Base Sepolia
+      room predates the governable fee and needs a redeploy to expose it.
+- [x] `P1` Add staged rental states:
       `raw_inspection`, `training`, `inference`, `full_disclosure`, each with its
       own cap, reserve, result type, and consent requirements.
-- [ ] `P1` Add per-query royalty settlement for corpus owners.
+      Done 2026-07-11: `tinker_delegate.rental_stages` is a pure, fail-closed
+      progressive-disclosure state machine. Each `StagePolicy` carries a
+      `reserve_wei`, `cap_wei`, bounded `ResultType`
+      (`score_band`/`utility_band`/`yes_no`/`artifact`), and `requires_consent`;
+      a `RentalLadder` validates the stages are unique and in strictly increasing
+      disclosure order. `advance_stage` enforces monotonic disclosure (no
+      regression or same-stage re-pay; skipping to a higher tier is allowed only
+      if that tier's requirements are met), owner-supplied consent (the requester
+      can never self-approve), a hard rule that `full_disclosure` (raw artifact)
+      always requires consent, and reserve/cap bounds — every failure DENYs with a
+      bounded reason code. Output is a bounded `StageTransition`
+      (`raw_secret_egress=false`). `default_rental_ladder()` gives sensible tiers.
+      `tests/test_rental_stages.py` (13) cover forward progress, regression/
+      same-stage denial, tier-skipping, the full-disclosure consent hard rule,
+      per-stage consent, reserve/cap bounds, out-of-ladder targets, boundedness,
+      and malformed-ladder rejection. Wiring these tiers into `DiligenceRoom`
+      deal lifecycle + the consent layer remains a follow-up.
+- [x] `P1` Add per-query royalty settlement for corpus owners.
       Done when a surfaced turn can meter multiple corpus owners and accrue pull
       payments.
-- [ ] `P1` Add settlement conservation fuzz tests for multi-owner and ERC20
+      Done 2026-07-11: `tinker_delegate.royalty_settlement` adds multi-owner
+      per-query royalty settlement. `split_royalty(total, shares)` divides a
+      per-query royalty among co-owners by `OwnerShare` weights (basis points
+      summing to 10000) using the largest-remainder method, so payouts sum to
+      *exactly* the total (no wei created/lost, deterministic tie-break by
+      owner_ref). `RoyaltyLedger` accrues each split into per-owner claimable
+      balances and preserves the three-way conservation invariant
+      `claimable + claimed == accrued` (self-review fix 2026-07-12: the meter now
+      tracks the claimed total and exposes `total_claimed()` /
+      `total_claimed_band`; the previous `claimable == accrued` check falsely
+      reported not-conserved after any withdrawal, since claimed funds legitimately
+      leave the pool — a real bug in the bounded money-path audit signal);
+      `claim(owner)` is the pull-payment withdrawal (fails closed
+      on nothing-to-claim), and `public_summary()` emits bounded per-owner amount
+      bands, an accrual count, a `conserved` boolean, and a settlement hash
+      (`raw_secret_egress=false`). `tests/test_royalty_settlement.py` (12) prove
+      conservation across many amounts/weights (incl. 0, 1, and 1e18+7), even and
+      uneven splits, determinism, weight/uniqueness/negative validation, the
+      accrue→claim lifecycle, ledger conservation over 20 uneven accruals, and
+      bounded summary. Wired into coordination 2026-07-11: `Corpus` gains an
+      optional `owner_shares` ((owner_ref, weight_bps) summing to 10000, validated
+      in `__post_init__`); when set, `coordination._royalty_meters` splits the
+      corpus's `royalty_per_query` across co-owners via `split_royalty`, emitting
+      one conserving `RoyaltyMeter` per owner (single-owner corpora unchanged).
+      `tests/test_coordination.py` (+2) prove a co-owned corpus settles into two
+      conserving meters (700M/300M of 1e9) and that malformed weights raise.
+      On-chain rail added 2026-07-11: `RoyaltyDistributor.sol` is the on-chain
+      counterpart of `RoyaltyLedger` — `distributeNative` / `distributeERC20` take
+      a query ref plus the conserving per-owner split (from `split_royalty`),
+      credit each co-owner's `pending[token][owner]` claimable balance
+      (conservation enforced: native `msg.value` must equal the sum; ERC20 pulls
+      the sum via `transferFrom`), and `withdraw()` / `withdraw(address)` are the
+      pull payments (CEI, bool-checked transfers). Guards reject length mismatch,
+      empty/zero-owner/zero-amount, value mismatch, and nothing-to-withdraw.
+      `test/RoyaltyDistributor.t.sol` (12) cover native/ERC20 distribute+withdraw
+      lifecycles ending with the contract holding zero, accumulation across
+      distributions, every guard, a native conservation fuzz, and (added
+      2026-07-12) a reentrancy-drain test: a malicious co-owner re-entering
+      `withdraw()` during its native payout gets exactly its single credit and
+      cannot drain other owners (CEI defeats it). Contract-surface audit complete
+      2026-07-12: all five contracts reviewed — DiligenceRoom (settlement
+      conservation/reentrancy/fee-lock), TinkerAccountEncumbrance (fixed an
+      on-chain self-approval gap), EmailOracleAuth (kill-switch/delivery, correct +
+      well-tested), and RoyaltyDistributor (inherent conservation, reentrancy now
+      pinned). Full contract suite: 136 tests. Proven end-to-end on ephemeral Anvil 2026-07-11:
+      `scripts/prove-royalty-distributor-anvil.py` deploys the contract (Anvil
+      unlocked accounts, no raw keys/dstack), distributes a 1 ETH native royalty
+      0.7/0.3 across two co-owners, verifies each `pending` credit and that the
+      contract holds the full total, has both owners withdraw, and asserts the
+      contract drains to exactly zero (strict conservation) — emitting a bounded
+      JSON summary. Guarded test `tests/test_royalty_distributor_proof.py` runs it
+      when `DNAI_RUN_ANVIL_PROOFS=1` (verified passing live this cycle).
+      Deploying it to Base Sepolia and wiring coordination settlement to it remain
+      follow-ups.
+      - [x] Bridge the settled split to the on-chain rail as a bounded plan.
+            Done 2026-07-11: `tinker_delegate.royalty_distribution_plan` turns a
+            settled per-owner split into the exact `RoyaltyDistributor.distributeNative`
+            / `distributeERC20` call — bounded calldata plus a `cast` command
+            template using `--account dev` (keystore, never a raw key). It does not
+            broadcast (operator executes it), mirroring the governance plan. The
+            hand-rolled dynamic-array (`address[]`,`uint256[]`) ABI encoding is
+            verified byte-identical to `cast calldata` for both native and ERC20
+            (`tests/test_royalty_distribution_plan.py`, 8, incl. cast cross-checks
+            and zero-owner/zero-amount/empty/bad-query-ref rejection). Proven to
+            execute end-to-end on Anvil 2026-07-11:
+            `scripts/prove-royalty-distribution-plan-anvil.py` deploys the
+            distributor, builds a native plan with the Python builder, broadcasts
+            the plan's *exact calldata*, and asserts each owner is credited the
+            planned amount, the contract holds the total, and it drains to zero
+            after withdrawal. Guarded test
+            `tests/test_royalty_distribution_plan_proof.py`
+            (`DNAI_RUN_ANVIL_PROOFS=1`, passing live this cycle). Net: the royalty
+            path is now proven from Python split → bounded plan → executed on-chain
+            distribution → conserving pull-payment withdrawal.
+- [x] `P1` Add settlement conservation fuzz tests for multi-owner and ERC20
       paths.
-- [ ] `P1` Add contract-level tests for expiry around in-flight evaluations,
+      Done 2026-07-11 in `DiligenceRoom.t.sol` (64 tests total): added 6 fuzz
+      conservation tests covering every settlement path and both assets. Native:
+      `testFuzz_RejectConservation` (dev=compute+fee, dev+buyer=cap) and
+      `testFuzz_ExpireEvaluatedConservation`, plus `test_ExpireFundedRefundsFullBudget`
+      (no result → buyer refunded the whole cap). ERC20:
+      `testFuzz_ERC20AcceptConservation` (3-way seller/dev/buyer split sums to
+      cap and equals the room's token balance), `testFuzz_ERC20RejectConservation`,
+      and `testFuzz_ERC20EndToEndWithdrawalConservation` (drives the full
+      accept → withdraw lifecycle and asserts the room ends with zero balance and
+      the sum withdrawn equals the funded cap — nothing created, stuck, or
+      destroyed). Each runs 256 fuzz cases. The 3-way accept split IS the
+      multi-owner conservation surface today; per-query royalty for additional
+      corpus owners remains a separate open feature above. Two fuzz edge cases
+      were caught and fixed during authoring (an unbounded-input overflow and a
+      zero-payout `NothingToWithdraw` on exact-budget deals).
+- [x] `P1` Add contract-level tests for expiry around in-flight evaluations,
       double-submits, stale quote nonces, and over-budget compute.
+      Done 2026-07-11 in `DiligenceRoom.t.sol` (34 tests total): expiry from
+      Created/Funded/Evaluated (`test_ExpireDeal_*`) and over-budget compute
+      (`test_SubmitResult_RevertComputeCostOverBudget`) were already covered;
+      added `test_SubmitResult_RevertDoubleSubmit` (a second submit on an
+      Evaluated deal reverts on the state guard), `test_SubmitResult_
+      RevertCrossDealAuthorizationReplay` (a verifier authorization signed for
+      deal A cannot be replayed on deal B because the digest binds dealId), and
+      `test_Withdraw_ReentrancyCannotDoublePay` (a re-entrant withdrawer finds a
+      zeroed balance and cannot double-withdraw — proves checks-effects-
+      interactions ordering). All pass under `forge test`.
 - [ ] `P2` Add a public read API or subgraph/indexer for rooms, deals,
       attestations, and payout status.
 
@@ -784,15 +1215,66 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
       deployment.
 - [ ] `P1` Implement split-CVM runtime auth with RA-TLS or attestation-backed
       signed requests.
-- [ ] `P1` Add consumer-manager role tests:
+- [x] `P1` Add consumer-manager role tests:
       manager can add/revoke consumers, cannot change oracle code policy, cannot
       unfreeze anything.
-- [ ] `P1` Add emergency consumer revocation that is immediate, not timelocked.
-- [ ] `P1` Freeze oracle code authorization after the final audited image.
-- [ ] `P1` Optionally freeze the consumer registry after final consumer
-      measurements are known.
-- [ ] `P2` Add on-chain OTP delivery receipts or hashed audit events if needed
+      Done 2026-07-11: `EmailOracleAuth.t.sol` expanded 11 -> 28 tests. Existing
+      tests already prove a delegated manager can add consumer compose hashes and
+      cannot change oracle policy (`test_OwnerCanDelegateConsumerManagement`,
+      `test_ManagerCannotChangeOraclePolicy`) and that freezes are permanent
+      (`test_FreezeConsumerRegistry_BlocksOwnerAndManager`,
+      `test_FreezeOracleCodeAuth_*`). New tests close the untested governance
+      paths: oracle compose-hash proposal lifecycle
+      (cancel-blocks-activation, cancel/activate `NotPending`, `AlreadyPending`,
+      `AlreadyAllowed`, `ZeroHash`), `removeOracleComposeHash` (revokes +
+      `NotAllowed`), `setAllowAnyDevice` toggle re-enabling any device,
+      add/remove-device `AlreadyAllowed`/`NotAllowed`, `transferOwnership`
+      (moves control, old owner loses access, zero-address revert), and
+      access-control reverts (non-owner propose / set-manager, manager cannot
+      add device, non-manager cannot add consumer). Full contract suite: 95
+      tests, 0 failed.
+- [x] `P1` Add emergency consumer revocation that is immediate, not timelocked.
+      Done 2026-07-12: `EmailOracleAuth.emergencyRevokeConsumer(consumerAppId)` is
+      a kill switch — it flips `consumerEmergencyRevoked[consumer]` so
+      `isConsumerAuthorized` returns false for EVERY compose hash of that consumer
+      at once, immediately, with no timelock. Crucially it is NOT gated by the
+      registry freeze (per-hash `removeConsumerComposeHash` is, so a frozen
+      registry could otherwise never kill a compromised consumer). Owner or a
+      consumer manager may trigger it (access-reducing); `restoreConsumer` is
+      owner-only and only while the registry is still mutable, so once frozen an
+      emergency kill is permanent. `test/EmailOracleAuth.t.sol` (+7, 36 total)
+      prove revoke-all, works-when-frozen, manager-can-trigger, non-manager
+      rejected, zero/double rejected, restore-before-freeze-only, and restore
+      access-control.
+- [x] `P1` Freeze oracle code authorization after the final audited image.
+      Already real: `EmailOracleAuth.freezeOracleCodeAuth()` sets `oracleCodeFrozen`
+      and the `whenOracleCodeMutable` modifier blocks all oracle compose/device
+      mutations thereafter (tested).
+- [x] `P1` Optionally freeze the consumer registry after final consumer
+      measurements are known. Already real: `freezeConsumerRegistry()` sets
+      `consumerRegistryFrozen`; `whenConsumerRegistryMutable` blocks add/remove of
+      consumer compose hashes thereafter (tested), while emergency revocation
+      still works (above).
+- [x] `P2` Add on-chain OTP delivery receipts or hashed audit events if needed
       for dispute resolution.
+      Done 2026-07-12: `EmailOracleAuth.recordOtpDelivery(consumerAppId,
+      deliveryHash)` emits an `OtpDeliveryRecorded(consumer, deliveryHash,
+      sequence, timestamp)` audit event, where `deliveryHash` is an off-chain
+      commitment to the delivery context (consumer, request id, OTP hash) — the
+      raw OTP never touches the chain. A per-consumer `otpDeliveryCount` gives an
+      ordered `sequence` so gaps/duplicates are detectable for disputes. Owner or
+      a consumer manager may record; fail-closed on zero address/hash and refuses
+      to record for an emergency-revoked consumer. `test/EmailOracleAuth.t.sol`
+      (+5, 41 total) prove ordered sequence + event emission, manager-can-record,
+      non-manager rejected, zero-input rejection, and revoked-consumer fail-closed.
+      Off-chain pairing 2026-07-12: `tinker_delegate.otp_delivery` computes the
+      `deliveryHash` the delegate hands to `recordOtpDelivery` —
+      `keccak256(domain || consumer || request_id || keccak256(otp))` — hashing
+      the OTP immediately so the raw code never leaves as anything but a hash.
+      `otp_delivery_receipt` is a bounded receipt (consumer/request hashed, OTP
+      only as a hash, `raw_secret_egress=false`). `tests/test_otp_delivery.py` (6)
+      prove determinism, input-distinctness, missing-input rejection, and that the
+      raw OTP / consumer / request never appear in any output.
 
 ## Milestone 2: DevProof TEE Deployment And Verification
 
@@ -881,6 +1363,32 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             receipts use `/data/funding_receipts.enc`, and control-plane deal
             lifecycle metadata now uses `/data/run_metadata.enc` with a
             separate dstack key path and hashed/banded fields only.
+      - [x] Persist retained-artifact ciphertext under the sealed data volume.
+            Done 2026-07-12: `SealedRetentionStore` now takes an optional `path`
+            (+ dstack-derived or `.key`-sidecar key, matching `ApiKeyStore`) and
+            persists its entries as an AES-256-GCM-encrypted index
+            (`sealed_retention.enc`) so retained artifacts survive service
+            restart; seal/destroy/sweep re-persist. Only sealed ciphertext + a
+            hashed index leave to disk — the persisted file contains no deal id or
+            plaintext (`tests/test_sealed_retention.py` verifies restart reload,
+            destroy/sweep persistence, and that the file is encrypted).
+            Wired into the deployed control plane 2026-07-12: `Settings` gain
+            `retention_store_path` (empty = disabled), `retention_store_key`,
+            `retention_dstack_key_path`, `retention_mode`, `retention_seconds`,
+            `retention_archive_key_ref`; `build_retention_store` /
+            `build_retention_policy` factories construct them, and the FastAPI
+            control-plane singleton (`api._get_control_plane`) now passes both, so
+            production retention is opt-in via env (default: no store → always
+            destroy). Factory tests cover disabled/enabled store, policy build, and
+            unknown-mode fail-closed.
+            Sweep trigger added 2026-07-12: the control-plane singleton runs an
+            on-boot `sweep_retention()` so any artifact whose window expired while
+            the service was down is destroyed on startup, and a new operator-authed
+            `POST /retention/sweep` triggers a sweep on demand, returning the
+            bounded destruction records (`swept_count` + records,
+            `raw_secret_egress=false`). `tests/test_api_retention_sweep.py` (3)
+            cover the bounded sweep response, auth-required, and graceful
+            degradation when the agent stack is absent.
       - [ ] Blocked until official/tokenized funding is available: if a future
             Tinker/Stripe payment-method token or reusable funding reference is
             captured, persist only opaque/token hashes or bounded status under
@@ -1025,15 +1533,60 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
 - [x] `P0` Add OTP one-time-use semantics so the same code cannot be replayed.
       Released OTP-use hashes are persisted in an encrypted/sealed replay ledger;
       raw OTPs are not stored.
-- [ ] `P1` Add mailbox retention policy:
+- [x] `P1` Add mailbox retention policy:
       delete or redact messages after OTP extraction unless retention is
       explicitly required for audit.
-- [ ] `P1` Add phishing/prompt-injection handling for inbound email:
+      Done 2026-07-12: `tinker_delegate.mailbox_retention.decide_message_disposition`
+      is a pure, fail-closed policy that minimizes how long secret-bearing email
+      lingers. Once a message is consumed (its structured token extracted via
+      `inbound_email_safety`), it is DELETEd — or, only when audit retention is
+      explicitly enabled and within its TTL, REDACT_FOR_AUDIT (raw body dropped,
+      bounded metadata kept), then deleted past the audit TTL. An unconsumed
+      message is RETAINed within a short window then DELETEd (stale OTP mail
+      expires, never hoarded). A non-monotonic clock clamps age to 0 so it can't
+      spuriously expire or keep a secret alive. Bounded output (disposition +
+      reason + booleans, no content). Composes with the extractor: a test shows an
+      extracted-OTP message is deleted by default. `tests/test_mailbox_retention.py`
+      (9). Remaining: wire into the deployed oracle so IMAP messages are actually
+      deleted/redacted per this policy (deployment-gated).
+- [x] `P1` Add phishing/prompt-injection handling for inbound email:
       parse only structured OTP and confirmation tokens; never pass arbitrary
       email bodies to an agent without policy checks.
-- [ ] `P1` Add a second confirmation channel for high-risk actions:
+      Done 2026-07-12: `tinker_delegate.inbound_email_safety.extract_inbound_email`
+      treats an inbound email as untrusted observed content and extracts ONLY
+      structured tokens, fail-closed: an OTP is returned only when exactly one
+      code of an expected length appears (ambiguous/none -> no OTP, never guess;
+      a code inside a longer number is not matched); confirmation links are kept
+      only for allowlisted hosts (no allowlist -> no link trusted); the
+      subject+body are scanned for injection markers (ignore-previous, system:/
+      assistant:, forward/transfer/wire, api-key/private-key/seed-phrase, ...) and
+      FLAGGED, never obeyed; the raw body never leaves the function (only its
+      hash). The OTP is retained for in-boundary auth but hashed (never echoed) in
+      the bounded `to_public_dict`. `tests/test_inbound_email_safety.py` (10) cover
+      clean extraction, OTP-hash-not-echoed, ambiguous fail-closed, duplicate-same-
+      code, longer-number non-match, injection-flagged-but-otp-usable, allowlisted-
+      links-only, no-allowlist-no-links, body-hashed-not-raw, and empty email.
+      Remaining: wire it into the deployed oracle inbound path so bodies are never
+      handed to the agent (deployment-gated).
+- [x] `P1` Add a second confirmation channel for high-risk actions:
       wallet signature, WebAuthn, passkey, device-bound Teleport-style session,
       or human reviewer approval.
+      Done 2026-07-12: `tinker_delegate.second_confirmation` is a pure, fail-closed
+      gate. `requires_confirmation(value, threshold_wei=)` decides whether an
+      action crosses the high-risk threshold (a zero threshold requires it for
+      every action). `evaluate_confirmation` authorizes an action only on enough
+      DISTINCT, fresh confirmations through APPROVED channels
+      (`ConfirmationChannel`: wallet_signature / webauthn / passkey /
+      device_bound_session / human_reviewer) from parties OTHER than the requester
+      (non-self-approval; `allow_self_confirm` default False). A confirmation from
+      a non-approved channel, an expired or future-dated one, a self-confirm, or a
+      duplicate confirmer does not count; a requirement with no approved channels
+      authorizes nothing (fail closed). Output is bounded — counts, channel names,
+      reason — evidence stays as hashes. Composition test: a top-up above the
+      threshold is NOT authorized until a valid out-of-band human confirmation
+      arrives. `tests/test_second_confirmation.py` (13). Remaining: bind real
+      channel evidence (verify a wallet signature / WebAuthn assertion) and wire
+      into the deployed high-risk action paths (deployment/crypto-evidence-gated).
 - [ ] `P2` Add branded `wikigen.me` result delivery once the trust path is real.
 
 ### Tinker Browser Auth
@@ -1618,8 +2171,20 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             closed with `auth_access_blocked` on reauth plus `auth_required` on
             test-card/add-balance because no successful auth session has been
             saved yet.
-      - [ ] Add bounded stale-session and login-loop classifications before
-            deciding whether to refresh OTP or fail closed.
+      - [x] Add bounded stale-session and login-loop classifications before
+            deciding whether to refresh OTP or fail closed. Done 2026-07-12:
+            `tinker_delegate.session_state` classifies the auth page text plus a
+            recent-failed-attempt count into a bounded state — `SESSION_ACTIVE`
+            (proceed), `STALE_SESSION` (a single OTP refresh is the safe
+            recovery), `LOGIN_LOOP` (rate-limit/lockout text OR
+            `recent_failed_attempts >= max_attempts` — fail closed, never hammer
+            the OTP/email-oracle), `UNKNOWN` (fail closed). `decide_otp_action`
+            maps state -> PROCEED/REFRESH_OTP/FAIL_CLOSED; the attempt count is
+            authoritative over the page text so a loop can't be masked by a
+            normal-looking stale-session page. `session_state_receipt` emits a
+            bounded `should_refresh_otp` + page-text hash (no raw text, codes, or
+            credentials). `tests/test_session_state.py` (12) prove the ladder,
+            count-forces-loop, fail-closed-on-unknown, and bounded egress.
 - [ ] `P1` Add a `cdp-playground` recipe specifically for Tinker auth and
       billing probes.
 - [ ] `P1` Add replayable browser tests against mock pages for auth, onboarding,
@@ -2067,6 +2632,41 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             Production/repeated funding remains blocked on non-dev OS,
             hardened debug posture, quote-internal verification, and
             legal/compliance approval.
+      - [x] Make account access/billing-gate detection an automated bounded step
+            (like card-add / credit-add / auth). Done 2026-07-11:
+            `tinker_delegate.account_access.classify_account_access` +
+            `account_access_receipt` deterministically map the billing/account
+            page text to a closed state vocabulary (`active`,
+            `access_blocked_billing`, `payment_required`, `waitlist_or_gated`,
+            `unknown`), each with `actionable_by_automation` and an
+            `operator_action`, plus a `page_text_hash` so a gate change (e.g.
+            after activation) is detectable across runs — bounded output only, no
+            raw page text/card/secret. Grounded in evidence, the observed
+            "Access is blocked due to billing status" gate classifies as
+            `access_blocked_billing` with `actionable_by_automation=false` and
+            `operator_action=contact_provider_for_account_activation` (adding a
+            card + $20 did not clear it, so it is a provider-side activation gate,
+            not a self-serve step). `billing.get_account_access_status` navigates
+            the authenticated (TEE-owned) session and returns the bounded receipt;
+            the in-process `account-access-status` CLI runs it inside the CVM,
+            and operator-authed `GET /billing/account-access-status`
+            (`handle_account_access_status`) serves it from the deployed delegate
+            so the funding tooling can query the gate remotely (exceptions fail
+            closed to a bounded `unknown` receipt, no raw page text/URL).
+            `tests/test_account_access.py` (10) cover classification, boundedness,
+            and hash-change detection; `tests/test_api_billing_policy.py` (+3)
+            cover the endpoint (bounded receipt, auth-required, bounded
+            exception). This automates *detecting* the gate; the gate itself is a
+            Thinking Machines account-approval action that no automation can
+            force — the receipt names exactly that. The readiness tooling now
+            consumes it: `tinker-smoke-command-plan --account-access-state <state>`
+            adds `tinker_account_access_blocked` (hard, not-ready) for
+            `access_blocked_billing` / `waitlist_or_gated` / `payment_required`
+            with `next_action=resolve_tinker_account_activation` — surfaced above
+            all compose/policy reasons — and warns `tinker_account_access_unverified`
+            when unchecked, so the plan is honest that an unactivated account
+            blocks the smoke even when every other gate is green
+            (`tests/test_tinker_smoke_command_plan.py` +3).
 - [x] `P0` Confirm PCI and Stripe obligations.
       Research whether the current encrypted-card-to-TEE flow is acceptable or
       whether the system must use Stripe-hosted tokenization / SetupIntent /
@@ -2138,13 +2738,60 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             live deployed TDX attestation evidence.
       - [ ] Add payment-method token/reference to funding receipts once the
             live funding path exposes a safe non-card reference.
-- [ ] `P1` Add budget enforcement:
+- [x] `P1` Add budget enforcement:
       Tinker spend cannot exceed buyer cap, room cap, daily cap, or operator cap.
-- [ ] `P1` Add top-up policy:
+      Done 2026-07-12: `tinker_delegate.spend_budget` is a pure, fail-closed
+      multi-cap enforcer. `SpendCaps` holds the four ceilings (None = uncapped);
+      `SpendLedger.authorize(amount, day_bucket=)` admits a proposed spend only if
+      it fits under EVERY active cap — buyer/room/operator apply to cumulative
+      spend-to-date, daily applies per caller-supplied day bucket (pure, no wall
+      clock). The tightest cap binds (strict intersection); a rejected charge
+      consumes no budget (no mutation on deny); the boundary is strict
+      (`spend > cap` denies, exactly-on-cap allowed). Output is bounded — allowed
+      flag, binding cap name, reason code, and coarse remaining bands per cap, no
+      raw wei (`raw_secret_egress=false`). `tests/test_spend_budget.py` (12) cover
+      within-budget, each cap's denial, exact boundary, tightest-cap-binds,
+      daily-reset-with-cumulative-persistence, fail-closed no-mutation, negative
+      amount, uncapped scopes, and bounded egress. Remaining: wire the ledger into
+      the live Tinker spend path (blocked with the Tinker account) and persist the
+      ledger under sealed delegate storage so caps survive restart.
+- [x] `P1` Add top-up policy:
       minimum balance band, max top-up, auto-reload on/off, emergency disable.
-- [ ] `P1` Add failure handling:
+      Done 2026-07-12: `tinker_delegate.topup_policy` is a pure, fail-closed
+      auto-reload decision primitive. `TopUpPolicy` holds min-balance,
+      target-balance, max-top-up, `auto_reload_enabled` (default OFF — charging a
+      card is opt-in), and an `emergency_disabled` kill switch. `decide_topup`
+      order (most protective first): emergency_disabled -> auto_reload_off ->
+      invalid(negative)_balance -> balance_sufficient -> reload toward target
+      capped at max_topup (full `topup_authorized` or `partial_topup` when the cap
+      binds). The `TopUpDecision` carries the exact action amount but bands it in
+      `to_public_dict`. Crucially a top-up is a SPEND: composition tests show
+      `decide_topup` -> `spend_budget.SpendLedger.authorize` denies (fail closed,
+      no budget consumed) when the top-up exceeds a cap, so caps still bind
+      end-to-end. `tests/test_topup_policy.py` (12) cover default-off, emergency
+      wins, sufficient, full/partial reload, negative/zero, bounded egress, and
+      the spend-budget composition. Remaining: wire into the live billing/top-up
+      path (blocked with the Tinker account) and persist balance state under
+      sealed storage.
+- [x] `P1` Add failure handling:
       card declined, 3DS challenge, bot check, rate limit, insufficient funds,
       Tinker billing outage, partial top-up.
+      Done 2026-07-12: `tinker_delegate.funding_failure.classify_funding_failure`
+      maps each failure kind to a bounded, fail-closed disposition — RATE_LIMIT /
+      BILLING_OUTAGE retry with backoff (until `max_attempts`, then escalate +
+      disable), CARD_DECLINED / INSUFFICIENT_FUNDS escalate to a human AND disable
+      auto-reload, THREE_DS_CHALLENGE escalates (interactive auth, never
+      auto-completed), BOT_CHECK aborts + disables (never auto-solved, per the
+      CAPTCHA/bot-detection invariant), PARTIAL_TOPUP is accepted + re-evaluated,
+      and UNKNOWN/unrecognized fails closed to ABORT + disable. The
+      `disable_auto_reload` flag flips `topup_policy.TopUpPolicy.emergency_disabled`
+      — a composition test proves the full failure -> kill-switch -> no-more-charges
+      loop. `tests/test_funding_failure.py` (10) cover every kind, retry
+      exhaustion, unknown fail-closed, invalid inputs, bounded egress, and the
+      top-up kill-switch composition. Completes the funding-control triad
+      (`spend_budget` enforce + `topup_policy` reload + `funding_failure`
+      classify). Remaining: wire into the live billing path (blocked with the
+      Tinker account).
 - [ ] `P2` Add crypto/A2A rails only after the basic card or official funding
       route is safe and auditable.
 
@@ -2382,6 +3029,30 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             the next live failure maps to a concrete `operator_action` without
             raw provider egress. Live rerun with these tools remains the open
             step.
+            Follow-up 2026-07-11: the authoritative remaining blocker is now
+            confirmed to be the Tinker ACCOUNT, not our stack. After the SDK was
+            pinned to `tinker>=0.22` (local 0.22.7, clears the old version-400),
+            the account returns HTTP 402 "Access blocked due to billing status"
+            that persisted even after topping the balance to ~$20 — an
+            account-level activation/entitlement gate on Thinking Machines' side.
+            A read-only `get_server_capabilities` probe from the dev box (real
+            sealed key, supported SDK, working general internet) stalled 40s+ on
+            the Tinker API, consistent with the blocked/unactivated state. This is
+            external and not code/credit-fixable; it requires the operator to
+            activate/enable API access on the Tinker account (or Thinking Machines
+            support). To make retries after unblocking give a definitive answer in
+            seconds instead of hanging, `run_tinker_sdk_smoke` now caps the first
+            authenticated SDK calls (ServiceClient connect + create_training) with
+            a daemon-thread wall-clock deadline (`smoke_connect_timeout`, default
+            45s): a stall raises `SmokeTimeoutError`, the receipt reports
+            `sdk_error.bucket=transient_timeout` and
+            `operator_action=retry_or_check_tinker_account_activation`
+            (service_client_create) / `retry_later` (create_training), and the
+            hung SDK thread is abandoned so it never blocks process exit.
+            `tests/test_tinker_smoke.py` adds two fast-fail tests (connect hang and
+            training-creation hang) proving a <10s bounded verdict.
+            Still blocked on: operator activating the Tinker account, then an image
+            rebuild (to `tinker>=0.22`) + redeploy + compose approval + live smoke.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked
       Tinker SDK.
 - [x] `P0` Add real SDK integration tests gated by an env var and budget cap.
@@ -2407,14 +3078,66 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
             prove the child cannot see the raw session object, raw service
             client, raw artifact bytes, run IDs, checkpoint paths, sample text,
             or upstream API key in public output.
-      - [ ] Harden the evaluator sandbox for hostile third-party code in a
-            deployed CVM/container, including real Tinker datum adapters,
-            no-network/no-filesystem policy, resource cgroups/ulimits, and
-            audited egress.
+      - [x] Add process-level resource-limit + no-filesystem-write hardening
+            (the local, non-deployment part of the below). Done 2026-07-12:
+            `SandboxedEvaluatorRunner` now applies POSIX `rlimit`s to the
+            evaluator child via a `preexec_fn` — `RLIMIT_CPU` (kills a
+            CPU-spinning breakout with SIGXCPU), `RLIMIT_FSIZE=0` (no-filesystem
+            *write* policy; stdout is a pipe so the bounded result still
+            returns), `RLIMIT_NOFILE` (caps file/network descriptors),
+            `RLIMIT_CORE=0` (no core dump can spill child memory), and an opt-in
+            `RLIMIT_AS` (left unset by default because a low cap breaks CPython
+            startup — real memory bounding is a cgroup concern). Limits are
+            best-effort and never raise an existing hard cap, so a host that
+            refuses a limit still evaluates behind the restricted-builtins
+            namespace (the primary control) rather than failing spuriously.
+            Child runs with `-S -B` (no site, no `.pyc` writes). Tests prove the
+            intended spec table, that the limits actually take effect in a real
+            child on this host, and that an over-large policy stays within the
+            host hard cap (`tests/test_evaluator_sandbox.py`, 8; +1 skipped on
+            infinite-NOFILE hosts).
+      - [ ] `Blocked (deploy)` Complete the sandbox for hostile third-party code
+            in a deployed CVM/container: real Tinker datum adapters, hard
+            no-network policy (netns/seccomp), resource cgroups, and audited
+            egress. Blocked on a deployed CVM; the rlimit/no-fs-write layer above
+            is the process-level portion doable without deployment.
 - [x] `P0` Implement cleanup with retries and a cleanup attestation.
-- [ ] `P1` Add cost metering that reconciles:
+- [x] `P1` Add cost metering that reconciles:
       Tinker reported cost, estimated tokens/steps, chain computeCost, and buyer
       budget remaining.
+      Done 2026-07-12: `tinker_delegate.cost_metering.reconcile_costs` ties the
+      four cost views together — the metered estimate (`session.CostMeter`,
+      priced from token counts), the on-chain `computeCost` the buyer is charged,
+      the buyer `budget_cap`, and an optional Tinker-`reported_cost` — into one
+      bounded, fail-closed `CostReconciliation`. Status is assigned buyer-harm
+      first: `OVER_BUDGET` (chain charge > authorized budget) >
+      `CHAIN_EXCEEDS_ESTIMATE` (delegate submits more than it metered — overcharge
+      protection; a charge *below* estimate is fine) > `REPORTED_MISMATCH`
+      (Tinker's reported cost diverges from estimate beyond `tolerance_bps`) >
+      `RECONCILED`. Only `RECONCILED` is `settlement_safe`, so settlement can
+      refuse an inconsistent charge. `budget_remaining_wei` is floored at zero.
+      `to_public_dict()` bands every wei amount via `value_band` and passes
+      `assert_bounded_egress`. `reconcile_from_meter` anchors on a real
+      `CostMeter` via duck-typing (no heavy `session`/Tinker import).
+      `tests/test_cost_metering.py` (14) prove the status ladder, tolerance
+      slack, priority ordering, bounded egress, and reconciliation against a real
+      metered `CostMeter`. Money-path review 2026-07-12: confirmed the reconciler
+      is correct (no bug) and pinned the OVER_BUDGET boundary as strict `>`
+      matching the on-chain `charge > budgetCap` rule exactly (at-cap in-budget on
+      both sides), so the off-chain gate and contract cannot silently diverge; the
+      calling contract is now documented (`chain_compute_cost_wei` = total charge
+      incl. fee, `fee_wei` informational and never re-added). Wired 2026-07-12:
+      `ControlPlane.evaluate()` now runs
+      the reconciler before a result can settle — it checks the developer charge
+      (compute + fee) against the budget headroom left after the seller offer
+      (mirroring the on-chain `offer + computeCost + fee <= budgetCap`
+      constraint) and, when `not settlement_safe`, fails closed by flipping the
+      recommendation to `reject` and recording `settlement_safe` /
+      `reconciliation_status` on the bounded `evaluation_completed` run-metadata
+      event. `tests/test_local_synthetic_room.py` adds an over-budget deal that
+      flips to reject in the TEE instead of reverting on chain (2 tests in that
+      file). Remaining: feed a real Tinker-reported cost into `reported_cost_wei`
+      once the deployed SDK path returns actual billing.
 - [x] `P1` Add model/run metadata limits so user-provided fields cannot leak raw
       private data through Tinker metadata.
       Done 2026-07-09: `IsolatedTinkerSession.create_training()` now bounds
@@ -2478,6 +3201,13 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
         environments: subprocess timeout, scratch cwd, stripped environment,
         deterministic seed, bounded stdout/stderr, static preflight, and
         runtime guards for file, network, process, and import escapes.
+        Self-reviewed 2026-07-12: confirmed defense-in-depth holds — AST bans
+        dangerous imports + literal dunder attrs, and the restricted `__builtins__`
+        (no `getattr`/`type`/`vars`/`eval`/`exec`/`compile`/`__build_class__`,
+        only `math`/`random` exposed) blocks AST-passing escapes
+        (`getattr((), "__class__")`, `type(())`, class definition) at runtime with
+        no stdout. Locked in by adversarial regression tests
+        (`tests/test_private_reward_sandbox.py`).
   - [ ] `P0` Harden candidate sandboxing with OS/container isolation suitable
         for untrusted third-party code in a deployed CVM.
 - [ ] `P0` Add side-channel controls for reward evaluation:
@@ -2506,8 +3236,26 @@ DNAI settlement: core escrow exists; live attestation, watcher, and full product
         emits optimizer view, bounded feedback, final result, transcript hash,
         leakage hash, and attestation metadata without hidden records or
         submitted candidate strings.
-  - [ ] `P0` Wire hidden-holdout checks into concrete private-reward
+  - [x] `P0` Wire hidden-holdout checks into concrete private-reward
         environments and add domain-specific anti-overfitting rules.
+        Done 2026-07-11: `tinker_delegate.private_reward_envs.denoising`
+        (`DenoisingHoldoutEnvironment`) wires `HiddenHoldoutSet` train/reward/
+        final-validation partitions into the OpenProblems-style single-cell
+        denoising reward. Reward queries hit the reward partition; `finalize()`
+        runs a one-shot final validation on the held-out validation partition;
+        the split commitment binds the sealed per-cell counts. Generic
+        anti-overfitting guards (per-candidate repeat cap, reward-query budget,
+        one-shot final) plus the domain-specific rule (a candidate that worsens
+        the Poisson NLL vs the depth-matched baseline is capped to `negligible`)
+        are enforced inside the boundary; only a coarse `RewardBand` egresses.
+        `tests/test_denoising_holdout_env.py` (11 tests) proves pooling beats
+        identity, identity/sandbox-rejected/wrong-shape candidates band
+        `negligible`, repeat/budget caps fail closed without raising, final
+        validation is one-shot and closes reward queries, and no raw cell counts
+        or exact MSE/Poisson values appear in any bounded surface. Full-scale
+        real OpenProblems data (numpy) is still scored by the precomputed-matrix
+        path in `environments/` and stays `[partial]` (below) pending real
+        container isolation for large candidate programs.
 
 ### Third-Party Reward Evaluability (Mechanism Audit)
 
@@ -2548,18 +3296,37 @@ general form. See `PROJECT.md` "Third-Party Reward Evaluability" and
       is representative" into something testable without exposing private rows.
       Canary scores are releasable; the private/public correlation over a batch
       is itself a bounded, releasable statistic.
-- [ ] `P3` Sign dataset provenance at seal time.
-      Extend the `sealed-dataset-manifest` with attested provenance (source
-      pipeline, upstream dataset id, license, `data_sensitivity`, distribution
-      claim vs. a named public benchmark), signed inside the boundary at seal
-      time so the distribution claim is bound to the commitment, not asserted
-      after the fact. Builds on the existing owner-signature hooks.
-- [ ] `P3` Add a neutral sealing witness (notary / quorum).
-      For adversarial buyer/seller pairs, let a mutually-trusted notary (or an
-      M-of-N quorum) witness the dataset entering the TEE and co-sign the
-      dataset commitment, so neither side can later dispute what was sealed and
-      the "seller crafts data to favor one bidder" collusion path is closed.
-      Bounded receipt only; the witness never sees plaintext.
+- [x] `P3` Sign dataset provenance at seal time. Done 2026-07-12:
+      `build_provenance(...)` assembles a bounded provenance block (source
+      pipeline, upstream id, license, distribution claim, `benchmark_ref` vs. a
+      named public benchmark); `seal_dataset(..., provenance=...)` commits it INTO
+      the manifest before hashing, so it is covered by `manifest_hash` and the
+      existing owner/witness signatures bind the claim to the exact dataset.
+      `verify_dataset_provenance(manifest, *, expected_signer, expected_benchmark)`
+      requires a complete block AND a valid signature (unsigned =>
+      `provenance_not_signed`), optionally checks `benchmark_ref`, and tampering
+      the claim after signing breaks the signature. Backward-compatible (absent
+      provenance omits the key, hash unchanged). `tests/test_dataset_provenance.py`
+      (10). Threaded through `verify_reward_mechanism` (aggregate + CLI
+      `--expected-benchmark`/`--require-provenance` + endpoint) 2026-07-12.
+      Operator CLIs added 2026-07-12: `witness-sign-dataset-manifest` (notary
+      co-signs; key from env, receipt hides it) and `verify-dataset-provenance`
+      (bounded receipt, non-zero exit on failure); `tests/test_dataset_provenance_cli.py`
+      (5).
+- [x] `P3` Add a neutral sealing witness (notary / quorum). Done 2026-07-12:
+      `sealed_dataset.add_witness_signature` lets a mutually-trusted notary
+      co-sign the canonical `manifest_hash` (excluded from the hash, so every
+      witness signs one fixed commitment and signing never mutates it), and
+      `verify_witness_quorum(manifest, *, authorized_witnesses, threshold)` counts
+      DISTINCT authorized signers whose signature recovers over that hash —
+      failing closed on unknown/duplicate/wrong-hash signatures and on a tampered
+      manifest. Closes the "seller crafts data to favor one bidder" collusion.
+      Bounded receipt (witness hashes only, never raw addresses); witnesses never
+      see plaintext. Enforceable via `verify_reward_dataset_binding(...,
+      witness_quorum={"authorized_witnesses": [...], "threshold": M})`
+      (`dataset_witness_quorum_unmet` when unmet). `tests/test_witness_quorum.py`
+      (11). Threaded through `verify_reward_mechanism` (aggregate + CLI
+      `--witness`/`--witness-threshold` + endpoint `witness_quorum`) 2026-07-12.
 - [ ] `P3` Upgrade `private_reward_holdout.py` to a Ladder-gated release path.
       Replace the plain train/reward/final split with the Ladder mechanism:
       release a new reward only when a candidate beats the running best by a
@@ -2568,19 +3335,150 @@ general form. See `PROJECT.md` "Third-Party Reward Evaluability" and
       sealed holdout supports effectively unlimited attempts while the settlement
       number stays honest. Ties into the existing reward-query budget and
       anti-overfitting guards.
-- [ ] `P3` Add a Thresholdout / DP-noised reward option.
-      Access the holdout only through a DP mechanism (noisy-threshold release);
-      compose the per-record leakage budget with the query budget so
-      `total leakage ≤ ε × queries` is a single stated bound. Unifies the leakage
-      cap and the overfitting cap under one parameter, and makes the reward
-      precision budget provable rather than heuristic.
-- [ ] `P3` Ship a third-party verification CLI (`verify-reward-mechanism`).
-      Given the published attestation, the read env source, and the dataset
-      commitment, verify: (1) `HASH(reward_code)` matches the source the third
-      party read; (2) the dataset commitment matches the manifest and (if
-      present) the notary co-signature; (3) canary calibration passes; (4) the
-      declared query/DP/Ladder parameters match what the boundary enforced.
-      Bounded pass/fail + hashes only; no raw data, no exact rewards.
+      - [x] Implement the fixed-`η` Ladder mechanism as a reusable bounded gate.
+            Done 2026-07-12: `tinker_delegate.ladder_release` (`LadderLeaderboard`,
+            `LadderPolicy`, `LadderRelease`) implements §3 of the paper in the
+            reward convention — keep the running best, advance only on a strict
+            `> η` margin, quantize every released value to the `η = 1/D` grid.
+            Rewards in `[0,1]` admit at most `D` genuine improvement steps, so the
+            released sequence has bounded description length and leaderboard error
+            grows only logarithmically in `k`. Egress is bounded by construction:
+            the internal score is a float that never leaves; releases carry only
+            the integer `leaderboard_step_index`/`step_denominator` + counts, so
+            `to_public_dict()`/`public_manifest()` pass `assert_bounded_egress`.
+            `tests/test_ladder_release.py` (12) prove quantization, monotonic best,
+            the `≤ D` step cap, the `η`-margin gate, determinism, bounded egress,
+            and the paper's adaptive-random-attack property (5000 adaptive
+            submissions -> <40 accepted improvements — the number stays honest
+            under unlimited grinding).
+      - [x] Wire the Ladder gate into `DenoisingHoldoutEnvironment` so the
+            reward-query path releases through the leaderboard instead of the plain
+            per-candidate band. Done 2026-07-12: opt-in via `ladder_policy`; each
+            reward query feeds the continuous internal MSE-improvement score
+            (zeroed on Poisson-NLL worsening, matching the domain anti-overfitting
+            rule) into a `LadderLeaderboard`, and `output_reducer` releases the
+            running-best leaderboard band (`_ladder_band`) — monotonic
+            non-decreasing, so weak-after-strong probing re-releases the best and
+            cannot move the settled number. The Ladder policy is folded into
+            `problem()` metadata / `environment_hash` / `leakage_hash` (the audited
+            mechanism) and the bounded manifest into the `finalize()` attestation.
+            `ladder_policy=None` is fully backward-compatible (all pre-existing
+            denoising tests green). `tests/test_denoising_ladder_gate.py` (5).
+      - [x] Wire the Ladder gate into `SyntheticHiddenKeywordEnvironment` too.
+            Done 2026-07-12: same opt-in `ladder_policy`; the synthetic env's
+            internal `value` is already a normalized [0,1] match fraction so it
+            feeds the leaderboard directly, and the leaderboard band maps back
+            through the env's own `_score_band` thresholds. Ladder policy folded
+            into problem metadata / `environment_hash` / `leakage_hash` and the
+            manifest into the `finalize()` attestation, exactly as denoising. This
+            proves the gate generalizes across envs with different score semantics.
+            `ladder_policy=None` backward-compatible (11 pre-existing synthetic
+            tests green). `tests/test_synthetic_ladder_gate.py` (5). Remaining
+            follow-ups: tie the `η`-grid into the reward-query budget + canary
+            accounting; add the parameter-free paired-t variant.
+      - [x] Add the parameter-free paired-t variant (§4). Done 2026-07-12:
+            `PairedTLadderLeaderboard` maintains the previous best's per-example
+            score vector and releases a new best only when a candidate's vector is
+            statistically significantly above it by a one-sided paired t-test
+            (running threshold `s/√n`), rounding the released mean to `1/n`.
+            Deterministic (no DP noise) so it suits a TEE gate, and demonstrably
+            overfitting-resistant — zero-mean noise or a positive-but-not-
+            significant mean does not advance the board; a genuine uniform
+            improvement does. Egress bounded: released number is
+            `leaderboard_numerator`/`denominator` (small ints), passes
+            `assert_bounded_egress`. `tests/test_ladder_release.py` (now 21).
+            Wired into `DenoisingHoldoutEnvironment` 2026-07-12 (opt-in
+            `paired_t_ladder=True`, mutually exclusive with the fixed-η
+            `ladder_policy`): gates on the continuous per-cell MSE-improvement
+            vector (`per_cell_mse_improvement`, zeroed on Poisson worsening),
+            releases the significance-gated running-best band, folded into the
+            audited surfaces + finalize manifest; backward-compatible.
+            `tests/test_denoising_paired_t_gate.py` (6).
+- [x] `P3` Add a Thresholdout / DP-noised reward option. Done 2026-07-12:
+      `thresholdout.py` (`ThresholdoutGate`, Dwork et al. 2015) accesses the
+      holdout only through a noisy-threshold DP mechanism — budget is spent only
+      when a candidate diverges from the reward-partition statistic the optimizer
+      already knows, so `total leakage ≤ ε × holdout-accesses` is a single stated
+      bound composed through the shared `DpAccountant`. Band-preserving: the
+      Laplace noise gates which partition's band to release and perturbs before
+      quantization, so only a coarse band index egresses (no un-noised real);
+      fails closed when the budget is exhausted. `tests/test_thresholdout.py` (11).
+      (Previously deferred as "too speculative"; a principled band-preserving
+      adaptation exists.) Exercised end-to-end by the `thresholdout-demo` CLI
+      (`run_thresholdout_demo`; `tests/test_thresholdout_demo.py`, 5) 2026-07-12.
+      Follow-up: wire into an env with a reward/holdout split (e.g. denoising
+      reward vs. final-validation partitions).
+- [x] `P3` Ship a third-party verification CLI (`verify-reward-mechanism`).
+      Done 2026-07-12: all four checks are implemented as verifier functions and
+      composed by `verify_reward_mechanism`, surfaced as the
+      `verify-reward-mechanism --packet [--source ...] [--manifest] [--canary-report]
+      [--expected-signer]` operator CLI (bounded nested verdict, non-zero exit on
+      failure; `tests/test_verify_reward_mechanism_cli.py`, 3). Verifies (1)
+      `HASH(reward_code)` matches the read source, (2) the dataset commitment
+      matches the manifest + optional signer, (3) canary calibration passes, and
+      (4) declared query/DP/Ladder params match what the boundary enforced.
+      Bounded pass/fail + hashes only. Also surfaced as the auth-gated
+      `POST /verify/reward-mechanism` endpoint (done 2026-07-12), which accepts the
+      data-safe inputs (posted manifest + canary report) and excludes code-source
+      binding from the HTTP surface (LFI risk — that check stays CLI-local);
+      `tests/test_api_verify_reward_mechanism.py` (6).
+      - [x] Point (3) — "canary calibration passes" — and the aggregate entry
+            point implemented. Done 2026-07-12:
+            `verify_canary_calibration(report)` re-derives each canary's outcome
+            from its published bands (outcome is a pure function of observed vs
+            min/max rank; INCONCLUSIVE ⟺ WITHHELD band) and confirms the claimed
+            outcome + aggregate `clear`/`tripped_count` match, so a forged/hidden
+            trip is caught (`canary_report_inconsistent`), a gamed oracle is
+            `canary_tripped`, and an empty report is `no_canaries`.
+            `verify_reward_mechanism(packet, *, source_targets, manifest,
+            canary_report, expected_signer)` composes all four checks into one
+            bounded nested verdict (each external check runs only when its input is
+            supplied, else `skipped`; `verified` iff every run + requested external
+            check passes). `tests/test_verify_reward_mechanism.py` (10). Remaining
+            for the item: surface `verify_reward_mechanism` as a
+            `verify-reward-mechanism` operator CLI/endpoint (all four sub-verifiers
+            + aggregate are done).
+      - [x] Point (2) — "the dataset commitment matches the manifest and (if
+            present) the notary co-signature" — implemented. Done 2026-07-12:
+            `verify_reward_dataset_binding(packet, manifest, *, expected_signer)`
+            confirms the sealed run's `sealed_dataset_provenance.manifest_hash`
+            commitment equals `manifest_hash(manifest)`, that the manifest itself
+            verifies (`verify_manifest`, incl. owner/notary signature when
+            `expected_signer` given), and that the run's declared
+            `dataset_id`/`publish_ciphertext_sha256` match the manifest (so a valid
+            manifest for a different dataset can't be swapped in). Fails closed
+            (`missing_dataset_commitment` / `dataset_manifest_invalid` /
+            `dataset_commitment_mismatch` / `dataset_provenance_mismatch`, new
+            explainer reasons). The `denoising_sealed_dataset` demo now stamps the
+            `manifest_hash` commitment into its provenance.
+            `tests/test_reward_dataset_binding.py` (8).
+      - [x] Point (1) — "`HASH(reward_code)` matches the source the third party
+            read" — implemented. Done 2026-07-12:
+            `verify_reward_code_binding(packet, source_targets)` recomputes
+            `hash_source_files(...)` over the reward-env modules/paths the reader
+            independently obtained and checks it equals the packet certificate's
+            `code_hash`, binding that exact code to the attested run. Separate call
+            from `verify_reward_run` (external input the packet lacks); bounded
+            verdict (both operands are digests); fails closed on
+            `missing_code_hash` / `code_source_unreadable` / `code_hash_mismatch`
+            (new `decision_explainer` reasons). The demos already hash real source
+            bytes, so a reader with the env module gets `code_binding_verified`.
+            `tests/test_run_verification.py` RewardCodeBindingTest (+5).
+      - [x] Point (4) — "declared params match what the boundary enforced" — is
+            now enforced inside `verify_reward_run`. Done 2026-07-12:
+            `_mechanism_accounting_consistent(packet)` checks the published
+            holdout + Ladder manifests respect the caps in their own declared
+            policy (reward-query / per-candidate / final-validation caps, the
+            final-validation-closes-queries + min-unique gates, and the Ladder
+            `improvement_count ≤ D` / index-in-grid / submission-cap guarantees,
+            incl. paired-t numerator ≤ denominator). A packet claiming more than
+            its stated policy allows is rejected `mechanism_accounting_violation`
+            (a new `decision_explainer` reason). Lenient on absent fields, fails
+            closed on exceeded/unparseable. Real demo packets stay `verified`;
+            `tests/test_run_verification.py` (+10). Still open for the full CLI:
+            (1) reward-code-hash binding, (2) dataset-commitment/notary check, and
+            (3) canary calibration, then package as a standalone
+            `verify-reward-mechanism` entry point.
 - [ ] `P3` Document the utility/safety frontier as the negotiated contract.
       The design knobs (output granularity, DP-ε, query budget, Ladder
       threshold, holdout rotation) are simultaneously utility dials (optimizer
@@ -2609,9 +3507,20 @@ reusing existing primitives (`crypto.encrypt_for_tee`,
       optional owner signature. Emit only hashes/status.
       Done 2026-07-10: `tinker_delegate.sealed_dataset.build_manifest` /
       `verify_manifest` produce and check a bounded `sealed-dataset-manifest-v1`
-      with exactly these fields and `raw_secret_egress=false`. Owner-signature
-      binding hooks (`manifest_hash`, signature exclusion from the canonical
-      payload) exist; wiring a reviewer/owner signer is the remaining step.
+      with exactly these fields and `raw_secret_egress=false`. Owner/reviewer
+      signing is now real (2026-07-11): `sealed_dataset.sign_manifest(manifest,
+      signer_private_key)` adds an `owner_signature` (Ethereum signed-message
+      over the canonical `manifest_hash`, which excludes the signature fields so
+      it binds every other field) plus a bounded `signer_hash`, returning a
+      receipt with no private key / signer address / raw signature.
+      `verify_manifest(..., expected_signer=...)` verifies the signature,
+      detects any tampered signed field (`owner_signature_hash_mismatch`), and
+      requires a matching signer when `expected_signer` is set. CLIs
+      `sign-dataset-manifest` (signer key from env only) and
+      `verify-dataset-manifest --expected-signer` complete the loop.
+      `tests/test_sealed_dataset_signing.py` (10 tests) + a live CLI chain.
+      Binding the signer to a governance/reviewer identity source at seal time
+      remains the P3 provenance item.
 - [x] `P1` Implement envelope encryption for datasets: fresh random DEK,
       chunked AES-256-GCM over the dataset bytes with per-chunk nonce and AAD
       binding `dataset_id|chunk|total`, and DEK wrapping to one or more
@@ -2635,17 +3544,45 @@ reusing existing primitives (`crypto.encrypt_for_tee`,
       CVM key unwraps the DEK and decrypts back to the exact plaintext.
       `dataset-recipient-pubkey` (live attestation fetch + verify) and owner
       manifest signing remain open sub-steps.
-- [ ] `P1` Add pluggable storage backends (local, Hugging Face Hub, S3, https)
+- [x] `P1` Add pluggable storage backends (local, Hugging Face Hub, S3, https)
       behind a publish/fetch adapter interface so adding a backend does not
       touch the crypto path. HF/S3 tokens come from env only, never committed.
       Add `publish-dataset` and `fetch-decrypt-dataset` CLIs.
+      Done 2026-07-11: `tinker_delegate.dataset_storage` defines a
+      `StorageBackend` ABC (`ref_for`/`publish`/`fetch`) kept strictly outside
+      the crypto path. `LocalStorageBackend` (real) writes/reads
+      `<root>/<id>.blob` + `.manifest.json`; `HttpsFetchBackend` (real,
+      fetch-only) GETs the blob/manifest by URL; `resolve_backend` returns a
+      fail-closed `_UnconfiguredBackend` for `hf`/`s3` that refuses publish/fetch
+      with a bounded "not configured; credentials from env only" error until a
+      credentialed adapter lands. `publish_dataset()` re-verifies the manifest
+      binds the blob (ciphertext hash), refuses to mutate a signed manifest, and
+      stamps the resolved `storage_ref`. New CLIs: `dataset-recipient-keygen`
+      (0600 X25519 private key, emits only public key + hashes),
+      `publish-dataset`, and `fetch-decrypt-dataset` (fetch -> verify manifest ->
+      select recipient envelope by key hash -> unwrap DEK -> decrypt with
+      plaintext-hash check -> write 0600 -> zero buffer). Proven end-to-end:
+      keygen -> encrypt-dataset -> publish-dataset -> fetch-decrypt-dataset
+      round-trips the exact plaintext; wrong key, tampered blob, and hf/s3 all
+      fail closed. `tests/test_dataset_storage.py` (14 tests) + a live CLI chain.
+      Added `TEEKeyPair.from_private_key_hex` for local/dev recipient custody.
+      - [ ] Add credentialed Hugging Face Hub and S3 publish/fetch adapters
+            (tokens from env only) behind the same interface; until then those
+            schemes stay fail-closed.
 - [ ] `P1` Implement CVM-side unwrap/decrypt inside the boundary: select the
       wrapped-DEK envelope matching the CVM measurement, unwrap with the
       dstack-derived key, decrypt to the sealed data volume, verify the
       plaintext hash, and zero buffers after use. Only bounded bands egress.
       Note: the crypto path (`unwrap_dek`/`decrypt_dataset` with plaintext-hash
-      verification) is real and tested; the remaining work is the CVM fetch +
-      sealed-volume write + buffer zeroing wiring.
+      verification) is real and tested. As of 2026-07-11 the fetch -> envelope
+      selection (by recipient key hash) -> unwrap -> decrypt -> plaintext-hash
+      verify -> buffer-zero flow is also real via
+      `dataset_storage.fetch_decrypt_dataset` and the `fetch-decrypt-dataset`
+      CLI, but with a *local/dev recipient key file* and a plain `--out` path.
+      The remaining production work is: derive the recipient key from dstack and
+      bind envelope selection to the approved CVM measurement (not a supplied
+      key file), and write to the sealed data volume instead of an operator
+      path. Shares the cryptographic-quote-parsing blocker below.
 - [x] `P1` Add `verify-dataset-manifest` for external verification of schema,
       hashes, signature, recipient measurements, and sensitivity label without
       any plaintext access.
@@ -2653,20 +3590,163 @@ reusing existing primitives (`crypto.encrypt_for_tee`,
       schema version, sensitivity label, recipient-envelope shape, chunk
       metadata, and (when the blob is supplied) the ciphertext sha256 binding,
       returning a bounded receipt and exit code. Tests cover happy path and
-      tampered-ciphertext rejection. Owner-signature verification lands with the
-      signing sub-step above.
-- [ ] `P1` Wire the OpenProblems denoising env (`environments/`) to load its
+      tampered-ciphertext rejection. Owner-signature verification landed
+      2026-07-11: `--expected-signer` requires and checks a valid owner
+      signature recovering to the given Ethereum address.
+- [x] `P1` Wire the OpenProblems denoising env (`environments/`) to load its
       dataset through the sealed-dataset path so the mechanism is exercised
       end-to-end; keep the `public_benchmark` label so it is not misread as a
       privacy claim.
+      Done 2026-07-12: `private_reward_envs.denoising_sealed_demo.run_denoising_sealed_dataset_demo`
+      serializes the denoising cells, `seal_dataset`s them (envelope-encrypted for
+      an attested-CVM recipient, `data_sensitivity=public_benchmark`),
+      `publish_dataset`s to a `LocalStorageBackend`, then `fetch_decrypt_dataset`
+      in-boundary (manifest verify -> recipient-envelope select -> unwrap DEK ->
+      AES-GCM decrypt -> plaintext-hash verify), parses the cells, zeroes the
+      plaintext buffer, and only then constructs `DenoisingHoldoutEnvironment` and
+      runs the bounded reward loop. Fails closed (no env run) if the plaintext
+      hash is unverified. Refactored 2026-07-12 onto the reusable, env-agnostic
+      `sealed_env_dataset.load_sealed_env_dataset(ref, key, parse=...)`, which
+      centralizes the security-critical fetch->verify->decrypt->parse->ZERO flow
+      (fail-closed on unverified plaintext, buffer zeroed even if the parser
+      raises) so any future env sourcing sealed data reuses one tested path
+      (`tests/test_sealed_env_dataset.py`, 4). `tests/test_denoising_sealed_demo.py` (4) prove the
+      sealed fetch succeeds + is public_benchmark, the round-trip is LOSSLESS (the
+      sealed-path reward bands equal the direct in-code demo's bands), no raw count
+      vectors leak (forbidden-values scan), and the emitted packet passes
+      `verify_reward_run` end-to-end. Exposed as the `denoising-sealed-dataset-demo`
+      operator CLI (bounded JSON via `_emit_bounded_json`, +1 subprocess test); the
+      full operator loop runs end-to-end — `denoising-sealed-dataset-demo | verify-reward-run`
+      returns `verified:true`. Remaining production work is the same shared
+      blocker as the sealed store: dstack-derived recipient key bound to an
+      approved CVM measurement + write to the sealed data volume (needs
+      cryptographic TDX quote parsing).
 - [ ] `P0` Do not treat the sealed dataset store as production-private until
       cryptographic TDX quote parsing binds the unwrap key to an approved
       measurement (shared blocker with the quote-verifier work). Until then it
       stays `[partial]` and inherits the attestation + compose-approval chain.
 
-- [ ] `P1` Implement a toy `private_reward_envs/` package with:
+- [x] `P1` Implement a toy `private_reward_envs/` package with:
       environment base class, reward evaluator base class, bounded reducer,
       transcript logger, sandbox runner, and tests.
+      Done 2026-07-12 (completing the last component). Component map:
+      environment base class = `private_reward.PrivateRewardEnvironment` (ABC:
+      `optimizer_view`/`evaluate`/`finalize`/`attest`); reward evaluator base =
+      its abstract `reward()` (exact `InternalReward` stays internal); bounded
+      reducer = `output_reducer` -> `BoundedFeedback` guarded by
+      `assert_bounded_egress`; sandbox runner = `private_reward_sandbox`
+      (`PythonCandidateSandbox`, AST preflight + `-S` restricted subprocess) and
+      `evaluator_sandbox` (rlimits); the concrete envs live under
+      `private_reward_envs/` (synthetic/denoising/bio_assay). The missing piece —
+      a standalone tamper-evident transcript logger — is now
+      `tinker_delegate.transcript_log.TranscriptLogger`: it appends one bounded
+      event at a time and binds each entry to the previous via
+      `chain_hash = H(prev || event_hash || index)` (domain-separated genesis), so
+      the log is append-only — insert/delete/reorder breaks the chain from that
+      point. `verify_chain` recomputes it; `to_public_dict` is hashes/counts only
+      and passes `assert_bounded_egress`. It complements the whole-set Merkle
+      `reward_transcript` with an ordered, streaming-verifiable chain.
+      `tests/test_transcript_log.py` (10) prove chaining, determinism,
+      order-sensitivity, tamper/delete/reorder detection, and bounded egress.
+      Wired live 2026-07-12: `PrivateRewardEnvironment` now drives the chain from
+      its query loop — every accepted or rejected query appends to an internal
+      `TranscriptLogger` via a centralized `_append_record`, and the head is
+      exposed as `transcript_chain_head` (+ `verify_transcript_chain()`) and
+      published in `EnvironmentAttestation` alongside the flat `transcript_hash`.
+      So the attested output now carries both the whole-set hash and an
+      append-only chain head a verifier can walk. `tests/test_private_reward.py`
+      adds live-drive + attestation, determinism, and rejection-also-chains tests
+      (19 in that file); the 66-test env/oracle/demo/reproducibility set stays
+      green with the new attestation field. Bound into the commitment 2026-07-12:
+      `RewardTranscriptCommitment` gains a `transcript_chain_head` field (folded
+      into `commitment_hash`), so a single published commitment now ties the
+      per-round Merkle root + env config hash + final result hash + quote + chain
+      event + the env's append-only query-chain head. The `bio_assay_program_qc`
+      demo passes `env.transcript_chain_head`; tests prove the head is bound and
+      changes the commitment hash while leaving the Merkle root unchanged. All
+      three private-reward demos now emit it 2026-07-12: `synthetic_demo` and
+      `denoising_demo` also return a `reward_transcript_commitment` (bound to
+      env hash + final result hash + chain head) via
+      `RewardTranscript.from_round_dicts` / `certified_public_export`; their demo
+      tests assert a 64-hex root and chain head with no sealed-value leak.
+      Bound into the reproducibility certificate 2026-07-12: `certify_loop_run`
+      (default `bind_transcript=True`) folds the transcript `commitment_hash` into
+      the certificate's `certificate_hash`, so one verified certificate covers
+      config + data + code + result + quote + the per-round transcript;
+      `verify_reproducibility_certificate` recomputes the binding. The
+      `bio_assay_program_qc` demo certificate now carries and binds its
+      transcript commitment (`tests/test_reproducibility.py` +1,
+      `tests/test_bio_assay_program_demo.py` binding assertion).
+      One-call verifier added 2026-07-12: `run_verification.verify_reward_run(packet)`
+      re-checks the whole chain from the bounded public bytes alone — certificate
+      hash recomputes, transcript commitment hash recomputes, and the certificate's
+      bound `transcript_commitment_hash` equals the commitment's own hash —
+      fail-closed with a `reason_code` on any missing/mismatched/broken-binding
+      piece (`RewardTranscriptCommitment.from_public_dict` enables the recompute).
+      `tests/test_run_verification.py` (6) verify a real demo packet and reject
+      tampered-certificate, tampered-root, broken-binding, and missing-artifact
+      cases. Strengthened 2026-07-12: it now also cross-checks the (verified,
+      mutually-bound) certificate + commitment against the REST of the packet —
+      the packet's own `final_result` transcript hash and `attestation`
+      env-hash/chain-head, and the cert's data/result hashes — so a valid
+      cert+commitment from one run cannot be spliced onto another run's body
+      (`packet_inconsistent`; `tests/test_run_verification.py` +1). It also
+      recomputes the Merkle root over the packet's own per-round `feedback` and
+      checks it equals the committed `transcript_root` (and `round_count`), so a
+      tampered or dropped round record with an otherwise-valid commitment is
+      caught (`tests/test_run_verification.py` +2). And when the attestation
+      carries a DP budget, `dp_status` is checked for internal consistency
+      (`remaining == max - spent`, `exhausted` matches the epsilon ledger), so a
+      tampered privacy claim is caught (`tests/test_dp_bounded_demo.py` +1).
+      Independent leakage bound added 2026-07-12: the verifier now also runs
+      `assert_bounded_egress` over the packet's per-round `feedback` (the
+      sealed-data-derived surface), so a packet that smuggles a float reward,
+      gradient array, or sealed blob into a round record is rejected
+      `packet_leaks` even if every hash still binds — "verified" now means both
+      cryptographically consistent AND leakage-safe. Public config floats
+      (holdout split fractions, DP budget) live under attestation/optimizer_view
+      and are excluded (`tests/test_run_verification.py` +3: real feedback
+      bounded, smuggled-float rejected with repaired Merkle root, smuggled-gradient
+      rejected). Surfaced as the `verify-reward-run --packet <json>` operator CLI
+      (emits the bounded verdict, exits non-zero on failure;
+      `tests/test_verify_reward_run_cli.py`, 2) and the auth-gated
+      `POST /verify/reward-run` operator API endpoint (posts a packet, returns the
+      bounded verdict; `tests/test_api_verify_reward_run.py`, 4). All FOUR
+      private-reward demos
+      (synthetic/denoising/bio-assay-program/dp-bounded) now emit a transcript-bound
+      `reproducibility_certificate`, so `verify-reward-run` verifies any of them
+      uniformly end-to-end (`tests/test_run_verification.py`). The commitment
+      also flows into settlement: `run_diligence_flow` / `run_bio_diligence_flow`
+      accept an optional `reward_transcript_commitment` that is recorded on every
+      `DiligenceFlowReceipt` and bound into `flow_hash`, tying the settlement
+      outcome to the run's proof-carrying transcript (`tests/test_diligence_flow.py`
+      +1). On-chain binding added 2026-07-12: `chain_submitter.ResultCommitment`
+      now takes an optional `reward_transcript_commitment` folded into the
+      submitted `DiligenceRoom.resultHash` — v2 domain-tagged when present, and
+      byte-identical v1 when absent (existing submissions/Anvil proof unchanged).
+      `submit_result(..., reward_transcript_commitment=...)` threads it through
+      and records it in the bounded receipt, so the settled on-chain record
+      cryptographically commits to the RLVR proof-carrying transcript and any
+      holder of the bounded public fields can recompute the digest
+      (`tests/test_chain_submitter.py` +4: v1 backward-compat, v2 binds/changes,
+      recompute-from-public-fields, submit_result end-to-end). Exposed on the
+      `submit-result` CLI as `--reward-transcript-commitment` and PROVEN on-chain
+      2026-07-12: `scripts/prove-chain-submitter-dstack-anvil.py` (real dstack
+      simulator TEE key + ephemeral Anvil + real authorize-result/submit-result
+      CLIs) now binds a transcript commitment and asserts the emitted
+      `EvaluationSubmitted.result_hash` equals the v2 commitment and differs from
+      the unbound v1 digest — the on-chain settlement record commits to the RLVR
+      transcript. Proof output `ok:true` (result_hash 0x63f8…acaf9a ==
+      submitted_result_hash != unbound v1 0x0213…).
+      Reward-loop side integration-tested end to end
+      2026-07-12 (`tests/test_reward_loop_pipeline_integration.py`): clear canary
+      pre-screen -> `run_private_reward_loop` with a DP budget attached (swappable
+      HillClimb optimizer) -> `certify_loop_run` -> `verify_reproducibility_certificate`,
+      asserting `dp_status` in the bounded attestation, no raw egress in the
+      certified public export, and transcript folded into the cert; a companion
+      case proves a tripped canary fails the run closed before optimizing
+      (CANARY_TRIPPED, zero rewarded rounds) — RLVR counterpart to the bio
+      pipeline integration test.
 - [ ] `P1` Implement a TTT-Discover-style environment adapter.
       Candidate code is evaluated against private data in the TEE; optimization
       method can be RL, TTT, evolutionary search, or an LLM loop.
@@ -2679,12 +3759,43 @@ reusing existing primitives (`crypto.encrypt_for_tee`,
             installable `pyproject.toml`, and `environments/README.md`
             documenting the extensible layout for adding more envs. `verifiers`
             is imported lazily so the core stays offline-testable.
-      - [ ] Wire real candidate-program execution through the existing
+      - [x] Wire real candidate-program execution through the existing
             candidate sandbox (`private_reward_sandbox`) so a generated
             denoising program, not just a precomputed matrix, is scored inside
             the boundary. Optimizer swap (RL/TTT/evolution/LLM) rides on top.
+            Done 2026-07-11: `DenoisingHoldoutEnvironment` runs each candidate
+            (a UTF-8 Python program defining `denoise(train)`) through
+            `PythonCandidateSandbox`. The environment embeds only the relevant
+            holdout partition's train matrix into a harness, runs it under the
+            sandbox's `-S` restricted namespace (`math`/`random` only, no I/O),
+            parses the denoised matrix from bounded/sentinel-delimited stdout,
+            and scores it against the held-out test counts inside the boundary.
+            Sandbox failures (banned import, timeout, syntax, wrong shape,
+            truncated output) fail closed to `negligible`. This is a toy-scale
+            proof: numpy is unavailable in the sandbox, so only small matrices
+            within the source/stdout caps run here; a generated (not
+            precomputed) program is nonetheless scored end-to-end. The
+            OpenProblems `environments/` numpy path for full-scale data remains
+            the `[partial]` precomputed-matrix route.
       - [ ] Run the env end-to-end under prime-rl or `vf-eval` and record a
-            bounded rollout receipt.
+            bounded rollout receipt. (Blocked: `verifiers`/`prime-rl` not
+            installed here — heavy stack.)
+            - [x] Offline leakage-bound verification of the trainer-facing surface
+                  done 2026-07-12: the pieces `load_environment` wires up — the
+                  reward func `bounded_denoising_reward` (called each rollout) and
+                  the dataset rows `_build_rows` — are pure and tested WITHOUT
+                  verifiers. `tests/test_bounded_reward_egress.py` (4) prove the RL
+                  path keeps the private-reward contract: the reward returns only a
+                  quantized band scalar, records only the bounded band on rollout
+                  `state` (no exact mse/poisson, no raw counts), and dataset rows
+                  carry only the public problem + split handle (no raw matrices).
+                  Fail-closed robustness added 2026-07-12: a malformed/adversarial
+                  completion (bad shape, non-numeric, garbage JSON) now earns the
+                  NEGLIGIBLE band instead of raising — matching the private-reward
+                  contract so a bad candidate never crashes a rollout or leaks an
+                  error body; an unavailable dataset (infra, not a bad candidate)
+                  still propagates. `test_bounded_reward_egress.py` now 6 tests.
+                  Remaining is only the actual trainer run under the heavy stack.
 - [x] `P1` Implement a single-cell denoising environment inspired by
       TTT-Discover's biology task.
       Start with public/synthetic OpenProblems-like data, MSE/Poisson-style
@@ -2702,23 +3813,195 @@ reusing existing primitives (`crypto.encrypt_for_tee`,
       verifiers-style reward func records only the band on state. Offline
       core tests pass with numpy only. Hidden-holdout wiring, candidate-program
       execution, and a real trainer run remain open (above).
-- [ ] `P1` Add reward-oracle proof tests:
+- [x] `P1` Add reward-oracle proof tests:
       no direct data reads, no exact reward egress in public mode, query budget
       enforced, sandbox egress capped, transcript hash stable.
-- [ ] `P1` Add optional differential-privacy accounting for individual-level
+      Done 2026-07-11: `tests/test_reward_oracle_proofs.py` (13 tests) asserts
+      all five invariants against BOTH concrete environments (synthetic keyword
+      + denoising holdout): (1) sealed record payloads / raw cell counts never
+      appear in optimizer view, feedback, final result, or attestation; (2)
+      `reward_precision_bits == 0` in public feedback modes, the exact
+      `InternalReward` cannot be pulled under the default external optimizer
+      policy (`internal_reward_for_optimizer()` raises `PermissionError`), and
+      public feedback dicts expose only a bounded key whitelist with no
+      `value`/`metrics`/`mse` keys; (3) exceeding the query budget returns a
+      bounded `BUDGET_EXHAUSTED` decision with a `withheld` band and never
+      raises; (4) sandbox stdout is truncated to the policy cap and
+      huge-output / banned-I/O (`open`, `import socket`, `__import__('os')`)
+      candidates fail closed to `negligible` with no marker leak; (5) identical
+      candidate sequences yield identical transcript/leakage/environment hashes
+      and a new query changes the transcript hash.
+- [x] `P1` Add optional differential-privacy accounting for individual-level
       bio data.
       If rewards are released over real individual data, track epsilon/delta or
       explicitly mark the environment as non-DP and not PHI-safe.
-- [ ] `P1` Add final-solution disclosure policy.
+      Done 2026-07-12: `tinker_delegate.dp_accounting.DpAccountant` gives the
+      `bio_validation.differential_privacy_marked` flag real substance. In `DP`
+      mode it tracks a cumulative `(epsilon, delta)` budget across reward releases
+      by basic (sequential) composition — the safe bound that never *under*-counts
+      — and `charge(DpParams)` is fail-closed: an over-budget release is denied
+      (`dp_budget_exhausted`) and mutates nothing, while a fitting one advances
+      `spent_epsilon`/`spent_delta`. In `NON_DP` mode there is no privacy claim —
+      releases are always admitted but every record is stamped `phi_safe=False`,
+      so nothing pretends individual-data releases are private when they are not
+      (only a DP-tracked accountant reports `phi_safe=True`). `snapshot()` reports
+      state without charging; `would_exceed()` predicts denial. The bounded
+      `DpChargeResult.to_public_dict()` carries only DP parameters/counts/flags
+      (epsilon/delta are public DP config, not reward values). `DpParams`
+      validates epsilon>0 and delta in [0,1); DP mode requires a positive budget.
+      `tests/test_dp_accounting.py` (13) prove composition, fail-closed
+      no-mutation on over-budget, delta binding, non-DP never-PHI-safe, and the
+      bounded record. Fixed 2026-07-12 (self-review): a pure-epsilon-DP
+      accountant (`max_delta=0`, a common config) spuriously reported
+      `exhausted=True`/`snapshot().allowed=False` on a fresh budget because
+      `exhausted` used `spent_delta >= max_delta` (0>=0). Corrected so epsilon is
+      the binding global budget (a delta=0 release always fits while epsilon has
+      headroom; per-charge delta feasibility stays in `would_exceed`), with a
+      regression test. Wired 2026-07-12: `evaluate_bio_release` accepts an optional
+      `dp_charge: DpChargeResult`; for individual-level data a live charge takes
+      precedence over the asserted boolean — release proceeds only if the charge
+      is admitted AND `phi_safe` (DP mode), otherwise HOLD /
+      `individual_level_data_dp_<reason>` with the bounded DP accounting recorded
+      on the receipt schema. A denied/over-budget or NON_DP charge holds even when
+      `differential_privacy_marked=True`; the legacy boolean remains the fallback
+      when no charge is supplied. `tests/test_bio_validation.py` adds live-charge
+      release, exhausted-charge hold, and non-DP hold (13 in that file). Wired
+      into the reward loop 2026-07-12:
+      `PrivateRewardEnvironment.set_dp_budget(accountant, params_per_query)`
+      charges the DP accountant per accepted reward query (computing the reward
+      reads the sealed individual-level data), and once the epsilon budget is
+      exhausted `evaluate` fails closed with a `BUDGET_EXHAUSTED` / `WITHHELD`
+      release — privacy-budget-bounded reward release, real end-to-end and
+      backward compatible (off by default). `tests/test_private_reward_dp_gate.py`
+      (4) prove the DP budget binds before the query budget, no-DP is unchanged,
+      no reward leaks when exhausted, and the bounded `dp_status` (mode/phi_safe/
+      spent+max epsilon-delta/counts) is recorded in `EnvironmentAttestation` when
+      a DP budget is configured (conditional key: non-DP attestations are
+      byte-identical to before, so the 66-test env/oracle/demo set stays green).
+      Showcased 2026-07-12 by the `dp-bounded-reward-demo` CLI
+      (`private_reward_envs.dp_bounded_demo`): runs the synthetic env with a DP
+      budget, releases a band for the first queries then fails closed
+      (`budget_exhausted`/`withheld`) once epsilon is spent, and emits the bounded
+      packet + attested `dp_status` + reward-transcript commitment
+      (`tests/test_dp_bounded_demo.py`, 5, incl. a CLI subprocess run). Also fixed
+      `DpChargeResult.to_public_dict` to round epsilon/delta (float-subtraction
+      noise like `1.0-0.8=0.199999...96` would otherwise render as a long-digit
+      run and trip the CLI bounded-output check).
+- [x] `P1` Add final-solution disclosure policy.
       Candidate code may be public only if it cannot reconstruct private data
       and passes biosecurity/re-id checks; otherwise release only a hash,
       score band, or escrowed artifact.
+      Done 2026-07-12: `tinker_delegate.disclosure_policy.decide_disclosure`
+      folds four fail-closed signals into one bounded `DisclosureDecision` over a
+      severity ladder `BLOCKED > HASH_ONLY > ESCROW > PUBLIC` (most restrictive
+      wins): (1) base posture is `ESCROW` — sealed, releasable only under
+      separate authorization — unless the caller passes `allow_public`; (2) a
+      reconstruction screen downgrades to `HASH_ONLY` when the candidate embeds
+      secret-shaped material (shared `redact_text`), a long base64/hex blob, or
+      is non-text; (3) the re-id screen (`bio_reid.ReidAssessment`) caps at
+      `HASH_ONLY` on HIGH and `ESCROW` on MEDIUM/withheld; (4) the dual-use
+      screen (`bio_dual_use.DualUseAssessment`) forces `BLOCKED` on PROHIBITED and
+      caps at `ESCROW` on REVIEW. The code path enforces it —
+      `disclosable_payload()` returns the raw candidate bytes only when the mode
+      is `PUBLIC`; otherwise `None`. The decision dict is bounded (mode + reasons
+      + candidate hash + score band; passes `assert_bounded_egress`).
+      `tests/test_disclosure_policy.py` (12) prove public-with-permission,
+      escrow-by-default, each downgrade, most-restrictive-wins across combined
+      signals, and bounded egress. Wired 2026-07-12: `run_diligence_flow` /
+      `run_bio_diligence_flow` accept an optional `disclosure_candidate` (winning
+      solution bytes) + `allow_public_disclosure`; after the review + stage
+      disclosure gates pass and before settlement, the disclosure decision is
+      computed (reusing the flow's own `dual_use`/`reid`) and recorded on the
+      `DiligenceFlowReceipt` (`disclosure` field + `flow_hash`). A `BLOCKED`
+      decision holds the flow (`disclosure_blocked`) before any payout;
+      ESCROW/HASH_ONLY still settle but the release mode is on the receipt.
+      `decide_disclosure` now treats a missing `dual_use` as fail-closed
+      (`dual_use_unknown`, cap ESCROW). `tests/test_diligence_flow.py` (+2) and
+      `tests/test_diligence_flow_bio.py` (+3) prove blocked-holds, public-settles,
+      escrow-by-default, and reconstruction-downgrade-still-settles. ESCROW made
+      physical 2026-07-12: `tinker_delegate.solution_escrow.SolutionEscrowStore`
+      seals an ESCROW-mode winning candidate under a per-escrow HKDF-SHA256 key
+      (from a TEE root key) and releases the plaintext only to a caller
+      presenting the authorization secret committed at seal time (its hash is
+      bound as AES-GCM AAD, so a wrong secret fails authentication). Fail-closed:
+      only an ESCROW decision may be sealed (PUBLIC releases plaintext directly;
+      HASH_ONLY/BLOCKED retain nothing), double-seal/unknown-release/wrong-auth
+      all raise, and receipts/manifests are bounded (hashes/mode only).
+      `tests/test_solution_escrow.py` (9) prove the roundtrip, wrong-auth
+      fail-closed, mode-gating, per-escrow key isolation, bounded egress, and a
+      real `decide_disclosure` ESCROW decision driving a physical seal. Remaining:
+      emit the decision on-chain once the settlement path is live.
 - [ ] `P2` Add leaderboard-overfitting defenses:
       canary candidates, held-out final verifier, query throttling, adaptive
       budget cuts, and expert review for surprising high scores.
-- [ ] `P2` Add proof-carrying reward transcripts:
+      - [x] Canary candidates + surprising-score review. Done 2026-07-12:
+            `tinker_delegate.canary` screens a reward oracle with known-answer
+            probes — a `CanaryCandidate` carries a `[min_band, max_band]` window,
+            and `CanarySentinel.screen(env)` evaluates each through the env's own
+            bounded `evaluate` (so it shares the holdout accounting), tripping
+            `TRIPPED_HIGH` when known-junk scores above its ceiling (oracle
+            leaking / gamed) or `TRIPPED_LOW` when known-strong collapses below
+            its floor (oracle zeroed). Budget exhaustion / withheld bands are
+            `INCONCLUSIVE`, never a false trip. `assert_clear` fails closed on any
+            trip; the `CanaryReport` is bounded (per-canary band + payload *hash*,
+            no payloads) and passes `assert_bounded_egress`. `flag_surprising_score`
+            routes bands at/above a review threshold (default HIGH) to expert
+            review instead of auto-settling. `tests/test_canary.py` (11) prove
+            pass/trip-high/trip-low/inconclusive, fail-closed, bounded egress,
+            and the flag ladder. Wired into the reward loop 2026-07-12:
+            `run_private_reward_loop(..., canary_report=...)` refuses to start and
+            returns a zero-round `CANARY_TRIPPED` outcome (no budget spent) when a
+            pre-screen report — produced by screening a FRESH env so it doesn't
+            consume the run's budget — is not clear
+            (`tests/test_private_reward_loop.py` +2).
+      - [x] Held-out final verifier + query throttling already exist: the
+            `HiddenHoldoutSet` one-shot final-validation gate and the
+            per-candidate repeat cap / reward-query budget (see the hidden-holdout
+            separation item above).
+      - [ ] `Blocked (deploy)` Adaptive budget cuts on suspicious query patterns
+            and a wired expert-review queue for flagged high scores, exercised in
+            a deployed CVM with a real reviewer path.
+- [x] `P2` Add proof-carrying reward transcripts:
       transcript Merkle root, environment hash, candidate hash, reward band,
       final result hash, quote, and chain event.
+      Done 2026-07-12: `tinker_delegate.reward_transcript` commits the loop's
+      bounded per-round records (`RoundRecord.to_public_dict` — candidate hash,
+      decision, reward band) into a domain-separated Merkle tree (leaf `0x00` /
+      node `0x01` prefixes to block leaf/node second-preimage confusion) and
+      binds the root into one `RewardTranscriptCommitment` alongside the
+      environment hash, the loop's final result hash, the TDX quote hash, and an
+      optional bounded chain-event hash.
+      Merkle malleability audited 2026-07-12: the tree's duplicate-last-node
+      padding is malleable across leaf-list lengths (CVE-2012-2459 — `[A,B,C]` and
+      `[A,B,C,C]` share a root; same-length lists cannot collide without a SHA-256
+      collision). Confirmed fully mitigated by the `round_count` binding:
+      `verify_reward_run` rejects malleated (same-root, +1-length) feedback
+      `packet_inconsistent`. Made the implicit safety argument explicit — documented
+      in the `merkle_root` docstring as a caller guard-rail and pinned by tests
+      (`test_reward_transcript` +1 primitive property, `test_run_verification` +1
+      end-to-end mitigation).
+      `RewardTranscript.prove(round_index)`
+      yields a `RewardInclusionProof` (leaf hash + audit path) so an auditor,
+      given only the commitment plus one proof, can verify a single round belongs
+      to the attested run — and *which* run — while every other round and all raw
+      values stay sealed. `verify_round_in_commitment` checks the proof against
+      the commitment root; both public dicts are hashes/counts only and pass
+      `assert_bounded_egress`. `tests/test_reward_transcript.py` (12) prove
+      deterministic/order-sensitive roots, inclusion for every index incl. odd
+      counts, tamper/forged-leaf and wrong-root rejection, empty-transcript root,
+      and bounded egress. Emitted 2026-07-12: `run_bio_assay_program_reward_demo`
+      now returns a `reward_transcript_commitment` (via
+      `RewardTranscript.from_round_dicts` over the bounded per-candidate
+      feedback, bound to the environment hash and final result hash); a demo test
+      recomputes the root from the emitted feedback and verifies an inclusion
+      proof for every candidate against it (`tests/test_bio_assay_program_demo.py`,
+      8). On-chain binding added 2026-07-12 (see the reproducibility-certificate
+      entry above): `ResultCommitment` optionally folds the
+      `reward_transcript_commitment` into the submitted `resultHash` (v2 tag when
+      present, byte-identical v1 when absent), exposed on the `submit-result` CLI,
+      and PROVEN on-chain 2026-07-12 via `prove-chain-submitter-dstack-anvil.py`
+      (emitted `EvaluationSubmitted.result_hash` equals the v2 commitment and
+      differs from the unbound v1 digest).
 
 ### Define The Bio Validation Target
 
@@ -2772,28 +4055,338 @@ gate, bounded result schema, forbidden-output screen) with
 - [ ] `P1` Add a `bio_validation/` module or package with:
       data loaders, validators, risk screens, evaluator registry, and result
       schema.
-- [ ] `P1` Implement a deterministic stub bio evaluator over synthetic data.
+      Progress 2026-07-11: nearly all sub-parts are now real as cooperating
+      modules — result schema + risk screens (`bio_validation` release gate +
+      forbidden-output screen, `bio_dual_use`, `bio_reid`, `bio_data_quality`),
+      validators (`bio_evaluators.SyntheticAssay`, `bio_data_quality`
+      profile/policy validation), a reconstruction-safe methodology summarizer
+      (`bio_methodology`), and an evaluator registry (`bio_registry`:
+      `default_registry()` lists shipped use cases and returns their fail-closed
+      runners; duplicate/unknown ids are rejected; metadata is bounded).
+      Remaining: promote the cooperating modules into a `bio_validation/`
+      package namespace and add real (still synthetic/public) data loaders.
+- [x] `P1` Implement a deterministic stub bio evaluator over synthetic data.
+      Done 2026-07-11: `tinker_delegate.bio_evaluators` implements the first
+      concrete evaluator for the `synthetic_assay_qc` use case. It computes the
+      standard Z'-factor screening-assay quality score plus confidence/utility
+      bands and public data-quality flags (`control_overlap`, `low_replicates`,
+      `high_background_cv`, `few_control_wells`) from synthetic toy control
+      readings, and returns a bounded `BioResultCandidate` — the exact Z'-factor
+      and control statistics stay internal (no exact-value egress). It is
+      deterministic (no RNG/network/Tinker), synthetic-only, and fail-closed:
+      `run_synthetic_assay_qc` feeds the result through `evaluate_bio_release`,
+      which holds unless every readiness capability is enabled. Forbidden
+      free-text (e.g. wetlab/reagent) still denies via the gate, and free-text is
+      never echoed. `tests/test_bio_evaluators.py` (14 tests) cover Z' banding,
+      fail-closed hold, full-readiness release, forbidden-text deny, no-echo, and
+      determinism.
 - [ ] `P1` Implement a real SFT/LoRA evaluator using Tinker on a toy non-sensitive
       dataset.
 - [ ] `P1` Implement the first TTT/RL loop using Tinker docs in
       `📄/thinking-machines/rl/`.
-- [ ] `P1` Implement an RLVR-style loop where a candidate computational-bio
+- [x] `P1` Implement an RLVR-style loop where a candidate computational-bio
       program receives reward from a private TEE-held verifier.
       The loop must work even if the optimizer is swapped between RL, TTT,
       evolutionary search, and an LLM repair loop.
-- [ ] `P1` Add data-quality checks:
+      Done 2026-07-11: `tinker_delegate.private_reward_loop.run_private_reward_loop`
+      drives any `PrivateRewardEnvironment` (the private TEE-held verifier) with
+      a swappable `LoopOptimizer`. The leakage bound is structural — the
+      optimizer only ever receives the public `optimizer_view()` and per-round
+      `BoundedFeedback` (decision + score band + hashes); it never sees the exact
+      `InternalReward`, sealed data, or reward-derived gradients. The loop
+      fail-closed refuses an environment whose optimizer policy would hand out
+      exact rewards unless the caller opts into an in-boundary optimizer
+      (`allow_internal_optimizer=True` + INTERNAL_TEE/ATTESTED_REMOTE location).
+      Four interchangeable strategies ship to prove swappability against the
+      same env + `CandidateSource`: `RandomSearchOptimizer` (baseline, ignores
+      feedback), `HillClimbOptimizer` (band-guided greedy single-best local
+      search, stands in for RL), `EvolutionaryOptimizer` (a real (mu+lambda)
+      population search that keeps an elite by band, breeds by mutating a
+      top-half parent, dedups so it never wastes the bounded per-candidate
+      query budget, and halts when the reachable space is exhausted), and
+      `LLMRepairOptimizer` (deterministic revise-on-weak-band stand-in for an
+      LLM repair loop). Output is a bounded `LoopOutcome`: round count, best
+      band, band histogram, stop reason, transcript hash, and the env's own
+      `BoundedResult`/attestation — no candidate payloads or raw values
+      (`raw_secret_egress=false`). `tests/test_private_reward_loop.py` (17
+      tests) prove all four optimizers run bounded, seed-sweeping strategies
+      reach the target band, the evolutionary optimizer breeds past its seeds to
+      the winning candidate and halts fail-closed when the space is exhausted,
+      the public output leaks no keyword/payload/raw reward, the exact-reward
+      leakage guard blocks external optimizers and honors the in-boundary
+      opt-in, budget exhaustion and optimizer-halt stop reasons, and loop
+      determinism. Swappable-optimizer claim proven optimizer-AGNOSTIC end-to-end
+      2026-07-12: a parametrized test runs all four optimizers through the same env
+      and asserts each produces a run whose reproducibility certificate
+      independently verifies (transcript-bound) and whose certified export leaks no
+      sealed record — the whole verification chain holds regardless of which
+      optimizer ran.
+      - [x] Bind the loop to a concrete bio candidate space + sealed verifier.
+            Done 2026-07-11:
+            `tinker_delegate.private_reward_envs.bio_assay.BioAssayRewardEnvironment`
+            is the first end-to-end private reward environment the loop drives.
+            Candidates are canonical JSON synthetic assay-QC configs (numeric
+            controls only — unknown keys/strings rejected, so no dual-use text can
+            ride in); the private, TEE-held verifier is the Z'-factor
+            screening-assay quality metric (reused from `bio_evaluators`). The
+            exact Z' is the internal reward and is discarded; only a coarse
+            `RewardBand` leaves, and `internal_reward_for_optimizer()` stays denied
+            under the default external policy. `BioAssayCandidateSource` provides a
+            deterministic domain search space (tighten spread / widen window) so
+            all three optimizers drive it and hill-climb reaches a HIGH band.
+            `run_bio_assay_reward_demo()` is a bounded, deterministic demo.
+            `tests/test_bio_assay_reward_env.py` (8 tests) prove clean-vs-overlap
+            banding, malformed/dual-use candidate rejection, no raw-measurement or
+            Z' egress, exact-reward denial, end-to-end drive by all three
+            optimizers, hill-climb convergence, and demo determinism.
+      - [x] Drive candidate *programs* (not static configs) through the sandbox
+            against the bio verifier. Done 2026-07-11:
+            `tinker_delegate.private_reward_envs.bio_assay_program.BioAssayProgramEnvironment`
+            scores a candidate Python `process(positive_wells, negative_wells)`
+            QC program by the Z'-factor of the controls it selects from sealed raw
+            plate readings. The program runs in `PythonCandidateSandbox`
+            (math/random only, no I/O), reusing the `DenoisingHoldoutEnvironment`
+            program-execution pattern. Anti-fabrication guard: every returned
+            value must be a multiset member of the corresponding sealed wells, so
+            a program may drop outliers but cannot fabricate values or swap
+            positives into the negative set to game Z' — fabrication/swap/too-few
+            controls/banned-I/O all fail closed to NEGLIGIBLE. The exact Z' and raw
+            readings never egress. `BioAssayProgramCandidateSource` provides an
+            interchangeable program library (passthrough / drop-extremes / MAD
+            filter) so all three optimizers drive it and hill-climb selects a
+            robust outlier-removal program to a HIGH band.
+            `tests/test_bio_assay_program_env.py` (10 tests) prove outlier-removal
+            beats passthrough, fabrication/swap/underfilled/banned-I/O fail closed,
+            no raw-reading or Z' egress, end-to-end drive by all three optimizers,
+            hill-climb convergence, and demo determinism.
+      - [x] Expose the bio program reward environment through the bounded
+            operator CLI. Done 2026-07-11: `bio-assay-qc-reward-demo` runs the
+            environment over a candidate QC-program library against sealed plate
+            readings and emits only bounded per-candidate reward bands, final
+            result, and attestation (`raw_secret_egress=false`); the CLI leakage
+            guard enforces that the sealed well readings never appear in the
+            output. `run_bio_assay_program_reward_demo` +
+            `bio_assay_program_demo_forbidden_values` in
+            `private_reward_envs/bio_assay_program_demo.py`, mirroring
+            `denoising-private-reward-demo`. Tests:
+            `tests/test_bio_assay_program_demo.py` (4) and a CLI subprocess test
+            in `tests/test_cli_bounded_outputs.py`.
+      Remaining: a real optimizer (Tinker RL/TTT) once the Tinker execution
+      blocker clears, and production container isolation for hostile candidate
+      programs (the local AST/subprocess sandbox is a dev guardrail, not the
+      production answer).
+- [x] `P1` Add data-quality checks:
       schema validation, missingness, leakage, duplicates, class imbalance,
       train/test contamination, and sample-size limits.
-- [ ] `P1` Add re-identification risk checks for aggregates and small cohorts.
-- [ ] `P1` Add dual-use/risk classifier as deterministic policy, not only LLM
+      Done 2026-07-11: `tinker_delegate.bio_data_quality.assess_data_quality`
+      deterministically checks a bounded `DatasetProfile` (counts only, no
+      records) for schema mismatch, insufficient samples, train/test
+      contamination (leakage), excessive missingness, excessive duplicates,
+      class imbalance, and underpopulated classes. Validity-invalidating flags
+      (`insufficient_samples`, `train_test_contamination`, `schema_mismatch`)
+      set `blocks_release=true` and a POOR band; other flags degrade the band
+      (FAIR for one, POOR for two+). Output is bounded (band/flags/boolean/hash,
+      `raw_secret_egress=false`, no raw counts). `evaluate_bio_release` now takes
+      an optional `data_quality` report and holds fail-closed for expert review
+      when it blocks, even at full readiness (backward compatible). Ordered
+      after the privacy checks (forbidden > reid > individual-level >
+      data-quality > readiness). `tests/test_bio_data_quality.py` (13 tests).
+      Review 2026-07-12 (self-review): confirmed correct and pinned the deliberate
+      safety-vs-quality separation — a POOR band from DEGRADATION-only flags is
+      not `blocks_release`, so the SAFETY gate (`evaluate_bio_release`) releases it
+      with the band attached while the persona quality lens maps POOR -> DENY
+      (a misleading result is held; a merely low-quality one is released honestly
+      banded). Prevents a future change from conflating quality with safety.
+- [x] `P1` Add re-identification risk checks for aggregates and small cohorts.
+      Done 2026-07-11: `tinker_delegate.bio_reid.assess_reidentification` is a
+      deterministic k-anonymity-style checker over bounded cohort *metadata*
+      (never records): a reported subgroup below the `min_cohort_size` threshold
+      that was not suppressed, or any below-threshold subgroup in a
+      non-aggregate output, yields a HIGH risk band with `blocks_release=true`;
+      the `[k, 2k)` range is MEDIUM (flag only); otherwise LOW. It emits only a
+      risk band, block boolean, reason code, and a bounded report hash
+      (`raw_secret_egress=false`, no raw counts). `evaluate_bio_release` now
+      takes an optional `reid` assessment and holds fail-closed for
+      biosecurity review when it blocks, even at full readiness (backward
+      compatible: absent `reid` is unchanged). `tests/test_bio_reid.py` (11
+      tests) cover banding, blocking/non-blocking, custom thresholds,
+      individual-level small subgroups, boundedness, and gate integration.
+      Boundary review 2026-07-12 (self-review): confirmed the exact k-anonymity
+      thresholds are correct (unsuppressed `min < k` blocks, exactly `k` is
+      anonymous -> MEDIUM, `< 2k` MEDIUM, `>= 2k` LOW) and pinned them with a
+      boundary test so an off-by-one that silently changes the privacy guarantee
+      is caught.
+- [x] `P1` Add dual-use/risk classifier as deterministic policy, not only LLM
       judgment.
-- [ ] `P1` Add methodology summaries that are useful but cannot reconstruct raw
+      Done 2026-07-11: `tinker_delegate.bio_dual_use.classify_dual_use` maps
+      declared structured signals (`DualUseFeatures`: pathogen/toxin context,
+      gain-of-function, de novo design, sequence/protocol emission, human
+      subjects + IRB, synthetic-vs-real data) to a risk tier via an explicit
+      policy — no LLM. PROHIBITED (gain-of-function, de novo design, or
+      actionable output in a pathogen/toxin context) denies; REVIEW (dangerous
+      context, sequence/protocol emission, human subjects without IRB, or
+      non-synthetic data) holds; otherwise CLEARED. Conservative by design:
+      ambiguous cases escalate. Wired into `evaluate_bio_release` as the second
+      check (after forbidden-output): a prohibited tier DENYs, a review tier
+      HOLDs for biosecurity review, even at full readiness. Complements the
+      free-text forbidden-output screen along a structured axis. Output is
+      bounded (tier/decision/reasons/hash, `raw_secret_egress=false`).
+      `tests/test_bio_dual_use.py` (17 tests). Omission hardening 2026-07-12
+      (self-review): the structured dual-use assessment is caller-supplied (its
+      danger signals are declared metadata the candidate doesn't carry), so a
+      dangerous task with benign-looking text could RELEASE by simply *omitting*
+      the assessment. Added `evaluate_bio_release(..., require_dual_use_screen=True)`:
+      a dual-use-domain caller sets it and a missing assessment fails closed to
+      HOLD (`dual_use_screen_required`, BIOSECURITY_REVIEW) rather than clearing
+      the structured axis silently. Default False preserves the always-on
+      forbidden-output text screen behaviour. Follow-up RESOLVED 2026-07-12: the
+      deployed bio path `run_bio_diligence_flow` does NOT call `evaluate_bio_release`
+      — it maps `dual_use.tier` into the persona `EvaluationSummary`, and a missing
+      assessment yields an empty `dual_use_tier` which the persona panel already
+      treats as fail-closed DENY (so settlement cannot proceed without a dual-use
+      screen). Pinned by an isolation test (everything clean EXCEPT dual-use
+      omitted -> DENY, `tests/test_evaluator_personas_bio.py` +1) guarding against
+      a future default-allow regression. The `evaluate_and_route` convenience
+      wrapper forwards `require_dual_use_screen` through `**screens`, so a
+      dual-use-domain caller gets a fail-closed HOLD + auto-enqueue
+      (`tests/test_bio_review_bridge.py` +1). Both the persona-panel production
+      path and the direct-gate wrapper now fail closed on an omitted screen.
+- [x] `P1` Add methodology summaries that are useful but cannot reconstruct raw
       data.
-- [ ] `P2` Add multiple evaluator personas:
+      Done 2026-07-11: `tinker_delegate.bio_methodology.summarize_methodology`
+      produces a bounded summary whose "cannot reconstruct" property is
+      structural: it is composed only from a CLOSED controlled vocabulary
+      (`ALLOWED_PREPROCESSING` / `ALLOWED_MODEL_CLASSES` / `ALLOWED_PROTOCOLS` /
+      allowed hyperparameter names) plus COARSE `MagnitudeBand` sizes — any
+      out-of-vocabulary token is rejected (`MethodologyError`), so no raw value
+      or per-record content can enter the summary. Optional caller `notes` are
+      screened through the forbidden-output screen and reduced to a hash, never
+      echoed. Output is deterministic with `reconstruction_safe=true` and
+      `raw_secret_egress=false`. `tests/test_bio_methodology.py` (8 tests) prove
+      vocabulary enforcement, no-raw-values, notes screening/no-echo, and
+      determinism.
+- [x] `P2` Add multiple evaluator personas:
       buyer utility, seller protection, biosecurity, data quality, and economics.
-- [ ] `P2` Add reproducibility certificates:
+      Done 2026-07-11: `tinker_delegate.evaluator_personas` implements the five
+      reviewer lenses as deterministic functions over already-bounded signals
+      (an `EvaluationSummary` of bands/tiers/booleans — never raw data), each
+      returning a bounded `PersonaVerdict` (pass/hold/deny + reason code).
+      `evaluate_personas` composes the panel by strict intersection (any DENY
+      denies, any HOLD holds, only all-PASS proceeds — the same fail-closed rule
+      as the coordination reducer) and emits a bounded `PanelDecision`
+      (decision + verdicts + panel hash, `raw_secret_egress=false`). Unknown or
+      missing signals fail closed to DENY inside each lens (e.g. unverified
+      leakage bound, unrecognized band, missing bio screen). A subset panel runs
+      only the selected lenses. `tests/test_evaluator_personas.py` (14) cover each
+      lens, the intersection ordering (DENY>HOLD>PASS), fail-closed unknowns,
+      subset panels, boundedness, and determinism. Per-lens fail-closed matrix
+      completed 2026-07-12 (self-review): every one of the five lenses now has an
+      isolated DENY-on-missing-signal test (utility unknown band, seller leakage
+      None, biosecurity missing tier/risk, economics cost None, data-quality
+      missing band), so a per-lens regression to fail-OPEN is caught — this panel
+      is the load-bearing decision authority for the production
+      `run_bio_diligence_flow` path.
+      - [x] Wire the panel to real bio evaluation outputs. Done 2026-07-11:
+            `summary_from_bio_evidence` / `evaluate_bio_personas` bridge the
+            already-bounded bio assessments (`BioResultCandidate.utility_band`,
+            `DataQualityAssessment.quality_band`, `ReidAssessment.risk_band`,
+            `DualUseAssessment.tier`) into an `EvaluationSummary` and run the
+            panel. Duck-typed, so `evaluator_personas` stays free of bio imports;
+            data-quality bands map into the persona vocabulary (good→PASS,
+            fair→HOLD, poor→DENY) and unknown/absent bands fail closed to DENY.
+            `tests/test_evaluator_personas_bio.py` (6) drive it with a real
+            `evaluate_synthetic_assay_qc` candidate plus the real band enums:
+            clean evidence passes all lenses, prohibited dual-use and poor data
+            quality deny, fair-quality/review-tier hold, and missing evidence
+            fails closed.
+      - [x] Compose the bounded primitives into one fail-closed diligence flow.
+            Done 2026-07-11: `tinker_delegate.diligence_flow.run_diligence_flow`
+            chains the gates in a fixed order — persona review → rental-stage
+            disclosure → royalty settlement — so they cannot be skipped or
+            reordered. A non-PASS panel stops before any disclosure/settlement; a
+            denied stage transition stops before settlement; the per-owner royalty
+            split accrues ONLY on a proceeding flow (panel PASS + stage allowed).
+            Output is a bounded `DiligenceFlowReceipt` (flow/panel decisions,
+            reason code, result type, stage transition, royalty amount bands,
+            panel + flow hashes, `raw_secret_egress=false`).
+            `tests/test_diligence_flow.py` (8) prove clean proceed+settle, review
+            deny/hold blocking disclosure and settlement, disclosure denial (no
+            consent / underfunded) blocking settlement even when review passes,
+            the full-disclosure consent rule, no-royalty-without-shares, and
+            determinism.
+      - [x] Drive the flow from a real bio evaluation end-to-end. Done 2026-07-11:
+            `run_bio_diligence_flow` bridges bounded bio assessments (assay
+            `utility_band`, data-quality band, re-id risk, dual-use tier) into the
+            `EvaluationSummary` and runs the same pipeline, so a real
+            `evaluate_synthetic_assay_qc` candidate flows evaluate→review→
+            disclosure→settlement in one call. `tests/test_diligence_flow_bio.py`
+            (5) prove a clean assay proceeds and settles the 0.6/0.4 royalty split,
+            prohibited dual-use and poor data quality deny before settlement, no
+            consent holds, and missing evidence denies.
+      - [x] Auto-derive the leakage/offer/budget signals from bounded evidence.
+            Done 2026-07-11: `derive_leakage_signals` grounds
+            `leakage_within_bounds` in the evaluation's own
+            `raw_secret_egress == False` (a bounded result object/dict — proven, not
+            asserted) and computes `offer_within_cap` / `cost_within_budget` from
+            offer/cap and cost/budget amounts; missing evidence yields `None`
+            (fail-closed downstream). `run_bio_diligence_flow` now accepts a
+            `bounded_result` + offer/cost/budget amounts and derives the three
+            booleans when they are not passed explicitly, so the
+            seller-protection/economics lenses rest on evaluation evidence.
+            `tests/test_diligence_flow_bio.py` (+4) prove derived-signals proceed,
+            a leaky bounded result denies via seller-protection, over-budget cost
+            denies, and the helper's exact mapping (incl. None on missing
+            evidence).
+      - [x] Emit the executable on-chain settlement plan from a settled receipt.
+            Done 2026-07-11: `distribution_plan_from_flow` turns a *proceeding*
+            diligence-flow receipt into a `RoyaltyDistributionPlan` — resolving
+            each payout's `owner_ref` to an address and delegating to the
+            cast-verified / Anvil-proven `build_royalty_distribution_plan`. Fail
+            closed: a hold/deny receipt, a proceed with no royalty payouts, or a
+            missing owner address all raise `DiligenceFlowError`; only a settled
+            flow yields a settlement plan. So one bio evaluation now produces both
+            the bounded verdict AND the executable on-chain royalty plan.
+            `tests/test_diligence_flow_to_plan.py` (5).
+      - [x] Prove the whole pipeline end-to-end on Anvil. Done 2026-07-11:
+            `scripts/prove-diligence-flow-settlement-anvil.py` runs a real
+            synthetic-assay diligence flow → PROCEED receipt → derives the royalty
+            plan → deploys `RoyaltyDistributor` → broadcasts the plan's exact
+            calldata → asserts each owner is credited the flow's payout and the
+            contract drains to zero after withdrawal. Guarded test
+            `tests/test_diligence_flow_settlement_proof.py`
+            (`DNAI_RUN_ANVIL_PROOFS=1`, passing live). Net: bio evaluation → verdict
+            → derived plan → on-chain distribution → conserving pull-payment is
+            proven as one flow.
+- [x] `P2` Add reproducibility certificates:
       run config hash, data hash, code hash, model base, hyperparameters, random
       seeds, quote, and result hash.
+      Done 2026-07-11: `tinker_delegate.reproducibility` binds a run into one
+      recomputable, bounded commitment. `RunConfig` (optimizer, model base,
+      hyperparameters, seeds, round budget, target band) folds into a
+      `run_config_hash`; the certificate carries `run_config_hash`,
+      `data_commitment` (the environment's public `environment_hash` / holdout
+      split commitment — sealed data stays sealed), `code_hash`
+      (`hash_code_identity`), coarse public `model_base`, `result_hash` (loop
+      transcript), optional `attestation_quote_hash`, and a `certificate_hash`
+      digesting all of them. Everything is a hash or coarse identifier, so raw
+      hyperparameter floats, seeds, sealed data, and reward values never appear —
+      the certificate passes `assert_bounded_egress`.
+      `verify_reproducibility_certificate` recomputes the binding hash to detect
+      tampering; `certify_loop_run` certifies a `run_private_reward_loop` outcome
+      against its environment. `tests/test_reproducibility.py` (6) prove bounded
+      egress, float/seed non-leakage, determinism, tamper detection, config
+      sensitivity, and quote binding.
+      - [x] Wire certificates into the operator surface. Done 2026-07-11: the
+            `bio-assay-qc-reward-demo` CLI now emits a
+            `reproducibility_certificate` alongside the bounded outcome, bound to
+            the run's `final_result.transcript_hash` and the env
+            `environment_hash`. `code_hash` is derived by `hash_source_files`,
+            which hashes the actual evaluator module source bytes (a real code
+            hash that changes iff the reward code changes, deterministic per
+            tree). The certificate passes the demo's leakage guard
+            (`raw_secret_egress=false`, no sealed readings), verifies, and is
+            deterministic across runs. `tests/test_bio_assay_program_demo.py`
+            adds two certificate tests.
 
 ## Milestone 5: DNAI Data Room, Props Room, And Source Custody
 
@@ -2816,8 +4409,27 @@ gate, bounded result schema, forbidden-output screen) with
       - [x] Derive artifact upload AES keys with per-deal/per-artifact HKDF
             context so ciphertexts cannot decrypt under another deal or
             artifact hash even under the same TEE public key.
-      - [ ] Add a sealed-storage key hierarchy for retained corpora/rooms if
-            post-settlement encrypted artifact retention is implemented.
+      - [x] Add a sealed-storage key hierarchy for retained corpora/rooms.
+            Done 2026-07-12: `SealedRetentionStore` no longer encrypts artifacts
+            under one static root key. Each retained artifact is sealed under a
+            per-corpus/per-deal key derived by HKDF-SHA256 from the TEE root key
+            (`info = dnai-sealed-retention:v1:<corpus_ref>:<deal_id>`), so
+            distinct `(corpus_ref, deal_id)` yield cryptographically independent
+            keys and a ciphertext cannot decrypt under another room or deal even
+            though all descend from the same root. `corpus_ref` scopes the
+            hierarchy (root -> per-corpus -> per-deal), is stored on the sealed
+            entry, and survives the encrypted persistence round-trip; the control
+            plane passes `ctx.seller` as the corpus so each data owner's retained
+            corpus lives on its own key branch. `tests/test_sealed_retention.py`
+            (+4) prove the root key can't open a derived-key artifact, distinct
+            corpus/deal yield distinct deterministic keys, a relabeled entry
+            fails authentication, and corpus_ref persists. Hardened 2026-07-12:
+            the HKDF info now length-prefixes `(corpus_ref, deal_id)` instead of
+            joining them with `":"` — a self-review found a real collision where
+            `("a","b:c")` and `("a:b","c")` derived the SAME key (breaking the
+            per-corpus isolation claim); the same length-prefix fix was applied to
+            `otp_delivery.compute_delivery_hash` (its raw 32-byte otp_hash could
+            contain the old `\x1f` separator). Regression tests added in both.
 - [ ] `P0` Ensure artifacts never touch disk unencrypted.
       - [x] Add no-disk-write regression tests around encrypted FastAPI ingress
             and control-plane evaluation dispatch so raw artifact buffers in
@@ -2830,14 +4442,102 @@ gate, bounded result schema, forbidden-output screen) with
             control-plane artifact buffers after deal resolution.
       - [ ] Audit evaluator copies and Python immutable byte lifetimes before
             making a production-grade memory-destruction claim.
-- [ ] `P1` Add attested destruction or cleanup records:
+- [x] `P1` Add attested destruction or cleanup records:
       artifact deleted, keys dropped, checkpoints deleted/expired.
-- [ ] `P1` Add source-controller records:
+      Done 2026-07-11: `tinker_delegate.destruction_record` turns cleanup facts
+      (`DestructionEvidence`: artifact_deleted, memory_zeroed, keys_dropped,
+      checkpoints_deleted/expired, per-room required-step flags) into a bounded,
+      recomputable `DestructionRecord`. Fail-closed: `complete` is true only when
+      every required step succeeded (default: artifact deleted AND memory zeroed);
+      otherwise `complete=false` with an `incomplete_destruction:<missing>` reason
+      — an honest, non-self-approving audit signal. Output is bounded — the deal
+      ref is hashed (not echoed), the artifact commitment is already a hash, and
+      only counts/booleans/hashes appear (no raw bytes, keys, or checkpoint
+      paths); `raw_secret_egress=false`. `verify_destruction_record` recomputes the
+      record hash to detect tampering. `tests/test_destruction_record.py` (10)
+      cover complete/incomplete cases, relaxed requirements, deal-ref hashing (no
+      echo), tamper detection, determinism, and count/hash validation.
+      Wired into the control plane 2026-07-12: `ControlPlane.on_deal_resolved`
+      now evaluates the room retention policy and builds a `DestructionRecord`
+      from the actual cleanup (artifact zeroed → artifact_deleted/memory_zeroed,
+      `deleted_checkpoint_count` from the session cleanup attestation), stores the
+      retention decision + destruction record on the `DealContext`, and emits
+      bounded `retention_action` / `destruction_complete` / `destruction_record_hash`
+      fields on the `deal_resolved` metadata event (allowlisted in
+      `run_metadata_store`). `tests/test_run_metadata_store.py` asserts a resolved
+      deal emits a verifying, complete destruction record with
+      `retention_action=destroy_now` and no raw artifact/run-id egress. Honoring a
+      retain/archive decision (keeping sealed data) needs a sealed-retention
+      store; today resolution always destroys (safe fail-closed default).
+- [x] `P1` Add source-controller records:
       who controls the source, what was approved, scope, expiry, revocation, and
       audit hash.
-- [ ] `P1` Add data retention policy per room:
+      Done 2026-07-11: `tinker_delegate.source_controller` is the bounded
+      custody-audit artifact for TEE-held source accounts. A `SourceGrant` records
+      source/controller/approver refs, approved `scopes`, `granted_at`,
+      `expires_at`, `revoked_at`, and an `audit_hash`; `status(now)` resolves
+      active/not_yet_active/expired/revoked. `SourceControllerRegistry.authorize`
+      answers fail-closed: an unknown source, a non-active grant, or an
+      out-of-scope request all DENY with a bounded reason. Invariants enforced:
+      non-self-approval (`approved_by != controller_ref`, raised at construction)
+      and scope containment. Bounded — source/controller/approver refs are hashed
+      (never echoed), only statuses/scopes/timestamps/hashes leave
+      (`raw_secret_egress=false`). `tests/test_source_controller.py` (12) cover
+      self-approval rejection, status transitions, in/out-of-scope and
+      unknown/expired/revoked authorization, duplicate rejection, ref hashing (no
+      echo), and bounded manifest.
+      Wired into the control plane 2026-07-12: `ControlPlane` takes an optional
+      `source_registry` (+ `source_ref`, `source_scope`); when configured,
+      `on_deal_funded` calls `_authorize_source_use` before creating the Tinker
+      session, so the TEE-held source account can only be used while a valid,
+      non-self-approved grant for the scope is active — an expired, revoked, or
+      out-of-scope grant raises `SourceAccessDenied` and no session/deal is
+      created (fail closed). Default (no registry) preserves current behavior.
+      `tests/test_source_controller.py` (+4) cover no-registry-allows,
+      active-grant-allows, out-of-scope-denies, and revoked-denies.
+      Grant provisioning added 2026-07-12: `load_source_registry` /
+      `build_source_registry` load grants from a JSON file
+      (`source_grants_path` setting; grants validated at load, so a self-approving
+      file is rejected), the control-plane singleton constructs the registry from
+      it, and operator-authed `GET /source/grants` returns the bounded manifest
+      (hashed refs, no raw account ids). `tests/test_source_controller.py` (+3)
+      and `tests/test_api_retention_sweep.py` (+3) cover the factory, JSON
+      load+authorize, self-approval rejection, and the bounded/auth-gated endpoint.
+- [x] `P1` Add data retention policy per room:
       immediate destruction, time-boxed retention, or post-settlement encrypted
       archive.
+      Done 2026-07-11: `tinker_delegate.retention_policy` defines a per-room
+      `RetentionPolicy` (mode `immediate` / `time_boxed` / `post_settlement_archive`,
+      a bounded `retention_seconds`, and an optional `archive_key_ref`).
+      `evaluate_retention(policy, settled_at, now)` returns a bounded, fail-closed
+      `RetentionDecision`: immediate → `destroy_now`; time_boxed → `retain_sealed`
+      until `settled_at + retention_seconds` then `destroy_now` on expiry;
+      post_settlement_archive → `archive_encrypted`. Fail-closed choices favor
+      destruction — a non-positive window, a missing archive key, or an unknown
+      mode all resolve to `destroy_now` rather than leaving unsealed data around.
+      Bounded output (mode/action/deadline/booleans/policy hash,
+      `raw_secret_egress=false`); the policy hash records only whether an archive
+      key is configured, never the key ref. Composes with `destruction_record`
+      (this decides *when* to destroy; that proves it *happened*).
+      `tests/test_retention_policy.py` (9) cover each mode, window
+      expiry/within-window, both fail-closed paths, key-ref non-echo, validation,
+      and determinism. Wired into `ControlPlane.on_deal_resolved` 2026-07-12: the
+      room's policy is evaluated at resolution and its `retention_action` is
+      recorded on the bounded `deal_resolved` event (default IMMEDIATE → always
+      destroy).
+      Sealed-retention store added + wired 2026-07-12:
+      `tinker_delegate.sealed_retention.SealedRetentionStore` encrypts retained
+      artifacts under a TEE-held AES-256-GCM key (per-deal associated data),
+      holds them as ciphertext, and `sweep(now)` destroys entries whose window
+      expired. `ControlPlane` now takes an optional `retention_store`: on a
+      `retain_sealed`/`archive_encrypted` decision it seals the artifact and zeroes
+      the plaintext (event carries `artifact_sealed_retained=true`, no destruction
+      record yet); `sweep_retention(now)` later destroys expired sealed artifacts
+      and emits attested destruction records (new `retention_swept` event).
+      Bounded throughout (deal refs hashed, ciphertext sizes banded, no plaintext
+      or key egress). `tests/test_sealed_retention.py` (11) cover seal/open
+      roundtrip, wrong-AAD failure, expiry sweep, destroy, bounded manifest,
+      key/hash validation, and the control-plane seal-on-retain + sweep lifecycle.
 
 ### Props Room
 
@@ -3042,6 +4742,32 @@ gate, bounded result schema, forbidden-output screen) with
       cannot be confused with real private bio data.
 - [ ] `P1` Add "explain why denied/held" UI that reveals policy reasons but not
       sensitive internals.
+      - [x] Bounded data layer done 2026-07-12:
+            `tinker_delegate.decision_explainer.explain_decision` maps the system's
+            bounded `reason_code`s (leakage, budget, biosecurity, privacy,
+            data-quality, governance, verification, funding, lifecycle) to a fixed
+            `DecisionExplanation` (category, disposition denied/held/allowed/info,
+            plain-language summary, remediation). Leak-free BY CONSTRUCTION: it only
+            ever emits curated registry vocabulary and never echoes the input code
+            or any `:suffix` it carries, so a code with an injected private suffix
+            cannot leak (tested). Unknown codes fall back to a safe generic HELD.
+            Handles exact + prefix codes (`dual_use_*`, `exceeds_*`,
+            `funding_failure_*`, ...). `tests/test_decision_explainer.py` (8) cover
+            known/prefix/unknown/leak-free plus REAL reason codes emitted by
+            `evaluate_bio_release`, `spend_budget`, and verification (proving the
+            registry covers the live system). Wired into real surfaces 2026-07-12
+            (not deployment-blocked): `verify_reward_run` verdicts now carry a
+            bounded `explanation` (self-explaining verdict), and an
+            `explain-decision <reason_code>` operator CLI emits the bounded
+            explanation (`tests/test_run_verification.py` +1,
+            `tests/test_decision_explainer.py` +1 CLI, both proving no suffix echo).
+            Extended 2026-07-12 to the most user-facing safety surface:
+            `BioReleaseReceipt.to_public_dict` now carries a self-explaining
+            `explanation` (a held/denied bio diligence result explains its own
+            policy reason, `:suffix` stripped so no detail leaks;
+            `tests/test_bio_dual_use.py` +1).
+      - [ ] The UI itself (frontend rendering of these explanations) remains
+            frontend-gated.
 - [ ] `P1` Add an attestation explorer:
       image digest, compose hash, app ID, TDX quote, contract policy, endpoint.
 - [ ] `P2` Add guided onboarding:

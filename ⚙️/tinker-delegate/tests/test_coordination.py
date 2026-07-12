@@ -148,6 +148,67 @@ class CoordinationReducerTest(unittest.TestCase):
         self.assertNotIn("atlas-policy", str(public))
         self.assertIn("royalty_hash", public["joint"])
 
+    def test_co_owned_corpus_splits_royalty_across_owners(self):
+        participants = (
+            Participant("owner-atlas", ParticipantRole.OWNER),
+            Participant("sponsor", ParticipantRole.REQUESTER),
+            Participant("cro-agent", ParticipantRole.AGENT, owner_ref="sponsor"),
+        )
+        corpora = (
+            Corpus(
+                "corpus://atlas",
+                "owner-atlas",
+                policy_hash="atlas-policy",
+                royalty_per_query=10**9,
+                owner_shares=(("owner-atlas", 7000), ("owner-atlas-2", 3000)),
+            ),
+        )
+        session = CollabSession(
+            participants=participants,
+            corpora=corpora,
+            consent_grants=(ConsentGrant("corpus://atlas", "owner-atlas", "sponsor", "rank", "sft"),),
+            delegation_grants=(
+                DelegationGrant(
+                    agent_ref="cro-agent",
+                    grantor_ref="sponsor",
+                    corpora=("corpus://atlas",),
+                    purposes=("rank",),
+                    pipelines=("sft",),
+                ),
+            ),
+        )
+        turn = Turn(
+            turn_id="turn-1",
+            by="cro-agent",
+            requester_ref="sponsor",
+            purpose="rank",
+            pipeline="sft",
+            corpora=("corpus://atlas",),
+            requests={"corpus://atlas": {"purpose": "rank"}},
+        )
+        state = coordinate(CoordinationState(session), SubmitTurn(turn))
+        state = coordinate(
+            state,
+            GateResults("turn-1", (GatedQuery("corpus://atlas", GateDecision.PASS, stage=4, reason="ok"),)),
+        )
+        record = state.turns["turn-1"]
+        self.assertEqual(record.status, TurnStatus.SETTLED)
+        self.assertEqual(len(record.meters), 2)
+        amounts = {m.owner_ref: m.amount for m in record.meters}
+        self.assertEqual(amounts["owner-atlas"], 700_000_000)
+        self.assertEqual(amounts["owner-atlas-2"], 300_000_000)
+        self.assertEqual(sum(m.amount for m in record.meters), 10**9)  # conserved
+
+    def test_corpus_owner_shares_must_sum_to_10000(self):
+        with self.assertRaises(CoordinationError):
+            Corpus(
+                "corpus://atlas",
+                "owner-atlas",
+                policy_hash="atlas-policy",
+                royalty_per_query=10**9,
+                owner_shares=(("owner-atlas", 7000), ("owner-atlas-2", 2000)),
+            )
+
     def test_any_deny_denies_without_surface(self):
         state = coordinate(CoordinationState(_session()), SubmitTurn(_turn()))
 
@@ -184,6 +245,27 @@ class CoordinationReducerTest(unittest.TestCase):
         record = state.turns["turn-1"]
         self.assertEqual(record.status, TurnStatus.DENIED)
         self.assertEqual(record.status_reason, "restricted_denied")
+
+    def test_deny_beats_hold_across_corpora(self):
+        # Intersection precedence: when one corpus DENIES and another HOLDS, the
+        # composed turn must be DENIED (most restrictive wins) — never HELD. If the
+        # reducer checked holds before denies, a denied corpus would wrongly
+        # proceed to review instead of terminating.
+        state = coordinate(CoordinationState(_session()), SubmitTurn(_turn()))
+        state = coordinate(
+            state,
+            GateResults(
+                "turn-1",
+                (
+                    GatedQuery("corpus://atlas", GateDecision.DENY, stage=2, reason="unsupported pipeline"),
+                    GatedQuery("corpus://halcyon", GateDecision.HOLD, stage=2, reason="dual-use review"),
+                ),
+            ),
+        )
+        record = state.turns["turn-1"]
+        self.assertEqual(record.status, TurnStatus.DENIED)
+        # No review ticket is opened when the turn is denied outright.
+        self.assertEqual(record.tickets, ())
 
     def test_hold_opens_ticket_agent_cannot_self_approve_and_reviewer_release_regates(self):
         state = coordinate(CoordinationState(_session()), SubmitTurn(_turn()))

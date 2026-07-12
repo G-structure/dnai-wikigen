@@ -61,6 +61,39 @@ chmod +x quickstart.sh && ./quickstart.sh
 git submodule update --init --recursive
 ```
 
+### Run the private-reward substrate (no deploy, no Tinker account needed)
+
+Beyond the NDAI escrow flow, this repo is a **private verified-reward substrate**:
+sealed data evaluates candidate code inside the boundary and emits only bounded
+score bands, hashes, and attestations. These operator CLIs run fully locally and
+are exercised by the test suite:
+
+```bash
+cd ⚙️/tinker-delegate
+
+# Bounded private-reward demos (each emits a leakage-checked JSON packet):
+uv run python -m tinker_delegate.main synthetic-private-reward-demo
+uv run python -m tinker_delegate.main denoising-private-reward-demo
+uv run python -m tinker_delegate.main bio-assay-qc-reward-demo
+uv run python -m tinker_delegate.main dp-bounded-reward-demo   # differential-privacy budget
+
+# Source an env's data through the sealed-envelope path, then run + verify it:
+uv run python -m tinker_delegate.main denoising-sealed-dataset-demo --output /tmp/p.json
+uv run python -m tinker_delegate.main verify-reward-run --packet /tmp/p.json   # -> "verified": true
+
+# Explain any bounded decision reason code (policy reason, never private content):
+uv run python -m tinker_delegate.main explain-decision packet_inconsistent
+
+# Full test suite (Python + Foundry contracts):
+uv run python -m unittest discover -s tests        # ~1197 tests
+(cd contracts && forge test)                       # 136 contract tests
+```
+
+Each demo's output is bounded by construction (`raw_secret_egress: false`), passes
+`verify-reward-run`, and carries a self-explaining decision `explanation`. The
+optimizer method is swappable behind a fixed, verifiable, leakage-bound reward
+interface; sealed private data never leaves the boundary.
+
 ---
 
 ## The Product: Attested Diligence Room

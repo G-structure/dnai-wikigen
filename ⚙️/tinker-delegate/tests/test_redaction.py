@@ -26,6 +26,28 @@ class RedactionTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("abcdefabcdefabcdefabcdefabcdefabcdef", redacted)
         self.assertNotIn("oracle@example.com", redacted)
 
+    def test_redacts_openrouter_and_openai_style_api_keys(self):
+        # The evaluator agent uses OPENROUTER_API_KEY (format sk-or-v1-...); its
+        # keys must be redacted just like the Tinker (tml-) key.
+        secrets = [
+            "sk-or-v1-abcdef1234567890abcdef1234567890abcd",
+            "sk-proj-ABCDEF1234567890abcdefghij",
+            "error hitting model with sk-1234567890abcdefghijKLMN",
+        ]
+        for text in secrets:
+            with self.subTest(text=text[:12]):
+                redacted = redact_text(text)
+                self.assertIn("sk-<redacted>", redacted)
+                # No trailing key material survives.
+                self.assertNotIn("1234567890abcdef", redacted)
+        self.assertIn("<redacted>", redact_text("OPENROUTER_API_KEY=sk-or-v1-secret1234567890"))
+
+    def test_does_not_over_redact_benign_bounded_output(self):
+        # redact_text underpins the egress guard's secret_shaped check, so it must
+        # not flag benign bounded output (hashes, bands) as secret material.
+        benign = '{"reward_band": "high", "hash": "0x' + "ab" * 32 + '", "skip": true}'
+        self.assertEqual(redact_text(benign), benign)
+
     async def test_card_update_error_is_redacted(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             payload = CardPayload(

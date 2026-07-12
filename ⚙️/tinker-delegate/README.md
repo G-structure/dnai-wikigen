@@ -402,6 +402,66 @@ POST /deal/{id}/artifact — plaintext local-dev hook, disabled by default
 }
 ```
 
+## Private Verified Reward (RLVR substrate)
+
+Beyond the NDAI diligence room, this delegate is a private verified-reward
+substrate: sealed data evaluates candidate keywords/code/optimizers behind a
+leakage-bound boundary and emits only bounded bands, hashes, attestations, and a
+proof-carrying transcript. The optimizer is swappable (random / hill-climb /
+evolutionary / LLM-repair); the guarantee is the protected reward interface, not
+the method. Each demo emits a certificate + Merkle transcript commitment that
+`verify-reward-run` re-checks from public bytes alone.
+
+```bash
+# Bounded reward demos (only bands/hashes/attestation leave the boundary):
+tinker-delegate synthetic-private-reward-demo        # hidden-keyword reward
+tinker-delegate denoising-private-reward-demo         # OpenProblems-style holdout, candidate programs
+tinker-delegate bio-assay-qc-reward-demo              # synthetic assay-QC programs (Z'-factor)
+tinker-delegate dp-bounded-reward-demo                # DP-budget-bounded release then fail-closed
+tinker-delegate thresholdout-demo                     # DP-noised reusable holdout: free-track vs. spend-on-divergence
+
+# Verify a run packet end-to-end (reproducibility cert + transcript binding):
+tinker-delegate synthetic-private-reward-demo --output run.json
+tinker-delegate verify-reward-run --packet run.json   # exits non-zero on failure
+
+# Full third-party mechanism audit ("audit the mechanism, not the data"): binds
+# the run to the exact code you read, the committed sealed dataset (+ optional
+# M-of-N notary quorum and signed provenance), and a calibrated oracle:
+tinker-delegate denoising-private-reward-demo --output run.json
+tinker-delegate verify-reward-mechanism --packet run.json \
+    --source tinker_delegate/private_reward_envs/denoising.py \
+    [--manifest manifest.json --expected-signer 0x.. \
+     --witness 0x.. --witness-threshold 2 \
+     --expected-benchmark openproblems-denoising-v1 --require-provenance]
+
+# Neutral-notary co-sign + provenance verification (keys come from env vars):
+DATASET_WITNESS_SIGNER_PRIVATE_KEY=... \
+  tinker-delegate witness-sign-dataset-manifest --manifest m.json --out m.cosigned.json
+tinker-delegate verify-dataset-provenance --manifest m.signed.json \
+    --expected-signer 0x.. --expected-benchmark openproblems-denoising-v1
+```
+
+Security properties (all fail-closed, tested): the exact reward and sealed data
+never egress (`assert_bounded_egress`); a hidden-holdout with one-shot final
+validation and per-candidate repeat caps resists adaptive-query overfitting;
+canary probes catch a gamed/leaked oracle; an optional differential-privacy
+budget is charged per reward query and fails closed when spent; bio/dual-use
+results route to a fail-closed human-review queue with non-self-approval and
+M-of-N approval; and the winning candidate's disclosure (public / hash-only /
+sealed escrow / blocked) is decided by a bounded policy.
+
+Third-party mechanism audit (all verifiable from bounded bytes, no sealed data):
+`verify-reward-mechanism` composes (1) attested code-identity binding — the run
+used the exact source you read; (2) sealed-dataset commitment binding, with an
+optional M-of-N neutral-notary quorum and seal-time signed provenance
+(distribution claim vs. a named public benchmark, bound so it can't be asserted
+after the fact); (3) canary calibration — a published known-answer report proves
+the oracle ranks sensibly; and (4) declared-vs-enforced policy accounting — the
+boundary ran no more queries / Ladder improvement steps than its stated policy.
+The Ladder mechanism (fixed-η + parameter-free paired-t) bounds adaptive-query
+holdout reuse so a fixed sealed holdout supports effectively unlimited attempts
+while the settled number stays honest.
+
 ## Configuration
 
 All settings use the `TINKER_` env prefix:

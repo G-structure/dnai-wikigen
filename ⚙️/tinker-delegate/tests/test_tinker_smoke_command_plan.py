@@ -169,6 +169,55 @@ class TinkerSmokeCommandPlanTest(unittest.TestCase):
             self.assertNotIn("runtime-secret", rendered)
             self.assertNotIn("rpc.example/secret", rendered)
 
+    def test_account_access_blocked_makes_plan_not_ready(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manifest_path = Path(tmpdir) / "deployment.json"
+            manifest_path.write_text(json.dumps(_manifest(live_has_project=True)), encoding="utf-8")
+            plan = build_tinker_smoke_command_plan(
+                manifest_path=manifest_path,
+                account_access_state="access_blocked_billing",
+                env={
+                    "TINKER_RUNTIME_AUTH_TOKEN": "runtime-secret",
+                    "BASE_SEPOLIA_RPC_URL": "https://rpc.example/secret",
+                },
+            ).to_public_dict()
+            self.assertFalse(plan["ready"])
+            self.assertIn("tinker_account_access_blocked", plan["reasons"])
+            self.assertEqual(plan["next_action"], "resolve_tinker_account_activation")
+            self.assertEqual(plan["account_access_state"], "access_blocked_billing")
+
+    def test_account_access_active_is_ready_without_warning(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manifest_path = Path(tmpdir) / "deployment.json"
+            manifest_path.write_text(json.dumps(_manifest(live_has_project=True)), encoding="utf-8")
+            plan = build_tinker_smoke_command_plan(
+                manifest_path=manifest_path,
+                account_access_state="active",
+                env={
+                    "TINKER_RUNTIME_AUTH_TOKEN": "runtime-secret",
+                    "BASE_SEPOLIA_RPC_URL": "https://rpc.example/secret",
+                },
+            ).to_public_dict()
+            self.assertTrue(plan["ready"])
+            self.assertEqual(plan["account_access_state"], "active")
+            self.assertNotIn("tinker_account_access_unverified", plan["warnings"])
+            self.assertNotIn("tinker_account_access_blocked", plan["reasons"])
+
+    def test_account_access_default_is_unverified_warning(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manifest_path = Path(tmpdir) / "deployment.json"
+            manifest_path.write_text(json.dumps(_manifest(live_has_project=True)), encoding="utf-8")
+            plan = build_tinker_smoke_command_plan(
+                manifest_path=manifest_path,
+                env={
+                    "TINKER_RUNTIME_AUTH_TOKEN": "runtime-secret",
+                    "BASE_SEPOLIA_RPC_URL": "https://rpc.example/secret",
+                },
+            ).to_public_dict()
+            self.assertTrue(plan["ready"])  # unverified is a warning, not a blocker
+            self.assertEqual(plan["account_access_state"], "unverified")
+            self.assertIn("tinker_account_access_unverified", plan["warnings"])
+
     def test_cli_writes_bounded_not_ready_plan(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             manifest_path = Path(tmpdir) / "deployment.json"

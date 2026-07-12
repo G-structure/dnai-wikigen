@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -21,6 +22,11 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+try:  # POSIX-only; absent on Windows. Limits are best-effort defense-in-depth.
+    import resource as _resource
+except ImportError:  # pragma: no cover - non-POSIX host
+    _resource = None
 
 from tinker_delegate.private_reward_sandbox import (
     SandboxFailureCode,
@@ -50,10 +56,35 @@ class EvaluatorSandboxPolicy:
     allowed_base_models: tuple[str, ...] = ("meta-llama/Llama-3.1-8B",)
     timing_band_seconds: float = 0.1
     deterministic_seed: int = 0
+    # POSIX resource-limit hardening (best-effort defense-in-depth behind the
+    # restricted-builtins namespace). The wall-clock `timeout_seconds` still
+    # bounds total latency; these bound what a breakout could consume.
+    #   cpu_seconds     - RLIMIT_CPU: kills a CPU-spinning child with SIGXCPU.
+    #   max_file_bytes  - RLIMIT_FSIZE: 0 blocks writing artifact bytes to disk
+    #                     (no-filesystem-write policy). stdout is a pipe, not a
+    #                     file, so the bounded result still returns.
+    #   max_open_files  - RLIMIT_NOFILE: caps descriptors (network/file handles).
+    #   max_address_space_bytes - RLIMIT_AS: 0 leaves it unset because a low cap
+    #                     makes CPython fail to start on some hosts; real memory
+    #                     bounding is a container/cgroup concern.
+    #   disable_core_dumps - RLIMIT_CORE=0: no core dump can spill child memory.
+    cpu_seconds: int = 2
+    max_file_bytes: int = 0
+    max_open_files: int = 64
+    max_address_space_bytes: int = 0
+    disable_core_dumps: bool = True
 
     def __post_init__(self) -> None:
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
+        if self.cpu_seconds <= 0:
+            raise ValueError("cpu_seconds must be positive")
+        if self.max_file_bytes < 0:
+            raise ValueError("max_file_bytes must be non-negative")
+        if self.max_open_files <= 0:
+            raise ValueError("max_open_files must be positive")
+        if self.max_address_space_bytes < 0:
+            raise ValueError("max_address_space_bytes must be non-negative")
         if self.max_source_bytes <= 0:
             raise ValueError("max_source_bytes must be positive")
         if self.max_output_bytes <= 0:
@@ -196,10 +227,11 @@ class SandboxedEvaluatorRunner:
             sort_keys=True,
             separators=(",", ":"),
         )
+        preexec = _rlimit_preexec(self.policy)
         try:
             with tempfile.TemporaryDirectory(prefix="dnai-evaluator-") as scratch_dir:
                 proc = subprocess.run(
-                    [sys.executable, "-S", "-c", _EVALUATOR_WRAPPER],
+                    [sys.executable, "-S", "-B", "-c", _EVALUATOR_WRAPPER],
                     input=request,
                     text=True,
                     cwd=scratch_dir,
@@ -209,6 +241,7 @@ class SandboxedEvaluatorRunner:
                     },
                     capture_output=True,
                     timeout=self.policy.timeout_seconds,
+                    preexec_fn=preexec,
                 )
         except subprocess.TimeoutExpired:
             return EvaluatorSandboxResult(
@@ -356,6 +389,65 @@ class SandboxedEvaluatorRunner:
         granularity = self.policy.timing_band_seconds
         elapsed = max(0.0, time.monotonic() - started_at)
         return int(elapsed / granularity) * granularity
+
+
+def _rlimit_specs(policy: EvaluatorSandboxPolicy) -> list[tuple[int, tuple[int, int]]]:
+    """Return ``(resource, (soft, hard))`` limits to apply to the child.
+
+    Pure and platform-guarded: only limits whose ``RLIMIT_*`` constant exists on
+    this host are included, so it is safe to unit-test the intended policy
+    without spawning a process. A limit of 0 for address space is treated as
+    "leave unset" (see ``EvaluatorSandboxPolicy``); ``max_file_bytes`` of 0 is a
+    real limit (block file writes).
+    """
+
+    if _resource is None:
+        return []
+    specs: list[tuple[int, tuple[int, int]]] = []
+
+    def _add(name: str, value: int) -> None:
+        const = getattr(_resource, name, None)
+        if const is not None:
+            specs.append((const, (value, value)))
+
+    _add("RLIMIT_CPU", policy.cpu_seconds)
+    _add("RLIMIT_FSIZE", policy.max_file_bytes)
+    _add("RLIMIT_NOFILE", policy.max_open_files)
+    if policy.disable_core_dumps:
+        _add("RLIMIT_CORE", 0)
+    if policy.max_address_space_bytes > 0:
+        _add("RLIMIT_AS", policy.max_address_space_bytes)
+    return specs
+
+
+def _apply_rlimits(policy: EvaluatorSandboxPolicy) -> None:
+    """Set the policy's resource limits on the current process (child, post-fork).
+
+    Best-effort: a limit the host refuses (e.g. raising a hard cap) is skipped
+    rather than aborting the whole child, because the restricted-builtins
+    namespace remains the primary control and a missing rlimit must not turn a
+    valid evaluation into a spurious failure.
+    """
+
+    if _resource is None:  # pragma: no cover - non-POSIX host
+        return
+    for res, (soft, hard) in _rlimit_specs(policy):
+        try:
+            cur_soft, cur_hard = _resource.getrlimit(res)
+            # Never raise an existing hard cap; only tighten toward the policy.
+            new_hard = hard if cur_hard == _resource.RLIM_INFINITY else min(hard, cur_hard)
+            new_soft = min(soft, new_hard)
+            _resource.setrlimit(res, (new_soft, new_hard))
+        except (ValueError, OSError):  # pragma: no cover - host-dependent
+            continue
+
+
+def _rlimit_preexec(policy: EvaluatorSandboxPolicy):
+    """Return a ``preexec_fn`` that applies rlimits, or ``None`` on non-POSIX."""
+
+    if _resource is None or os.name != "posix":
+        return None
+    return lambda: _apply_rlimits(policy)
 
 
 def _safe_label(value: Any) -> str:

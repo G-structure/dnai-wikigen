@@ -58,6 +58,23 @@ class Settings(BaseSettings):
     browser_session_key_path: str = "tinker/browser_session"
     run_metadata_store_path: str = "./data/run_metadata.enc"
     run_metadata_store_key: str = ""
+
+    # Sealed-retention store for retained (time-boxed/archived) artifacts. Empty
+    # path = no store, so resolution always destroys (safe default). Set a path to
+    # enable persisted retention under the sealed data volume.
+    retention_store_path: str = ""
+    retention_store_key: str = ""
+    retention_dstack_key_path: str = "tinker/sealed_retention"
+    retention_mode: str = "immediate"          # immediate | time_boxed | post_settlement_archive
+    retention_seconds: int = 0
+    retention_archive_key_ref: str = ""
+
+    # Source-controller grants (JSON) gating TEE-held source-account use. Empty =
+    # no gate (source access ungated). Set to a sealed-volume path to enforce.
+    source_grants_path: str = ""
+    # Bounded human-review queue (JSON) for held bio/dual-use items. Empty =
+    # no persisted queue (the review API endpoints report empty / are inert).
+    review_queue_path: str = ""
     run_metadata_key_path: str = "tinker/run_metadata"
     chain_rpc_url: str = ""
     chain_contract_address: str = ""
@@ -119,3 +136,7 @@ class Settings(BaseSettings):
     real_sdk_max_usd: float = 0.05
     real_sdk_model: str = "Qwen/Qwen3-8B"
     real_sdk_rank: int = 32
+    # Wall-clock cap on the first authenticated Tinker SDK calls (ServiceClient
+    # connect, create_training) so a blocked/unactivated account fails fast with a
+    # bounded transient_timeout verdict instead of hanging on SDK retries.
+    smoke_connect_timeout: float = 45.0

@@ -481,6 +481,42 @@ def cli():
         help="Candidate keyword to query; repeat for multiple candidates",
     )
     synthetic_reward_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    dp_reward_p = sub.add_parser(
+        "dp-bounded-reward-demo",
+        help="Run a bounded DP-budget private reward demo (release then fail-closed exhaustion)",
+    )
+    dp_reward_p.add_argument(
+        "--candidate", action="append", default=[],
+        help="Candidate keyword to query; repeat for multiple candidates",
+    )
+    dp_reward_p.add_argument("--max-epsilon", type=float, default=1.0, help="Total DP epsilon budget")
+    dp_reward_p.add_argument("--epsilon-per-query", type=float, default=0.4, help="Epsilon spent per reward query")
+    dp_reward_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+
+    thresholdout_demo_p = sub.add_parser(
+        "thresholdout-demo",
+        help="Run a bounded Thresholdout DP-noised reusable-holdout demo (free-track vs. spend-on-divergence)",
+    )
+    thresholdout_demo_p.add_argument("--max-epsilon", type=float, default=1.5, help="Total DP epsilon budget")
+    thresholdout_demo_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    denoising_reward_p = sub.add_parser(
+        "denoising-private-reward-demo",
+        help="Run a bounded denoising hidden-holdout private reward demo (candidate programs via sandbox)",
+    )
+    denoising_reward_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    denoising_sealed_p = sub.add_parser(
+        "denoising-sealed-dataset-demo",
+        help=(
+            "Seal the denoising dataset, fetch+decrypt it in-boundary, then run the "
+            "bounded reward loop over the decrypted cells (public_benchmark label)"
+        ),
+    )
+    denoising_sealed_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
+    bio_assay_qc_reward_p = sub.add_parser(
+        "bio-assay-qc-reward-demo",
+        help="Run a bounded assay-QC program private reward demo (candidate programs via sandbox)",
+    )
+    bio_assay_qc_reward_p.add_argument("--output", default="", help="Optional output path for bounded JSON")
     policy_gate_p = sub.add_parser(
         "policy-gate",
         help="Evaluate a deterministic bounded corpus policy gate",
@@ -1009,6 +1045,15 @@ def cli():
     tinker_smoke_plan_p.add_argument("--max-usd", type=float, default=0.05)
     tinker_smoke_plan_p.add_argument("--model", default="Qwen/Qwen3-8B")
     tinker_smoke_plan_p.add_argument("--rank", type=int, default=32)
+    tinker_smoke_plan_p.add_argument(
+        "--account-access-state",
+        default="",
+        help=(
+            "Bounded account access state from `account-access-status` "
+            "(active, access_blocked_billing, payment_required, waitlist_or_gated, unknown); "
+            "a blocked/gated/payment state makes the plan not ready"
+        ),
+    )
     tinker_smoke_plan_p.add_argument(
         "--output-path-template",
         default="/tmp/dnai-tinker-smoke-project-id-$(date -u +%Y%m%dT%H%M%SZ).json",
@@ -1598,7 +1643,141 @@ def cli():
     )
     verify_dataset_manifest_p.add_argument("--manifest", required=True, help="Manifest JSON path")
     verify_dataset_manifest_p.add_argument("--blob", default="", help="Optional ciphertext blob to hash-bind")
+    verify_dataset_manifest_p.add_argument(
+        "--expected-signer",
+        default="",
+        help="If set, require a valid owner signature recovering to this Ethereum address",
+    )
     verify_dataset_manifest_p.add_argument("--output", default="", help="Optional path for the bounded receipt JSON")
+
+    verify_reward_run_p = sub.add_parser(
+        "verify-reward-run",
+        help="Verify an emitted private-reward run packet (certificate + transcript binding)",
+    )
+    verify_reward_run_p.add_argument(
+        "--packet", required=True, help="Run packet JSON path (a private-reward demo output)"
+    )
+    verify_reward_run_p.add_argument("--output", default="", help="Optional path for the bounded verdict JSON")
+
+    verify_reward_mechanism_p = sub.add_parser(
+        "verify-reward-mechanism",
+        help="Aggregate third-party mechanism audit: run packet + code/dataset/canary binding",
+    )
+    verify_reward_mechanism_p.add_argument(
+        "--packet", required=True, help="Run packet JSON path (a private-reward demo output)"
+    )
+    verify_reward_mechanism_p.add_argument(
+        "--source",
+        action="append",
+        default=[],
+        help="Reward-env source file path to bind (point 1); repeatable. Omit to skip.",
+    )
+    verify_reward_mechanism_p.add_argument(
+        "--manifest", default="", help="Sealed-dataset manifest JSON path to bind (point 2). Omit to skip."
+    )
+    verify_reward_mechanism_p.add_argument(
+        "--canary-report", default="", help="Canary calibration report JSON path (point 3). Omit to skip."
+    )
+    verify_reward_mechanism_p.add_argument(
+        "--expected-signer", default="", help="Required manifest signer address (0x...) for point 2."
+    )
+    verify_reward_mechanism_p.add_argument(
+        "--witness",
+        action="append",
+        default=[],
+        help="Authorized neutral-witness address (0x...); repeatable. Requires --witness-threshold.",
+    )
+    verify_reward_mechanism_p.add_argument(
+        "--witness-threshold", type=int, default=0, help="M in the M-of-N witness quorum (0 = no quorum)."
+    )
+    verify_reward_mechanism_p.add_argument(
+        "--expected-benchmark", default="", help="Required provenance benchmark_ref (enables the provenance check)."
+    )
+    verify_reward_mechanism_p.add_argument(
+        "--require-provenance", action="store_true", help="Require signed seal-time provenance (point 2b)."
+    )
+    verify_reward_mechanism_p.add_argument("--output", default="", help="Optional path for the bounded verdict JSON")
+
+    explain_decision_p = sub.add_parser(
+        "explain-decision",
+        help="Explain a bounded decision reason code (policy reason, never private content)",
+    )
+    explain_decision_p.add_argument("reason_code", help="A bounded decision reason code")
+    explain_decision_p.add_argument("--output", default="", help="Optional path for the bounded explanation JSON")
+
+    sign_dataset_manifest_p = sub.add_parser(
+        "sign-dataset-manifest",
+        help="Owner/reviewer-sign a sealed-dataset manifest with a signer key from env; bounded receipt",
+    )
+    sign_dataset_manifest_p.add_argument("--manifest", required=True, help="Manifest JSON path to sign")
+    sign_dataset_manifest_p.add_argument("--out", required=True, help="Output path for the signed manifest JSON")
+    sign_dataset_manifest_p.add_argument(
+        "--signer-key-env",
+        default="DATASET_OWNER_SIGNER_PRIVATE_KEY",
+        help="Env var holding the signer private key hex (never passed on the CLI)",
+    )
+    sign_dataset_manifest_p.add_argument("--output", default="", help="Optional path for the bounded receipt JSON")
+
+    witness_sign_dataset_manifest_p = sub.add_parser(
+        "witness-sign-dataset-manifest",
+        help="Neutral notary co-signs a sealed-dataset manifest (M-of-N quorum); bounded receipt",
+    )
+    witness_sign_dataset_manifest_p.add_argument("--manifest", required=True, help="Manifest JSON path to co-sign")
+    witness_sign_dataset_manifest_p.add_argument("--out", required=True, help="Output path for the co-signed manifest JSON")
+    witness_sign_dataset_manifest_p.add_argument(
+        "--signer-key-env",
+        default="DATASET_WITNESS_SIGNER_PRIVATE_KEY",
+        help="Env var holding the witness private key hex (never passed on the CLI)",
+    )
+    witness_sign_dataset_manifest_p.add_argument("--output", default="", help="Optional path for the bounded receipt JSON")
+
+    verify_dataset_provenance_p = sub.add_parser(
+        "verify-dataset-provenance",
+        help="Verify a sealed-dataset manifest's signed seal-time provenance; bounded receipt",
+    )
+    verify_dataset_provenance_p.add_argument("--manifest", required=True, help="Manifest JSON path")
+    verify_dataset_provenance_p.add_argument(
+        "--expected-signer", default="", help="Required owner signer address (0x...)"
+    )
+    verify_dataset_provenance_p.add_argument(
+        "--expected-benchmark", default="", help="Required provenance benchmark_ref"
+    )
+    verify_dataset_provenance_p.add_argument("--output", default="", help="Optional path for the bounded receipt JSON")
+
+    dataset_recipient_keygen_p = sub.add_parser(
+        "dataset-recipient-keygen",
+        help="Generate a recipient X25519 keypair for sealed-dataset delivery (private key saved 0600)",
+    )
+    dataset_recipient_keygen_p.add_argument(
+        "--private-key-output", required=True, help="Path to write the 0600 recipient private key hex"
+    )
+    dataset_recipient_keygen_p.add_argument("--output", default="", help="Optional path for the bounded receipt JSON")
+
+    publish_dataset_p = sub.add_parser(
+        "publish-dataset",
+        help="Publish a sealed-dataset blob+manifest to a storage backend; bounded receipt",
+    )
+    publish_dataset_p.add_argument("--blob", required=True, help="Ciphertext blob path (from encrypt-dataset)")
+    publish_dataset_p.add_argument("--manifest", required=True, help="Manifest JSON path (from encrypt-dataset)")
+    publish_dataset_p.add_argument(
+        "--backend", default="local", choices=["local", "https", "hf", "s3"], help="Storage backend scheme"
+    )
+    publish_dataset_p.add_argument("--dest", default="", help="Local backend destination directory")
+    publish_dataset_p.add_argument("--output", default="", help="Optional path for the bounded receipt JSON")
+
+    fetch_decrypt_dataset_p = sub.add_parser(
+        "fetch-decrypt-dataset",
+        help="Fetch a sealed dataset from a ref, verify its manifest, and decrypt it with a recipient key",
+    )
+    fetch_decrypt_dataset_p.add_argument("--ref", required=True, help="Storage ref, e.g. local://... or https://...")
+    fetch_decrypt_dataset_p.add_argument(
+        "--recipient-key-file", required=True, help="Recipient private key hex file from dataset-recipient-keygen"
+    )
+    fetch_decrypt_dataset_p.add_argument("--out", required=True, help="Path to write the decrypted plaintext (0600)")
+    fetch_decrypt_dataset_p.add_argument(
+        "--local-root", default="", help="Root directory for a local:// ref (defaults to the ref's embedded root)"
+    )
+    fetch_decrypt_dataset_p.add_argument("--output", default="", help="Optional path for the bounded receipt JSON")
 
     watch_chain_p = sub.add_parser(
         "watch-chain",
@@ -1663,6 +1842,14 @@ def cli():
         "--verifier-signature",
         required=True,
         help="65-byte verifier signature over the DiligenceRoom result authorization digest",
+    )
+    submit_result_p.add_argument(
+        "--reward-transcript-commitment",
+        default="",
+        help=(
+            "Optional bytes32 RLVR reward-transcript commitment to bind into the "
+            "on-chain resultHash (v2 commitment); omit for an unbound v1 submission"
+        ),
     )
     submit_result_p.add_argument("--rpc-url", default="", help="JSON-RPC URL, or TINKER_CHAIN_RPC_URL")
     submit_result_p.add_argument(
@@ -1741,6 +1928,26 @@ def cli():
     )
     authorize_result_p.add_argument("--output", default="", help="Optional JSON output path")
 
+    governance_plan_p = sub.add_parser(
+        "governance-approval-plan",
+        help="Emit the on-chain approval plan for a verified authorization (developer broadcasts it)",
+    )
+    governance_plan_p.add_argument(
+        "authorization_json",
+        help="Path to a bounded authorize-result authorization JSON",
+    )
+    governance_plan_p.add_argument(
+        "--keystore-account",
+        default="dev",
+        help="Foundry keystore account for the cast command templates (default: dev)",
+    )
+    governance_plan_p.add_argument("--output", default="", help="Optional JSON output path")
+
+    sub.add_parser(
+        "account-access-status",
+        help="Capture the bounded account access/billing gate (in-process, needs the CVM browser)",
+    )
+
     # API server
     serve_p = sub.add_parser("serve", help="Start the FastAPI server")
     serve_p.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
@@ -1771,6 +1978,12 @@ def cli():
         from tinker_delegate.signup import reauth
         result = asyncio.run(reauth(settings))
         print(json.dumps(result, indent=2, default=str))
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "account-access-status":
+        from tinker_delegate.billing import get_account_access_status
+        result = asyncio.run(get_account_access_status(settings))
+        _emit_bounded_json(result)
         sys.exit(0 if result.get("success") else 1)
 
     elif args.command == "selector-map":
@@ -1819,6 +2032,71 @@ def cli():
             result,
             output_path=args.output,
             forbidden_values=hidden_demo_forbidden_values(candidates or None),
+        )
+
+    elif args.command == "dp-bounded-reward-demo":
+        from tinker_delegate.private_reward_envs.dp_bounded_demo import (
+            dp_bounded_demo_forbidden_values,
+            run_dp_bounded_reward_demo,
+        )
+
+        candidates = tuple(args.candidate)
+        result = run_dp_bounded_reward_demo(
+            candidates or None,
+            max_epsilon=args.max_epsilon,
+            epsilon_per_query=args.epsilon_per_query,
+        )
+        _emit_bounded_json(
+            result,
+            output_path=args.output,
+            forbidden_values=dp_bounded_demo_forbidden_values(candidates or None),
+        )
+
+    elif args.command == "thresholdout-demo":
+        from tinker_delegate.private_reward_envs.thresholdout_demo import run_thresholdout_demo
+
+        result = run_thresholdout_demo(max_epsilon=args.max_epsilon)
+        _emit_bounded_json(result, output_path=args.output)
+
+    elif args.command == "denoising-private-reward-demo":
+        from tinker_delegate.private_reward_envs.denoising_demo import (
+            denoising_demo_forbidden_values,
+            run_denoising_holdout_demo,
+        )
+
+        result = run_denoising_holdout_demo()
+        _emit_bounded_json(
+            result,
+            output_path=args.output,
+            forbidden_values=denoising_demo_forbidden_values(),
+        )
+
+    elif args.command == "denoising-sealed-dataset-demo":
+        from tinker_delegate.private_reward_envs.denoising_demo import (
+            denoising_demo_forbidden_values,
+        )
+        from tinker_delegate.private_reward_envs.denoising_sealed_demo import (
+            run_denoising_sealed_dataset_demo,
+        )
+
+        result = run_denoising_sealed_dataset_demo()
+        _emit_bounded_json(
+            result,
+            output_path=args.output,
+            forbidden_values=denoising_demo_forbidden_values(),
+        )
+
+    elif args.command == "bio-assay-qc-reward-demo":
+        from tinker_delegate.private_reward_envs.bio_assay_program_demo import (
+            bio_assay_program_demo_forbidden_values,
+            run_bio_assay_program_reward_demo,
+        )
+
+        result = run_bio_assay_program_reward_demo()
+        _emit_bounded_json(
+            result,
+            output_path=args.output,
+            forbidden_values=bio_assay_program_demo_forbidden_values(),
         )
 
     elif args.command == "policy-gate":
@@ -2533,6 +2811,7 @@ def cli():
             runtime_auth_env=args.runtime_auth_env,
             project_id_env=args.project_id_env,
             base_url_env=args.base_url_env,
+            account_access_state=args.account_access_state,
         ).to_public_dict()
         _emit_bounded_json(result, output_path=args.output)
         sys.exit(0 if result["ready"] else 1)
@@ -3067,9 +3346,211 @@ def cli():
 
         manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
         blob = Path(args.blob).read_bytes() if args.blob else None
-        result = verify_manifest(manifest, blob=blob)
+        result = verify_manifest(
+            manifest, blob=blob, expected_signer=args.expected_signer or None
+        )
         _emit_bounded_json(result, output_path=args.output)
         sys.exit(0 if result["ok"] else 1)
+
+    elif args.command == "verify-reward-run":
+        from tinker_delegate.run_verification import verify_reward_run
+
+        packet = json.loads(Path(args.packet).read_text(encoding="utf-8"))
+        result = verify_reward_run(packet)
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result["verified"] else 1)
+
+    elif args.command == "verify-reward-mechanism":
+        from tinker_delegate.run_verification import verify_reward_mechanism
+
+        packet = json.loads(Path(args.packet).read_text(encoding="utf-8"))
+        # Each external input is optional; a check runs only when its input is
+        # supplied (else it is reported "skipped"). Source paths are hashed the
+        # same way the boundary hashed the env module (basename + sha256).
+        source_targets = list(args.source) or None
+        manifest = (
+            json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+            if args.manifest
+            else None
+        )
+        canary_report = (
+            json.loads(Path(args.canary_report).read_text(encoding="utf-8"))
+            if args.canary_report
+            else None
+        )
+        witness_quorum = None
+        if args.witness and args.witness_threshold > 0:
+            witness_quorum = {
+                "authorized_witnesses": list(args.witness),
+                "threshold": args.witness_threshold,
+            }
+        result = verify_reward_mechanism(
+            packet,
+            source_targets=source_targets,
+            manifest=manifest,
+            canary_report=canary_report,
+            expected_signer=args.expected_signer or None,
+            witness_quorum=witness_quorum,
+            expected_benchmark=args.expected_benchmark or None,
+            require_provenance=bool(args.require_provenance),
+        )
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result["verified"] else 1)
+
+    elif args.command == "explain-decision":
+        from tinker_delegate.decision_explainer import explain_decision
+
+        explanation = explain_decision(args.reason_code)
+        _emit_bounded_json(explanation.to_public_dict(), output_path=args.output)
+
+    elif args.command == "sign-dataset-manifest":
+        from tinker_delegate.sealed_dataset import sign_manifest
+
+        signer_private_key = os.environ.get(args.signer_key_env, "").strip()
+        if not signer_private_key:
+            result = {
+                "surface": "sign_dataset_manifest",
+                "success": False,
+                "error_kind": "missing_signer_key",
+                "bounded_message": f"signer key env var {args.signer_key_env} is not configured",
+                "private_key_returned": False,
+                "raw_secret_egress": False,
+            }
+            _emit_bounded_json(result, output_path=args.output)
+            sys.exit(1)
+        manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+        try:
+            signed_manifest, result = sign_manifest(manifest, signer_private_key)
+            Path(args.out).write_text(
+                json.dumps(signed_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            result = {**result, "signed_manifest_output": str(Path(args.out)), "signed_manifest_written": True}
+        except Exception as exc:
+            result = {
+                "surface": "sign_dataset_manifest",
+                "success": False,
+                "error_kind": exc.__class__.__name__,
+                "bounded_message": redact_text(exc),
+                "private_key_returned": False,
+                "raw_secret_egress": False,
+            }
+        _emit_bounded_json(result, output_path=args.output, forbidden_values=(signer_private_key,))
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "witness-sign-dataset-manifest":
+        from tinker_delegate.sealed_dataset import add_witness_signature
+
+        witness_private_key = os.environ.get(args.signer_key_env, "").strip()
+        if not witness_private_key:
+            result = {
+                "surface": "witness_sign_dataset_manifest",
+                "success": False,
+                "error_kind": "missing_signer_key",
+                "bounded_message": f"witness key env var {args.signer_key_env} is not configured",
+                "private_key_returned": False,
+                "raw_secret_egress": False,
+            }
+            _emit_bounded_json(result, output_path=args.output)
+            sys.exit(1)
+        manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+        try:
+            cosigned_manifest, result = add_witness_signature(manifest, witness_private_key)
+            Path(args.out).write_text(
+                json.dumps(cosigned_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            result = {**result, "cosigned_manifest_output": str(Path(args.out)), "cosigned_manifest_written": True}
+        except Exception as exc:
+            result = {
+                "surface": "witness_sign_dataset_manifest",
+                "success": False,
+                "error_kind": exc.__class__.__name__,
+                "bounded_message": redact_text(exc),
+                "private_key_returned": False,
+                "raw_secret_egress": False,
+            }
+        _emit_bounded_json(result, output_path=args.output, forbidden_values=(witness_private_key,))
+        sys.exit(0 if result.get("success") else 1)
+
+    elif args.command == "verify-dataset-provenance":
+        from tinker_delegate.sealed_dataset import verify_dataset_provenance
+
+        manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+        result = verify_dataset_provenance(
+            manifest,
+            expected_signer=args.expected_signer or None,
+            expected_benchmark=args.expected_benchmark or None,
+        )
+        _emit_bounded_json(result, output_path=args.output)
+        sys.exit(0 if result.get("ok") else 1)
+
+    elif args.command == "dataset-recipient-keygen":
+        from tinker_delegate.run_metadata_store import stable_hash
+        from tinker_delegate.sealed_dataset import generate_recipient_keypair, recipient_key_hash
+
+        private_key_hex, public_key_hex = generate_recipient_keypair()
+        _write_secret_text(args.private_key_output, private_key_hex)
+        result = {
+            "surface": "dataset_recipient_keygen",
+            "success": True,
+            "public_key": public_key_hex,
+            "public_key_hash": stable_hash(public_key_hex.lower(), prefix="dataset_recipient_public_key"),
+            "recipient_key_hash": recipient_key_hash(public_key_hex),
+            "private_key_path": str(Path(args.private_key_output)),
+            "private_key_saved": True,
+            "private_key_returned": False,
+            "raw_secret_egress": False,
+        }
+        _emit_bounded_json(result, output_path=args.output, public_hex_fields=("public_key",))
+        sys.exit(0)
+
+    elif args.command == "publish-dataset":
+        from tinker_delegate.dataset_storage import (
+            StorageBackendError,
+            publish_dataset,
+            resolve_backend,
+        )
+
+        if args.backend == "local" and not args.dest:
+            print("[publish-dataset] rejected: --dest is required for the local backend")
+            sys.exit(1)
+        try:
+            backend = resolve_backend(args.backend, local_root=args.dest or None)
+            blob = Path(args.blob).read_bytes()
+            manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+            receipt = publish_dataset(blob, manifest, backend)
+        except (StorageBackendError, ValueError, OSError) as exc:
+            print(f"[publish-dataset] rejected: {redact_text(exc)}")
+            sys.exit(1)
+        _emit_bounded_json(receipt, output_path=args.output)
+        sys.exit(0)
+
+    elif args.command == "fetch-decrypt-dataset":
+        from tinker_delegate.dataset_storage import StorageBackendError, fetch_decrypt_dataset
+
+        recipient_key = Path(args.recipient_key_file).read_text(encoding="utf-8").strip()
+        try:
+            plaintext, receipt = fetch_decrypt_dataset(
+                args.ref,
+                recipient_key,
+                local_root=args.local_root or None,
+            )
+        except (StorageBackendError, ValueError, OSError) as exc:
+            print(f"[fetch-decrypt-dataset] rejected: {redact_text(exc)}")
+            sys.exit(1)
+        if plaintext is not None:
+            out_path = Path(args.out)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            fd = os.open(out_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                os.write(fd, bytes(plaintext))
+            finally:
+                os.close(fd)
+            # Zero the in-memory plaintext buffer after it is persisted.
+            for i in range(len(plaintext)):
+                plaintext[i] = 0
+            receipt["plaintext_path"] = str(out_path)
+        _emit_bounded_json(receipt, output_path=args.output)
+        sys.exit(0 if receipt.get("decrypted") else 1)
 
     elif args.command == "watch-chain":
         from tinker_delegate.chain_watcher import (
@@ -3219,6 +3700,26 @@ def cli():
             print(f"[authorize-result] failed: {redact_text(exc)}")
             sys.exit(1)
 
+    elif args.command == "governance-approval-plan":
+        from tinker_delegate.governance_plan import build_governance_plan_from_public_dict
+        from tinker_delegate.result_verifier import ResultVerifierError
+
+        try:
+            authorization_payload = json.loads(
+                Path(args.authorization_json).read_text(encoding="utf-8")
+            )
+            plan = build_governance_plan_from_public_dict(
+                authorization_payload,
+                keystore_account=args.keystore_account,
+            )
+            _emit_bounded_json(plan.to_public_dict(), output_path=args.output)
+        except ResultVerifierError as exc:
+            print(f"[governance-approval-plan] rejected: {redact_text(exc)}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"[governance-approval-plan] failed: {redact_text(exc)}")
+            sys.exit(1)
+
     elif args.command == "submit-result":
         from tinker_delegate.chain_submitter import (
             ChainSubmitterError,
@@ -3259,6 +3760,7 @@ def cli():
                 authorization_expiry=args.authorization_expiry,
                 verifier_signature=args.verifier_signature,
                 signer_attestation=signer_attestation,
+                reward_transcript_commitment=args.reward_transcript_commitment,
             )
             _emit_bounded_json(receipt.to_public_dict())
         except SignerUnavailable as exc:

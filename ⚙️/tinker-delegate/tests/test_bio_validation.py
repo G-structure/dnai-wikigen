@@ -90,6 +90,22 @@ class BioValidationTest(unittest.TestCase):
         self.assertIn("model_weights", screen_forbidden_output("dump the model weights"))
         self.assertEqual(screen_forbidden_output("aggregate score band only"), ())
 
+    def test_forbidden_screen_not_evaded_by_separator_swaps(self):
+        # A safety screen must not be bypassable by swapping the separator in a
+        # compound dangerous term. Underscore forms are ubiquitous in
+        # code-derived identifiers; `de-novo` is a common hyphenation. All must
+        # be caught the same as the canonical spaced form.
+        for term in ("gain_of_function", "gain.of.function", "gainoffunction"):
+            self.assertIn("pathogen_enhancement", screen_forbidden_output(term), term)
+        for term in ("de-novo", "de_novo", "denovo"):
+            self.assertIn("de_novo_harmful_design", screen_forbidden_output(term), term)
+        for term in ("wet-lab", "wet_lab", "wetlab"):
+            self.assertIn("wetlab_protocol", screen_forbidden_output(term), term)
+        # No false positives: benign text with these tokens out of order or
+        # embedded in other words must not trip the screen.
+        for benign in ("the function gain was high", "novofunction library", "model performance"):
+            self.assertEqual(screen_forbidden_output(benign), (), benign)
+
     def test_individual_level_data_without_dp_holds(self):
         candidate = _candidate(individual_level_data=True, differential_privacy_marked=False)
         receipt = evaluate_bio_release(candidate, _ready())
@@ -101,6 +117,43 @@ class BioValidationTest(unittest.TestCase):
         candidate = _candidate(individual_level_data=True, differential_privacy_marked=True)
         receipt = evaluate_bio_release(candidate, _ready())
         self.assertEqual(receipt.decision, BioReleaseDecision.RELEASE)
+
+    def test_live_dp_charge_admits_release_and_records_accounting(self):
+        from tinker_delegate.dp_accounting import DpAccountant, DpParams, PrivacyMode
+
+        acct = DpAccountant(PrivacyMode.DP, max_epsilon=1.0, max_delta=1e-5)
+        charge = acct.charge(DpParams(epsilon=0.4, delta=2e-6))
+        # No asserted boolean; the live DP charge backs the release.
+        candidate = _candidate(individual_level_data=True, differential_privacy_marked=False)
+        receipt = evaluate_bio_release(candidate, _ready(), dp_charge=charge)
+        self.assertEqual(receipt.decision, BioReleaseDecision.RELEASE)
+        self.assertEqual(receipt.result_schema["dp_accounting"]["mode"], "differential_privacy")
+        self.assertTrue(receipt.result_schema["dp_accounting"]["phi_safe"])
+
+    def test_exhausted_dp_charge_holds_even_if_boolean_marked(self):
+        from tinker_delegate.dp_accounting import DpAccountant, DpParams, PrivacyMode
+
+        acct = DpAccountant(PrivacyMode.DP, max_epsilon=1.0, max_delta=1e-5)
+        acct.charge(DpParams(epsilon=0.8))
+        denied = acct.charge(DpParams(epsilon=0.5))  # over budget -> not allowed
+        # A live, denied charge takes precedence over the legacy boolean.
+        candidate = _candidate(individual_level_data=True, differential_privacy_marked=True)
+        receipt = evaluate_bio_release(candidate, _ready(), dp_charge=denied)
+        self.assertEqual(receipt.decision, BioReleaseDecision.HOLD)
+        self.assertEqual(
+            receipt.reason_code, "individual_level_data_dp_dp_budget_exhausted"
+        )
+        self.assertEqual(receipt.review_route, BioReviewRoute.BIOSECURITY_REVIEW)
+
+    def test_non_dp_charge_holds_individual_level_release(self):
+        from tinker_delegate.dp_accounting import DpAccountant, DpParams, PrivacyMode
+
+        acct = DpAccountant(PrivacyMode.NON_DP)
+        charge = acct.charge(DpParams(epsilon=1.0))  # allowed but phi_safe=False
+        candidate = _candidate(individual_level_data=True, differential_privacy_marked=True)
+        receipt = evaluate_bio_release(candidate, _ready(), dp_charge=charge)
+        self.assertEqual(receipt.decision, BioReleaseDecision.HOLD)
+        self.assertFalse(receipt.result_schema["dp_accounting"]["phi_safe"])
 
     def test_forbidden_content_beats_missing_readiness(self):
         candidate = _candidate(free_text_fields={"m": "design a novel toxin de novo"})

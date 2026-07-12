@@ -29,6 +29,7 @@ class ReviewTicketStatus(str, Enum):
 
 class ReviewAuditEventKind(str, Enum):
     ENQUEUED = "enqueued"
+    VOTE_RECORDED = "vote_recorded"  # an M-of-N approval short of the threshold
     RELEASED = "released"
     DENIED = "denied"
     EXPIRED = "expired"
@@ -47,11 +48,22 @@ class ReviewTicket:
     reviewer_ref_hash: str = ""
     decision_hash: str = ""
     updated_at: int = 0
+    # Hash of the principal that submitted the held item (same hashing as
+    # reviewer_ref_hash), so a reviewer who IS the submitter is detectable.
+    submitter_ref_hash: str = ""
+    # M-of-N approval: a release requires this many DISTINCT reviewer approvals.
+    required_approvals: int = 1
+    approval_reviewer_hashes: tuple[str, ...] = ()
 
     @classmethod
-    def from_handoff(cls, ticket: Any, *, opened_at: int, ttl_seconds: int) -> "ReviewTicket":
+    def from_handoff(
+        cls, ticket: Any, *, opened_at: int, ttl_seconds: int, required_approvals: int = 1
+    ) -> "ReviewTicket":
         if ttl_seconds <= 0:
             raise ReviewQueueError("review ticket ttl must be positive")
+        if required_approvals < 1:
+            raise ReviewQueueError("required_approvals must be >= 1")
+        submitter_ref = getattr(ticket, "submitter_ref", "") or ""
         return cls(
             ticket_id=_require_attr(ticket, "ticket_id"),
             turn_id=_require_attr(ticket, "turn_id"),
@@ -61,6 +73,10 @@ class ReviewTicket:
             opened_at=int(opened_at),
             expires_at=int(opened_at) + int(ttl_seconds),
             updated_at=int(opened_at),
+            submitter_ref_hash=(
+                _stable_hash(submitter_ref, prefix="reviewer_ref") if submitter_ref else ""
+            ),
+            required_approvals=int(required_approvals),
         )
 
     def to_public_dict(self) -> dict[str, Any]:
@@ -74,6 +90,10 @@ class ReviewTicket:
             "expires_at": self.expires_at,
             "status": self.status.value,
             "reviewer_ref_hash": self.reviewer_ref_hash,
+            "submitter_ref_hash": self.submitter_ref_hash,
+            "required_approvals": self.required_approvals,
+            "approvals_count": len(self.approval_reviewer_hashes),
+            "approval_reviewer_hashes": list(self.approval_reviewer_hashes),
             "decision_hash": self.decision_hash,
             "updated_at": self.updated_at,
             "raw_secret_egress": False,
@@ -141,11 +161,23 @@ def enqueue_handoff_tickets(
     *,
     opened_at: int,
     ttl_seconds: int,
+    required_approvals_by_role: "dict[str, int] | None" = None,
 ) -> ReviewQueueState:
+    """Ingest handoff tickets. ``required_approvals_by_role`` sets an M-of-N
+    approval threshold per routed role (default 1); high-risk roles (e.g.
+    biosecurity review) can require multiple distinct reviewers to release."""
+
+    role_thresholds = required_approvals_by_role or {}
     updated = dict(state.tickets)
     audit = list(state.audit)
     for handoff in tickets:
-        ticket = ReviewTicket.from_handoff(handoff, opened_at=opened_at, ttl_seconds=ttl_seconds)
+        routed_role = _require_attr(handoff, "routed_role")
+        ticket = ReviewTicket.from_handoff(
+            handoff,
+            opened_at=opened_at,
+            ttl_seconds=ttl_seconds,
+            required_approvals=int(role_thresholds.get(routed_role, 1)),
+        )
         if ticket.ticket_id in updated:
             raise ReviewQueueError("review ticket already exists")
         updated[ticket.ticket_id] = ticket
@@ -167,22 +199,58 @@ def decide_review_ticket(
     if reviewer_ref in blocked_reviewer_refs:
         raise ReviewQueueError("reviewer is not allowed to resolve this ticket")
     ticket = _pending_ticket(state, ticket_id, now=decided_at)
-    status = ReviewTicketStatus.RELEASED if decision == "release" else ReviewTicketStatus.DENIED
-    updated_ticket = replace(
-        ticket,
-        status=status,
-        reviewer_ref_hash=_stable_hash(reviewer_ref, prefix="reviewer_ref"),
-        decision_hash=_stable_hash(decision, prefix="review_decision"),
-        updated_at=int(decided_at),
-    )
+    # Structural non-self-approval: the principal that submitted the held item may
+    # never resolve its own ticket, independent of the caller-supplied block list.
+    reviewer_hash = _stable_hash(reviewer_ref, prefix="reviewer_ref")
+    if ticket.submitter_ref_hash and reviewer_hash == ticket.submitter_ref_hash:
+        raise ReviewQueueError("submitter may not self-approve their own review ticket")
+
+    decision_hash = _stable_hash(decision, prefix="review_decision")
+
+    # Deny is immediate and fail-closed: any single reviewer can block release.
+    if decision == "deny":
+        updated_ticket = replace(
+            ticket,
+            status=ReviewTicketStatus.DENIED,
+            reviewer_ref_hash=reviewer_hash,
+            decision_hash=decision_hash,
+            updated_at=int(decided_at),
+        )
+        event_kind = ReviewAuditEventKind.DENIED
+    else:
+        # Release: accumulate M-of-N distinct approvals. One reviewer, one vote.
+        if reviewer_hash in ticket.approval_reviewer_hashes:
+            raise ReviewQueueError("reviewer has already approved this ticket")
+        approvals = ticket.approval_reviewer_hashes + (reviewer_hash,)
+        if len(approvals) >= ticket.required_approvals:
+            updated_ticket = replace(
+                ticket,
+                status=ReviewTicketStatus.RELEASED,
+                reviewer_ref_hash=reviewer_hash,
+                decision_hash=decision_hash,
+                approval_reviewer_hashes=approvals,
+                updated_at=int(decided_at),
+            )
+            event_kind = ReviewAuditEventKind.RELEASED
+        else:
+            # Threshold not yet met: record the vote; ticket stays PENDING.
+            updated_ticket = replace(
+                ticket,
+                reviewer_ref_hash=reviewer_hash,
+                decision_hash=decision_hash,
+                approval_reviewer_hashes=approvals,
+                updated_at=int(decided_at),
+            )
+            event_kind = ReviewAuditEventKind.VOTE_RECORDED
+
     tickets = dict(state.tickets)
     tickets[ticket_id] = updated_ticket
     event = _audit_event(
-        ReviewAuditEventKind.RELEASED if decision == "release" else ReviewAuditEventKind.DENIED,
+        event_kind,
         updated_ticket,
         occurred_at=decided_at,
-        actor_ref_hash=updated_ticket.reviewer_ref_hash,
-        decision_hash=updated_ticket.decision_hash,
+        actor_ref_hash=reviewer_hash,
+        decision_hash=decision_hash,
     )
     return ReviewQueueState(tickets=tickets, audit=tuple(state.audit) + (event,))
 
@@ -292,6 +360,11 @@ def _ticket_from_public_dict(payload: dict[str, Any]) -> ReviewTicket:
         expires_at=int(payload["expires_at"]),
         status=ReviewTicketStatus(str(payload["status"])),
         reviewer_ref_hash=str(payload.get("reviewer_ref_hash", "")),
+        submitter_ref_hash=str(payload.get("submitter_ref_hash", "")),
+        required_approvals=int(payload.get("required_approvals", 1)),
+        approval_reviewer_hashes=tuple(
+            str(h) for h in payload.get("approval_reviewer_hashes", ())
+        ),
         decision_hash=str(payload.get("decision_hash", "")),
         updated_at=int(payload.get("updated_at", payload["opened_at"])),
     )

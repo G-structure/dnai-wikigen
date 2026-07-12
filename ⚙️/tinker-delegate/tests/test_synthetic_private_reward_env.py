@@ -127,6 +127,11 @@ class SyntheticHiddenKeywordEnvironmentTest(unittest.TestCase):
         self.assertEqual(packet["submitted_candidate_count"], 2)
         self.assertEqual(len(packet["feedback"]), 2)
         self.assertEqual(packet["final_result"]["public_message"], "bounded synthetic final validation result")
+        commitment = packet["reward_transcript_commitment"]
+        self.assertEqual(commitment["surface"], "reward_transcript_commitment")
+        self.assertEqual(commitment["round_count"], 2)
+        self.assertRegex(commitment["transcript_root"], r"^[0-9a-f]{64}$")
+        self.assertRegex(commitment["transcript_chain_head"], r"^[0-9a-f]{64}$")
         public_text = str(packet)
         for forbidden in hidden_demo_forbidden_values(candidates):
             self.assertNotIn(forbidden, public_text)

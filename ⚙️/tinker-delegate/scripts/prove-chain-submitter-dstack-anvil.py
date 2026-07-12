@@ -45,6 +45,9 @@ ANVIL_SELLER = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 ANVIL_BUYER = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 ARTIFACT_HASH = "0x" + "ab" * 32
 RESULT_HASH = "0x" + "cd" * 32
+# Bind an RLVR proof-carrying reward-transcript commitment into the on-chain
+# resultHash (v2 commitment) so the settled record commits to the reward run.
+REWARD_TRANSCRIPT_COMMITMENT = "0x" + "9a" * 32
 
 
 def main() -> int:
@@ -91,6 +94,7 @@ def main() -> int:
         if not submitted_event:
             raise AssertionError("submit-result transaction did not emit EvaluationSubmitted")
         _assert_receipt(receipt, signer_address, contract_address, submitted_event.fields)
+        _assert_reward_transcript_binding(receipt, authorization, submitted_event.fields)
 
         print(json.dumps({
             "ok": True,
@@ -127,6 +131,8 @@ def main() -> int:
                 "compute_cost_band": receipt.get("compute_cost_band"),
                 "payload_result_hash": receipt.get("payload_result_hash"),
                 "submitted_result_hash": receipt.get("result_hash"),
+                "reward_transcript_commitment": receipt.get("reward_transcript_commitment"),
+                "unbound_v1_commitment": authorization.get("_v1_commitment"),
                 "compose_hash": receipt.get("compose_hash"),
                 "authorization_expiry": receipt.get("authorization_expiry"),
                 "verifier_signature_hash": receipt.get("verifier_signature_hash"),
@@ -328,6 +334,8 @@ def _submit_result_via_cli(
         str(authorization_expiry),
         "--verifier-signature",
         verifier_signature,
+        "--reward-transcript-commitment",
+        REWARD_TRANSCRIPT_COMMITMENT,
         "--rpc-url",
         rpc_url,
         "--contract-address",
@@ -359,7 +367,7 @@ def _authorize_result_via_cli(
         os.environ.clear()
         os.environ.update(old_env)
 
-    commitment = ResultCommitment(
+    commitment_fields = dict(
         chain_id=chain_id,
         contract_address=contract_address,
         deal_id=0,
@@ -369,7 +377,14 @@ def _authorize_result_via_cli(
         score_band_value=3,
         compute_cost_wei=10**15,
         expiry=deal_expiry,
+    )
+    v1_commitment = ResultCommitment(**commitment_fields).digest()
+    commitment = ResultCommitment(
+        reward_transcript_commitment=REWARD_TRANSCRIPT_COMMITMENT,
+        **commitment_fields,
     ).digest()
+    if commitment == v1_commitment:
+        raise AssertionError("v2 reward-transcript binding did not change the commitment")
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json") as attestation_file:
         json.dump(attestation.to_public_dict(), attestation_file)
         attestation_file.flush()
@@ -410,6 +425,10 @@ def _authorize_result_via_cli(
         raise RuntimeError("authorize-result tee identity mismatch")
     if str(authorization.get("contract_address", "")).lower() != contract_address.lower():
         raise RuntimeError("authorize-result contract mismatch")
+    # Proof-local: retain the unbound v1 digest so the on-chain result can be
+    # shown to equal the v2 (transcript-bound) commitment and differ from v1.
+    authorization["_v1_commitment"] = v1_commitment
+    authorization["_v2_commitment"] = commitment
     return authorization
 
 
@@ -474,6 +493,25 @@ def _assert_receipt(
         raise AssertionError("submitted result_hash was not replay-bound")
     if "private" in json.dumps(receipt).lower():
         raise AssertionError("bounded receipt contained private-key-shaped text")
+
+
+def _assert_reward_transcript_binding(
+    receipt: dict[str, Any],
+    authorization: dict[str, Any],
+    event_fields: dict[str, Any],
+) -> None:
+    """Prove the on-chain resultHash binds the RLVR reward-transcript commitment."""
+    if receipt.get("reward_transcript_commitment") != REWARD_TRANSCRIPT_COMMITMENT:
+        raise AssertionError("receipt did not record the bound reward-transcript commitment")
+    v1_commitment = authorization.get("_v1_commitment")
+    v2_commitment = authorization.get("_v2_commitment")
+    on_chain = event_fields.get("result_hash")
+    if on_chain != v2_commitment:
+        raise AssertionError("on-chain result_hash did not equal the v2 transcript-bound commitment")
+    if on_chain == v1_commitment:
+        raise AssertionError("on-chain result_hash was not changed by the transcript binding")
+    if receipt.get("result_hash") != v2_commitment:
+        raise AssertionError("submitted result_hash did not equal the v2 commitment")
 
 
 def _wait_for_rpc(rpc_url: str) -> None:

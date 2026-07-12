@@ -15,6 +15,8 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any
 
+from tinker_delegate.royalty_settlement import OwnerShare, split_royalty
+
 
 class CoordinationError(ValueError):
     """Raised when an event is malformed or cannot be applied safely."""
@@ -69,6 +71,20 @@ class Corpus:
     owner_ref: str
     policy_hash: str
     royalty_per_query: int = 0
+    # Optional co-ownership: (owner_ref, weight_bps) pairs summing to 10000. When
+    # set, the per-query royalty is split among these owners; otherwise the whole
+    # royalty accrues to `owner_ref`.
+    owner_shares: tuple[tuple[str, int], ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.owner_shares:
+            owners = [o for o, _ in self.owner_shares]
+            if len(set(owners)) != len(owners):
+                raise CoordinationError("corpus owner_shares must have unique owners")
+            if any(w < 0 for _, w in self.owner_shares):
+                raise CoordinationError("corpus owner_share weights must be non-negative")
+            if sum(w for _, w in self.owner_shares) != 10_000:
+                raise CoordinationError("corpus owner_share weights must sum to 10000 bps")
 
 
 @dataclass(frozen=True)
@@ -131,6 +147,9 @@ class HandoffTicket:
     reason_hash: str
     status: TicketStatus = TicketStatus.PENDING
     reviewer_ref: str = ""
+    # The principal (agent) that submitted the held turn, so a downstream review
+    # queue can structurally forbid the submitter from self-approving.
+    submitter_ref: str = ""
 
     def to_public_dict(self) -> dict[str, Any]:
         return {
@@ -333,6 +352,7 @@ def _gate_results(state: CoordinationState, event: GateResults, env: Coordinatio
                 corpus_ref=query.corpus_ref,
                 routed_role=query.routed_role or _route_hold(query),
                 reason_hash=_stable_hash(query.reason, prefix="hold_reason"),
+                submitter_ref=record.turn.by,
             )
             for query in held
         )
@@ -648,13 +668,25 @@ def _royalty_meters(session: CollabSession, turn: Turn) -> tuple[RoyaltyMeter, .
     meters: list[RoyaltyMeter] = []
     for corpus_ref in turn.corpora:
         corpus = _require_known_corpus(session, corpus_ref)
-        meters.append(
-            RoyaltyMeter(
-                corpus_ref=corpus.ref,
-                owner_ref=corpus.owner_ref,
-                amount=corpus.royalty_per_query,
+        if corpus.owner_shares:
+            # Co-owned corpus: split the per-query royalty by weight, conserving.
+            shares = [OwnerShare(owner, weight) for owner, weight in corpus.owner_shares]
+            for payout in split_royalty(corpus.royalty_per_query, shares):
+                meters.append(
+                    RoyaltyMeter(
+                        corpus_ref=corpus.ref,
+                        owner_ref=payout.owner_ref,
+                        amount=payout.amount,
+                    )
+                )
+        else:
+            meters.append(
+                RoyaltyMeter(
+                    corpus_ref=corpus.ref,
+                    owner_ref=corpus.owner_ref,
+                    amount=corpus.royalty_per_query,
+                )
             )
-        )
     return tuple(meters)
 
 

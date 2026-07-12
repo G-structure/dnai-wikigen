@@ -63,6 +63,34 @@ contract TinkerAccountEncumbranceTest is Test {
         assertFalse(record.settled);
     }
 
+    function test_AuthorizerCannotSelfApprove() public {
+        vm.prank(owner);
+        encumbrance.setManager(manager, true);
+
+        // A manager cannot authorize an operation where they are also the
+        // requester (non-self-approval, enforced on-chain).
+        vm.prank(manager);
+        vm.expectRevert(TinkerAccountEncumbrance.SelfApprovalNotAllowed.selector);
+        encumbrance.authorizeOperation(
+            operationId,
+            TinkerAccountEncumbrance.OperationKind.AddBalance,
+            manager,
+            composeHash,
+            1 ether
+        );
+
+        // The owner cannot self-approve either.
+        vm.prank(owner);
+        vm.expectRevert(TinkerAccountEncumbrance.SelfApprovalNotAllowed.selector);
+        encumbrance.authorizeOperation(
+            operationId,
+            TinkerAccountEncumbrance.OperationKind.AddBalance,
+            owner,
+            composeHash,
+            1 ether
+        );
+    }
+
     function test_ManagerCannotExceedOwnerGrantedAuthority() public {
         vm.prank(owner);
         encumbrance.setManager(manager, true);

@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from eth_account import Account
+from eth_hash.auto import keccak
 
 from tinker_delegate.chain_submitter import (
     ChainSubmitterError,
@@ -16,6 +17,7 @@ from tinker_delegate.chain_submitter import (
     SignerAttestationEvidence,
     SignerUnavailable,
     encode_submit_result_calldata,
+    encode_uint256,
     eth_signed_message_digest,
     result_authorization_digest,
     signer_attestation_report_data,
@@ -95,14 +97,48 @@ class InjectedTestSigner:
         return self._account.sign_transaction(transaction)
 
 
+_COMPOSE_APPROVAL_REQUIRED_SELECTOR = "0x" + keccak(b"composeApprovalRequired()")[:4].hex()
+_APPROVED_COMPOSE_HASHES_SELECTOR = "0x" + keccak(b"approvedComposeHashes(bytes32)")[:4].hex()
+_FEE_BPS_SELECTOR = "0x" + keccak(b"feeBps()")[:4].hex()
+
+
+def _bool_word(value: bool) -> str:
+    return "0x" + (1 if value else 0).to_bytes(32, "big").hex()
+
+
+def _uint_word(value: int) -> str:
+    return "0x" + int(value).to_bytes(32, "big").hex()
+
+
 class FakeRpc:
-    def __init__(self, deal_response: str):
+    def __init__(
+        self,
+        deal_response: str,
+        *,
+        compose_approval_required: bool = False,
+        compose_hash_approved: bool = False,
+        fee_bps: int = 100,
+        fee_bps_response: str | None = None,
+    ):
         self.deal_response = deal_response
+        self.compose_approval_required = compose_approval_required
+        self.compose_hash_approved = compose_hash_approved
+        self.fee_bps = fee_bps
+        self.fee_bps_response = fee_bps_response
         self.sent_raw_transactions: list[bytes] = []
         self.estimate_calls: list[dict] = []
 
     def eth_call(self, tx):
         self.last_eth_call = tx
+        data = tx.get("data", "")
+        if data.startswith(_COMPOSE_APPROVAL_REQUIRED_SELECTOR):
+            return _bool_word(self.compose_approval_required)
+        if data.startswith(_APPROVED_COMPOSE_HASHES_SELECTOR):
+            return _bool_word(self.compose_hash_approved)
+        if data.startswith(_FEE_BPS_SELECTOR):
+            if self.fee_bps_response is not None:
+                return self.fee_bps_response
+            return _uint_word(self.fee_bps)
         return self.deal_response
 
     def chain_id(self):
@@ -234,6 +270,117 @@ class ChainSubmitterTest(unittest.TestCase):
                 compose_hash=COMPOSE_HASH,
             )
 
+    def test_submit_result_fails_closed_when_compose_not_approved_onchain(self):
+        signer = InjectedTestSigner()
+        rpc = FakeRpc(
+            _deal_response(tee_identity=signer.address),
+            compose_approval_required=True,
+            compose_hash_approved=False,
+        )
+        submitter = DiligenceRoomSubmitter(rpc, CONTRACT_ADDRESS, signer)
+        with self.assertRaisesRegex(ChainSubmitterError, "not approved on-chain"):
+            submitter.submit_result(
+                deal_id=1,
+                score_band="high",
+                compute_cost_wei=10**15,
+                result_hash="0x" + "66" * 32,
+                authorization_expiry=AUTHORIZATION_EXPIRY,
+                verifier_signature=VERIFIER_SIGNATURE,
+                compose_hash=COMPOSE_HASH,
+            )
+        # Fail closed BEFORE broadcasting — no transaction sent, no gas spent.
+        self.assertEqual(len(rpc.sent_raw_transactions), 0)
+
+    def test_submit_result_broadcasts_when_compose_approved_onchain(self):
+        signer = InjectedTestSigner()
+        rpc = FakeRpc(
+            _deal_response(tee_identity=signer.address),
+            compose_approval_required=True,
+            compose_hash_approved=True,
+        )
+        submitter = DiligenceRoomSubmitter(rpc, CONTRACT_ADDRESS, signer)
+        receipt = submitter.submit_result(
+            deal_id=1,
+            score_band="high",
+            compute_cost_wei=10**15,
+            result_hash="0x" + "66" * 32,
+            authorization_expiry=AUTHORIZATION_EXPIRY,
+            verifier_signature=VERIFIER_SIGNATURE,
+            compose_hash=COMPOSE_HASH,
+        )
+        self.assertTrue(receipt.submitted)
+        self.assertEqual(len(rpc.sent_raw_transactions), 1)
+
+    def test_submit_result_ignores_gate_when_not_required(self):
+        # Gate off on-chain: an unapproved compose still submits (backward compat).
+        signer = InjectedTestSigner()
+        rpc = FakeRpc(
+            _deal_response(tee_identity=signer.address),
+            compose_approval_required=False,
+            compose_hash_approved=False,
+        )
+        submitter = DiligenceRoomSubmitter(rpc, CONTRACT_ADDRESS, signer)
+        receipt = submitter.submit_result(
+            deal_id=1,
+            score_band="high",
+            compute_cost_wei=10**15,
+            result_hash="0x" + "66" * 32,
+            authorization_expiry=AUTHORIZATION_EXPIRY,
+            verifier_signature=VERIFIER_SIGNATURE,
+            compose_hash=COMPOSE_HASH,
+        )
+        self.assertTrue(receipt.submitted)
+        self.assertEqual(len(rpc.sent_raw_transactions), 1)
+
+    def test_submit_result_uses_onchain_fee_bps_for_budget_check(self):
+        # A raised on-chain fee (10%) tightens the budget check: a compute cost
+        # that fits under 1% now exceeds budget once the real fee is read.
+        signer = InjectedTestSigner()
+        budget = 10**18
+        compute = 950_000_000_000_000_000  # 0.95 ETH; +10% fee = 1.045 ETH > budget
+        rpc = FakeRpc(
+            _deal_response(tee_identity=signer.address, budget_cap=budget),
+            fee_bps=1000,
+        )
+        submitter = DiligenceRoomSubmitter(rpc, CONTRACT_ADDRESS, signer)
+        with self.assertRaisesRegex(ChainSubmitterError, "budget"):
+            submitter.submit_result(
+                deal_id=1,
+                score_band="low",
+                compute_cost_wei=compute,
+                result_hash="0x" + "66" * 32,
+                authorization_expiry=AUTHORIZATION_EXPIRY,
+                verifier_signature=VERIFIER_SIGNATURE,
+                compose_hash=COMPOSE_HASH,
+            )
+        self.assertEqual(len(rpc.sent_raw_transactions), 0)
+
+    def test_submit_result_falls_back_to_default_fee_when_getter_absent(self):
+        # Older deployment without feeBps(): empty return -> default 1%, submit ok.
+        signer = InjectedTestSigner()
+        rpc = FakeRpc(
+            _deal_response(tee_identity=signer.address),
+            fee_bps_response="0x",
+        )
+        submitter = DiligenceRoomSubmitter(rpc, CONTRACT_ADDRESS, signer)
+        self.assertEqual(submitter.read_fee_bps(), 100)
+        receipt = submitter.submit_result(
+            deal_id=1,
+            score_band="medium",
+            compute_cost_wei=10**15,
+            result_hash="0x" + "66" * 32,
+            authorization_expiry=AUTHORIZATION_EXPIRY,
+            verifier_signature=VERIFIER_SIGNATURE,
+            compose_hash=COMPOSE_HASH,
+        )
+        self.assertTrue(receipt.submitted)
+
+    def test_read_fee_bps_returns_onchain_value(self):
+        signer = InjectedTestSigner()
+        rpc = FakeRpc(_deal_response(tee_identity=signer.address), fee_bps=250)
+        submitter = DiligenceRoomSubmitter(rpc, CONTRACT_ADDRESS, signer)
+        self.assertEqual(submitter.read_fee_bps(), 250)
+
     def test_submit_result_rejects_over_budget_compute_cost(self):
         signer = InjectedTestSigner()
         submitter = DiligenceRoomSubmitter(
@@ -328,6 +475,95 @@ class ChainSubmitterTest(unittest.TestCase):
         self.assertNotEqual(base.digest(), replay.digest())
         self.assertEqual(base.public_fields()["compute_cost_band"], "1e15-1e18")
 
+    def _base_commitment(self, **overrides) -> ResultCommitment:
+        params = dict(
+            chain_id=31337,
+            contract_address=CONTRACT_ADDRESS,
+            deal_id=1,
+            nonce=7,
+            compose_hash=COMPOSE_HASH,
+            payload_result_hash="0x" + "66" * 32,
+            score_band_value=2,
+            compute_cost_wei=10**15,
+            expiry=9999999999,
+        )
+        params.update(overrides)
+        return ResultCommitment(**params)
+
+    def test_reward_transcript_binding_is_backward_compatible(self):
+        # Absent reward transcript -> v1 digest, byte-identical to a commitment
+        # built without the new field, and no extra public field.
+        v1 = self._base_commitment()
+        v1_explicit_empty = self._base_commitment(reward_transcript_commitment="")
+        self.assertEqual(v1.digest(), v1_explicit_empty.digest())
+        self.assertNotIn("reward_transcript_commitment", v1.public_fields())
+
+    def test_reward_transcript_binding_changes_and_binds_digest(self):
+        v1 = self._base_commitment()
+        commitment = "0x" + "ab" * 32
+        v2 = self._base_commitment(reward_transcript_commitment=commitment)
+        # Binding a transcript changes the on-chain resultHash (v1 != v2)...
+        self.assertNotEqual(v1.digest(), v2.digest())
+        # ...and a different transcript yields a different digest (it is bound).
+        v2_other = self._base_commitment(reward_transcript_commitment="0x" + "cd" * 32)
+        self.assertNotEqual(v2.digest(), v2_other.digest())
+        self.assertEqual(
+            v2.public_fields()["reward_transcript_commitment"], commitment
+        )
+
+    def test_reward_transcript_digest_recomputes_from_public_fields(self):
+        commitment = "0x" + "ab" * 32
+        v2 = self._base_commitment(reward_transcript_commitment=commitment)
+        # Anyone with the bounded public fields can recompute the v2 digest and
+        # check it equals the on-chain resultHash.
+        recomputed = ResultCommitment(
+            chain_id=v2.public_fields()["chain_id"],
+            contract_address=v2.public_fields()["contract_address"],
+            deal_id=v2.public_fields()["deal_id"],
+            nonce=v2.public_fields()["nonce"],
+            compose_hash=v2.public_fields()["compose_hash"],
+            payload_result_hash=v2.public_fields()["payload_result_hash"],
+            score_band_value=v2.public_fields()["score_band_value"],
+            compute_cost_wei=10**15,
+            expiry=v2.public_fields()["expiry"],
+            reward_transcript_commitment=v2.public_fields()["reward_transcript_commitment"],
+        )
+        self.assertEqual(recomputed.digest(), v2.digest())
+
+    def test_submit_result_binds_reward_transcript_commitment(self):
+        signer = InjectedTestSigner()
+        commitment = "0x" + "ab" * 32
+        receipt = DiligenceRoomSubmitter(
+            FakeRpc(_deal_response(tee_identity=signer.address)),
+            CONTRACT_ADDRESS,
+            signer,
+        ).submit_result(
+            deal_id=1,
+            score_band="medium",
+            compute_cost_wei=10**15,
+            result_hash="0x" + "66" * 32,
+            authorization_expiry=AUTHORIZATION_EXPIRY,
+            verifier_signature=VERIFIER_SIGNATURE,
+            signer_attestation=_signer_attestation(signer_address=signer.address),
+            reward_transcript_commitment=commitment,
+        )
+        self.assertEqual(receipt.reward_transcript_commitment, commitment)
+        self.assertIn("reward_transcript_commitment", receipt.to_public_dict())
+        # The submitted resultHash commits to the transcript: recompute v2 and match.
+        expected = ResultCommitment(
+            chain_id=receipt.chain_id,
+            contract_address=receipt.contract_address,
+            deal_id=receipt.deal_id,
+            nonce=receipt.nonce,
+            compose_hash=receipt.compose_hash,
+            payload_result_hash=receipt.payload_result_hash,
+            score_band_value=receipt.score_band_value,
+            compute_cost_wei=10**15,
+            expiry=receipt.expiry,
+            reward_transcript_commitment=commitment,
+        )
+        self.assertEqual(receipt.result_hash, expected.digest())
+
     def test_submit_result_uses_signer_attestation_compose_hash(self):
         signer = InjectedTestSigner()
         receipt = DiligenceRoomSubmitter(
@@ -398,6 +634,20 @@ class ChainSubmitterTest(unittest.TestCase):
                 contract_address=CONTRACT_ADDRESS,
                 expected_compose_hash="0x" + "77" * 32,
             )
+
+
+class EncodeUint256Test(unittest.TestCase):
+    def test_valid_range(self):
+        self.assertEqual(encode_uint256(0), b"\x00" * 32)
+        self.assertEqual(encode_uint256(2**256 - 1), b"\xff" * 32)
+
+    def test_out_of_range_raises_module_error(self):
+        # Negative and >= 2**256 both fail with ChainSubmitterError, never a raw
+        # OverflowError from to_bytes (money-path encoder hygiene).
+        with self.assertRaises(ChainSubmitterError):
+            encode_uint256(-1)
+        with self.assertRaises(ChainSubmitterError):
+            encode_uint256(2**256)
 
 
 if __name__ == "__main__":

@@ -193,6 +193,20 @@ class ControlPlaneRunMetadataTest(unittest.TestCase):
         self.assertEqual(records[1]["checkpoint_ids_hash"], "c" * 64)
         self.assertNotIn("run-secret-1", str(records))
         self.assertNotIn("private-artifact", str(records))
+        # Retention + attested destruction are wired into resolution.
+        self.assertEqual(records[1]["retention_action"], "destroy_now")
+        self.assertTrue(records[1]["destruction_complete"])
+        self.assertRegex(records[1]["destruction_record_hash"], r"^0x[0-9a-f]{64}$")
+        from tinker_delegate.destruction_record import (
+            DestructionRecord,
+            verify_destruction_record,
+        )
+        dr = ctx.destruction_record
+        self.assertTrue(dr["complete"])
+        self.assertTrue(dr["artifact_deleted"])
+        self.assertTrue(dr["memory_zeroed"])
+        self.assertTrue(verify_destruction_record(DestructionRecord(**{k: v for k, v in dr.items() if k != "kind"})))
+        self.assertEqual(ctx.retention_decision["action"], "destroy_now")
 
     def test_control_plane_records_bounded_chain_event_metadata(self):
         from tinker_delegate.control_plane import ControlPlane

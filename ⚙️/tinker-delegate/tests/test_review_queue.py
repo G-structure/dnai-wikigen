@@ -139,6 +139,91 @@ class ReviewQueueTest(unittest.TestCase):
                 decided_at=111,
             )
 
+    def test_submitter_cannot_self_approve_even_without_block_list(self):
+        # cro-agent submitted the held turn; it must not resolve its own ticket
+        # even when the caller forgets to pass blocked_reviewer_refs.
+        record = _held_coordination_record()
+        queue = enqueue_handoff_tickets(ReviewQueueState.empty(), record.tickets, opened_at=100, ttl_seconds=300)
+        ticket_id = record.tickets[0].ticket_id
+        # The submitter ref is captured on the ticket (hashed, not raw).
+        self.assertTrue(queue.tickets[ticket_id].submitter_ref_hash)
+
+        with self.assertRaisesRegex(ReviewQueueError, "self-approve"):
+            decide_review_ticket(
+                queue,
+                ticket_id,
+                decision="release",
+                reviewer_ref="cro-agent",  # the submitter
+                decided_at=120,
+            )
+
+    def test_independent_reviewer_still_resolves(self):
+        record = _held_coordination_record()
+        queue = enqueue_handoff_tickets(ReviewQueueState.empty(), record.tickets, opened_at=100, ttl_seconds=300)
+        ticket_id = record.tickets[0].ticket_id
+        queue = decide_review_ticket(
+            queue, ticket_id, decision="release", reviewer_ref="access-officer", decided_at=120
+        )
+        self.assertEqual(queue.tickets[ticket_id].status, ReviewTicketStatus.RELEASED)
+
+    def test_m_of_n_requires_two_distinct_approvals_to_release(self):
+        record = _held_coordination_record()
+        queue = enqueue_handoff_tickets(
+            ReviewQueueState.empty(),
+            record.tickets,
+            opened_at=100,
+            ttl_seconds=300,
+            required_approvals_by_role={"access-review-officer": 2},
+        )
+        ticket_id = record.tickets[0].ticket_id
+        self.assertEqual(queue.tickets[ticket_id].required_approvals, 2)
+
+        # First approval records a vote but the ticket stays PENDING.
+        queue = decide_review_ticket(
+            queue, ticket_id, decision="release", reviewer_ref="officer-a", decided_at=110
+        )
+        self.assertEqual(queue.tickets[ticket_id].status, ReviewTicketStatus.PENDING)
+        self.assertEqual(queue.audit[-1].event.value, "vote_recorded")
+
+        # A distinct second approver crosses the threshold -> RELEASED.
+        queue = decide_review_ticket(
+            queue, ticket_id, decision="release", reviewer_ref="officer-b", decided_at=115
+        )
+        self.assertEqual(queue.tickets[ticket_id].status, ReviewTicketStatus.RELEASED)
+        self.assertEqual(queue.audit[-1].event.value, "released")
+
+    def test_m_of_n_rejects_duplicate_approver(self):
+        record = _held_coordination_record()
+        queue = enqueue_handoff_tickets(
+            ReviewQueueState.empty(), record.tickets, opened_at=100, ttl_seconds=300,
+            required_approvals_by_role={"access-review-officer": 2},
+        )
+        ticket_id = record.tickets[0].ticket_id
+        queue = decide_review_ticket(
+            queue, ticket_id, decision="release", reviewer_ref="officer-a", decided_at=110
+        )
+        # The same reviewer cannot supply a second approval toward the threshold.
+        with self.assertRaisesRegex(ReviewQueueError, "already approved"):
+            decide_review_ticket(
+                queue, ticket_id, decision="release", reviewer_ref="officer-a", decided_at=112
+            )
+
+    def test_m_of_n_single_deny_blocks_immediately(self):
+        record = _held_coordination_record()
+        queue = enqueue_handoff_tickets(
+            ReviewQueueState.empty(), record.tickets, opened_at=100, ttl_seconds=300,
+            required_approvals_by_role={"access-review-officer": 3},
+        )
+        ticket_id = record.tickets[0].ticket_id
+        queue = decide_review_ticket(
+            queue, ticket_id, decision="release", reviewer_ref="officer-a", decided_at=110
+        )
+        # Fail-closed: one deny denies, regardless of prior approvals or threshold.
+        queue = decide_review_ticket(
+            queue, ticket_id, decision="deny", reviewer_ref="officer-b", decided_at=112
+        )
+        self.assertEqual(queue.tickets[ticket_id].status, ReviewTicketStatus.DENIED)
+
     def test_expire_pending_tickets_and_filter_by_role(self):
         record = _held_coordination_record()
         queue = enqueue_handoff_tickets(ReviewQueueState.empty(), record.tickets, opened_at=100, ttl_seconds=10)

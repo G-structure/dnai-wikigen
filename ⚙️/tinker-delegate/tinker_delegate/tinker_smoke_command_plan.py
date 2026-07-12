@@ -27,6 +27,7 @@ class TinkerSmokeCommandPlan:
     ready: bool
     reasons: tuple[str, ...]
     warnings: tuple[str, ...]
+    account_access_state: str
     manifest_path: str
     delegate_api_url: str
     current_compose_hash: str
@@ -63,6 +64,7 @@ class TinkerSmokeCommandPlan:
             "ready": self.ready,
             "reasons": list(self.reasons),
             "warnings": list(self.warnings),
+            "account_access_state": self.account_access_state,
             "manifest_path": self.manifest_path,
             "delegate_api_url": self.delegate_api_url,
             "current_compose_hash": self.current_compose_hash,
@@ -125,6 +127,7 @@ def build_tinker_smoke_command_plan(
     runtime_auth_env: str = "TINKER_RUNTIME_AUTH_TOKEN",
     project_id_env: str = "TINKER_PROJECT_ID",
     base_url_env: str = "TINKER_BASE_URL",
+    account_access_state: str = "",
     env: Mapping[str, str] | None = None,
 ) -> TinkerSmokeCommandPlan:
     manifest_file = Path(manifest_path)
@@ -189,6 +192,14 @@ def build_tinker_smoke_command_plan(
         warnings.append("tinker_project_id_not_configured_optional")
     if live_contains_base_url:
         warnings.append("live_cvm_uses_custom_tinker_base_url")
+    # Account access/billing gate (from `account-access-status`). Even with every
+    # compose/policy check green, a blocked/gated account cannot run training, so
+    # it is a hard readiness blocker; `unknown`/unchecked is only a warning.
+    account_access_state = _str(account_access_state)
+    if account_access_state in {"access_blocked_billing", "waitlist_or_gated", "payment_required"}:
+        reasons.append("tinker_account_access_blocked")
+    elif account_access_state in {"", "unknown"}:
+        warnings.append("tinker_account_access_unverified")
     _check_spend_cap(reasons, max_usd=max_usd, encumbrance=encumbrance)
 
     redeploy_argv = (
@@ -340,7 +351,8 @@ def build_tinker_smoke_command_plan(
     return TinkerSmokeCommandPlan(
         ready=not reasons,
         reasons=tuple(sorted(set(reasons))),
-        warnings=tuple(warnings),
+        warnings=tuple(sorted(set(warnings))),
+        account_access_state=account_access_state or "unverified",
         manifest_path=str(manifest_file),
         delegate_api_url=delegate_api_url,
         current_compose_hash=current_compose_hash,
@@ -503,6 +515,8 @@ def _next_action(*, reasons: list[str], project_id_present: bool, live_contains_
         "missing_phala_os_image_hash",
         "missing_tinker_encumbrance_contract",
     }
+    if "tinker_account_access_blocked" in reasons:
+        return "resolve_tinker_account_activation"
     if any(reason in infra_reasons for reason in reasons):
         return "repair_deployment_manifest"
     if "current_compose_not_approved" in reasons:
