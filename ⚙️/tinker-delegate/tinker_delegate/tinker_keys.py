@@ -439,30 +439,65 @@ async def delete_api_key(page: Page, settings: Settings, ref: str) -> dict[str, 
 # ---------------------------------------------------------------------------
 
 async def _with_authenticated_page(settings: Settings, operation):
-    """Connect the browser, authenticate via the OTP oracle, run ``operation``.
+    """Connect the browser and run ``operation`` on an authenticated console page.
 
-    ``operation`` is an async callable ``(page) -> dict``. Auth reuses the same
-    console-login path proven by ``signup.reauth`` (email → OTP → console).
+    ``operation`` is an async callable ``(page) -> dict``. The browser session is
+    long-lived and usually already signed in, so we go straight to ``/keys`` and
+    only fall back to the OTP login (``signup._authenticate``) if we actually
+    land on a sign-in page. Errors are surfaced as bounded, redacted receipts.
     """
     from tinker_delegate.oracle_client import OracleClient
-    from tinker_delegate.signup import AuthAccessBlockedError, _authenticate
+    from tinker_delegate.signup import AuthAccessBlockedError, _authenticate, _page_state
 
-    oracle = OracleClient(settings)
-    email = getattr(settings, "email", "") or oracle.get_email()
     async with async_playwright() as p:
         browser = await connect_chromium(p, settings)
         context = await get_browser_context(browser, settings)
         page = context.pages[0] if context.pages else await context.new_page()
+
+        # Try the existing session first: navigate to /keys and see where we land.
+        needs_login = False
         try:
-            await _authenticate(page, email, oracle, settings)
-        except AuthAccessBlockedError as exc:
-            return {
-                "success": False,
-                "outcome": AutomationOutcome.AUTH_ACCESS_BLOCKED.value,
-                "error_kind": AutomationOutcome.AUTH_ACCESS_BLOCKED.value,
-                "furthest_stage": exc.furthest_stage.value,
-                "raw_secret_egress": False,
-            }
+            await page.goto(KEYS_URL, wait_until="domcontentloaded", timeout=20000)
+            await asyncio.sleep(2)
+            state = await _page_state(page)
+            url = str(state.get("url", ""))
+            if "access blocked" in str(state.get("text", "")).lower():
+                return {
+                    "success": False,
+                    "outcome": AutomationOutcome.AUTH_ACCESS_BLOCKED.value,
+                    "error_kind": AutomationOutcome.AUTH_ACCESS_BLOCKED.value,
+                    "raw_secret_egress": False,
+                }
+            needs_login = bool(state.get("hasEmailInput")) or "auth." in url or "sign-in" in url or "magic-code" in url
+        except Exception as exc:
+            # Navigation/state read failed — treat as "needs login" so the full
+            # flow (which has its own retries/fallbacks) gets a chance.
+            print(f"[apikey] direct keys nav failed ({exc.__class__.__name__}); trying full auth")
+            needs_login = True
+
+        if needs_login:
+            try:
+                email = getattr(settings, "email", "") or OracleClient(settings).get_email()
+                await _authenticate(page, email, OracleClient(settings), settings)
+            except AuthAccessBlockedError as exc:
+                return {
+                    "success": False,
+                    "outcome": AutomationOutcome.AUTH_ACCESS_BLOCKED.value,
+                    "error_kind": AutomationOutcome.AUTH_ACCESS_BLOCKED.value,
+                    "furthest_stage": exc.furthest_stage.value,
+                    "raw_secret_egress": False,
+                }
+            except Exception as exc:
+                return {
+                    "success": False,
+                    "operation": "authenticate",
+                    "outcome": classify_automation_error(redact_text(str(exc))).value,
+                    "error_kind": classify_automation_error(redact_text(str(exc))).value,
+                    "error_type": exc.__class__.__name__,
+                    "error_detail": redact_text(str(exc))[:300],
+                    "raw_secret_egress": False,
+                }
+
         return await operation(page)
 
 
