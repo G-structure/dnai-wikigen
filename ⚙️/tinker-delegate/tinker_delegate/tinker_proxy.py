@@ -45,10 +45,11 @@ PROXY_TOKEN_HKDF_INFO = b"tinker-delegate-proxy-token"
 SUPPORTED_PROXY_SCOPES = {
     "proxy:status",
     "tinker:smoke",
+    "tinker:train",
     "billing:payment-method-status",
     "billing:add-balance",
 }
-SPEND_LIMIT_PROXY_SCOPES = frozenset({"billing:add-balance", "tinker:smoke"})
+SPEND_LIMIT_PROXY_SCOPES = frozenset({"billing:add-balance", "tinker:smoke", "tinker:train"})
 
 
 def generate_proxy_recipient_keypair() -> tuple[str, str]:
@@ -795,6 +796,13 @@ def _proxy_deployment_operations(
             (
                 TinkerOperationKind.SPEND_TINKER_COMPUTE,
                 _scope_limit_amount(policy_binding, "tinker:smoke"),
+            )
+        )
+    if "tinker:train" in scope_set:
+        operations.append(
+            (
+                TinkerOperationKind.SPEND_TINKER_COMPUTE,
+                _scope_limit_amount(policy_binding, "tinker:train"),
             )
         )
     if not operations:

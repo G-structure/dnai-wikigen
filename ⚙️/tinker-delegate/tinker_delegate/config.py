@@ -97,6 +97,8 @@ class Settings(BaseSettings):
     bootstrap_oracle_timeout: float = 300.0
     bootstrap_oracle_poll_interval: float = 5.0
     allow_auth_automation_endpoint: bool = False
+    allow_key_management_endpoint: bool = False
+    allow_tinker_train_endpoint: bool = False
     allow_selector_probe_endpoint: bool = False
     allow_browser_readiness_endpoint: bool = False
     debug_screenshots: bool = False
@@ -136,6 +138,9 @@ class Settings(BaseSettings):
     real_sdk_max_usd: float = 0.05
     real_sdk_model: str = "Qwen/Qwen3-8B"
     real_sdk_rank: int = 32
+    # Default spend cap for a bounded delegated `tinker:train` run (hard-capped
+    # at HARD_TRAIN_MAX_USD in tinker_training).
+    train_max_usd: float = 0.25
     # Wall-clock cap on the first authenticated Tinker SDK calls (ServiceClient
     # connect, create_training) so a blocked/unactivated account fails fast with a
     # bounded transient_timeout verdict instead of hanging on SDK retries.

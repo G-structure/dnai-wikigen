@@ -673,6 +673,79 @@ async def auth_reauth(authorization: str = Header(default="")):
     return result
 
 
+class KeyCreateRequestBody(BaseModel):
+    name: str = ""
+
+
+class KeyDeleteRequestBody(BaseModel):
+    ref: str
+
+
+def _bounded_key_mgmt_error(exc: Exception, operation: str) -> dict[str, Any]:
+    outcome = classify_automation_error(redact_text(exc))
+    return {
+        "surface": "api_key_management",
+        "operation": operation,
+        "success": False,
+        "outcome": outcome.value,
+        "error_kind": outcome.value,
+        "raw_secret_egress": False,
+    }
+
+
+@app.post("/tinker/keys/list")
+async def tinker_keys_list(authorization: str = Header(default="")):
+    """List the sealed account's Tinker API keys (operator-only, bounded).
+
+    Disabled by default; drives the console keys page via CDP. Returns key
+    names, id/prefix, and coarse timestamps only — never a full `tml-...` value.
+    """
+    if not settings.allow_key_management_endpoint:
+        raise HTTPException(403, "key management endpoint is disabled")
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_keys import run_list_keys
+
+    try:
+        return await run_list_keys(settings)
+    except Exception as exc:
+        return _bounded_key_mgmt_error(exc, "list")
+
+
+@app.post("/tinker/keys/create")
+async def tinker_keys_create(payload: KeyCreateRequestBody, authorization: str = Header(default="")):
+    """Create a (optionally named) Tinker API key and seal it (operator-only).
+
+    Disabled by default; can trigger account auth emails via the OTP login. The
+    new key is sealed inside the delegate and never returned in the response.
+    """
+    if not settings.allow_key_management_endpoint:
+        raise HTTPException(403, "key management endpoint is disabled")
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_keys import run_create_key
+
+    try:
+        return await run_create_key(settings, payload.name)
+    except Exception as exc:
+        return _bounded_key_mgmt_error(exc, "create")
+
+
+@app.post("/tinker/keys/delete")
+async def tinker_keys_delete(payload: KeyDeleteRequestBody, authorization: str = Header(default="")):
+    """Delete/revoke a Tinker API key by name, id, or prefix (operator-only).
+
+    Disabled by default. Returns a bounded receipt; the key ref is hashed.
+    """
+    if not settings.allow_key_management_endpoint:
+        raise HTTPException(403, "key management endpoint is disabled")
+    _require_runtime_auth(authorization)
+    from tinker_delegate.tinker_keys import run_delete_key
+
+    try:
+        return await run_delete_key(settings, payload.ref)
+    except Exception as exc:
+        return _bounded_key_mgmt_error(exc, "delete")
+
+
 @app.get("/browser/selector-probe")
 async def browser_selector_probe():
     """Return a bounded read-only browser selector/frame observation.
@@ -1084,6 +1157,63 @@ def tinker_smoke(payload: TinkerSmokeRequestBody, authorization: str = Header(de
                     ttl_seconds=payload.ttl_seconds,
                     compose_hash=payload.compose_hash,
                     require_encumbrance=payload.require_encumbrance,
+                ),
+            ),
+            auth_context,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, redact_text(exc)) from exc
+
+
+class TinkerTrainRequestBody(BaseModel):
+    deal_id: str = ""
+    max_usd: float | None = None
+    model: str = ""
+    rank: int | None = None
+    steps: int = 1
+    learning_rate: float = 1e-4
+    ttl_seconds: int | None = None
+    compose_hash: str = ""
+    require_encumbrance: bool = True
+    examples: list[tuple[str, str]] | None = None
+
+
+@app.post("/tinker/train")
+def tinker_train(payload: TinkerTrainRequestBody, authorization: str = Header(default="")):
+    """Run a bounded delegated LoRA training pass through the sealed account.
+
+    Accepts the operator runtime token or a scoped `tinker:train` proxy JWT
+    (spend limit required for proxy tokens). Disabled by default. The response
+    is bounded: no API key, sample text, checkpoint path, or raw run id.
+    """
+    if not settings.allow_tinker_train_endpoint:
+        raise HTTPException(403, "Tinker train endpoint is disabled")
+    auth_context = _require_runtime_or_proxy_auth("tinker:train", authorization)
+    from tinker_delegate.tinker_training import (
+        DEFAULT_TRAIN_MAX_USD,
+        TinkerTrainingRequest,
+        run_tinker_training,
+    )
+
+    effective_max_usd = payload.max_usd if payload.max_usd is not None else getattr(
+        settings, "train_max_usd", DEFAULT_TRAIN_MAX_USD
+    )
+    _enforce_proxy_amount_limit(auth_context, "tinker:train", effective_max_usd, require_limit=True)
+    try:
+        return _attach_proxy_auth_context(
+            run_tinker_training(
+                settings,
+                TinkerTrainingRequest(
+                    deal_id=payload.deal_id,
+                    max_usd=payload.max_usd,
+                    model=payload.model,
+                    rank=payload.rank,
+                    steps=payload.steps,
+                    learning_rate=payload.learning_rate,
+                    ttl_seconds=payload.ttl_seconds or 0,
+                    compose_hash=payload.compose_hash,
+                    require_encumbrance=payload.require_encumbrance,
+                    examples=tuple(tuple(e) for e in payload.examples) if payload.examples else None,
                 ),
             ),
             auth_context,
