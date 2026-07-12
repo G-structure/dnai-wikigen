@@ -57,12 +57,33 @@ API_KEY_NAME_INPUT_SELECTORS = (
     '[data-testid="key-name-input"]',
 )
 
-# Per-row delete/revoke control.
+# A per-row "more actions" / kebab menu that may hide the delete control.
+API_KEY_ROW_MENU_SELECTORS = (
+    'button[aria-label="Open menu"]',
+    'button[aria-label="More"]',
+    'button[aria-label="More options"]',
+    'button[aria-label="Actions"]',
+    'button[aria-haspopup="menu"]',
+    'button[aria-haspopup="true"]',
+    '[data-testid="row-menu"]',
+    '[data-testid="key-menu"]',
+    'button:has-text("⋮")',
+    'button:has-text("...")',
+)
+
+# Per-row delete/revoke control (button text, icon aria-label/title, or menuitem).
 API_KEY_DELETE_SELECTORS = (
     'button[aria-label="Delete"]',
     'button[aria-label="Revoke"]',
+    'button[aria-label="Delete key"]',
+    'button[aria-label="Revoke key"]',
+    'button[title="Delete"]',
+    'button[title="Revoke"]',
     'button:has-text("Delete")',
     'button:has-text("Revoke")',
+    '[role="menuitem"]:has-text("Delete")',
+    '[role="menuitem"]:has-text("Revoke")',
+    'a:has-text("Delete")',
     '[data-testid="delete-key"]',
     '[data-testid="revoke-key"]',
 )
@@ -433,21 +454,44 @@ async def delete_api_key(page: Page, settings: Settings, ref: str) -> dict[str, 
     if row_locator is None:
         return _delete_receipt(ref, AutomationOutcome.SELECTOR_MISSING, AutomationStage.API_KEY_LIST_READ)
 
-    clicked = None
-    for selector in API_KEY_DELETE_SELECTORS:
-        control = row_locator.locator(selector)
-        try:
-            if await control.count() > 0:
-                await control.first.click()
-                clicked = selector
-                break
-        except Exception:
-            continue
+    async def _try_delete_controls(scope) -> str | None:
+        for selector in API_KEY_DELETE_SELECTORS:
+            control = scope.locator(selector)
+            try:
+                if await control.count() > 0:
+                    await control.first.click()
+                    return selector
+            except Exception:
+                continue
+        return None
+
+    # 1) Delete control directly in the row.
+    clicked = await _try_delete_controls(row_locator)
+    # 2) Otherwise open a per-row kebab/more menu, then look again (row + page).
     if not clicked:
-        # Some layouts put the delete control outside the row (e.g. a menu).
+        for menu_sel in API_KEY_ROW_MENU_SELECTORS:
+            m = row_locator.locator(menu_sel)
+            try:
+                if await m.count() > 0:
+                    await m.first.click()
+                    await asyncio.sleep(0.6)
+                    clicked = await _try_delete_controls(row_locator) or await _try_delete_controls(page)
+                    if clicked:
+                        break
+            except Exception:
+                continue
+    # 3) Last resort: a page-level delete control.
+    if not clicked:
         clicked = await _click_first_available(page, API_KEY_DELETE_SELECTORS)
+
     if not clicked:
-        return _delete_receipt(ref, AutomationOutcome.SELECTOR_MISSING, AutomationStage.API_KEY_LIST_READ)
+        # Dump the row's actual interactive controls so the real delete UI is
+        # visible on the next run (bounded: labels/titles only, no page text).
+        controls = await _dump_row_controls(row_locator)
+        return _delete_receipt(
+            ref, AutomationOutcome.SELECTOR_MISSING, AutomationStage.API_KEY_LIST_READ,
+            debug_controls=controls,
+        )
     await asyncio.sleep(1)
     stage = AutomationStage.API_KEY_DELETE_CLICKED
 
@@ -597,8 +641,39 @@ async def run_delete_key(settings: Settings, ref: str) -> dict[str, Any]:
     return await _with_authenticated_page(settings, _op)
 
 
+async def _dump_row_controls(row_locator) -> list[dict[str, str]]:
+    """Return a bounded inventory of a row's buttons/links for delete-UI debug.
+
+    Exposes only element tag + accessible label/title/short-text — no page text,
+    no secrets — so the real (icon/menu) delete control can be identified.
+    """
+    controls: list[dict[str, str]] = []
+    try:
+        els = row_locator.locator("button, a, [role='button'], [role='menuitem']")
+        count = min(await els.count(), 25)
+        for i in range(count):
+            el = els.nth(i)
+            try:
+                info = await el.evaluate(
+                    "e => ({tag: e.tagName, label: e.getAttribute('aria-label')||'',"
+                    " title: e.getAttribute('title')||'', testid: e.getAttribute('data-testid')||'',"
+                    " haspopup: e.getAttribute('aria-haspopup')||'', text: (e.textContent||'').trim().slice(0,24)})"
+                )
+                controls.append({k: str(v) for k, v in info.items()})
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return controls
+
+
 def _delete_receipt(
-    ref: str, outcome: AutomationOutcome, stage: AutomationStage, *, error: str = ""
+    ref: str,
+    outcome: AutomationOutcome,
+    stage: AutomationStage,
+    *,
+    error: str = "",
+    debug_controls: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     receipt = make_receipt(
         surface=AutomationSurface.API_KEY_MANAGEMENT,
@@ -607,7 +682,7 @@ def _delete_receipt(
         evidence={"ref_hash": _hash_text(ref) if ref else "", "error": error},
         bounded_message=f"api_key_delete:{outcome.value}",
     )
-    return {
+    out = {
         "surface": AutomationSurface.API_KEY_MANAGEMENT.value,
         "operation": "delete",
         "success": outcome == AutomationOutcome.SUCCESS,
@@ -617,3 +692,6 @@ def _delete_receipt(
         "attempt_record": receipt.to_public_dict(),
         "raw_secret_egress": False,
     }
+    if debug_controls:
+        out["debug_controls"] = debug_controls
+    return out
