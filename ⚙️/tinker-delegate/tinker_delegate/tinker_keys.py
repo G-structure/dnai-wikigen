@@ -465,29 +465,38 @@ async def delete_api_key(page: Page, settings: Settings, ref: str) -> dict[str, 
                 continue
         return None
 
-    # 1) Delete control directly in the row.
-    clicked = await _try_delete_controls(row_locator)
-    # 2) Otherwise open a per-row kebab/more menu, then look again (row + page).
+    # The /keys rows have no inline delete — each row links to the key's detail
+    # page, where delete/revoke lives. Click into the key first.
+    try:
+        key_link = row_locator.locator("a").first
+        if await key_link.count() > 0:
+            await key_link.click()
+        else:
+            await row_locator.click()
+        await asyncio.sleep(2)
+    except Exception:
+        pass
+
+    # 1) Delete control on the detail page.
+    clicked = await _try_delete_controls(page)
+    # 2) Otherwise open a more/kebab menu on the detail page, then look again.
     if not clicked:
         for menu_sel in API_KEY_ROW_MENU_SELECTORS:
-            m = row_locator.locator(menu_sel)
+            m = page.locator(menu_sel)
             try:
                 if await m.count() > 0:
                     await m.first.click()
                     await asyncio.sleep(0.6)
-                    clicked = await _try_delete_controls(row_locator) or await _try_delete_controls(page)
+                    clicked = await _try_delete_controls(page)
                     if clicked:
                         break
             except Exception:
                 continue
-    # 3) Last resort: a page-level delete control.
-    if not clicked:
-        clicked = await _click_first_available(page, API_KEY_DELETE_SELECTORS)
 
     if not clicked:
-        # Dump the row's actual interactive controls so the real delete UI is
-        # visible on the next run (bounded: labels/titles only, no page text).
-        controls = await _dump_row_controls(row_locator)
+        # Dump the detail page's interactive controls so the real delete UI is
+        # visible on the next run (bounded: labels/titles/short-text only).
+        controls = await _dump_row_controls(page)
         return _delete_receipt(
             ref, AutomationOutcome.SELECTOR_MISSING, AutomationStage.API_KEY_LIST_READ,
             debug_controls=controls,
