@@ -88,12 +88,19 @@ API_KEY_DELETE_SELECTORS = (
     '[data-testid="revoke-key"]',
 )
 
-# Confirmation control in the delete dialog.
+# Confirmation control in the delete dialog. The real confirm is a
+# ``<button type="submit">Delete key</button>`` inside the modal, so target the
+# submit button first to avoid clicking the detail-page button behind the overlay.
 API_KEY_DELETE_CONFIRM_SELECTORS = (
+    'div[role="dialog"] button[type="submit"]',
+    '[role="alertdialog"] button[type="submit"]',
+    'button[type="submit"]:has-text("Delete key")',
+    'button[type="submit"]:has-text("Delete")',
+    'button[type="submit"]:has-text("Revoke")',
+    'div[role="dialog"] button:has-text("Delete key")',
     'button:has-text("Delete key")',
     'button:has-text("Revoke key")',
     'button:has-text("Confirm")',
-    'button:has-text("Delete")',
     'button[aria-label="Confirm delete"]',
     '[data-testid="confirm-delete-key"]',
 )
@@ -524,9 +531,26 @@ async def delete_api_key(page: Page, settings: Settings, ref: str) -> dict[str, 
         except Exception:
             continue
 
-    if await _click_first_available(page, API_KEY_DELETE_CONFIRM_SELECTORS):
-        stage = AutomationStage.API_KEY_DELETE_CONFIRMED
-        await asyncio.sleep(3)
+    # Click the modal's submit "Delete key" and wait for the dialog to resolve
+    # (button detaches) so we don't verify before the deletion is processed.
+    confirm_selector = None
+    for selector in API_KEY_DELETE_CONFIRM_SELECTORS:
+        btn = page.locator(selector)
+        try:
+            if await btn.count() > 0:
+                await btn.first.scroll_into_view_if_needed()
+                await btn.first.click()
+                confirm_selector = selector
+                stage = AutomationStage.API_KEY_DELETE_CONFIRMED
+                try:
+                    await btn.first.wait_for(state="detached", timeout=8000)
+                except Exception:
+                    await asyncio.sleep(3)
+                break
+        except Exception:
+            continue
+    if confirm_selector is None:
+        await asyncio.sleep(2)
 
     # Verify by re-listing: the target should be gone.
     after = await list_api_keys(page, settings)
