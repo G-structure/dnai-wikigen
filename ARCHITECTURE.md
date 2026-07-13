@@ -33,6 +33,37 @@ offers within a budget cap, and audit attestations.
 [planned]   Architecture target only.
 ```
 
+## 2026-07-13: Tinker delegate custody + delegation layer — `[real]`, validated live
+
+The `tinker-delegate` middle pillar is no longer scaffold. Validated live on the
+deployed CVM (`cvm_1w85mGjo`), all bounded and attested:
+
+- **`[real]` Full upstream API-key lifecycle over in-TEE CDP.** create /
+  named-create / list / delete of `tml-...` keys against the real Tinker
+  console; bounded receipts; the account email is only ever a hash. Delete
+  submits the console's own Remix form via an authenticated in-page fetch.
+  (`tinker_delegate/tinker_keys.py`; `POST /tinker/keys/{list,create,delete}`.)
+- **`[real]` Encumbered Tinker proxy — scoped, encrypted, revocable.** The
+  sealed upstream key stays in the enclave; downstream principals get only
+  x25519-enveloped, HS256-signed, scope-limited JWTs. Verified end-to-end:
+  issue → decrypt → verify → scope-enforce → revoke.
+  (`tinker_delegate/tinker_proxy.py`; `test_tinker_proxy_roundtrip.py`.)
+- **`[real]` Governed redeploy preserving sealed custody.** CI reproducible
+  build → on-chain `approveComposeHash` (`TinkerAccountEncumbrance`) → Phala
+  provision/commit → sealed key survives the new measurement.
+  (`scripts/approve-compose-hash.sh`.)
+- **`[real]` Delegated training operation.** create → forward/backward + optim
+  per step → checkpoint → cleanup → bounded receipt, executed against the
+  synthetic backend via a `service_client_factory` hook; the live CVM reaches
+  the real Tinker SDK inside the TEE. (`tinker_delegate/tinker_training.py`.)
+
+**`[partial]` Real delegated training is externally blocked, not architecturally
+incomplete.** Tinker returns HTTP 402 (`billing status blocked`) at the actual
+training call, straight from Tinker's Cloudflare edge with no proxy/delegate in
+the path; the account is funded ($20 per Tinker's console). This is an
+account-activation gate on Tinker's side. Every stage of this system is proven
+up to that call.
+
 Important current status:
 
 ```

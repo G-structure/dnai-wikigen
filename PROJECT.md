@@ -1,7 +1,34 @@
 # PROJECT: dnai-wikigen
 
-Last updated: 2026-07-09
-Branch context: `tinker-deligate`
+Last updated: 2026-07-13
+Branch context: `codex/wikigen-private-reward-pitch`
+
+## Status (2026-07-13): the hard custody+delegation layer is real and live
+
+The foundational claim of the project — that a Tinker account can be **owned by
+a TEE**, with its full lifecycle and delegated use running through bounded,
+attested control planes and no human key — is now **built and validated live**
+on the deployed CVM:
+
+- Full upstream API-key lifecycle (create / named-create / list / delete) via
+  in-TEE browser automation against the real Tinker console — bounded receipts,
+  account address only ever hashed.
+- A **scoped, encrypted, revocable proxy** (`Encumbered Tinker Proxy`, below):
+  downstream principals receive only x25519-enveloped, HS256-signed, scope-
+  limited JWTs; the sealed `tml-...` key never leaves the enclave. Validated
+  end-to-end (issue → decrypt → verify → scope-enforce → revoke).
+- A **governed redeploy pipeline** (CI reproducible build → on-chain
+  `approveComposeHash` → Phala provision/commit) that preserves sealed key
+  custody across new measurements.
+- The delegated **training operation** runs end-to-end (create → forward/
+  backward + optim per step → checkpoint → bounded receipt), proven against a
+  synthetic backend; the live CVM reaches the real Tinker SDK inside the TEE.
+
+The only thing standing between this and a real delegated training run is
+**external**: Tinker's account-level HTTP 402 billing-activation gate (the
+account is funded at $20 per Tinker's own console; the 402 comes straight from
+Tinker's edge with none of our code in the path). That is an activation step on
+Tinker's side, not a gap in this system. See `TODO.md` "2026-07-13 Milestone".
 
 `dnai-wikigen` is becoming a platform for private evaluation, private reward,
 and attested settlement.

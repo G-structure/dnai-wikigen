@@ -1,7 +1,7 @@
 # TODO: Full Latent Vision Roadmap
 
-Last updated: 2026-07-09
-Branch context: `tinker-deligate`
+Last updated: 2026-07-13
+Branch context: `codex/wikigen-private-reward-pitch`
 
 This is the build backlog for turning `dnai-wikigen` from the current prototype
 into the full latent project: a DevProof-style, attested diligence room where
@@ -42,6 +42,49 @@ TTT/RL bio validation: not built; current evaluator is stub/SFT-oriented.
 Private verified reward/RLVR environments: concept now clarified, not built.
 DNAI settlement: core escrow exists; live attestation, watcher, and full product flow are incomplete.
 ```
+
+## 2026-07-13 Milestone — the hard part is done: TEE-owned Tinker delegate, proven live
+
+The load-bearing infrastructure — a TEE-custodied Tinker account whose full
+lifecycle and scoped delegation run through bounded, attested control planes —
+is **built and validated live on the deployed CVM** (`cvm_1w85mGjo`). What is
+now real and demonstrated end-to-end:
+
+- **Full API-key lifecycle via in-TEE CDP automation.** create / named-create /
+  list / delete of the upstream `tml-...` keys, driven against the real Tinker
+  console from inside the CVM, bounded receipts only, account email hashed never
+  raw. Validated live (created `claude-dev-test`, listed it, deleted it). Delete
+  uses the console's own Remix form POST via an authenticated in-page fetch.
+  (`tinker_keys.py`, `POST /tinker/keys/{list,create,delete}`.)
+- **Governed CVM redeploy pipeline, repeatable.** CI reproducible build →
+  on-chain `approveComposeHash` in `TinkerAccountEncumbrance` → Phala
+  provision/commit → healthy rollout → **sealed key + oracle creds survive the
+  new measurement**. Exercised ~10× this session. Helper:
+  `scripts/approve-compose-hash.sh`.
+- **Tinker proxy: scoped, encrypted, revocable delegation — validated live
+  (9/9) and locally (9/9).** issue → x25519-AES envelope → recipient decrypt →
+  HS256 verify → scope enforcement → forged/expired/revoked rejection. The
+  sealed upstream key never leaves the TEE; downstream principals get only
+  scoped JWTs. `tinker:train` scope added. (`tinker_proxy.py`,
+  `test_tinker_proxy_roundtrip.py`.)
+- **Operator/runtime auth boundary confirmed.** With a runtime token
+  configured, operator endpoints are protected and proxy-issuance requires it;
+  scoped proxy tokens grant only their operation.
+- **Delegated training operation executes end-to-end.** `run_tinker_training`
+  runs create → tokenize → forward/backward + optim per step → checkpoint →
+  cleanup → bounded receipt, proven against the synthetic backend
+  (`FakeTinkerServiceClient`) via the new `service_client_factory` hook. On the
+  live CVM the operator-token path reaches the real Tinker SDK inside the TEE.
+
+**The one remaining blocker for a real delegated training run is external and
+not ours:** Tinker returns HTTP 402 `Access for CyanFastHeron83 is blocked due
+to billing status` at the actual training call (`create_lora_training_client`),
+confirmed by a raw call straight to Tinker's Cloudflare edge with no proxy or
+delegate in the path. The account genuinely holds **$20** (read from Tinker's
+own console), so it is an **account-activation gate, not funds and not our
+config**. The only lever is Tinker support activating the account (or standing
+up a fresh billing-active account). Everything on our side is proven up to that
+call.
 
 ## Priority Legend
 
