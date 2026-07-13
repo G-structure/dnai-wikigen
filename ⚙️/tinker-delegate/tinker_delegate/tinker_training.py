@@ -142,8 +142,19 @@ def _train_receipt(
     }
 
 
-def run_tinker_training(settings, request: TinkerTrainingRequest | None = None) -> dict[str, Any]:
-    """Run a bounded multi-step LoRA training pass through the sealed account."""
+def run_tinker_training(
+    settings,
+    request: TinkerTrainingRequest | None = None,
+    *,
+    service_client_factory=None,
+) -> dict[str, Any]:
+    """Run a bounded multi-step LoRA training pass through the sealed account.
+
+    ``service_client_factory(api_key=..., project_id=..., base_url=...)`` injects
+    the Tinker service client. Defaults to the real SDK; tests/demos pass a
+    synthetic backend (``FakeTinkerServiceClient``) to exercise the full
+    create → forward/backward → optim → checkpoint path without live compute.
+    """
     request = request or TinkerTrainingRequest()
     issued_at = int(time.time())
     deal_id = request.deal_id or f"tinker-train-{uuid.uuid4()}"
@@ -197,12 +208,20 @@ def run_tinker_training(settings, request: TinkerTrainingRequest | None = None) 
     furthest_stage = "api_key_loaded"
 
     try:
-        import tinker
+        import tinker  # data types (Datum/AdamParams) are local, no network
 
-        service_client = _call_with_deadline(
-            lambda: _create_service_client(tinker, api_key, project_id, base_url),
-            connect_timeout, label="service_client_create",
-        )
+        if service_client_factory is not None:
+            service_client = _call_with_deadline(
+                lambda: service_client_factory(
+                    api_key=api_key, project_id=project_id, base_url=base_url
+                ),
+                connect_timeout, label="service_client_create",
+            )
+        else:
+            service_client = _call_with_deadline(
+                lambda: _create_service_client(tinker, api_key, project_id, base_url),
+                connect_timeout, label="service_client_create",
+            )
         session = IsolatedTinkerSession(service_client, deal_id)
         _call_with_deadline(
             lambda: session.create_training(base_model=model, rank=rank),

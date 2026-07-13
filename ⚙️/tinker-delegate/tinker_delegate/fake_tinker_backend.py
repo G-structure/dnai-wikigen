@@ -12,6 +12,16 @@ from dataclasses import dataclass
 from typing import Any
 
 
+class FakeTokenizer:
+    """Deterministic stand-in tokenizer supporting the training data path."""
+
+    def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
+        toks = [(ord(c) % 4096) + 1 for c in (text or "")]
+        if add_special_tokens:
+            toks = [1] + toks
+        return toks or [1, 2, 3]
+
+
 @dataclass(frozen=True)
 class FakeTinkerInfo:
     training_run_id: str
@@ -109,7 +119,7 @@ class FakeTinkerTrainingClient:
         self.optim_step_calls: list[Any] = []
         self.save_weights_for_sampler_calls: list[tuple[str, int]] = []
         self.save_state_calls: list[tuple[str, int]] = []
-        self.tokenizer = object()
+        self.tokenizer = FakeTokenizer()
 
     def get_info(self):
         return FakeTinkerInfo(training_run_id=self.run_id)
