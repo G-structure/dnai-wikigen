@@ -52,16 +52,26 @@ deployed CVM (`cvm_1w85mGjo`), all bounded and attested:
   build → on-chain `approveComposeHash` (`TinkerAccountEncumbrance`) → Phala
   provision/commit → sealed key survives the new measurement.
   (`scripts/approve-compose-hash.sh`.)
-- **`[real]` Delegated training operation.** create → forward/backward + optim
-  per step → checkpoint → cleanup → bounded receipt, executed against the
-  synthetic backend via a `service_client_factory` hook; the live CVM reaches
-  the real Tinker SDK inside the TEE. (`tinker_delegate/tinker_training.py`.)
+- **`[real]` Delegated training via scoped proxy token.** A spend-limited
+  `tinker:train` JWT drives `POST /tinker/train` through the real endpoint:
+  verify → scope → spend-limit → create → forward/backward + optim per step →
+  checkpoint → bounded receipt (`training_completed`); wrong-scope/over-limit
+  tokens refused first. Only the compute backend is synthetic; the live CVM
+  reaches the real Tinker SDK inside the TEE.
+  (`tinker_delegate/tinker_training.py`; `test_proxy_train_e2e.py`.)
+- **`[real]` Adversarially hardened.** Proxy JWT attacks (alg-confusion/none,
+  tamper, cross-key forgery, iss/aud/nbf/expiry spoof, ttl/scope abuse) fail
+  closed; bounded-output secret-scans found and fixed a full-key egress in the
+  key parser; the training meter cap provably aborts runaway spend.
+  (`test_tinker_proxy_adversarial.py`, `test_bounded_output_secrets.py`.)
 
-**`[partial]` Real delegated training is externally blocked, not architecturally
-incomplete.** Tinker returns HTTP 402 (`billing status blocked`) at the actual
-training call, straight from Tinker's Cloudflare edge with no proxy/delegate in
-the path; the account is funded ($20 per Tinker's console). This is an
-account-activation gate on Tinker's side. Every stage of this system is proven
+**`[partial]` Real delegated training is blocked by a billing flag on our own
+Tinker account that only Tinker can clear — not by anything architecturally
+incomplete.** The account is ours (TEE-created/custodied) and funded ($20 per
+Tinker's console), yet Tinker returns HTTP 402 (`billing status blocked`) at the
+actual training call, straight from Tinker's Cloudflare edge with no
+proxy/delegate in the path — so no code of ours can flip it. It is an
+account-activation step on Tinker's side. Every stage of this system is proven
 up to that call.
 
 Important current status:

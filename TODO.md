@@ -70,21 +70,34 @@ now real and demonstrated end-to-end:
 - **Operator/runtime auth boundary confirmed.** With a runtime token
   configured, operator endpoints are protected and proxy-issuance requires it;
   scoped proxy tokens grant only their operation.
-- **Delegated training operation executes end-to-end.** `run_tinker_training`
-  runs create → tokenize → forward/backward + optim per step → checkpoint →
-  cleanup → bounded receipt, proven against the synthetic backend
-  (`FakeTinkerServiceClient`) via the new `service_client_factory` hook. On the
-  live CVM the operator-token path reaches the real Tinker SDK inside the TEE.
+- **Delegated training via scoped proxy tokens executes end-to-end — proven
+  through the real endpoint.** A scoped, spend-limited proxy JWT drives
+  `POST /tinker/train`: proxy verify → scope check → spend-limit enforce →
+  `run_tinker_training` (create → forward/backward + optim per step → checkpoint
+  → bounded receipt → `training_completed`). Wrong-scope and over-limit tokens
+  are refused before any run. Only the compute backend is synthetic
+  (`FakeTinkerServiceClient` via a `service_client_factory` hook); nothing in the
+  auth/delegation/training wiring is stubbed. On the live CVM the operator-token
+  path reaches the real Tinker SDK inside the TEE. (`test_proxy_train_e2e.py`.)
+- **Adversarially hardened.** New attack-the-guarantee tests: 15 proxy JWT
+  attacks (alg-confusion/none, payload tamper, cross-key forgery,
+  issuer/aud/nbf/expiry spoof, ttl inflation, unknown scope) all fail closed;
+  bounded-output secret-scans **found and fixed a real leak** (the `/keys`
+  parser could emit a full `tml-` key into a name field — now scrubbed); a
+  meter-cap test proves runaway training spend actually aborts. Full suite 1406.
 
-**The one remaining blocker for a real delegated training run is external and
-not ours:** Tinker returns HTTP 402 `Access for CyanFastHeron83 is blocked due
-to billing status` at the actual training call (`create_lora_training_client`),
-confirmed by a raw call straight to Tinker's Cloudflare edge with no proxy or
-delegate in the path. The account genuinely holds **$20** (read from Tinker's
-own console), so it is an **account-activation gate, not funds and not our
-config**. The only lever is Tinker support activating the account (or standing
-up a fresh billing-active account). Everything on our side is proven up to that
-call.
+**The one remaining blocker for a real delegated training run is a billing-status
+flag on OUR Tinker account that only Tinker's platform can clear.** The account
+(`CyanFastHeron83`) is ours — TEE-created and TEE-custodied. Tinker returns HTTP
+402 `Access ... blocked due to billing status` at the actual training call
+(`create_lora_training_client`), confirmed by a raw call straight to Tinker's
+Cloudflare edge with no proxy or delegate in the path. The account genuinely
+holds **$20** (read from Tinker's own console) and a card was on file, so it is
+an **account-activation gate, not funds and not our code** — no change to our
+proxy/API/delegate can flip a billing state Tinker sets on its servers. The lever
+is a billing/account action on Tinker's side (support activation, or an
+activation step in the account), or standing up a fresh billing-active account.
+Everything in our stack is proven up to that call.
 
 ## Priority Legend
 

@@ -20,15 +20,21 @@ on the deployed CVM:
 - A **governed redeploy pipeline** (CI reproducible build → on-chain
   `approveComposeHash` → Phala provision/commit) that preserves sealed key
   custody across new measurements.
-- The delegated **training operation** runs end-to-end (create → forward/
-  backward + optim per step → checkpoint → bounded receipt), proven against a
-  synthetic backend; the live CVM reaches the real Tinker SDK inside the TEE.
+- **Delegated training via a scoped proxy token** runs end-to-end through the
+  real `/tinker/train` endpoint: verify → scope → spend-limit → create →
+  forward/backward + optim per step → checkpoint → bounded receipt. Only the
+  compute backend is synthetic; the live CVM reaches the real Tinker SDK inside
+  the TEE. Adversarially hardened (proxy JWT attacks fail closed; a real
+  key-name egress leak was found and fixed; the spend cap provably aborts
+  runaway training).
 
-The only thing standing between this and a real delegated training run is
-**external**: Tinker's account-level HTTP 402 billing-activation gate (the
-account is funded at $20 per Tinker's own console; the 402 comes straight from
-Tinker's edge with none of our code in the path). That is an activation step on
-Tinker's side, not a gap in this system. See `TODO.md` "2026-07-13 Milestone".
+The only thing standing between this and a real delegated training run is a
+**billing-status flag on our own Tinker account that only Tinker's platform can
+clear**. The account is ours (TEE-created and custodied); it is funded at $20 per
+Tinker's own console; and the 402 comes straight from Tinker's edge with none of
+our code in the path — so no change to our proxy/API/delegate can flip it. It is
+an account-activation step on Tinker's side, not a gap in this system. See
+`TODO.md` "2026-07-13 Milestone".
 
 `dnai-wikigen` is becoming a platform for private evaluation, private reward,
 and attested settlement.
