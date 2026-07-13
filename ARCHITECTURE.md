@@ -119,9 +119,11 @@ Important current status:
 [partial]   tinker-delegate service, browser automation, billing channel, API key store.
             Local Neko login, OTP, onboarding, API-key provisioning, and
             test-card billing rejection are validated. Deployed CVM login,
-            API-key sealing, reauth, bounded card-on-file status, and a
-            one-off operator-validation `$10.00` balance read are real;
-            production/repeated funding remains open.
+            full API-key lifecycle (create / named-create / list / delete) via
+            in-TEE CDP, API-key sealing, reauth, bounded card-on-file status, and
+            a funded `$20.00` balance (topped from the initial $10 validation
+            lane) are real and validated live; production/repeated funding
+            remains open.
 [partial]   IsolatedTinkerSession and bounded control plane. Artifact ingress
             now has mocked-SDK coverage for one-run enforcement, mandatory
             checkpoint TTL, path-checked sampling, cleanup, and metering.
