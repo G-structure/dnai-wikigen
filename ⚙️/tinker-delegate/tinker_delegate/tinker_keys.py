@@ -514,6 +514,7 @@ async def delete_api_key(page: Page, settings: Settings, ref: str) -> dict[str, 
     # Capture the dialog state NOW (before any re-navigation) so a failure shows
     # the real confirm UI, not the keys page we re-list afterwards.
     dialog_controls = await _dump_row_controls(page)
+    dialog_html = await _dump_dialog_html(page)
 
     # A destructive-confirm dialog often requires typing the key's name (or id)
     # to enable the confirm button. Fill any dialog text input before confirming.
@@ -557,7 +558,8 @@ async def delete_api_key(page: Page, settings: Settings, ref: str) -> dict[str, 
     still_present = find_key_by_ref(after.keys, ref) is not None
     if still_present:
         return _delete_receipt(
-            ref, AutomationOutcome.UNKNOWN_FAILURE, stage, debug_controls=dialog_controls
+            ref, AutomationOutcome.UNKNOWN_FAILURE, stage,
+            debug_controls=dialog_controls, debug_dialog_html=dialog_html,
         )
     print("[apikey] deleted key")
     return _delete_receipt(ref, AutomationOutcome.SUCCESS, AutomationStage.API_KEY_DELETED)
@@ -723,6 +725,25 @@ async def _dump_row_controls(row_locator) -> list[dict[str, str]]:
     return controls
 
 
+async def _dump_dialog_html(page) -> list[str]:
+    """Return redacted, truncated outerHTML of any dialog/modal/form for debug."""
+    try:
+        return await page.evaluate(
+            r"""() => {
+          const sels = ['[role=dialog]','[role=alertdialog]','.modal','dialog','[data-state=open]','form'];
+          const seen = new Set(); const out = [];
+          for (const s of sels) for (const el of document.querySelectorAll(s)) {
+            if (seen.has(el)) continue; seen.add(el);
+            let h = (el.outerHTML || '').replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,'<email>');
+            out.push(h.slice(0, 900));
+          }
+          return out.slice(0, 4);
+        }"""
+        )
+    except Exception:
+        return []
+
+
 def _delete_receipt(
     ref: str,
     outcome: AutomationOutcome,
@@ -730,6 +751,7 @@ def _delete_receipt(
     *,
     error: str = "",
     debug_controls: list[dict[str, str]] | None = None,
+    debug_dialog_html: list[str] | None = None,
 ) -> dict[str, Any]:
     receipt = make_receipt(
         surface=AutomationSurface.API_KEY_MANAGEMENT,
@@ -750,4 +772,6 @@ def _delete_receipt(
     }
     if debug_controls:
         out["debug_controls"] = debug_controls
+    if debug_dialog_html:
+        out["debug_dialog_html"] = debug_dialog_html
     return out
