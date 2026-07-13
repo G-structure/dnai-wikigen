@@ -1379,8 +1379,11 @@ Implementation status:
             redeployed back to the normal compose with `ORACLE_AUTO_GENESIS=false`.
             Public health/attestation expose `oracle_email=""`, readiness, and
             `oracle_email_hash`, while unauthenticated `/email` returns 401.
-[partial]   Live Tinker OTP receipt in the CVM is still unproven; the mailbox is
-            ready, but Tinker bootstrap remains disabled.
+[real]      Live Tinker OTP receipt in the CVM is proven. During a live
+            `/auth/reauth` this session the sealed cock.email mailbox oracle read
+            the Tinker login code inside the TEE and the console authenticated
+            (delegate logs: `[otp] got code` -> `[auth] authenticated`).
+            Auto-signup bootstrap remains disabled by choice, not by blocker.
 [partial]   App-auth contract is not yet enforced on every OTP API request.
 [planned]   Reviewer notification, consent confirmation, outbound bounded-result delivery.
 ```
