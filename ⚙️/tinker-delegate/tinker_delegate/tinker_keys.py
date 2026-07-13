@@ -516,42 +516,40 @@ async def delete_api_key(page: Page, settings: Settings, ref: str) -> dict[str, 
     dialog_controls = await _dump_row_controls(page)
     dialog_html = await _dump_dialog_html(page)
 
-    # A destructive-confirm dialog often requires typing the key's name (or id)
-    # to enable the confirm button. Fill any dialog text input before confirming.
-    confirm_value = target.name or target.key_id
-    for input_sel in (
-        'input[name*="confirm" i]', 'input[placeholder*="name" i]',
-        'input[placeholder*="delete" i]', 'input[type="text"]', 'input:not([type])',
-    ):
-        ci = page.locator(input_sel)
-        try:
-            if await ci.count() > 0 and confirm_value:
-                await ci.first.fill(confirm_value)
-                await asyncio.sleep(0.3)
-                break
-        except Exception:
-            continue
-
-    # Click the modal's submit "Delete key" and wait for the dialog to resolve
-    # (button detaches) so we don't verify before the deletion is processed.
-    confirm_selector = None
-    for selector in API_KEY_DELETE_CONFIRM_SELECTORS:
-        btn = page.locator(selector)
-        try:
-            if await btn.count() > 0:
-                await btn.first.scroll_into_view_if_needed()
-                await btn.first.click()
-                confirm_selector = selector
-                stage = AutomationStage.API_KEY_DELETE_CONFIRMED
-                try:
-                    await btn.first.wait_for(state="detached", timeout=8000)
-                except Exception:
-                    await asyncio.sleep(3)
-                break
-        except Exception:
-            continue
-    if confirm_selector is None:
-        await asyncio.sleep(2)
+    # The confirm is a Remix/React-Router form (POST /keys/<id> with an
+    # intent=delete-key field). A raw button click doesn't reliably trigger the
+    # client-side handler, so submit the form's own action/fields via an
+    # authenticated fetch from the page context — cookies ride along, and it
+    # sidesteps every overlay/event quirk. Falls back to constructing the
+    # request from the parsed key id if the form isn't in the DOM.
+    submit = await page.evaluate(
+        """async (keyId) => {
+          const pick = () => {
+            for (const f of document.querySelectorAll('form')) {
+              const intent = f.querySelector('input[name=intent]');
+              const btn = f.querySelector('button[type=submit]');
+              if ((intent && /delete|revoke/i.test(intent.value || '')) ||
+                  (btn && /delete|revoke/i.test(btn.textContent || ''))) return f;
+            }
+            return null;
+          };
+          const form = pick();
+          let action, fd;
+          if (form) { action = form.action; fd = new FormData(form); }
+          else if (keyId) {
+            action = new URL('/keys/' + keyId, location.origin).href;
+            fd = new FormData(); fd.append('intent', 'delete-key');
+          } else { return {ok: false, reason: 'no_form'}; }
+          try {
+            const res = await fetch(action, {method: 'POST', body: fd, headers: {accept: 'application/json'}});
+            return {ok: res.ok, status: res.status, from: form ? 'form' : 'constructed'};
+          } catch (e) { return {ok: false, reason: String(e).slice(0, 120)}; }
+        }""",
+        target.key_id,
+    )
+    print(f"[apikey] delete submit: {submit}")
+    stage = AutomationStage.API_KEY_DELETE_CONFIRMED
+    await asyncio.sleep(2.5)
 
     # Verify by re-listing: the target should be gone.
     after = await list_api_keys(page, settings)
