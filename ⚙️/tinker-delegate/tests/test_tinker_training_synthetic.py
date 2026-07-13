@@ -18,7 +18,7 @@ from tinker_delegate.tinker_training import TinkerTrainingRequest, run_tinker_tr
 
 
 class TestRunTinkerTrainingSynthetic(unittest.TestCase):
-    def _run(self, steps: int):
+    def _run(self, steps: int, max_usd: float | None = None):
         settings = Settings(
             real_sdk_model="meta-llama/Llama-3.2-1B",
             real_sdk_rank=4,
@@ -33,6 +33,7 @@ class TestRunTinkerTrainingSynthetic(unittest.TestCase):
                     model="meta-llama/Llama-3.2-1B",
                     rank=4,
                     steps=steps,
+                    max_usd=max_usd,
                     require_encumbrance=False,
                 ),
                 service_client_factory=lambda **_kw: FakeTinkerServiceClient(api_key="k"),
@@ -55,6 +56,15 @@ class TestRunTinkerTrainingSynthetic(unittest.TestCase):
         r = self._run(steps=1)
         self.assertTrue(r["success"])
         self.assertEqual(r["steps_completed"], 1)
+
+    def test_meter_cap_aborts_runaway_spend(self):
+        # A cap so tiny that the first step's tokens exceed it: the run must
+        # abort mid-loop, not complete all 3 steps.
+        r = self._run(steps=3, max_usd=1e-9)
+        self.assertFalse(r["success"], r)
+        self.assertEqual(r["outcome"], "training_failed")
+        self.assertLess(r["steps_completed"], 3)
+        self.assertFalse(r["raw_secret_egress"])
 
 
 if __name__ == "__main__":
