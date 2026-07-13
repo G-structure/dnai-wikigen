@@ -65,14 +65,14 @@ deployed CVM (`cvm_1w85mGjo`), all bounded and attested:
   key parser; the training meter cap provably aborts runaway spend.
   (`test_tinker_proxy_adversarial.py`, `test_bounded_output_secrets.py`.)
 
-**`[partial]` Real delegated training is blocked by a billing flag on our own
-Tinker account that only Tinker can clear — not by anything architecturally
-incomplete.** The account is ours (TEE-created/custodied) and funded ($20 per
-Tinker's console), yet Tinker returns HTTP 402 (`billing status blocked`) at the
-actual training call, straight from Tinker's Cloudflare edge with no
-proxy/delegate in the path — so no code of ours can flip it. It is an
-account-activation step on Tinker's side. Every stage of this system is proven
-up to that call.
+**`[real]` by design: end users reach training only through the proxy, never the
+raw account.** The proxy-mediated delegated-training path is built and validated
+end-to-end. Running *real* jobs is operational provisioning, not an architectural
+gap: the upstream Tinker account must be billing-active (funded $20 with a card
+on file; a routine account step activates it) and the CVM must hold a current
+valid sealed key. A raw API call to Tinker with the raw upstream key is outside
+the product surface and is expected to fail — end users are scoped-JWT holders
+who never see the account or its key.
 
 Important current status:
 

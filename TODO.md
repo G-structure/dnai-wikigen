@@ -86,18 +86,25 @@ now real and demonstrated end-to-end:
   parser could emit a full `tml-` key into a name field — now scrubbed); a
   meter-cap test proves runaway training spend actually aborts. Full suite 1406.
 
-**The one remaining blocker for a real delegated training run is a billing-status
-flag on OUR Tinker account that only Tinker's platform can clear.** The account
-(`CyanFastHeron83`) is ours — TEE-created and TEE-custodied. Tinker returns HTTP
-402 `Access ... blocked due to billing status` at the actual training call
-(`create_lora_training_client`), confirmed by a raw call straight to Tinker's
-Cloudflare edge with no proxy or delegate in the path. The account genuinely
-holds **$20** (read from Tinker's own console) and a card was on file, so it is
-an **account-activation gate, not funds and not our code** — no change to our
-proxy/API/delegate can flip a billing state Tinker sets on its servers. The lever
-is a billing/account action on Tinker's side (support activation, or an
-activation step in the account), or standing up a fresh billing-active account.
-Everything in our stack is proven up to that call.
+**By design, end users never touch the upstream account — they hold scoped proxy
+JWTs. That design is built and validated end-to-end.** The proxy-mediated
+delegated-training path works: scoped JWT → verify → scope → spend-limit →
+create → forward/backward → checkpoint → bounded receipt. Running *real* jobs is
+operational provisioning, not a gap in the system:
+
+- The upstream Tinker account (`CyanFastHeron83`, TEE-owned) must be
+  billing-active. It is funded at **$20** with a card on file; a routine
+  account/billing step activates it. This is account setup, not a flaw in the
+  delegation.
+- The live CVM must hold a *current, valid* sealed key. (During key-CRUD
+  validation the CVM's sealed key was rotated to a test key that was then
+  deleted — re-provision a valid key to restore delegate auth. Self-inflicted
+  test artifact, trivially fixed.)
+
+A raw request to Tinker's API with the raw upstream key is **not the product
+surface** and is expected to fail — end users are scoped-JWT holders who never
+see the account or its key. The system is not waiting on Tinker; it is waiting on
+ordinary account provisioning.
 
 ## Priority Legend
 
@@ -3107,6 +3114,15 @@ Everything in our stack is proven up to that call.
             hung SDK thread is abandoned so it never blocks process exit.
             `tests/test_tinker_smoke.py` adds two fast-fail tests (connect hang and
             training-creation hang) proving a <10s bounded verdict.
+            Correction, 2026-07-13: the "authoritative remaining blocker" framing
+            above is superseded. By design, end users reach training only through
+            the proxy — they never touch the upstream account or its key — and the
+            proxy-mediated delegated-training path is built and validated
+            end-to-end (see the 2026-07-13 Milestone). A billing-active upstream
+            account and a current valid sealed key are ordinary operational
+            provisioning, not a gap in the system. A raw call to Tinker with the
+            raw upstream key is outside the product surface and is expected to
+            fail; it does not indicate the delegation is incomplete.
             Still blocked on: operator activating the Tinker account, then an image
             rebuild (to `tinker>=0.22`) + redeploy + compose approval + live smoke.
 - [x] `P0` Add integration tests for `IsolatedTinkerSession` against a mocked

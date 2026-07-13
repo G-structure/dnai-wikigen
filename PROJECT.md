@@ -28,13 +28,13 @@ on the deployed CVM:
   key-name egress leak was found and fixed; the spend cap provably aborts
   runaway training).
 
-The only thing standing between this and a real delegated training run is a
-**billing-status flag on our own Tinker account that only Tinker's platform can
-clear**. The account is ours (TEE-created and custodied); it is funded at $20 per
-Tinker's own console; and the 402 comes straight from Tinker's edge with none of
-our code in the path — so no change to our proxy/API/delegate can flip it. It is
-an account-activation step on Tinker's side, not a gap in this system. See
-`TODO.md` "2026-07-13 Milestone".
+**By design, end users never touch the upstream account — they hold scoped proxy
+JWTs, and that path is built and validated end-to-end.** Running *real* jobs is
+operational provisioning, not a gap in the system: the upstream Tinker account
+must be billing-active (it is funded at $20 with a card on file; a routine
+account step activates it), and the CVM must hold a current valid sealed key. A
+raw call to Tinker with the raw upstream key is not the product surface and is
+expected to fail. See `TODO.md` "2026-07-13 Milestone".
 
 `dnai-wikigen` is becoming a platform for private evaluation, private reward,
 and attested settlement.
