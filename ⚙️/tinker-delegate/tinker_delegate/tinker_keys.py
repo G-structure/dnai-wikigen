@@ -144,10 +144,9 @@ class KeyListResult:
     outcome: AutomationOutcome = AutomationOutcome.SUCCESS
     furthest_stage: AutomationStage = AutomationStage.API_KEY_LIST_READ
     error_kind: str = ""
-    debug_rows: tuple[str, ...] = ()
 
     def to_public_dict(self) -> dict[str, Any]:
-        out = {
+        return {
             "surface": AutomationSurface.API_KEY_MANAGEMENT.value,
             "operation": "list",
             "success": self.outcome == AutomationOutcome.SUCCESS,
@@ -158,11 +157,6 @@ class KeyListResult:
             "keys": [k.to_public_dict() for k in self.keys],
             "raw_secret_egress": False,
         }
-        if self.debug_rows:
-            # Temporary: emails masked so the raw row shape can be verified
-            # against the real DOM without egressing the account address.
-            out["debug_rows"] = [_EMAIL_RE.sub("<email>", r)[:400] for r in self.debug_rows]
-        return out
 
 
 def _clean(value: str | None) -> str:
@@ -347,8 +341,7 @@ async def list_api_keys(page: Page, settings: Settings) -> KeyListResult:
     rows = await _scrape_key_rows(page)
     keys = parse_keys_table(rows)
     print(f"[apikey] listed {len(keys)} keys")
-    debug_rows = tuple(" | ".join(_clean(c) for c in row if _clean(c)) for row in rows)
-    return KeyListResult(keys=keys, debug_rows=debug_rows)
+    return KeyListResult(keys=keys)
 
 
 async def create_named_api_key(

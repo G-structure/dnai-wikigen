@@ -160,7 +160,7 @@ services:
       start_period: 180s
 
   delegate:
-    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:359b67f68e50e4ceb68052eb123a25811106a5ee6f8de0b7d4b87b4470895fd4
+    image: ghcr.io/g-structure/dnai-wikigen/tinker-delegate@sha256:262938c3620a2c4931b7ff0e5da1f321e564e2deade4550bd41104a3885f0b98
     platform: linux/amd64
     restart: unless-stopped
     ulimits:
@@ -197,6 +197,8 @@ services:
       TINKER_ALLOW_ADD_BALANCE_ENDPOINT: "false"
       TINKER_ALLOW_BROWSER_READINESS_ENDPOINT: "false"
       TINKER_ALLOW_SELECTOR_PROBE_ENDPOINT: "false"
+      TINKER_ALLOW_KEY_MANAGEMENT_ENDPOINT: "false"
+      TINKER_ALLOW_TINKER_TRAIN_ENDPOINT: "false"
       TINKER_BOOTSTRAP_SIGNUP: "false"
       TINKER_BOOTSTRAP_FAIL_OPEN: "true"
       TINKER_BOOTSTRAP_ORACLE_TIMEOUT: ${TINKER_BOOTSTRAP_ORACLE_TIMEOUT:-300}
